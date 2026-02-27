@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 AI智能发货单助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 15px;
+            color: #6c757d;
+            transition: all 0.3s;
+        }
+        
+        .tab:hover {
+            background: #e9ecef;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 24px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* 对话界面 */
+        .chat-container {
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .message {
+            margin-bottom: 12px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.assistant {
+            background: white;
+            border: 1px solid #e9ecef;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message .role {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+        
+        .chat-input-area {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .send-btn {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        /* 订单界面 */
+        .order-input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 16px;
+            min-height: 100px;
+            resize: vertical;
+            margin-bottom: 16px;
+        }
+        
+        .order-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .extract-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .extract-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .result-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .result-card h3 {
+            color: #667eea;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .confidence-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .confidence-high {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .confidence-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .confidence-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .product-list {
+            list-style: none;
+        }
+        
+        .product-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .product-item:last-child {
+            border-bottom: none;
+        }
+        
+        .product-info {
+            flex: 1;
+        }
+        
+        .product-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .product-spec {
+            font-size: 13px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+        
+        .product-qty {
+            background: #667eea;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        
+        .product-price {
+            margin-left: 16px;
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .action-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .action-btn.secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* 帮助界面 */
+        .help-section {
+            margin-bottom: 24px;
+        }
+        
+        .help-section h3 {
+            color: #667eea;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+        
+        .help-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .help-section li {
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .help-section li strong {
+            color: #667eea;
+        }
+        
+        .example-box {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 16px;
+        }
+        
+        .example-box h4 {
+            color: #667eea;
+            margin-bottom: 12px;
+        }
+        
+        .example-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 14px;
+        }
+        
+        .example-item:last-child {
+            border-bottom: none;
+        }
+        
+        .example-arrow {
+            color: #667eea;
+            margin: 0 8px;
+        }
+        
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .quick-btn {
+            padding: 16px;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .quick-btn:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .quick-btn .icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .quick-btn .text {
+            font-size: 14px;
+            color: #495057;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e9ecef;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI智能发货单助手</h1>
+            <p>智能对话 · 自动提取 · 快速生成发货单</p>
+        </div>
+        
+        <div class="card">
+            <div class="tabs">
+                <button class="tab active" data-tab="chat">💬 智能对话</button>
+                <button class="tab" data-tab="order">📦 订单处理</button>
+                <button class="tab" data-tab="help">❓ 使用帮助</button>
+            </div>
+            
+            <!-- 对话界面 -->
+            <div class="tab-content active" id="chat-tab">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message assistant">
+                            <div class="role">助手</div>
+                            <div>您好！我是AI智能发货单助手，很高兴为您服务！👋</div>
+                        </div>
+                        <div class="message assistant">
+                            <div class="role">助手</div>
+                            <div>我可以帮您：
+<br>📦 处理订单 - "侯雪梅要5桶PE白底漆"
+<br>🔍 查询数据 - "上个月销量多少？"
+<br>💬 日常交流 - "最近怎么样？"</div>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" class="chat-input" id="chatInput" 
+                               placeholder="输入您想说的话..." autocomplete="off">
+                        <button class="send-btn" id="sendBtn">发送</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 订单界面 -->
+            <div class="tab-content" id="order-tab">
+                <textarea class="order-input" id="orderInput" 
+                          placeholder="例如：侯雪梅要5桶PE白底漆，送老地址"></textarea>
+                <button class="extract-btn" id="extractBtn">🔍 智能提取订单信息</button>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <div>正在智能分析...</div>
+                </div>
+                
+                <div class="result-card hidden" id="resultCard">
+                    <h3>📋 提取结果 <span class="confidence-badge" id="confidenceBadge">--</span></h3>
+                    <div id="resultContent"></div>
+                    
+                    <!-- 模式选择 -->
+                    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+                        <h4 style="margin-bottom: 15px; color: #495057;">🎯 生成模式选择</h4>
+                        <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="numberModeCheckbox" style="width: auto; margin-right: 5px;">
+                                <label for="numberModeCheckbox" style="margin: 0; font-weight: 600; color: #3498db; font-size: 14px;">编号模式（通过编号匹配产品）</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="customModeCheckbox" style="width: auto; margin-right: 5px;" checked>
+                                <label for="customModeCheckbox" style="margin: 0; font-weight: 600; color: #e74c3c; font-size: 14px;">自定义模式（允许使用未匹配的产品）</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="autoPrintCheckbox" style="width: auto; margin-right: 5px;">
+                                <label for="autoPrintCheckbox" style="margin: 0; font-weight: 600; color: #27ae60; font-size: 14px;">生成后自动打印（连接打印机时）</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="excelSyncCheckbox" style="width: auto; margin-right: 5px;">
+                                <label for="excelSyncCheckbox" style="margin: 0; font-weight: 600; color: #1976d2; font-size: 14px;">填入出货记录（上传Excel文件）</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="actions">
+                        <button class="action-btn secondary" id="clearBtn">清除</button>
+                        <button class="action-btn primary" id="confirmBtn">确认生成发货单</button>
+                    </div>
+                </div>
+                
+                <div class="quick-actions">
+                    <button class="quick-btn" data-order="侯雪梅要5桶PE白底漆">
+                        <div class="icon">📦</div>
+                        <div class="text">侯雪梅订单</div>
+                    </button>
+                    <button class="quick-btn" data-order="七彩乐园要10桶白色面漆">
+                        <div class="icon">📦</div>
+                        <div class="text">七彩乐园订单</div>
+                    </button>
+                    <button class="quick-btn" data-order="刘英拿3桶固化剂">
+                        <div class="icon">🔍</div>
+                        <div class="text">查询数据</div>
+                    </button>
+                    <button class="quick-btn" data-order="帮助">
+                        <div class="icon">❓</div>
+                        <div class="text">获取帮助</div>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 帮助界面 -->
+            <div class="tab-content" id="help-tab">
+                <div class="help-section">
+                    <h3>💬 对话功能</h3>
+                    <ul>
+                        <li><strong>日常对话</strong> - "在吗？"、"最近怎么样？"、"忙不忙？"</li>
+                        <li><strong>订单处理</strong> - "侯雪梅要5桶PE白底漆"</li>
+                        <li><strong>数据查询</strong> - "上个月销量多少？"、"本月业绩"</li>
+                        <li><strong>帮助信息</strong> - "帮助"、"怎么用"、"功能介绍"</li>
+                    </ul>
+                </div>
+                
+                <div class="help-section">
+                    <h3>📝 订单格式示例</h3>
+                    <div class="example-box">
+                        <div class="example-item">
+                            <strong>标准格式：</strong> 客户名 + 数量 + 产品名
+                            <br><span class="example-arrow">→</span> "侯雪梅要5桶PE白底漆"
+                        </div>
+                        <div class="example-item">
+                            <strong>带备注：</strong> 包含特殊要求
+                            <br><span class="example-arrow">→</span> "刘英拿3桶固化剂，加急"
+                        </div>
+                        <div class="example-item">
+                            <strong>多产品：</strong> 多个产品
+                            <br><span class="example-arrow">→</span> "要5桶白的，3桶灰的"
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="help-section">
+                    <h3>⚠️ 注意事项</h3>
+                    <ul>
+                        <li>请尽量使用简洁明了的表达</li>
+                        <li>产品名称尽量使用全称</li>
+                        <li>数量请使用数字（如"5桶"而非"五桶"）</li>
+                        <li>如有特殊要求，请单独说明</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // API基础地址
+        const API_BASE = '/api';
+        let currentUserId = 'web_' + Date.now();
+        let currentOrderInfo = null;
+        
+        // 标签切换
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab + '-tab').classList.add('active');
+            });
+        });
+        
+        // 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            // 添加用户消息
+            addMessage('user', message);
+            input.value = '';
+            
+            // 显示加载
+            showChatLoading(true);
+            
+            try {
+                const response = await fetch(API_BASE + '/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: currentUserId,
+                        message: message
+                    })
+                });
+                
+                const data = await response.json();
+                showChatLoading(false);
+                
+                if (data.success) {
+                    addMessage('assistant', data.text);
+                    
+                    // 如果有操作，触发相应功能
+                    if (data.action === 'extract_order') {
+                        switchTab('order');
+                        document.getElementById('orderInput').value = message;
+                        extractOrder();
+                    }
+                } else {
+                    addMessage('assistant', '抱歉，我遇到了一些问题。请稍后再试。');
+                }
+            } catch (error) {
+                showChatLoading(false);
+                addMessage('assistant', '网络错误，请检查连接后重试。');
+            }
+        }
+        
+        function addMessage(role, content) {
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.innerHTML = `
+                <div class="role">${role === 'user' ? '您' : '助手'}</div>
+                <div>${content.replace(/\n/g, '<br>')}</div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function showChatLoading(show) {
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = show;
+            btn.textContent = show ? '...' : '发送';
+        }
+        
+        // 提取订单
+        async function extractOrder() {
+            const message = document.getElementById('orderInput').value.trim();
+            if (!message) {
+                alert('请输入订单信息');
+                return;
+            }
+            
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('resultCard').classList.add('hidden');
+            
+            try {
+                const response = await fetch(API_BASE + '/extract_order', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message})
+                });
+                
+                const data = await response.json();
+                document.getElementById('loading').classList.remove('active');
+                
+                if (data.success) {
+                    currentOrderInfo = data.order_info;
+                    showResult(data.order_info, data.summary);
+                } else {
+                    alert('提取失败：' + data.error);
+                }
+            } catch (error) {
+                document.getElementById('loading').classList.remove('active');
+                alert('网络错误，请重试');
+            }
+        }
+        
+        function showResult(orderInfo, summary) {
+            const card = document.getElementById('resultCard');
+            const content = document.getElementById('resultContent');
+            const badge = document.getElementById('confidenceBadge');
+            
+            // 显示置信度
+            const confidence = orderInfo.confidence * 100;
+            badge.textContent = `识别准确率 ${confidence.toFixed(0)}%`;
+            badge.className = 'confidence-badge ' + 
+                (confidence >= 80 ? 'confidence-high' : 
+                 confidence >= 50 ? 'confidence-medium' : 'confidence-low');
+            
+            // 显示产品列表
+            let productsHtml = '';
+            if (orderInfo.products && orderInfo.products.length > 0) {
+                productsHtml = '<ul class="product-list">';
+                orderInfo.products.forEach(p => {
+                    const spec = p.specification ? `${p.specification}KG` : '';
+                    const price = p.unit_price ? ` ${p.unit_price.toFixed(1)}元` : '';
+                    productsHtml += `
+                        <li class="product-item">
+                            <div class="product-info">
+                                <div class="product-name">${p.name}</div>
+                                <div class="product-spec">${spec}${price}</div>
+                            </div>
+                            <span class="product-qty">${p.quantity}桶</span>
+                        </li>
+                    `;
+                });
+                productsHtml += '</ul>';
+            } else {
+                productsHtml = '<p>未识别到产品信息</p>';
+            }
+            
+            content.innerHTML = `
+                ${orderInfo.purchase_unit ? `<p><strong>客户：</strong>${orderInfo.purchase_unit}</p>` : ''}
+                ${orderInfo.delivery_date ? `<p><strong>交货日期：</strong>${orderInfo.delivery_date}</p>` : ''}
+                ${orderInfo.notes && orderInfo.notes.length > 0 ? `<p><strong>备注：</strong>${orderInfo.notes.join('，')}</p>` : ''}
+                <h4 style="margin: 16px 0 12px;">产品列表</h4>
+                ${productsHtml}
+            `;
+            
+            card.classList.remove('hidden');
+        }
+        
+        // 确认生成发货单
+        async function confirmGenerate() {
+            if (!currentOrderInfo) {
+                alert('请先提取订单信息');
+                return;
+            }
+            
+            // 获取模式选择
+            const modeOptions = {
+                numberMode: document.getElementById('numberModeCheckbox').checked,
+                customMode: document.getElementById('customModeCheckbox').checked,
+                autoPrint: document.getElementById('autoPrintCheckbox').checked,
+                excelSync: document.getElementById('excelSyncCheckbox').checked
+            };
+            
+            // 统计选中的模式
+            const selectedModes = Object.entries(modeOptions)
+                .filter(([key, value]) => value)
+                .map(([key]) => {
+                    const labels = {
+                        numberMode: '编号模式',
+                        customMode: '自定义模式', 
+                        autoPrint: '自动打印',
+                        excelSync: 'Excel同步'
+                    };
+                    return labels[key];
+                });
+            
+            if (selectedModes.length === 0) {
+                if (!confirm('未选择任何模式，是否继续生成发货单？')) {
+                    return;
+                }
+            } else {
+                const message = `已选择模式：${selectedModes.join('、')}\n是否继续生成发货单？`;
+                if (!confirm(message)) {
+                    return;
+                }
+            }
+            
+            try {
+                // 修复：调用正确的发货单生成API，并启用学习样板功能
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        order_text: currentOrderInfo,
+                        custom_mode: true,  // 启用学习样板功能
+                        number_mode: false
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    let successMessage = '✅ 发货单数据生成成功！\n\n';
+                    
+                    if (selectedModes.length > 0) {
+                        successMessage += `已应用模式：${selectedModes.join('、')}\n`;
+                    }
+                    
+                    successMessage += '\n现在可以导出或进一步处理。';
+                    alert(successMessage);
+                    
+                    console.log('发货单数据：', data.shipment_data);
+                    console.log('应用模式：', modeOptions);
+                } else {
+                    alert('生成失败：' + data.error);
+                }
+            } catch (error) {
+                alert('网络错误，请重试');
+            }
+        }
+        
+        // 切换标签
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.tab === tabName);
+            });
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.classList.toggle('active', c.id === tabName + '-tab');
+            });
+        }
+        
+        // 事件绑定
+        document.getElementById('sendBtn').addEventListener('click', sendMessage);
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+        document.getElementById('extractBtn').addEventListener('click', extractOrder);
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            document.getElementById('orderInput').value = '';
+            document.getElementById('resultCard').classList.add('hidden');
+            currentOrderInfo = null;
+        });
+        document.getElementById('confirmBtn').addEventListener('click', confirmGenerate);
+        
+        // 快捷按钮
+        document.querySelectorAll('.quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const order = btn.dataset.order;
+                if (order === '帮助') {
+                    switchTab('help');
+                } else {
+                    switchTab('order');
+                    document.getElementById('orderInput').value = order;
+                    extractOrder();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

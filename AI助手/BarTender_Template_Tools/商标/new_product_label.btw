@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BarTenderTemplate Version="1.0">
+  <Format>
+    <PageSetup>
+      <PageWidth>100</PageWidth>
+      <PageHeight>50</PageHeight>
+      <Orientation>Portrait</Orientation>
+    </PageSetup>
+    <Objects>
+      <TextObject>
+        <Name>Title</Name>
+        <X>10</X>
+        <Y>5</Y>
+        <Width>80</Width>
+        <Height>10</Height>
+        <Text>产品标签</Text>
+      </TextObject>
+      <TextObject>
+        <Name>ProductNumberField</Name>
+        <X>10</X>
+        <Y>15</Y>
+        <Width>80</Width>
+        <Height>8</Height>
+        <Text>产品编号: 654</Text>
+      </TextObject>
+      <TextObject>
+        <Name>ProductNameField</Name>
+        <X>10</X>
+        <Y>23</Y>
+        <Width>80</Width>
+        <Height>8</Height>
+        <Text>产品名称: <ProductName></Text>
+      </TextObject>
+      <TextObject>
+        <Name>ProductionDateField</Name>
+        <X>10</X>
+        <Y>31</Y>
+        <Width>80</Width>
+        <Height>8</Height>
+        <Text>生产日期: <ProductionDate></Text>
+      </TextObject>
+      <TextObject>
+        <Name>SpecField</Name>
+        <X>10</X>
+        <Y>39</Y>
+        <Width>80</Width>
+        <Height>8</Height>
+        <Text>产品规格: <Spec></Text>
+      </TextObject>
+    </Objects>
+  </Format>
+</BarTenderTemplate>

@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database files
+*.db
+*.db.backup
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Excel temporary files
+~$*.xlsx
+~$*.xls
+
+# Output files
+outputs/
+*.exe
+
+# Unit databases with customer data
+unit_databases/
+
+# Customer data
+customer_products_final_corrected.db
+出货记录/
+
+# Python 32bit distribution
+python32/
+
+# Build artifacts
+build/
+dist/*.exe
+*.spec
+
+# Test files
+test_*.html
+current_page.html
+custom_mode_test.html
