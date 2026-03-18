@@ -1,0 +1,22 @@
+当前目录文件列表：
+
+1. 商标/
+   - modified_6821A白底.btw
+   - modified_8520F哑光白面.btw
+   - new_product_label.btw
+
+2. 脚本文件：
+   - automate_bartender_gui.py
+   - bartender_ocr_backend.py
+   - bartender_integrator.py
+   - bartender_mouse_editor.py
+   - create_btw_template.py
+   - label_generator.py
+
+3. 日志文件：
+   - bartender_gui_automation.log
+   - bartender_ocr_backend.log
+   - bartender_mouse_editor.log
+
+4. 其他文件：
+   - ocr_results.csv

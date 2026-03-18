@@ -1,0 +1,43 @@
+商标监控程序使用说明
+
+1. 功能介绍
+   该程序用于监控和识别商标标签信息，支持从图片或BarTender窗口中提取标签信息，并生成结构化的输出。
+
+2. 安装依赖
+   请确保已安装Python 3.6或更高版本，然后运行以下命令安装依赖：
+   pip install -r requirements.txt
+
+3. 运行方式
+   - 直接双击 "商标监控.bat" 文件运行
+   - 或在命令行中执行：python bartender_mapper.py
+
+4. 命令行参数
+   - -o, --output: 指定输出目录（默认当前目录）
+   --debug: 保存调试图像
+   --no-position-map: 不保存位置映射
+   --no-window: 不截取窗口，直接处理图片文件
+   input: 输入图片文件或目录（使用 --no-window 时需要）
+
+5. 示例用法
+   - 处理单个图片：python bartender_mapper.py --no-window example.png
+   - 批量处理图片：python bartender_mapper.py --no-window images/
+   - 从BarTender窗口提取信息：python bartender_mapper.py
+
+6. 输出文件
+   - window_*.png: 窗口截图
+   - label_*.png: 裁剪的标签图像
+   - debug_window_*.png: 调试图像，标记了检测到的白色区域
+   - position_map_*.png: 位置映射可视化图
+   - combined_layout_*.png: 组合布局图（原图+Excel表格）
+   - labels_result.csv: 标签内容CSV文件
+   - position_map_result.csv: 位置映射CSV文件
+
+7. 注意事项
+   - 确保BarTender窗口可见，程序会自动识别并处理
+   - 对于复杂的标签，可能需要调整程序中的参数以获得更好的识别效果
+   - 首次运行时，EasyOCR会下载模型文件，可能需要一些时间
+
+8. 故障排除
+   - 如果程序无法运行，请检查Python是否正确安装
+   - 如果无法识别标签，请确保标签区域为白色，并且文字清晰可见
+   - 如果遇到其他问题，请查看日志文件 bartender_mapping.log

@@ -1,0 +1,2990 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>智能发货单管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 2.2em;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-online {
+            background: #4CAF50;
+        }
+        
+        .status-offline {
+            background: #f44336;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        @media (min-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 20px;
+        }
+        
+        .panel-header {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .wechat-panel {
+            grid-column: 1 / -1;
+        }
+        
+        .wechat-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        @media (min-width: 1024px) {
+            .wechat-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .screenshot-container {
+            position: relative;
+            background: #1a1a2e;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .screenshot-img {
+            width: 100%;
+            display: block;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+        
+        .color-self { background: #4CAF50; }
+        .color-other { background: #2196F3; }
+        .color-time { background: #FF9800; }
+        .color-system { background: #9E9E9E; }
+        
+        .messages-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+            margin-bottom: 15px;
+        }
+        
+        .message-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            background: white;
+            border-left: 4px solid #ddd;
+        }
+        
+        .message-self {
+            border-left-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.05);
+        }
+        
+        .message-other {
+            border-left-color: #2196F3;
+            background: rgba(33, 150, 243, 0.05);
+        }
+        
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        .message-sender {
+            font-weight: bold;
+        }
+        
+        .message-self .message-sender {
+            color: #4CAF50;
+        }
+        
+        .message-other .message-sender {
+            color: #2196F3;
+        }
+        
+        .message-time {
+            color: #999;
+        }
+        
+        .message-text {
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+        
+        .send-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .send-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .send-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+        
+        .message-item {
+            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .message-self {
+            background: #e3f2fd;
+            margin-left: 20px;
+        }
+        
+        .message-other {
+            background: #f5f5f5;
+            margin-right: 20px;
+        }
+        
+        .message-content {
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+        
+        .message-time {
+            font-size: 0.8em;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .workflow-progress {
+            background: #f0f8ff;
+            border: 1px solid #e1ecf4;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .progress-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .step-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .step-completed {
+            background: #4CAF50;
+        }
+        
+        .step-active {
+            background: #2196F3;
+        }
+        
+        .step-pending {
+            background: #ccc;
+        }
+        
+        .shipment-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .form-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        
+        .form-input, .form-select, .form-textarea {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .auto-fill-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .auto-fill-btn:hover {
+            background: #45a049;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #45a049;
+        }
+        
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #f57c00;
+        }
+        
+        .btn-info {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #1976D2;
+        }
+        
+        .monitor-panel {
+            grid-column: 1 / -1;
+        }
+        
+        .monitor-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+        
+        .monitor-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .monitor-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .monitor-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .quick-actions {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border: 1px solid #ffcdd2;
+        }
+        
+        .success-message {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* 新增create_shipment.html使用的样式 */
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .form-col {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        .header-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 25px;
+            color: white;
+            margin-bottom: 25px;
+        }
+        
+        .header-section h2 {
+            color: white;
+            border-bottom-color: rgba(255,255,255,0.3);
+            margin-top: 0;
+        }
+        
+        .header-section label {
+            color: white;
+        }
+        
+        .header-section input {
+            background-color: rgba(255,255,255,0.9);
+            border: none;
+        }
+        
+        .template-select {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .empty-products {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .product-row {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr 1fr 1fr 1fr 1fr auto;
+            gap: 10px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+            align-items: end;
+        }
+        
+        .product-cell {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .product-cell label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 3px;
+        }
+        
+        .product-cell input {
+            padding: 8px;
+            font-size: 13px;
+        }
+        
+        .product-selector-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+        }
+        
+        .close-btn {
+            font-size: 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .search-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .btn-search {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .products-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .product-item {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .product-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .product-name {
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .product-specs {
+            margin-top: 5px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .btn-secondary {
+            background-color: #95a5a6;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.processing {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .card {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        h2 {
+            color: #34495e;
+            margin: 25px 0 15px;
+            font-size: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .shipment-form {
+                grid-template-columns: 1fr;
+            }
+            
+            .monitor-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .actions-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .product-row {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 页面头部 -->
+        <div class="header">
+            <h1>🤖 智能发货单管理系统</h1>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-indicator status-online"></div>
+                    <span>系统状态: <strong id="system-status">正常</strong></span>
+                </div>
+                <div class="status-item">
+                    <div class="status-indicator" id="workflow-status-indicator"></div>
+                    <span>工作流: <strong id="workflow-status">未激活</strong></span>
+                </div>
+                <div class="status-item">
+                    <span>活跃订单: <strong id="active-orders-count">0</strong></span>
+                </div>
+                <div class="status-item">
+                    <span>微信消息: <strong id="wechat-messages-count">0</strong></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主要内容区域 -->
+        <div class="main-grid">
+            <!-- 微信截图和对话监控面板 -->
+            <div class="panel wechat-panel">
+                <div class="panel-header">
+                    📱 微信截图和对话监控
+                </div>
+                <div class="status" id="wechat-status" style="margin-bottom: 20px;"></div>
+                <div class="wechat-grid">
+                    <!-- 左侧：截图和识别区域 -->
+                    <div>
+                        <div class="screenshot-container" id="screenshot-container">
+                            <img id="wechat-screenshot" class="screenshot-img" src="" alt="微信聊天截图">
+                        </div>
+                        
+                        <div class="legend">
+                            <div class="legend-item">
+                                <div class="legend-color color-self"></div>
+                                <span>自己发的消息</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color color-other"></div>
+                                <span>对方发的消息</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color color-time"></div>
+                                <span>时间戳</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color color-system"></div>
+                                <span>系统提示</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn btn-info" id="refresh-wechat-btn">🔄 刷新聊天</button>
+                            <button class="btn btn-primary" id="start-monitor-btn">👁️ 开始监控</button>
+                            <button class="btn btn-warning" id="clear-messages-btn">🗑️ 清空显示</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧：识别结果 -->
+                    <div>
+                        <div class="messages-container" id="wechat-messages">
+                            <div class="loading">点击"刷新聊天"获取截图和消息</div>
+                        </div>
+                        
+                        <div class="send-form">
+                            <input type="text" class="send-input" id="wechat-message-input" 
+                                   placeholder="输入要发送的消息..." onkeypress="handleWeChatKeyPress(event)">
+                            <button class="btn btn-success" id="send-wechat-btn">发送到微信</button>
+                            <button class="btn btn-info" id="test-workflow-btn" onclick="testWorkflowMessage()">测试工作流</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 工作流状态面板 -->
+            <div class="panel">
+                <div class="panel-header">
+                    ⚙️ 工作流状态
+                </div>
+                <div class="workflow-progress" id="workflow-progress">
+                    <div class="loading">加载中...</div>
+                </div>
+                <!-- 工作流详细状态显示区域 -->
+                <div id="workflow-status-detail" style="display: none; margin-top: 15px;"></div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-success" onclick="startWorkflowTest()">🧪 测试工作流</button>
+                    <button class="btn btn-info" onclick="refreshWorkflowStatus()">🔄 刷新状态</button>
+                    <button class="btn btn-warning" onclick="clearWorkflowOrders()">🗑️ 清理订单</button>
+                </div>
+            </div>
+            
+            <!-- 新建发货单面板 -->
+            <div class="panel shipment-panel">
+                <div class="panel-header">
+                    📋 智能发货单编辑
+                </div>
+                <div style="background-color: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <div class="status" id="status"></div>
+                    
+                    <!-- 模板选择 -->
+                <div class="template-select">
+                    <h2>选择发货单模板</h2>
+                    <div class="form-row">
+                        <div class="form-col">
+                            <label for="templateSelect">发货单模板</label>
+                            <select id="templateSelect" onchange="onTemplateChange()">
+                                <option value="">-- 请选择模板 --</option>
+                            </select>
+                        </div>
+                        <div class="form-col" style="flex: 0; display: flex; align-items: flex-end;">
+                            <button class="btn" onclick="loadTemplates()">刷新模板列表</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 模式选择 -->
+                    <div class="form-row" style="margin-top: 15px;">
+                        <div class="form-col" style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="numberModeCheckbox" style="width: auto; margin-right: 5px;">
+                                <label for="numberModeCheckbox" style="margin: 0; font-weight: 600; color: #3498db; font-size: 14px;">编号模式（通过编号匹配产品）</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="customModeCheckbox" style="width: auto; margin-right: 5px;">
+                                <label for="customModeCheckbox" style="margin: 0; font-weight: 600; color: #e74c3c; font-size: 14px;">自定义模式（允许使用未匹配的产品）</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="autoPrintCheckbox" style="width: auto; margin-right: 5px;">
+                                <label for="autoPrintCheckbox" style="margin: 0; font-weight: 600; color: #27ae60; font-size: 14px;">生成后自动打印（连接打印机时）</label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="excelSyncCheckbox" style="width: auto; margin-right: 5px;">
+                                <label for="excelSyncCheckbox" style="margin: 0; font-weight: 600; color: #1976d2; font-size: 14px;">填入出货记录（上传Excel文件）</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                    
+                    <!-- 基础信息 -->
+                     <div class="basic-info">
+                         <h2>基础信息</h2>
+                         <div class="form-row">
+                             <div class="form-col">
+                                 <label for="purchaseUnit">购买单位</label>
+                                 <select id="purchaseUnit" onchange="onPurchaseUnitChange()">
+                                     <option value="">-- 请选择购买单位 --</option>
+                                 </select>
+                             </div>
+                             <div class="form-col">
+                                 <label for="contactPerson">联系人</label>
+                                 <input type="text" id="contactPerson" placeholder="输入联系人姓名">
+                             </div>
+                             <div class="form-col">
+                                 <label for="purchaseDate">购买日期</label>
+                                 <input type="date" id="purchaseDate">
+                             </div>
+                             <div class="form-col">
+                                 <label for="orderNumber">订单编号</label>
+                                 <input type="text" id="orderNumber" placeholder="输入订单编号">
+                             </div>
+                         </div>
+                         <div class="form-row">
+                             <div class="form-col">
+                                 <label for="remarks">备注</label>
+                                 <textarea id="remarks" rows="2" placeholder="输入备注信息"></textarea>
+                             </div>
+                         </div>
+                     </div>
+                     
+                     <!-- 产品信息 -->
+                     <div class="products">
+                         <h2>产品信息</h2>
+                         <div class="form-row">
+                             <div class="form-col">
+                                 <button class="btn" onclick="addProductRow()">添加产品</button>
+                                 <button class="btn" onclick="selectProducts()">选择产品名称</button>
+                                 <button class="btn" onclick="manageProductLibrary()">管理产品库</button>
+                             </div>
+                         </div>
+                         
+                         <div id="productRows">
+                             <div class="empty-products">
+                                 暂无产品，请点击"添加产品"或"选择产品名称"添加产品
+                             </div>
+                         </div>
+                     </div>
+                     
+                     <!-- Excel出货记录同步选项 -->
+                     <div class="card" style="margin-top: 20px; padding: 20px; border: 2px solid #e3f2fd; border-radius: 10px; background: #f8f9fa;">
+                         <!-- 文件上传区域（默认隐藏） -->
+                         <div id="excelUploadSection" style="display: none; margin-top: 20px; padding: 20px; background: white; border-radius: 8px; border: 2px dashed #ddd;">
+                             <h4 style="color: #1976d2; margin-bottom: 15px;">📂 上传出货记录Excel文件</h4>
+                             
+                             <div style="border: 2px solid #ddd; border-radius: 8px; padding: 30px; text-align: center; background: #fafafa;">
+                                 <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelFileSelect(this)">
+                                 <div style="cursor: pointer;" onclick="document.getElementById('excelFileInput').click()">
+                                     <div style="font-size: 48px; color: #1976d2; margin-bottom: 10px;">📁</div>
+                                     <div style="color: #1976d2; font-weight: bold; margin-bottom: 5px;">点击选择Excel文件</div>
+                                     <div style="color: #666; font-size: 14px;">支持 .xlsx 和 .xls 格式</div>
+                                 </div>
+                             </div>
+                             
+                             <!-- 文件信息显示 -->
+                             <div id="fileInfoSection" style="display: none; margin-top: 15px; padding: 15px; background: #e8f5e8; border-radius: 8px; border: 1px solid #4caf50;">
+                                 <div style="display: flex; align-items: center; gap: 10px;">
+                                     <span style="color: #4caf50; font-size: 20px;">✅</span>
+                                     <div style="flex: 1;">
+                                         <div id="fileName" style="font-weight: bold; color: #2e7d32;"></div>
+                                         <div id="fileSize" style="color: #666; font-size: 14px;"></div>
+                                     </div>
+                                     <button class="btn btn-danger" onclick="clearSelectedFile()" style="padding: 5px 15px; font-size: 12px;">移除</button>
+                                 </div>
+                             </div>
+                             
+                             <!-- Excel分析结果 -->
+                             <div id="excelAnalysisSection" style="display: none; margin-top: 15px;">
+                                 <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border: 1px solid #1976d2;">
+                                     <h5 style="color: #1976d2; margin-bottom: 10px;">📋 Excel分析结果</h5>
+                                     <div id="excelAnalysisResult" style="color: #333; line-height: 1.6;"></div>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                     
+                     <!-- 操作按钮 -->
+                    <div class="header-section">
+                        <h2>📋 基础信息</h2>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label for="purchaseUnit">购买单位 *</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <select id="purchaseUnit" style="flex: 1;" onchange="onPurchaseUnitChange()">
+                                        <option value="">-- 选择购买单位 --</option>
+                                    </select>
+                                    <a href="/purchase-units" class="btn btn-secondary" style="white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center;">+ 新建</a>
+                                </div>
+                            </div>
+                            <div class="form-col">
+                                <label for="contactPerson">联系人</label>
+                                <input type="text" id="contactPerson" placeholder="联系人姓名">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label for="purchaseDate">日期 *</label>
+                                <input type="date" id="purchaseDate" onchange="onDateChange()">
+                            </div>
+                            <div class="form-col">
+                                <label for="orderNumber">订单编号</label>
+                                <input type="text" id="orderNumber" placeholder="订单编号">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 产品信息 -->
+                    <div class="card">
+                        <h2>📦 产品信息</h2>
+                        <div class="quick-actions">
+                            <button class="btn btn-success" onclick="addProductRow()">+ 添加产品</button>
+                            <button class="btn" onclick="showProductNameSelector()">🔍 选择产品名称</button>
+                            <a href="/product-names" class="btn btn-secondary" style="text-decoration: none;">📦 管理产品库</a>
+                        </div>
+                        
+                        <div id="productRows">
+                            <div class="empty-products">
+                                暂无产品，请点击"添加产品"或"选择产品名称"添加产品
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 基础信息 -->
+                        
+                        <!-- 文件上传区域（默认隐藏） -->
+                        <div id="excelUploadSection" style="display: none; margin-top: 20px; padding: 20px; background: white; border-radius: 8px; border: 2px dashed #ddd;">
+                            <h4 style="color: #1976d2; margin-bottom: 15px;">📂 上传出货记录Excel文件</h4>
+                            
+                            <div style="border: 2px solid #ddd; border-radius: 8px; padding: 30px; text-align: center; background: #fafafa;">
+                                <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelFileSelect(this)">
+                                <div style="cursor: pointer;" onclick="document.getElementById('excelFileInput').click()">
+                                    <div style="font-size: 48px; color: #1976d2; margin-bottom: 10px;">📁</div>
+                                    <div style="color: #1976d2; font-weight: bold; margin-bottom: 5px;">点击选择Excel文件</div>
+                                    <div style="color: #666; font-size: 14px;">支持 .xlsx 和 .xls 格式</div>
+                                </div>
+                            </div>
+                            
+                            <!-- 文件信息显示 -->
+                            <div id="fileInfoSection" style="display: none; margin-top: 15px; padding: 15px; background: #e8f5e8; border-radius: 8px; border: 1px solid #4caf50;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="color: #4caf50; font-size: 20px;">✅</span>
+                                    <div style="flex: 1;">
+                                        <div id="fileName" style="font-weight: bold; color: #2e7d32;"></div>
+                                        <div id="fileSize" style="color: #666; font-size: 14px;"></div>
+                                    </div>
+                                    <button class="btn btn-danger" onclick="clearSelectedFile()" style="padding: 5px 15px; font-size: 12px;">移除</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Excel分析结果 -->
+                            <div id="excelAnalysisSection" style="display: none; margin-top: 15px;">
+                                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border: 1px solid #1976d2;">
+                                    <h5 style="color: #1976d2; margin-bottom: 10px;">📋 Excel分析结果</h5>
+                                    <div id="excelAnalysisResult" style="color: #333; line-height: 1.6;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div style="margin-top: 30px; text-align: center;">
+                        <button class="btn btn-success" onclick="generateShipment()" style="padding: 15px 40px; font-size: 18px;">
+                            🚀 生成发货单
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetForm()" style="padding: 15px 40px; font-size: 18px;">
+                            🔄 重置
+                        </button>
+                        <button class="btn" onclick="window.location.href='/edit'" style="padding: 15px 40px; font-size: 18px;">
+                            📝 模板编辑
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 生成结果 -->
+                <div class="card" id="resultSection" style="display: none; margin-top: 30px;">
+                    <h2>✅ 生成结果</h2>
+                    <div id="resultContent"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 屏幕监控面板 -->
+        <div class="panel monitor-panel">
+            <div class="panel-header">
+                📊 屏幕状态监控
+            </div>
+            <div class="monitor-grid">
+                <div class="monitor-item">
+                    <div class="monitor-value" id="screen-status">就绪</div>
+                    <div class="monitor-label">屏幕状态</div>
+                </div>
+                <div class="monitor-item">
+                    <div class="monitor-value" id="operations-count">0</div>
+                    <div class="monitor-label">今日操作</div>
+                </div>
+                <div class="monitor-item">
+                    <div class="monitor-value" id="cpu-usage">15%</div>
+                    <div class="monitor-label">CPU使用率</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-info" onclick="refreshScreenStatus()">🔄 刷新状态</button>
+                <button class="btn btn-warning" onclick="startScreenMonitoring()">👁️ 开始监控</button>
+                <button class="btn btn-primary" onclick="stopScreenMonitoring()">⏹️ 停止监控</button>
+            </div>
+        </div>
+        
+        <!-- 快捷操作面板 -->
+        <div class="quick-actions">
+            <h3 style="margin-bottom: 15px; color: #333;">⚡ 快捷操作</h3>
+            <div class="actions-grid">
+                <button class="btn btn-success" onclick="testIntegration()">🧪 测试系统集成</button>
+                <button class="btn btn-info" onclick="exportSystemData()">📤 导出系统数据</button>
+                <button class="btn btn-warning" onclick="showSystemLogs()">📋 查看系统日志</button>
+                <button class="btn btn-primary" onclick="openHelp()">❓ 使用帮助</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 选择产品模态框 -->
+    <div id="productSelectorModal" class="product-selector-modal" style="display: none;">
+        <div class="modal-content" style="width: 80%; max-width: 800px;">
+            <div class="modal-header">
+                <h3>选择产品</h3>
+                <button type="button" class="close-btn" onclick="closeProductSelector()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-section">
+                    <input type="text" id="productSearchInput" placeholder="搜索产品名称或型号...">
+                    <button type="button" class="btn-search" onclick="searchProductsForSelection()">搜索</button>
+                </div>
+                <div class="products-list" id="productsList" style="max-height: 400px; overflow-y: auto;">
+                    <!-- 产品列表 -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let autoRefreshInterval = null;
+        let screenMonitoringInterval = null;
+        let currentWorkflowData = {};
+        let weChatMessages = [];
+        let isMonitoring = false;
+        let monitorInterval = null;
+        let selectedExcelFile = null; // Excel文件相关变量
+        
+        // Excel同步相关变量
+        let excelSyncEnabled = false;
+        let excelFilePath = null;
+        let excelAnalysisResult = null;
+        let autoSyncEnabled = false; // 自动同步功能
+        
+        // 开始监控 - 确保在所有事件监听器之前定义
+        function startMonitor() {
+            if (isMonitoring) {
+                stopMonitor();
+            } else {
+                isMonitoring = true;
+                
+                // 立即刷新一次微信消息
+                loadWeChatMessages();
+                
+                // 创建专门的监控定时器，刷新频率更高
+                monitorInterval = setInterval(() => {
+                    loadWeChatMessages();
+                }, 3000);
+                
+                showMonitorMessage('开始监控微信消息', 'success');
+            }
+        }
+        
+        // 停止监控
+        function stopMonitor() {
+            isMonitoring = false;
+            if (monitorInterval) {
+                clearInterval(monitorInterval);
+                monitorInterval = null;
+            }
+            showMonitorMessage('停止监控微信消息', 'info');
+        }
+        
+        // 绑定按钮事件 - 确保在事件监听器之前定义
+        function bindButtonEvents() {
+            try {
+                console.log('开始绑定按钮事件...');
+                
+                // 检查所有需要的函数是否存在
+                console.log('startMonitor函数存在:', typeof startMonitor === 'function');
+                console.log('stopMonitor函数存在:', typeof stopMonitor === 'function');
+                console.log('loadWeChatMessages函数存在:', typeof loadWeChatMessages === 'function');
+                console.log('refreshWeChatMessages函数存在:', typeof refreshWeChatMessages === 'function');
+                console.log('clearMessages函数存在:', typeof clearMessages === 'function');
+                console.log('sendWeChatMessage函数存在:', typeof sendWeChatMessage === 'function');
+                
+                // 微信监控按钮
+                const startMonitorBtn = document.getElementById('start-monitor-btn');
+                if (startMonitorBtn) {
+                    startMonitorBtn.addEventListener('click', startMonitor);
+                    console.log('startMonitor按钮事件绑定成功');
+                } else {
+                    console.error('未找到start-monitor-btn元素');
+                }
+                
+                const refreshWechatBtn = document.getElementById('refresh-wechat-btn');
+                if (refreshWechatBtn) {
+                    refreshWechatBtn.addEventListener('click', refreshWeChatMessages);
+                } else {
+                    console.error('未找到refresh-wechat-btn元素');
+                }
+                
+                const clearMessagesBtn = document.getElementById('clear-messages-btn');
+                if (clearMessagesBtn) {
+                    clearMessagesBtn.addEventListener('click', clearMessages);
+                } else {
+                    console.error('未找到clear-messages-btn元素');
+                }
+                
+                const sendWechatBtn = document.getElementById('send-wechat-btn');
+                if (sendWechatBtn) {
+                    sendWechatBtn.addEventListener('click', sendWeChatMessage);
+                } else {
+                    console.error('未找到send-wechat-btn元素');
+                }
+                
+                console.log('所有按钮事件绑定成功');
+            } catch (error) {
+                console.error('按钮事件绑定失败:', error);
+            }
+        }
+        
+        // 初始化系统 - DOM加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM加载完成，开始执行初始化...');
+            bindButtonEvents();
+            initializeSystem();
+        });
+        
+        // 异步初始化系统
+        async function initializeSystem() {
+            try {
+                // 检查系统状态
+                await checkSystemStatus();
+                
+                // 加载模板列表
+                await loadTemplates();
+                
+                // 加载购买单位列表
+                await loadPurchaseUnits();
+                
+                // 加载微信消息
+                await loadWeChatMessages();
+                
+                // 加载工作流状态
+                await loadWorkflowStatus();
+                
+                // 加载屏幕状态
+                await loadScreenStatus();
+                
+                // 初始化Excel同步功能
+                initExcelSync();
+                
+                // 启动定时更新
+                startAutoRefresh();
+                
+            } catch (error) {
+                console.error('系统初始化失败:', error);
+                showMessage('系统初始化失败: ' + error.message, 'error');
+            }
+        }
+        
+        async function checkSystemStatus() {
+            try {
+                const response = await fetch('/api/integrated/status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('system-status').textContent = '正常';
+                    
+                    const workflowStatus = document.getElementById('workflow-status');
+                    const workflowIndicator = document.getElementById('workflow-status-indicator');
+                    
+                    if (data.workflow_available) {
+                        if (data.workflow_active) {
+                            workflowStatus.textContent = '已激活';
+                            workflowIndicator.className = 'status-indicator status-active';
+                        } else {
+                            workflowStatus.textContent = '就绪';
+                            workflowIndicator.className = 'status-indicator status-idle';
+                        }
+                    } else {
+                        workflowStatus.textContent = '不可用';
+                        workflowIndicator.className = 'status-indicator status-error';
+                    }
+                    
+                    // 更新活跃订单数量
+                    if (data.workflow && data.workflow.active_orders) {
+                        document.getElementById('active-orders-count').textContent = data.workflow.active_orders;
+                    }
+                } else {
+                    throw new Error(data.error || '状态检查失败');
+                }
+            } catch (error) {
+                console.error('检查系统状态失败:', error);
+                document.getElementById('system-status').textContent = '错误';
+                
+                // 更新工作流状态为错误
+                const workflowStatus = document.getElementById('workflow-status');
+                const workflowIndicator = document.getElementById('workflow-status-indicator');
+                workflowStatus.textContent = '未知';
+                workflowIndicator.className = 'status-indicator status-error';
+            }
+        }
+        
+        // 加载微信截图和对话
+        async function loadWeChatMessages() {
+            try {
+                console.log('开始加载微信消息...');
+                
+                // 使用简单的fetch请求，移除可能导致问题的AbortController
+                const response = await fetch('/api/integrated/wechat/messages');
+                
+                if (!response.ok) {
+                    throw new Error(`网络错误: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('微信消息加载成功:', data);
+                
+                if (data.success) {
+                    weChatMessages = data.messages;
+                    
+                    // 更新截图
+                    if (data.screenshot) {
+                        document.getElementById('wechat-screenshot').src = 'data:image/png;base64,' + data.screenshot;
+                    }
+                    
+                    // 显示消息
+                    displayWeChatMessages(data.messages);
+                    document.getElementById('wechat-messages-count').textContent = data.count;
+                    
+                    // 清除错误状态
+                    const statusElement = document.getElementById('wechat-status');
+                    if (statusElement && statusElement.style.display === 'block') {
+                        statusElement.style.display = 'none';
+                    }
+                    
+                    // 检查是否需要处理订单消息
+                    if (data.messages && data.messages.length > 0) {
+                        // 检查最后一条消息是否为对方发送的订单相关消息
+                        const lastMessage = data.messages[data.messages.length - 1];
+                        if (!lastMessage.is_self && lastMessage.content) {
+                            // 检测是否为订单消息
+                            const messageContent = lastMessage.content;
+                            const orderKeywords = ['kg', 'KG', '千克', '公斤', '发货', '订单', '产品', '买'];
+                            const hasOrderKeyword = orderKeywords.some(keyword => messageContent.includes(keyword));
+                            
+                            // 检测数量模式
+                            const quantityPattern = /\d+\s*(kg|KG|千克|公斤)/i;
+                            const hasQuantity = quantityPattern.test(messageContent);
+                            
+                            if (hasOrderKeyword || hasQuantity) {
+                                console.log('检测到订单消息，自动处理:', messageContent);
+                                // 调用工作流处理消息
+                                processWeChatMessage(lastMessage);
+                            }
+                        }
+                    }
+                } else {
+                    throw new Error(data.error || '加载消息失败');
+                }
+            } catch (error) {
+                console.error('加载微信消息失败:', error);
+                
+                // 更友好的错误信息
+                let errorMessage;
+                let errorType = 'unknown';
+                
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = '⚠️ 网络连接异常，无法连接到服务器';
+                    errorType = 'network';
+                } else if (error.message.includes('超时') || error.message.includes('timeout')) {
+                    errorMessage = '⏰ 微信监控服务超时\n\n请确认以下事项：\n1. 微信窗口已打开\n2. 已选择聊天窗口\n3. 监控服务已启动\n\n或者点击上方的"关闭微信面板"按钮暂时禁用微信监控';
+                    errorType = 'timeout';
+                } else if (error.message.includes('未找到微信窗口')) {
+                    errorMessage = '❌ 未检测到微信窗口\n\n请打开微信并选择聊天窗口后重试';
+                    errorType = 'not_found';
+                } else {
+                    errorMessage = '⚠️ 加载微信消息失败: ' + error.message;
+                }
+                
+                // 更新状态显示
+                const statusElement = document.getElementById('wechat-status');
+                if (statusElement) {
+                    statusElement.textContent = errorMessage;
+                    statusElement.style.display = 'block';
+                    statusElement.style.backgroundColor = errorType === 'timeout' ? '#fff3cd' : (errorType === 'not_found' ? '#f8d7da' : '#f8d7da');
+                }
+                
+                // 显示在监控消息区域
+                showMonitorMessage(errorMessage, errorType === 'timeout' ? 'warning' : 'error');
+            }
+        }
+        
+        // 处理微信消息并调用工作流
+        async function processWeChatMessage(message) {
+            try {
+                console.log('开始处理微信消息:', message.content);
+                
+                // 使用固定的user_id，在整个对话过程中保持一致
+                let userId = sessionStorage.getItem('wechat_user_id');
+                if (!userId) {
+                    userId = 'wechat_user_' + Date.now();
+                    sessionStorage.setItem('wechat_user_id', userId);
+                    console.log('创建新的用户ID:', userId);
+                } else {
+                    console.log('使用已有的用户ID:', userId);
+                }
+                
+                const response = await fetch('/api/integrated/workflow/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        message: message.content
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('工作流处理结果:', data);
+                
+                if (data.success && data.result) {
+                    // 显示工作流回复
+                    if (data.result.message) {
+                        // 更新工作流状态区域显示系统回复
+                        updateWorkflowDisplay(data.result);
+                        showMessage('工作流已处理消息', 'success');
+                    }
+                    // 刷新工作流状态
+                    await loadWorkflowStatus();
+                }
+            } catch (error) {
+                console.error('处理微信消息失败:', error);
+            }
+        }
+        
+        // 更新工作流显示区域
+        function updateWorkflowDisplay(result) {
+            const statusElement = document.getElementById('workflow-status-detail');
+            if (statusElement) {
+                let displayHtml = '';
+                
+                if (result.action === 'CONFIRM' && result.message) {
+                    displayHtml = `<div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <div style="font-weight: bold; margin-bottom: 8px;">💬 系统回复:</div>
+                        <div style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(result.message)}</div>
+                    </div>`;
+                } else if (result.action === 'COMPLETE' && result.order_summary) {
+                    displayHtml = `<div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <div style="font-weight: bold; margin-bottom: 8px;">✅ 发货单已生成</div>
+                        <div>公司: ${result.order_summary.company_name || '未填写'}</div>
+                        <div>产品数量: ${result.order_summary.products ? result.order_summary.products.length : 0}种</div>
+                    </div>`;
+                } else if (result.action === 'INFO' && result.message) {
+                    displayHtml = `<div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <div style="font-weight: bold; margin-bottom: 8px;">ℹ️ 状态信息:</div>
+                        <div style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(result.message)}</div>
+                    </div>`;
+                }
+                
+                if (displayHtml) {
+                    statusElement.innerHTML = displayHtml;
+                    statusElement.style.display = 'block';
+                }
+            }
+        }
+        
+        // 显示微信截图和消息
+        function displayWeChatMessages(messages) {
+            const container = document.getElementById('wechat-messages');
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #999; padding: 50px;">未识别到消息</div>';
+                return;
+            }
+            
+            let html = '';
+            messages.forEach(message => {
+                const isSelf = message.is_self;
+                const avatarClass = isSelf ? 'avatar-self' : 'avatar-other';
+                const avatarText = isSelf ? '我' : 'TA';
+                const senderName = isSelf ? '自己' : '对方';
+                const timestamp = message.timestamp ? new Date(message.timestamp).toLocaleTimeString('zh-CN') : '';
+                
+                html += `
+                    <div class="message-item ${isSelf ? 'message-self' : 'message-other'}">
+                        <div class="message-header">
+                            <span class="message-sender">${senderName}</span>
+                            ${timestamp ? '<span class="message-time">' + timestamp + '</span>' : ''}
+                        </div>
+                        <div class="message-text">${escapeHtml(message.content)}</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // HTML转义函数
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 发送微信消息
+        async function sendWeChatMessage() {
+            console.log('=== 开始发送微信消息 ===');
+            
+            const input = document.getElementById('wechat-message-input');
+            if (!input) {
+                console.error('未找到输入框元素');
+                showMessage('发送失败: 未找到输入框', 'error');
+                return;
+            }
+            
+            const message = input.value.trim();
+            console.log('要发送的消息:', message);
+            
+            if (!message) {
+                console.log('消息为空，提示用户输入');
+                showMessage('请输入消息内容', 'warning');
+                return;
+            }
+            
+            try {
+                console.log('发送请求到服务器...');
+                const response = await fetch('/api/integrated/wechat/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+                
+                console.log('服务器响应状态:', response.status);
+                const data = await response.json();
+                console.log('服务器响应数据:', data);
+                
+                if (data.success) {
+                    console.log('消息发送成功，清空输入框');
+                    input.value = '';
+                    showMessage('消息发送成功', 'success');
+                    
+                    // 2秒后刷新聊天
+                    setTimeout(() => {
+                        console.log('刷新微信消息...');
+                        refreshWeChatMessages();
+                    }, 2000);
+                } else {
+                    console.error('服务器返回错误:', data.error);
+                    throw new Error(data.error || '发送失败');
+                }
+            } catch (error) {
+                console.error('发送消息失败:', error);
+                showMessage('发送消息失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 处理微信消息输入框回车
+        function handleWeChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendWeChatMessage();
+            }
+        }
+        
+        // 显示监控消息
+        function showMonitorMessage(message, type = 'info') {
+            const statusElement = document.getElementById('wechat-status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            statusElement.style.display = 'block';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 3000);
+        }
+        
+        // 刷新微信消息
+        async function refreshWeChatMessages() {
+            try {
+                await loadWeChatMessages();
+                showMessage('微信消息已刷新', 'success');
+            } catch (error) {
+                showMessage('刷新失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 清空消息显示
+        function clearMessages() {
+            document.getElementById('wechat-screenshot').src = '';
+            document.getElementById('wechat-messages').innerHTML = '<div style="text-align: center; color: #999; padding: 50px;">消息已清空</div>';
+            weChatMessages = [];
+            document.getElementById('wechat-messages-count').textContent = '0';
+            showMessage('消息显示已清空', 'info');
+        }
+        
+        // 显示微信消息（保留用于兼容性）
+        function displayWeChatMessagesOld(messages) {
+            const container = document.getElementById('wechat-messages');
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #999; padding: 50px;">暂无微信消息</div>';
+                return;
+            }
+            
+            let html = '';
+            messages.slice(-20).forEach(message => { // 只显示最新20条消息
+                const isSelf = message.is_self;
+                const timestamp = new Date(message.timestamp).toLocaleTimeString('zh-CN');
+                
+                html += `
+                    <div class="message-item ${isSelf ? 'message-self' : 'message-other'}">
+                        <div class="message-content">${escapeHtml(message.content)}</div>
+                        <div class="message-time">${isSelf ? '我' : message.sender || '对方'} • ${timestamp}</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // 加载工作流状态
+        async function loadWorkflowStatus() {
+            try {
+                const response = await fetch('/api/integrated/workflow/status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayWorkflowStatus(data);
+                    document.getElementById('active-orders-count').textContent = data.total_orders;
+                    return true;
+                } else {
+                    throw new Error(data.error || '加载工作流状态失败');
+                }
+            } catch (error) {
+                console.error('加载工作流状态失败:', error);
+                
+                // 显示友好的错误信息
+                const errorMessage = error.message.includes('timeout') ? 
+                    '加载工作流状态超时，请检查网络连接' : 
+                    error.message.includes('network') ? 
+                    '网络连接异常，无法加载工作流状态' : 
+                    '加载工作流状态失败: ' + error.message;
+                
+                // 更新UI显示错误
+                const container = document.getElementById('workflow-progress');
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; background: #fff8f0; border: 1px solid #ffeeba; border-radius: 8px; color: #856404;">
+                        <div style="font-size: 1.1em; margin-bottom: 10px;">⚠️ 工作流状态加载失败</div>
+                        <div style="margin-bottom: 15px;">${errorMessage}</div>
+                        <button class="btn btn-warning" onclick="loadWorkflowStatus()" style="font-size: 0.9em;">
+                            🔄 重试加载
+                        </button>
+                    </div>
+                `;
+                
+                // 更新状态指示器为错误
+                const indicator = document.getElementById('workflow-status-indicator');
+                const statusText = document.getElementById('workflow-status');
+                indicator.className = 'status-indicator status-error';
+                statusText.textContent = '错误';
+                
+                showMessage(errorMessage, 'error');
+                return false;
+            }
+        }
+        
+        // 获取步骤名称
+        function getStepName(step) {
+            const stepNames = {
+                'company_name': '公司名称',
+                'contact_person': '联系人',
+                'contact_phone': '联系电话',
+                'delivery_date': '交货日期',
+                'products': '产品信息',
+                'remarks': '备注信息',
+                'completed': '已完成'
+            };
+            return stepNames[step] || step;
+        }
+        
+        // 显示工作流状态
+        function displayWorkflowStatus(data) {
+            console.log('=== 开始显示工作流状态 ===');
+            console.log('收到的数据:', JSON.stringify(data, null, 2));
+            
+            const container = document.getElementById('workflow-progress');
+            if (!container) {
+                console.error('找不到workflow-progress元素');
+                return;
+            }
+            
+            if (!data.success) {
+                console.error('工作流状态API返回失败:', data);
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #f44336;">
+                        工作流状态加载失败: ${data.error || '未知错误'}
+                    </div>
+                `;
+                return;
+            }
+            
+            const orders = data.active_orders || [];
+            console.log('活跃订单数量:', orders.length);
+            
+            if (orders.length === 0) {
+                console.log('没有活跃订单');
+                container.innerHTML = `
+                    <div style="text-align: center; color: #999; padding: 20px;">
+                        ✅ 当前没有活跃的工作流订单<br>
+                        <small style="color: #666;">点击"测试工作流"按钮开始测试</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 显示所有订单
+            let html = '';
+            orders.forEach((order, index) => {
+                console.log(`处理订单 ${index + 1}:`, order);
+                
+                const stepNames = {
+                    'company_name': '公司名称',
+                    'contact_person': '联系人',
+                    'contact_phone': '联系电话',
+                    'products': '产品信息',
+                    'delivery_date': '交货日期',
+                    'remarks': '备注信息',
+                    'CONFIRM_ORDER_TYPE': '确认订单类型',
+                    'CONFIRM': '等待确认',
+                    'COMPLETED': '已完成'
+                };
+                
+                const stepName = stepNames[order.current_step] || order.current_step || '未知步骤';
+                const statusColors = {
+                    'COLLECTING': '#2196F3',
+                    'PROCESSING': '#FF9800',
+                    'COMPLETED': '#4CAF50',
+                    'CANCELLED': '#F44336'
+                };
+                
+                html += `
+                    <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 15px; background: #fafafa;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="font-weight: bold; color: #333;">订单 #${index + 1}: ${order.user_id}</div>
+                            <div style="padding: 4px 8px; border-radius: 4px; background: ${statusColors[order.state] || '#9E9E9E'}; color: white; font-size: 0.85em;">
+                                ${order.state}
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 10px;">
+                            <span style="font-weight: 500;">当前步骤:</span> 
+                            <span style="color: #1976D2;">${stepName}</span>
+                        </div>
+                        
+                        <div style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
+                            消息数: ${order.message_count} | 
+                            开始时间: ${new Date(order.start_time).toLocaleString()}
+                        </div>
+                        
+                        <div style="background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 0.9em;">
+                            <div style="font-weight: bold; margin-bottom: 5px;">已收集的数据:</div>
+                            ${displayCollectedData(order.data)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            console.log('工作流状态显示完成');
+        }
+        
+        // 显示收集的数据
+        function displayCollectedData(data) {
+            if (!data) return '<div style="color: #999;">暂无数据</div>';
+            
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px;">';
+            const fields = [
+                { key: 'company_name', name: '公司名称' },
+                { key: 'contact_person', name: '联系人' },
+                { key: 'contact_phone', name: '联系电话' },
+                { key: 'delivery_date', name: '交货日期' },
+                { key: 'remarks', name: '备注' }
+            ];
+            
+            fields.forEach(field => {
+                const value = data[field.key];
+                if (value) {
+                    html += `
+                        <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                            <span style="color: #666;">${field.name}:</span>
+                            <span style="font-weight: 500; color: #333;">${value}</span>
+                        </div>
+                    `;
+                }
+            });
+            
+            // 显示产品数量
+            const productsCount = data.products ? data.products.length : 0;
+            html += `
+                <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                    <span style="color: #666;">产品数量:</span>
+                    <span style="font-weight: 500; color: #333;">${productsCount}</span>
+                </div>
+            `;
+            
+            html += '</div>';
+            return html;
+        }
+        
+        // 加载屏幕状态
+        async function loadScreenStatus() {
+            try {
+                const response = await fetch('/api/integrated/monitor/screen');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('screen-status').textContent = data.screen_status;
+                    document.getElementById('operations-count').textContent = data.operations_today;
+                    document.getElementById('cpu-usage').textContent = data.performance.cpu_usage + '%';
+                    return true;
+                } else {
+                    throw new Error(data.error || '加载屏幕状态失败');
+                }
+            } catch (error) {
+                console.error('加载屏幕状态失败:', error);
+                showMessage('加载屏幕状态失败: ' + error.message, 'error');
+                return false;
+            }
+        }
+        
+        // 刷新屏幕状态
+        async function refreshScreenStatus() {
+            try {
+                await loadScreenStatus();
+                showMessage('屏幕状态已刷新', 'success');
+            } catch (error) {
+                showMessage('刷新屏幕状态失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 开始屏幕监控
+        function startScreenMonitoring() {
+            if (screenMonitoringInterval) {
+                clearInterval(screenMonitoringInterval);
+            }
+            
+            screenMonitoringInterval = setInterval(async () => {
+                await loadScreenStatus();
+            }, 5000);
+            
+            showMessage('屏幕监控已启动', 'info');
+        }
+        
+        // 停止屏幕监控
+        function stopScreenMonitoring() {
+            if (screenMonitoringInterval) {
+                clearInterval(screenMonitoringInterval);
+                screenMonitoringInterval = null;
+                showMessage('屏幕监控已停止', 'info');
+            }
+        }
+        
+        // 启动自动刷新
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            
+            autoRefreshInterval = setInterval(async () => {
+                await loadWeChatMessages();
+                await loadWorkflowStatus();
+            }, 10000);
+        }
+        
+        // 停止自动刷新
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+        
+        // 开始工作流测试
+        async function startWorkflowTest() {
+            try {
+                const response = await fetch('/api/integrated/workflow/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: 'test_user',
+                        message: '我要下单'
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showMessage('工作流测试已启动', 'success');
+                    await loadWorkflowStatus();
+                } else {
+                    throw new Error(data.error || '工作流测试失败');
+                }
+            } catch (error) {
+                console.error('工作流测试失败:', error);
+                showMessage('工作流测试失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 清理工作流订单
+        async function clearWorkflowOrders() {
+            try {
+                const response = await fetch('/api/integrated/workflow/clear', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showMessage('工作流订单已清理', 'success');
+                    await loadWorkflowStatus();
+                } else {
+                    throw new Error(data.error || '清理订单失败');
+                }
+            } catch (error) {
+                console.error('清理工作流订单失败:', error);
+                showMessage('清理订单失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 强制刷新工作流状态
+        async function refreshWorkflowStatus() {
+            try {
+                console.log('手动刷新工作流状态...');
+                const result = await loadWorkflowStatus();
+                if (result) {
+                    showMessage('工作流状态已刷新', 'success');
+                } else {
+                    showMessage('工作流状态刷新失败', 'error');
+                }
+            } catch (error) {
+                console.error('刷新工作流状态失败:', error);
+                showMessage('刷新失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 显示消息
+        function showMessage(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            statusElement.style.display = 'block';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 3000);
+        }
+        
+        // 测试系统集成
+        async function testIntegration() {
+            try {
+                const response = await fetch('/api/integrated/status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('系统集成测试成功', 'success');
+                } else {
+                    throw new Error(data.error || '系统集成测试失败');
+                }
+            } catch (error) {
+                console.error('系统集成测试失败:', error);
+                showMessage('系统集成测试失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 导出系统数据
+        async function exportSystemData() {
+            try {
+                const response = await fetch('/api/integrated/export/data');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 下载JSON文件
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `system_export_${new Date().toISOString().slice(0, 10)}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    showMessage('系统数据导出成功', 'success');
+                } else {
+                    throw new Error(data.error || '导出数据失败');
+                }
+            } catch (error) {
+                console.error('导出系统数据失败:', error);
+                showMessage('导出数据失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 查看系统日志
+        function showSystemLogs() {
+            window.open('/api/integrated/logs', '_blank');
+        }
+        
+        // 打开帮助
+        function openHelp() {
+            window.open('/help', '_blank');
+        }
+        
+        // 显示产品名称选择器
+        function showProductNameSelector() {
+            document.getElementById('productSelectorModal').style.display = 'flex';
+        }
+        
+        // 关闭产品名称选择器
+        function closeProductSelector() {
+            document.getElementById('productSelectorModal').style.display = 'none';
+        }
+        
+        // 搜索产品名称
+        async function searchProductsForSelection() {
+            const searchInput = document.getElementById('productSearchInput');
+            const query = searchInput.value.trim();
+            
+            try {
+                const response = await fetch(`/api/product_names/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayProductNamesForSelection(data.data);
+                } else {
+                    throw new Error(data.message || '搜索产品名称失败');
+                }
+            } catch (error) {
+                console.error('搜索产品名称失败:', error);
+                showMessage('搜索产品名称失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 显示产品名称列表
+        function displayProductNamesForSelection(products) {
+            const container = document.getElementById('productsList');
+            
+            if (products.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">未找到匹配的产品</div>';
+                return;
+            }
+            
+            let html = '';
+            products.forEach(product => {
+                html += `
+                    <div class="product-item" onclick="selectProductName('${escapeHtml(product.name)}')">
+                        <div class="product-name">${escapeHtml(product.name)}</div>
+                        <div class="product-specs">规格: ${escapeHtml(product.specs || '无')} | 单位: ${escapeHtml(product.unit || '无')}</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // 选择产品名称
+        function selectProductName(productName) {
+            // 这里可以根据实际需求处理产品名称选择逻辑
+            showMessage(`已选择产品: ${productName}`, 'success');
+            closeProductSelector();
+        }
+        
+        // 加载模板列表
+        async function loadTemplates() {
+            try {
+                // 添加时间戳禁用缓存
+                const response = await fetch('/templates?action=api&' + new Date().getTime(), {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.success && data.templates && Array.isArray(data.templates)) {
+                    const templateSelect = document.getElementById('templateSelect');
+                    templateSelect.innerHTML = '<option value="">-- 请选择模板 --</option>';
+                    
+                    data.templates.forEach(template => {
+                        templateSelect.innerHTML += `<option value="${template.name}">${template.name}</option>`;
+                    });
+                    
+                    showMessage('模板列表已刷新', 'success');
+                } else {
+                    throw new Error(data.message || '加载模板列表失败：数据格式错误');
+                }
+            } catch (error) {
+                console.error('加载模板列表失败:', error);
+                showMessage('加载模板列表失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 模板选择变化
+        function onTemplateChange() {
+            const templateSelect = document.getElementById('templateSelect');
+            const selectedTemplate = templateSelect.value;
+            if (selectedTemplate) {
+                showMessage(`已选择模板: ${selectedTemplate}`, 'info');
+            }
+        }
+        
+        // 购买单位选择变化
+        function onPurchaseUnitChange() {
+            const purchaseUnitSelect = document.getElementById('purchaseUnit');
+            const selectedUnit = purchaseUnitSelect.value;
+            if (selectedUnit) {
+                showMessage(`已选择购买单位: ${selectedUnit}`, 'info');
+            }
+        }
+        
+        // 日期变化
+        function onDateChange() {
+            const purchaseDateInput = document.getElementById('purchaseDate');
+            const selectedDate = purchaseDateInput.value;
+            if (selectedDate) {
+                showMessage(`已选择日期: ${selectedDate}`, 'info');
+            }
+        }
+        
+        // 添加产品行
+        function addProductRow() {
+            const productRows = document.getElementById('productRows');
+            
+            // 移除空状态提示
+            const emptyProducts = productRows.querySelector('.empty-products');
+            if (emptyProducts) {
+                emptyProducts.remove();
+            }
+            
+            // 添加新的产品行
+            const rowIndex = productRows.children.length + 1;
+            const newRow = document.createElement('div');
+            newRow.className = 'product-row';
+            newRow.innerHTML = `
+                <div class="product-cell">
+                    <label>产品名称</label>
+                    <input type="text" placeholder="请输入产品名称" oninput="onProductNameChange(${rowIndex}, this.value)">
+                </div>
+                <div class="product-cell">
+                    <label>规格型号</label>
+                    <input type="text" placeholder="请输入规格型号">
+                </div>
+                <div class="product-cell">
+                    <label>单位</label>
+                    <input type="text" placeholder="请输入单位">
+                </div>
+                <div class="product-cell">
+                    <label>数量</label>
+                    <input type="number" placeholder="0" min="0" step="1">
+                </div>
+                <div class="product-cell">
+                    <label>单价</label>
+                    <input type="number" placeholder="0.00" min="0" step="0.01">
+                </div>
+                <div class="product-cell">
+                    <label>金额</label>
+                    <input type="number" placeholder="0.00" min="0" step="0.01" readonly>
+                </div>
+                <div class="product-cell">
+                    <label>备注</label>
+                    <input type="text" placeholder="请输入备注">
+                </div>
+                <div class="product-cell" style="align-items: flex-end;">
+                    <button class="btn btn-danger" onclick="removeProductRow(this)">删除</button>
+                </div>
+            `;
+            
+            productRows.appendChild(newRow);
+            showMessage('产品行已添加', 'success');
+        }
+        
+        // 移除产品行
+        function removeProductRow(button) {
+            const row = button.closest('.product-row');
+            row.remove();
+            
+            // 检查是否需要显示空状态提示
+            const productRows = document.getElementById('productRows');
+            if (productRows.children.length === 0) {
+                productRows.innerHTML = '<div class="empty-products">暂无产品，请点击"添加产品"或"选择产品名称"添加产品</div>';
+            }
+            
+            showMessage('产品行已删除', 'success');
+        }
+        
+        // 产品名称变化
+        function onProductNameChange(rowIndex, productName) {
+            // 这里可以根据实际需求处理产品名称变化逻辑
+            console.log(`产品名称变化: 行 ${rowIndex}, 名称: ${productName}`);
+        }
+        
+        // 生成发货单
+        async function generateShipment() {
+            try {
+                const templateSelect = document.getElementById('templateSelect');
+                const selectedTemplate = templateSelect.value;
+                
+                if (!selectedTemplate) {
+                    showMessage('请选择发货单模板', 'error');
+                    return;
+                }
+                
+                // 显示加载状态
+                const statusDiv = document.getElementById('status');
+                statusDiv.innerHTML = '<div class="loading">正在生成发货单...</div>';
+                statusDiv.style.display = 'block';
+                
+                // 获取表单数据
+                const formData = {
+                    template_id: selectedTemplate,
+                    purchase_unit: document.getElementById('purchaseUnit').value,
+                    contact_person: document.getElementById('contactPerson').value,
+                    purchase_date: document.getElementById('purchaseDate').value,
+                    order_number: document.getElementById('orderNumber').value,
+                    products: getProductData()
+                };
+                
+                // 发送请求
+                const response = await fetch('/api/integrated/generate-shipment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 显示成功消息
+                    statusDiv.innerHTML = '<div class="success-message">✅ 发货单生成成功！</div>';
+                    
+                    // 显示结果
+                    const resultSection = document.getElementById('resultSection');
+                    const resultContent = document.getElementById('resultContent');
+                    
+                    resultContent.innerHTML = `
+                        <div style="padding: 20px; background: #f0fff4; border: 1px solid #c6f6d5; border-radius: 8px;">
+                            <h3>🎉 生成成功！</h3>
+                            <div style="margin: 15px 0;">
+                                <strong>文件名:</strong> ${result.filename}<br>
+                                <strong>大小:</strong> ${result.size} KB<br>
+                                <strong>生成时间:</strong> ${new Date(result.timestamp).toLocaleString()}
+                            </div>
+                            <div style="margin-top: 20px;">
+                                <a href="${result.download_url}" class="btn btn-success" download="${result.filename}">
+                                    💾 下载发货单
+                                </a>
+                                <button class="btn btn-info" onclick="generateShipment()">
+                                    🔄 再次生成
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    resultSection.style.display = 'block';
+                } else {
+                    throw new Error(result.error || '生成发货单失败');
+                }
+            } catch (error) {
+                console.error('生成发货单失败:', error);
+                const statusDiv = document.getElementById('status');
+                statusDiv.innerHTML = `<div class="error-message">❌ 生成发货单失败: ${error.message}</div>`;
+                statusDiv.style.display = 'block';
+            }
+        }
+        
+        // 获取产品数据
+        function getProductData() {
+            const productRows = document.querySelectorAll('.product-row');
+            const products = [];
+            
+            productRows.forEach(row => {
+                const product = {
+                    name: row.querySelector('[name="productName"]').value,
+                    model: row.querySelector('[name="productModel"]').value,
+                    unit: row.querySelector('[name="unit"]').value,
+                    quantity: parseFloat(row.querySelector('[name="quantity"]').value) || 0,
+                    unit_price: parseFloat(row.querySelector('[name="unitPrice"]').value) || 0,
+                    total: parseFloat(row.querySelector('[name="total"]').value) || 0
+                };
+                
+                if (product.name || product.model) {
+                    products.push(product);
+                }
+            });
+            
+            return products;
+        }
+        
+        // 重置表单
+        function resetForm() {
+            if (confirm('确定要重置表单吗？')) {
+                window.location.reload();
+            }
+        }
+        
+        // 显示产品选择器
+        function showProductNameSelector() {
+            const modal = document.getElementById('productSelectorModal');
+            modal.style.display = 'flex';
+            loadProductNames();
+        }
+        
+        // 关闭产品选择器
+        function closeProductSelector() {
+            const modal = document.getElementById('productSelectorModal');
+            modal.style.display = 'none';
+        }
+        
+        // 加载产品名称
+        async function loadProductNames() {
+            try {
+                const response = await fetch('/api/product_names');
+                const productNames = await response.json();
+                
+                const container = document.getElementById('productsList');
+                let html = '';
+                
+                productNames.forEach(product => {
+                    html += `
+                        <div class="product-item" onclick="selectProduct('${product.name}')">
+                            <div class="product-name">${product.name}</div>
+                            <div class="product-specs">型号: ${product.model || '无'}, 单位: ${product.unit || '无'}</div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('加载产品名称失败:', error);
+                showMessage('加载产品名称失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 搜索产品
+        function searchProductsForSelection() {
+            const searchInput = document.getElementById('productSearchInput');
+            const searchTerm = searchInput.value.toLowerCase();
+            const productItems = document.querySelectorAll('.product-item');
+            
+            productItems.forEach(item => {
+                const productName = item.querySelector('.product-name').textContent.toLowerCase();
+                const productSpecs = item.querySelector('.product-specs').textContent.toLowerCase();
+                
+                if (productName.includes(searchTerm) || productSpecs.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+        
+        // 选择产品
+        function selectProduct(productName) {
+            // 这里可以根据实际需求处理产品选择逻辑
+            showMessage('已选择产品: ' + productName, 'success');
+            closeProductSelector();
+        }
+        
+        // 加载模板列表
+        async function loadTemplates() {
+            try {
+                // 添加时间戳禁用缓存
+                const response = await fetch('/templates?action=api&' + new Date().getTime(), {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('API请求失败: ' + response.status);
+                }
+                
+                const data = await response.json();
+                
+                const templateSelect = document.getElementById('templateSelect');
+                templateSelect.innerHTML = '<option value="">-- 请选择模板 --</option>';
+                
+                // 检查数据格式并正确遍历
+                if (data.success && data.templates && Array.isArray(data.templates)) {
+                    data.templates.forEach(template => {
+                        const option = document.createElement('option');
+                        option.value = template.id || template.name;
+                        option.textContent = template.name || template.filename;
+                        templateSelect.appendChild(option);
+                    });
+                    showMessage('模板列表已刷新', 'success');
+                } else {
+                    throw new Error(data.message || '加载模板列表失败：数据格式错误');
+                }
+            } catch (error) {
+                console.error('加载模板列表失败:', error);
+                showMessage('加载模板列表失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 模板变化处理
+        function onTemplateChange() {
+            // 这里可以根据实际需求处理模板变化逻辑
+            const templateSelect = document.getElementById('templateSelect');
+            const selectedTemplate = templateSelect.value;
+            console.log('模板变化:', selectedTemplate);
+        }
+        
+        // 购买单位变化处理
+        function onPurchaseUnitChange() {
+            // 这里可以根据实际需求处理购买单位变化逻辑
+            const purchaseUnitSelect = document.getElementById('purchaseUnit');
+            const selectedUnit = purchaseUnitSelect.value;
+            console.log('购买单位变化:', selectedUnit);
+        }
+        
+        // 加载购买单位列表
+        async function loadPurchaseUnits() {
+            try {
+                const response = await fetch('/api/purchase_units');
+                
+                if (!response.ok) {
+                    throw new Error('API请求失败: ' + response.status);
+                }
+                
+                const data = await response.json();
+                
+                const select = document.getElementById('purchaseUnit');
+                select.innerHTML = '<option value="">-- 选择购买单位 --</option>';
+                
+                if (data.success && data.data && Array.isArray(data.data)) {
+                    data.data.forEach(unit => {
+                        const option = document.createElement('option');
+                        option.value = unit.unit_name;
+                        let displayText = unit.unit_name;
+                        if (unit.contact_person) {
+                            displayText += ` (${unit.contact_person})`;
+                        }
+                        option.textContent = displayText;
+                        select.appendChild(option);
+                    });
+                    console.log('购买单位列表已加载, 共', data.data.length, '个');
+                } else {
+                    console.warn('购买单位数据格式异常:', data);
+                }
+            } catch (error) {
+                console.error('加载购买单位失败:', error);
+            }
+        }
+        
+        // 日期变化处理
+        function onDateChange() {
+            // 这里可以根据实际需求处理日期变化逻辑
+            const purchaseDateInput = document.getElementById('purchaseDate');
+            const selectedDate = purchaseDateInput.value;
+            console.log('日期变化:', selectedDate);
+        }
+        
+        // 加载屏幕状态
+        async function loadScreenStatus() {
+            try {
+                const response = await fetch('/api/integrated/screen/status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('screen-status').textContent = data.status;
+                    document.getElementById('operations-count').textContent = data.operations_count;
+                    document.getElementById('cpu-usage').textContent = data.cpu_usage;
+                }
+            } catch (error) {
+                console.error('加载屏幕状态失败:', error);
+            }
+        }
+        
+        // 刷新屏幕状态
+        async function refreshScreenStatus() {
+            await loadScreenStatus();
+            showMessage('屏幕状态已刷新', 'success');
+        }
+        
+        // 开始屏幕监控
+        function startScreenMonitoring() {
+            if (screenMonitoringInterval) {
+                clearInterval(screenMonitoringInterval);
+            }
+            
+            screenMonitoringInterval = setInterval(async () => {
+                await loadScreenStatus();
+            }, 5000);
+            
+            showMessage('屏幕监控已开始', 'success');
+        }
+        
+        // 停止屏幕监控
+        function stopScreenMonitoring() {
+            if (screenMonitoringInterval) {
+                clearInterval(screenMonitoringInterval);
+                screenMonitoringInterval = null;
+            }
+            
+            showMessage('屏幕监控已停止', 'success');
+        }
+        
+        // 开始工作流测试
+        async function startWorkflowTest() {
+            try {
+                const response = await fetch('/api/integrated/workflow/test', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showMessage('工作流测试已启动', 'success');
+                    setTimeout(() => {
+                        loadWorkflowStatus();
+                    }, 2000);
+                } else {
+                    throw new Error(data.error || '工作流测试失败');
+                }
+            } catch (error) {
+                console.error('工作流测试失败:', error);
+                showMessage('工作流测试失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 清理订单
+        async function clearWorkflowOrders() {
+            try {
+                if (confirm('确定要清理所有工作流订单吗？')) {
+                    const response = await fetch('/api/integrated/workflow/clear', {
+                        method: 'POST'
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        showMessage('工作流订单已清理', 'success');
+                        setTimeout(() => {
+                            loadWorkflowStatus();
+                        }, 1000);
+                    } else {
+                        throw new Error(data.error || '清理订单失败');
+                    }
+                }
+            } catch (error) {
+                console.error('清理订单失败:', error);
+                showMessage('清理订单失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 测试系统集成
+        async function testIntegration() {
+            try {
+                const response = await fetch('/api/integrated/test');
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('系统集成测试通过！', 'success');
+                } else {
+                    throw new Error(data.error || '系统集成测试失败');
+                }
+            } catch (error) {
+                console.error('系统集成测试失败:', error);
+                showMessage('系统集成测试失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 导出系统数据
+        async function exportSystemData() {
+            try {
+                const response = await fetch('/api/integrated/export');
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `system-data-${new Date().toISOString().slice(0, 10)}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    showMessage('系统数据已导出', 'success');
+                } else {
+                    throw new Error('导出系统数据失败');
+                }
+            } catch (error) {
+                console.error('导出系统数据失败:', error);
+                showMessage('导出系统数据失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 查看系统日志
+        async function showSystemLogs() {
+            try {
+                const response = await fetch('/api/integrated/logs');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const logs = data.logs;
+                    let logHtml = '<div style="max-height: 400px; overflow-y: auto; background: #f5f5f5; padding: 15px; border-radius: 8px;">';
+                    logs.forEach(log => {
+                        logHtml += `<div style="margin-bottom: 10px; padding: 8px; background: white; border-radius: 4px;">${log}</div>`;
+                    });
+                    logHtml += '</div>';
+                    
+                    showMessage('系统日志已加载', 'success');
+                    // 这里可以根据实际需求显示日志
+                } else {
+                    throw new Error(data.error || '加载系统日志失败');
+                }
+            } catch (error) {
+                console.error('加载系统日志失败:', error);
+                showMessage('加载系统日志失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 打开帮助
+        function openHelp() {
+            alert('智能发货单管理系统使用帮助:\n\n1. 选择发货单模板\n2. 填写基础信息\n3. 添加产品信息\n4. 点击生成发货单\n\n微信监控功能:\n1. 确保微信已打开并登录\n2. 点击"开始监控"按钮\n3. 系统将自动监控微信聊天并识别消息\n\n工作流功能:\n1. 点击"测试工作流"按钮启动工作流\n2. 系统将自动处理订单\n3. 可在工作流状态面板查看进度\n\n屏幕监控功能:\n1. 点击"开始监控"按钮\n2. 系统将每5秒刷新一次屏幕状态\n3. 可查看CPU使用率和操作计数');
+        }
+        
+        // 启动定时更新
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+
+            autoRefreshInterval = setInterval(async () => {
+                await checkSystemStatus();
+                await loadWorkflowStatus();
+            }, 30000); // 每30秒更新一次
+        }
+
+        // 停止定时更新
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+        
+        // ========== Excel同步功能 ==========
+        
+        // 初始化Excel同步功能
+        function initExcelSync() {
+            const checkbox = document.getElementById('excelSyncCheckbox');
+            const uploadSection = document.getElementById('excelUploadSection');
+            const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
+            
+            // 绑定复选框事件
+            checkbox.addEventListener('change', function() {
+                excelSyncEnabled = this.checked;
+                uploadSection.style.display = this.checked ? 'block' : 'none';
+                
+                if (!this.checked) {
+                    clearSelectedFile();
+                    // 禁用自动同步
+                    autoSyncEnabled = false;
+                    autoSyncCheckbox.checked = false;
+                }
+            });
+            
+            // 绑定自动同步复选框事件
+            autoSyncCheckbox.addEventListener('change', function() {
+                autoSyncEnabled = this.checked;
+                console.log('自动同步已' + (this.checked ? '启用' : '禁用'));
+            });
+        }
+        
+        // 处理Excel文件选择
+        function handleExcelFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            // 验证文件类型
+            if (!file.name.match(/\.(xlsx|xls)$/i)) {
+                showMessage('请选择Excel文件（.xlsx或.xls格式）', 'error');
+                return;
+            }
+            
+            selectedExcelFile = file;
+            excelFilePath = null;
+            
+            // 显示文件信息
+            showFileInfo(file);
+            
+            // 上传并分析文件
+            uploadExcelFile(file);
+        }
+        
+        // 显示文件信息
+        function showFileInfo(file) {
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = `文件大小: ${formatFileSize(file.size)}`;
+            document.getElementById('fileInfoSection').style.display = 'block';
+        }
+        
+        // 清除选中的文件
+        function clearSelectedFile() {
+            const input = document.getElementById('excelFileInput');
+            input.value = '';
+            selectedExcelFile = null;
+            excelFilePath = null;
+            excelAnalysisResult = null;
+            
+            document.getElementById('fileInfoSection').style.display = 'none';
+            document.getElementById('excelAnalysisSection').style.display = 'none';
+        }
+        
+        // 上传Excel文件
+        async function uploadExcelFile(file) {
+            try {
+                showMessage('正在上传Excel文件...', 'info');
+                
+                const formData = new FormData();
+                formData.append('excel_file', file);
+                
+                const response = await fetch('/api/excel/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    excelFilePath = result.file_path;
+                    excelAnalysisResult = result.analysis;
+                    
+                    showMessage('Excel文件上传成功！', 'success');
+                    showExcelAnalysisResult(result.analysis);
+                } else {
+                    throw new Error(result.error || '文件上传失败');
+                }
+            } catch (error) {
+                console.error('Excel文件上传失败:', error);
+                showMessage('Excel文件上传失败: ' + error.message, 'error');
+                clearSelectedFile();
+            }
+        }
+        
+        // 显示Excel分析结果
+        function showExcelAnalysisResult(analysis) {
+            if (!analysis) return;
+            
+            let resultHtml = '';
+            
+            if (analysis.workbook_name) {
+                resultHtml += `<strong>工作簿:</strong> ${analysis.workbook_name}<br>`;
+            }
+            
+            if (analysis.sheets && analysis.sheets.length > 0) {
+                resultHtml += `<strong>工作表:</strong> ${analysis.sheets.join(', ')}<br>`;
+            }
+            
+            if (analysis.headers) {
+                resultHtml += `<strong>表头:</strong> ${analysis.headers.join(' | ')}<br>`;
+            }
+            
+            if (analysis.total_rows) {
+                resultHtml += `<strong>数据行数:</strong> ${analysis.total_rows}<br>`;
+            }
+            
+            if (analysis.confidence) {
+                resultHtml += `<strong>分析置信度:</strong> ${Math.round(analysis.confidence * 100)}%<br>`;
+            }
+            
+            if (analysis.column_mapping) {
+                resultHtml += '<strong>列映射:</strong><br>';
+                Object.entries(analysis.column_mapping).forEach(([key, value]) => {
+                    if (value) {
+                        resultHtml += `&nbsp;&nbsp;${key}: 列${value}<br>`;
+                    }
+                });
+            }
+            
+            document.getElementById('excelAnalysisResult').innerHTML = resultHtml;
+            document.getElementById('excelAnalysisSection').style.display = 'block';
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // 修改发货单生成函数，支持Excel同步
+        async function generateShipment() {
+            try {
+                showMessage('正在生成发货单...', 'info');
+                
+                // 收集表单数据
+                const formData = {
+                    templateName: document.getElementById('templateName').value,
+                    customerName: document.getElementById('customerName').value,
+                    contactPerson: document.getElementById('contactPerson').value,
+                    contactPhone: document.getElementById('contactPhone').value,
+                    contactAddress: document.getElementById('contactAddress').value,
+                    orderNumber: document.getElementById('orderNumber').value,
+                    products: collectProductsData(),
+                    // 添加Excel同步参数
+                    excelSync: {
+                        enabled: excelSyncEnabled,
+                        filePath: excelFilePath,
+                        analysis: excelAnalysisResult
+                    }
+                };
+                
+                // 验证必填字段
+                if (!formData.customerName.trim()) {
+                    throw new Error('请填写客户名称');
+                }
+                
+                if (formData.products.length === 0) {
+                    throw new Error('请至少添加一个产品');
+                }
+                
+                // 发送生成请求
+                const response = await fetch('/api/shipment/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('发货单生成成功！', 'success');
+                    
+                    // 显示生成结果
+                    if (result.data) {
+                        showShipmentResult(result.data);
+                    }
+                    
+                    // 如果启用了Excel同步，显示同步结果
+                    if (result.excel_sync) {
+                        showExcelSyncResult(result.excel_sync);
+                    }
+                    
+                    // 检查是否启用了自动同步
+                    if (autoSyncEnabled && excelSyncEnabled && excelFilePath && excelAnalysisResult) {
+                        showMessage('正在自动执行Excel同步...', 'info');
+                        await performAutoSync(result.data);
+                    }
+                    
+                    // 清空表单
+                    resetForm();
+                    
+                } else {
+                    throw new Error(result.error || '发货单生成失败');
+                }
+                
+            } catch (error) {
+                console.error('发货单生成失败:', error);
+                showMessage('发货单生成失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 显示Excel同步结果
+        function showExcelSyncResult(excelSync) {
+            let syncHtml = '<div style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px; border: 1px solid #4caf50;">';
+            syncHtml += '<h4 style="color: #2e7d32; margin-bottom: 10px;">📊 Excel同步结果</h4>';
+            syncHtml += `<p><strong>同步状态:</strong> ${excelSync.success ? '✅ 成功' : '❌ 失败'}</p>`;
+            
+            if (excelSync.success) {
+                syncHtml += `<p><strong>写入行数:</strong> ${excelSync.rows_written || 0}</p>`;
+                syncHtml += `<p><strong>起始行号:</strong> ${excelSync.start_row || '未知'}</p>`;
+                syncHtml += `<p><strong>产品数量:</strong> ${excelSync.products_count || 0}</p>`;
+                
+                if (excelSync.details) {
+                    syncHtml += '<p><strong>同步详情:</strong></p>';
+                    syncHtml += '<ul style="margin-left: 20px;">';
+                    if (excelSync.details.products) {
+                        excelSync.details.products.forEach((product, index) => {
+                            syncHtml += `<li>产品${index + 1}: ${product.name} - ${product.quantity} ${product.unit}</li>`;
+                        });
+                    }
+                    syncHtml += '</ul>';
+                }
+            } else {
+                syncHtml += `<p style="color: #d32f2f;"><strong>同步失败:</strong> ${excelSync.error || '未知错误'}</p>`;
+            }
+            
+            syncHtml += '</div>';
+            
+            // 如果结果区域存在，则显示在这里
+            const resultSection = document.getElementById('resultSection');
+            if (resultSection && resultSection.style.display !== 'none') {
+                const resultContent = document.getElementById('resultContent');
+                resultContent.innerHTML += syncHtml;
+            }
+        }
+        
+        // 执行自动同步
+        async function performAutoSync(shipmentData) {
+            try {
+                const response = await fetch('/api/excel/sync', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        filePath: excelFilePath,
+                        analysis: excelAnalysisResult,
+                        shipmentData: shipmentData
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('Excel自动同步成功！', 'success');
+                    showExcelSyncResult(result.excel_sync);
+                } else {
+                    showMessage('Excel自动同步失败: ' + (result.error || '未知错误'), 'error');
+                }
+            } catch (error) {
+                console.error('Excel自动同步失败:', error);
+                showMessage('Excel自动同步失败: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

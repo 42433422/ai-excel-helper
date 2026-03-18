@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发货单生成系统工作流程图</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.4.0/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+        .mermaid {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .description {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-left: 4px solid #1e90ff;
+            margin: 20px 0;
+        }
+        .note {
+            background-color: #fffacd;
+            padding: 15px;
+            border-left: 4px solid #ffd700;
+            margin: 20px 0;
+        }
+        .step {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .step p {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>发货单生成系统工作流程图</h1>
+        
+        <div class="section">
+            <h2>一、完整工作流程</h2>
+            <div class="mermaid">
+                flowchart TD
+                    subgraph 前端层
+                        A[用户输入订单信息] --> B[选择模板和自定义模式]
+                        B --> C[点击生成发货单]
+                        C --> D[发送API请求]
+                    end
+                    
+                    subgraph 后端层
+                        D --> E[订单解析 - shipment_parser]
+                        E --> F[数据验证和处理]
+                        F --> G[生成Excel发货单 - shipment_document]
+                        G --> H[创建发货记录]
+                        H --> I[生成标签数据]
+                    end
+                    
+                    subgraph 标签生成层
+                        I --> J[选择BarTender模板]
+                        J --> K[填充标签数据 - label_generator]
+                        K --> L[生成标签文件]
+                    end
+                    
+                    subgraph OCR识别层
+                        L --> M[识别标签字段位置]
+                        M --> N[提取文字内容]
+                        N --> O[创建位置映射]
+                        O --> P[验证和纠正OCR错误]
+                    end
+                    
+                    P --> Q[返回生成结果]
+                    Q --> R[前端显示结果和下载链接]
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>二、详细步骤说明</h2>
+            
+            <div class="step">
+                <h3>1. 前端输入阶段</h3>
+                <p><strong>用户输入订单信息</strong>：用户在前端页面输入订单文本，例如"温总 627AA PE特清底漆 3桶"</p>
+                <p><strong>选择模板和自定义模式</strong>：用户选择Excel模板（如尹玉华1.xlsx），并可选择是否启用自定义模式</p>
+                <p><strong>点击生成发货单</strong>：用户点击按钮提交订单信息</p>
+                <p><strong>发送API请求</strong>：前端通过AJAX发送POST请求到/api/generate端点</p>
+            </div>
+            
+            <div class="step">
+                <h3>2. 后端处理阶段</h3>
+                <p><strong>订单解析</strong>：shipment_parser.py解析订单文本，提取产品信息、购买单位、数量等</p>
+                <p><strong>数据验证</strong>：检查解析结果是否有效，验证产品信息</p>
+                <p><strong>生成Excel发货单</strong>：shipment_document.py使用模板生成Excel文档，填充产品信息</p>
+                <p><strong>创建发货记录</strong>：在数据库中创建发货记录，记录订单详情</p>
+                <p><strong>生成标签数据</strong>：从解析结果中提取标签所需的数据</p>
+            </div>
+            
+            <div class="step">
+                <h3>3. 标签生成阶段</h3>
+                <p><strong>选择BarTender模板</strong>：选择合适的BarTender模板文件（如8520F哑光白面.btw）</p>
+                <p><strong>填充标签数据</strong>：label_generator.py将产品信息填充到模板中</p>
+                <p><strong>生成标签文件</strong>：生成PDF或其他格式的标签文件</p>
+            </div>
+            
+            <div class="step">
+                <h3>4. OCR识别阶段</h3>
+                <p><strong>识别标签字段位置</strong>：OCR识别器识别标签中各个字段的位置</p>
+                <p><strong>提取文字内容</strong>：提取标签中的文字内容，包括产品编号、名称、日期等</p>
+                <p><strong>创建位置映射</strong>：创建字段位置与内容的映射关系</p>
+                <p><strong>验证和纠正OCR错误</strong>：验证识别结果，纠正OCR错误</p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>三、OCR识别器的作用</h2>
+            <div class="description">
+                <h3>OCR识别器在整个流程中扮演了关键角色：</h3>
+                <ul>
+                    <li><strong>标签模板分析</strong>：识别现有标签模板中各个字段的位置，创建位置映射表</li>
+                    <li><strong>动态位置调整</strong>：当使用不同模板时，自动识别字段位置，适应模板变化</li>
+                    <li><strong>质量控制</strong>：验证生成的标签内容是否正确，检查字段位置是否准确</li>
+                    <li><strong>数据提取</strong>：从标签中提取文字内容，用于后续处理和验证</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>四、技术实现细节</h2>
+            
+            <div class="step">
+                <h3>前端实现</h3>
+                <p>使用HTML/CSS/JavaScript构建用户界面，通过AJAX与后端API通信，提供表单验证和用户反馈</p>
+            </div>
+            
+            <div class="step">
+                <h3>后端实现</h3>
+                <p>使用Flask框架提供API服务，shipment_parser.py解析订单文本，shipment_document.py生成Excel文件，label_generator.py生成BarTender标签</p>
+            </div>
+            
+            <div class="step">
+                <h3>OCR实现</h3>
+                <p>使用EasyOCR库进行文字识别，实现位置映射算法记录字段坐标，提供错误纠正机制提高识别准确率</p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>五、数据流程</h2>
+            <div class="note">
+                <p><strong>数据流程：</strong></p>
+                <p>用户输入 → 订单解析 → 数据验证 → Excel生成 → 标签数据准备 → 标签生成 → OCR验证 → 最终输出</p>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>六、优势与特点</h2>
+            <ul>
+                <li><strong>自动化程度高</strong>：从输入到输出全流程自动化</li>
+                <li><strong>灵活性强</strong>：支持自定义模式和多种模板</li>
+                <li><strong>准确性高</strong>：OCR识别和错误纠正机制</li>
+                <li><strong>可扩展性好</strong>：模块化设计，易于添加新功能</li>
+                <li><strong>用户友好</strong>：简单直观的操作界面</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>七、应用场景</h2>
+            <ul>
+                <li><strong>批量订单处理</strong>：快速处理大量订单，生成标准化的发货单和标签</li>
+                <li><strong>标准化标签</strong>：确保标签格式统一，符合企业标准</li>
+                <li><strong>质量控制</strong>：验证标签内容准确性，避免错误</li>
+                <li><strong>追溯管理</strong>：记录所有发货和标签信息，便于后续追溯</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>八、系统架构</h2>
+            <div class="mermaid">
+                flowchart LR
+                    subgraph 客户端层
+                        Frontend[前端页面]
+                        Browser[浏览器]
+                    end
+                    
+                    subgraph 服务层
+                        FlaskApp[Flask应用]
+                        API[API接口]
+                    end
+                    
+                    subgraph 核心模块层
+                        Parser[订单解析器]
+                        DocGen[文档生成器]
+                        LabelGen[标签生成器]
+                        OCR[OCR识别器]
+                    end
+                    
+                    subgraph 外部系统层
+                        BarTender[BarTender软件]
+                        Database[SQLite数据库]
+                        FileSystem[文件系统]
+                    end
+                    
+                    Frontend -->|HTTP请求| API
+                    API --> FlaskApp
+                    FlaskApp --> Parser
+                    FlaskApp --> DocGen
+                    FlaskApp --> LabelGen
+                    LabelGen --> BarTender
+                    BarTender --> FileSystem
+                    Parser --> Database
+                    DocGen --> FileSystem
+                    OCR --> FileSystem
+                    OCR --> Database
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default'
+        });
+    </script>
+</body>
+</html>

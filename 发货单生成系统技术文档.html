@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发货单生成系统 - 技术文档</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        h2 {
+            color: #3498db;
+            margin: 30px 0 15px 0;
+            font-size: 22px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        h3 {
+            color: #27ae60;
+            margin: 20px 0 10px 0;
+            font-size: 18px;
+        }
+        
+        h4 {
+            color: #e67e22;
+            margin: 15px 0 8px 0;
+            font-size: 16px;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+        }
+        
+        .api-endpoint {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .endpoint-method {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .endpoint-path {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+        }
+        
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        .param-table th, .param-table td {
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        .param-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .component-card {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        
+        .component-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .component-description {
+            color: #555;
+            margin-bottom: 10px;
+        }
+        
+        .component-path {
+            font-family: 'Courier New', Courier, monospace;
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .component-features {
+            margin-top: 10px;
+        }
+        
+        .component-features ul {
+            margin-left: 20px;
+        }
+        
+        .component-features li {
+            margin-bottom: 5px;
+        }
+        
+        ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .architecture-diagram {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .flow-chart {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .flow-box {
+            background: #3498db;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            min-width: 200px;
+            text-align: center;
+        }
+        
+        .flow-arrow {
+            font-size: 20px;
+            color: #7f8c8d;
+        }
+        
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .tech-card {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .tech-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .tech-description {
+            color: #555;
+            font-size: 14px;
+        }
+        
+        .deployment-guide {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .troubleshooting {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .security-notes {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .section {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            h2 {
+                font-size: 20px;
+            }
+            
+            h3 {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>发货单生成系统 - 技术文档</h1>
+        
+        <div class="section">
+            <h2>1. 系统概述</h2>
+            <p>发货单生成系统是一个完整的解决方案，用于从用户输入的订单信息自动生成发货单Excel文档和商标标签。系统支持智能解析自然语言订单文本，处理标准和非标准产品，并通过OCR技术验证标签内容的正确性。</p>
+            
+            <h3>1.1 系统架构</h3>
+            <div class="architecture-diagram">
+                <h4>系统架构图</h4>
+                <div class="flow-chart">
+                    <div class="flow-box">用户界面</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-box">Flask API</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-box">订单解析器</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-box">文档生成器</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-box">标签生成器</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-box">BarTender集成</div>
+                    <div class="flow-arrow">↓</div>
+                    <div class="flow-box">OCR验证</div>
+                </div>
+            </div>
+            
+            <h3>1.2 核心功能</h3>
+            <ul>
+                <li><strong>智能订单解析：</strong>从自然语言文本中提取结构化订单信息</li>
+                <li><strong>自定义模式：</strong>处理非标准产品，保留用户输入的产品信息</li>
+                <li><strong>Excel文档生成：</strong>使用模板生成标准发货单文档</li>
+                <li><strong>商标标签生成：</strong>通过BarTender软件生成标准化标签</li>
+                <li><strong>OCR标签验证：</strong>使用OCR技术验证标签内容的正确性</li>
+                <li><strong>数据库整合：</strong>从SQLite数据库中获取产品和客户信息</li>
+                <li><strong>Web界面：</strong>提供直观的用户界面，支持订单输入和结果下载</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>2. 技术栈</h2>
+            <div class="tech-stack">
+                <div class="tech-card">
+                    <div class="tech-name">Python 3.12</div>
+                    <div class="tech-description">主要开发语言，用于实现核心功能和业务逻辑</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-name">Flask</div>
+                    <div class="tech-description">轻量级Web框架，用于提供API接口和静态文件服务</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-name">OpenPyXL</div>
+                    <div class="tech-description">用于Excel文档的读取和生成，处理模板填充</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-name">SQLite</div>
+                    <div class="tech-description">轻量级数据库，存储产品信息和客户数据</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-name">BarTender</div>
+                    <div class="tech-description">专业标签设计和打印软件，用于生成商标标签</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-name">EasyOCR</div>
+                    <div class="tech-description">OCR技术，用于识别标签内容并验证信息正确性</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-name">win32com</div>
+                    <div class="tech-description">Windows COM接口，用于与BarTender软件交互</div>
+                </div>
+                <div class="tech-card">
+                    <div class="tech-name">HTML/CSS/JavaScript</div>
+                    <div class="tech-description">前端技术，用于构建用户界面</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>3. 核心组件</h2>
+            
+            <div class="component-card">
+                <div class="component-name">ShipmentParser</div>
+                <div class="component-path">AI助手/shipment_parser.py</div>
+                <div class="component-description">智能订单解析器，负责从自然语言文本中提取结构化订单信息</div>
+                <div class="component-features">
+                    <h4>主要功能：</h4>
+                    <ul>
+                        <li>提取购买单位信息</li>
+                        <li>分割多个产品条目</li>
+                        <li>解析产品名称、型号、数量、规格等信息</li>
+                        <li>支持自定义模式处理非标准产品</li>
+                        <li>从数据库获取产品和客户信息</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="component-card">
+                <div class="component-name">DocumentAPIGenerator</div>
+                <div class="component-path">AI助手/shipment_document.py</div>
+                <div class="component-description">文档生成器，使用模板生成Excel发货单文档</div>
+                <div class="component-features">
+                    <h4>主要功能：</h4>
+                    <ul>
+                        <li>加载Excel模板文件</li>
+                        <li>填充订单数据到模板中</li>
+                        <li>处理多产品订单</li>
+                        <li>保存生成的Excel文档</li>
+                        <li>返回文档下载链接</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="component-card">
+                <div class="component-name">LabelGenerator</div>
+                <div class="component-path">AI助手/BarTender_Template_Tools/label_generator.py</div>
+                <div class="component-description">标签生成器，从订单数据生成商标标签信息</div>
+                <div class="component-features">
+                    <h4>主要功能：</h4>
+                    <ul>
+                        <li>从订单数据中提取标签所需信息</li>
+                        <li>准备标签数据结构</li>
+                        <li>格式化数据以符合标签模板要求</li>
+                        <li>调用BarTenderIntegrator生成标签</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="component-card">
+                <div class="component-name">BarTenderIntegrator</div>
+                <div class="component-path">AI助手/BarTender_Template_Tools/bartender_integrator.py</div>
+                <div class="component-description">BarTender集成器，连接BarTender软件生成标签</div>
+                <div class="component-features">
+                    <h4>主要功能：</h4>
+                    <ul>
+                        <li>连接到BarTender应用程序</li>
+                        <li>打开BarTender模板文件</li>
+                        <li>获取模板信息和子字符串</li>
+                        <li>填充标签数据</li>
+                        <li>生成标签文件</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="component-card">
+                <div class="component-name">OCRTextProcessor</div>
+                <div class="component-path">AI助手/BarTender_Template_Tools/bartender_ocr_backend.py</div>
+                <div class="component-description">OCR文字处理器，识别标签内容并验证正确性</div>
+                <div class="component-features">
+                    <h4>主要功能：</h4>
+                    <ul>
+                        <li>截取BarTender标签窗口</li>
+                        <li>使用EasyOCR识别标签上的文字</li>
+                        <li>确定文字在标签上的位置</li>
+                        <li>验证标签信息的正确性</li>
+                        <li>修改标签上的文字内容</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>3. API接口</h2>
+            
+            <div class="api-endpoint">
+                <h4>3.1 生成发货单</h4>
+                <div class="endpoint-method">POST</div>
+                <div class="endpoint-path">/api/generate</div>
+                
+                <h4>请求参数：</h4>
+                <table class="param-table">
+                    <tr>
+                        <th>参数名</th>
+                        <th>类型</th>
+                        <th>必填</th>
+                        <th>描述</th>
+                    </tr>
+                    <tr>
+                        <td>order_text</td>
+                        <td>string</td>
+                        <td>是</td>
+                        <td>订单文本信息</td>
+                    </tr>
+                    <tr>
+                        <td>template_name</td>
+                        <td>string</td>
+                        <td>否</td>
+                        <td>模板文件名，默认"尹玉华1.xlsx"</td>
+                    </tr>
+                    <tr>
+                        <td>custom_mode</td>
+                        <td>boolean</td>
+                        <td>否</td>
+                        <td>是否启用自定义模式，默认false</td>
+                    </tr>
+                </table>
+                
+                <h4>响应示例：</h4>
+                <div class="code-block">
+{
+  "success": true,
+  "message": "发货单生成成功",
+  "document": {
+    "filename": "发货单_20260125_123456.xlsx",
+    "path": "outputs/发货单_20260125_123456.xlsx",
+    "url": "/download/发货单_20260125_123456.xlsx"
+  },
+  "order_data": {
+    "purchase_unit": "蕊芯",
+    "products": [
+      {
+        "name": "PU哑光黑面漆",
+        "model_number": "",
+        "quantity_kg": 20.0,
+        "quantity_tins": 2,
+        "tin_spec": 10.0,
+        "unit_price": 0.0,
+        "amount": 0.0
+      }
+    ]
+  }
+}
+                </div>
+            </div>
+            
+            <div class="api-endpoint">
+                <h4>3.2 获取模板列表</h4>
+                <div class="endpoint-method">GET</div>
+                <div class="endpoint-path">/api/templates</div>
+                
+                <h4>响应示例：</h4>
+                <div class="code-block">
+{
+  "success": true,
+  "templates": [
+    "尹玉华1.xlsx",
+    "七彩乐园.xlsx",
+    "发货单.xlsx"
+  ]
+}
+                </div>
+            </div>
+            
+            <div class="api-endpoint">
+                <h4>3.3 下载文件</h4>
+                <div class="endpoint-method">GET</div>
+                <div class="endpoint-path">/download/&lt;filename&gt;</div>
+                
+                <h4>描述：</h4>
+                <p>下载生成的发货单Excel文档或标签文件</p>
+            </div>
+            
+            <div class="api-endpoint">
+                <h4>3.4 健康检查</h4>
+                <div class="endpoint-method">GET</div>
+                <div class="endpoint-path">/health</div>
+                
+                <h4>响应示例：</h4>
+                <div class="code-block">
+{
+  "status": "ok",
+  "service": "shipment-document-generator"
+}
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>4. 数据结构</h2>
+            
+            <h3>4.1 订单数据结构</h3>
+            <div class="code-block">
+{
+  "purchase_unit": "蕊芯",
+  "products": [
+    {
+      "name": "PU哑光黑面漆",
+      "model_number": "",
+      "quantity_kg": 20.0,
+      "quantity_tins": 2,
+      "tin_spec": 10.0,
+      "unit_price": 0.0,
+      "amount": 0.0
+    }
+  ],
+  "parsed_data": {
+    "purchase_unit": "蕊芯",
+    "product_name": "PU哑光黑面漆",
+    "model_number": "",
+    "quantity_kg": 20.0,
+    "quantity_tins": 2,
+    "tin_spec": 10.0,
+    "unit_price": 0.0,
+    "amount": 0.0,
+    "products": [...],
+    "parse_time": "2026-01-25T12:34:56",
+    "is_custom": false
+  }
+}
+            </div>
+            
+            <h3>4.2 标签数据结构</h3>
+            <div class="code-block">
+{
+  "ProductNumber": "",
+  "ProductName": "PU哑光黑面漆",
+  "ProductionDate": "2026-01-25",
+  "Spec": "10.0kg/桶",
+  "PurchaseUnit": "蕊芯",
+  "Quantity": "2桶",
+  "TotalWeight": "20.0kg"
+}
+            </div>
+            
+            <h3>4.3 数据库结构</h3>
+            <h4>4.3.1 产品表 (products)</h4>
+            <table class="param-table">
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>描述</th>
+                </tr>
+                <tr>
+                    <td>id</td>
+                    <td>INTEGER</td>
+                    <td>产品ID</td>
+                </tr>
+                <tr>
+                    <td>model_number</td>
+                    <td>TEXT</td>
+                    <td>产品型号</td>
+                </tr>
+                <tr>
+                    <td>name</td>
+                    <td>TEXT</td>
+                    <td>产品名称</td>
+                </tr>
+                <tr>
+                    <td>specification</td>
+                    <td>TEXT</td>
+                    <td>产品规格</td>
+                </tr>
+                <tr>
+                    <td>price</td>
+                    <td>REAL</td>
+                    <td>产品价格</td>
+                </tr>
+                <tr>
+                    <td>is_active</td>
+                    <td>INTEGER</td>
+                    <td>是否激活</td>
+                </tr>
+            </table>
+            
+            <h4>4.3.2 购买单位表 (purchase_units)</h4>
+            <table class="param-table">
+                <tr>
+                    <th>字段名</th>
+                    <th>类型</th>
+                    <th>描述</th>
+                </tr>
+                <tr>
+                    <td>id</td>
+                    <td>INTEGER</td>
+                    <td>单位ID</td>
+                </tr>
+                <tr>
+                    <td>unit_name</td>
+                    <td>TEXT</td>
+                    <td>单位名称</td>
+                </tr>
+                <tr>
+                    <td>contact_person</td>
+                    <td>TEXT</td>
+                    <td>联系人</td>
+                </tr>
+                <tr>
+                    <td>contact_phone</td>
+                    <td>TEXT</td>
+                    <td>联系电话</td>
+                </tr>
+                <tr>
+                    <td>address</td>
+                    <td>TEXT</td>
+                    <td>地址</td>
+                </tr>
+                <tr>
+                    <td>discount_rate</td>
+                    <td>REAL</td>
+                    <td>折扣率</td>
+                </tr>
+                <tr>
+                    <td>is_active</td>
+                    <td>INTEGER</td>
+                    <td>是否激活</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>5. 技术实现细节</h2>
+            
+            <h3>5.1 智能订单解析</h3>
+            <p>订单解析器使用正则表达式和规则引擎从自然语言文本中提取结构化信息。主要步骤包括：</p>
+            <ul>
+                <li>提取购买单位：通过匹配已知单位列表和数据库中的单位信息</li>
+                <li>分割产品：按逗号分割多个产品条目</li>
+                <li>解析产品信息：使用正则表达式提取产品名称、型号、数量、规格等</li>
+                <li>自定义模式处理：当启用自定义模式时，保留用户输入的产品信息，不强制匹配数据库</li>
+            </ul>
+            
+            <h3>5.2 文档生成</h3>
+            <p>文档生成器使用OpenPyXL库加载Excel模板，填充订单数据，然后保存为新的Excel文件。主要步骤包括：</p>
+            <ul>
+                <li>加载模板文件：使用指定的模板文件名</li>
+                <li>定位数据区域：在模板中找到需要填充数据的单元格</li>
+                <li>填充订单数据：购买单位、产品列表、数量、金额等</li>
+                <li>处理多产品：如果订单包含多个产品，自动扩展表格</li>
+                <li>保存文件：将生成的文档保存到outputs目录</li>
+            </ul>
+            
+            <h3>5.3 标签生成</h3>
+            <p>标签生成通过BarTenderIntegrator组件与BarTender软件交互，实现自动化标签生成。主要步骤包括：</p>
+            <ul>
+                <li>连接BarTender：使用COM接口创建BarTender应用实例</li>
+                <li>打开模板：加载指定的BarTender模板文件</li>
+                <li>填充数据：将标签数据填充到模板的相应字段</li>
+                <li>生成标签：使用BarTender的API生成标签文件</li>
+                <li>保存结果：将生成的标签保存为PDF或其他格式</li>
+            </ul>
+            
+            <h3>5.4 OCR验证</h3>
+            <p>OCR验证使用EasyOCR库识别标签上的文字，验证标签信息的正确性。主要步骤包括：</p>
+            <ul>
+                <li>窗口截图：截取BarTender标签窗口的内容</li>
+                <li>文字识别：使用EasyOCR识别标签上的文字及其位置</li>
+                <li>内容验证：检查识别的文字是否与预期内容一致</li>
+                <li>位置验证：确保文字在标签上的位置正确</li>
+                <li>结果保存：将验证结果保存到日志文件</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>6. 部署指南</h2>
+            
+            <div class="deployment-guide">
+                <h3>6.1 环境要求</h3>
+                <ul>
+                    <li>Windows操作系统</li>
+                    <li>Python 3.12或更高版本</li>
+                    <li>BarTender软件（用于标签生成）</li>
+                    <li>所需Python库：Flask、OpenPyXL、EasyOCR、win32com、SQLite3</li>
+                </ul>
+                
+                <h3>6.2 安装步骤</h3>
+                <ol>
+                    <li><strong>安装Python：</strong>下载并安装Python 3.12或更高版本</li>
+                    <li><strong>安装依赖：</strong>在项目目录中运行 <code>pip install -r requirements.txt</code></li>
+                    <li><strong>安装BarTender：</strong>下载并安装BarTender软件</li>
+                    <li><strong>配置环境：</strong>确保BarTender已正确安装并可以通过COM接口访问</li>
+                    <li><strong>启动服务：</strong>运行 <code>python app_api.py</code> 或使用启动器批处理文件</li>
+                </ol>
+                
+                <h3>6.3 启动方式</h3>
+                <p>系统提供了两种启动方式：</p>
+                <ol>
+                    <li><strong>命令行启动：</strong>在项目目录中运行 <code>python app_api.py</code></li>
+                    <li><strong>批处理文件启动：</strong>双击运行 <code>发货单启动器2.0.bat</code> 文件</li>
+                </ol>
+                
+                <h3>6.4 配置说明</h3>
+                <ul>
+                    <li><strong>模板文件：</strong>将Excel模板文件放在项目根目录中</li>
+                    <li><strong>BarTender模板：</strong>将BTW模板文件放在项目根目录中</li>
+                    <li><strong>数据库文件：</strong>系统使用SQLite数据库，数据库文件为 <code>products.db</code></li>
+                    <li><strong>输出目录：</strong>生成的文档和标签保存在 <code>outputs</code> 目录中</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>7. 故障排除</h2>
+            
+            <div class="troubleshooting">
+                <h3>7.1 常见问题</h3>
+                
+                <h4>7.1.1 BarTender连接失败</h4>
+                <ul>
+                    <li><strong>症状：</strong>标签生成失败，错误信息显示无法连接到BarTender</li>
+                    <li><strong>原因：</strong>BarTender未安装或未正确配置</li>
+                    <li><strong>解决方法：</strong>
+                        <ul>
+                            <li>确保BarTender软件已正确安装</li>
+                            <li>检查BarTender是否已启动</li>
+                            <li>确保当前用户有足够的权限访问BarTender</li>
+                            <li>检查COM接口是否正常工作</li>
+                        </ul>
+                    </li>
+                </ul>
+                
+                <h4>7.1.2 OCR识别失败</h4>
+                <ul>
+                    <li><strong>症状：</strong>标签验证失败，无法识别标签上的文字</li>
+                    <li><strong>原因：</strong>EasyOCR未正确安装或标签图像质量差</li>
+                    <li><strong>解决方法：</strong>
+                        <ul>
+                            <li>确保EasyOCR库已正确安装</li>
+                            <li>检查标签图像是否清晰</li>
+                            <li>调整OCR识别参数</li>
+                        </ul>
+                    </li>
+                </ul>
+                
+                <h4>7.1.3 订单解析失败</h4>
+                <ul>
+                    <li><strong>症状：</strong>无法从订单文本中提取有效信息</li>
+                    <li><strong>原因：</strong>订单文本格式不正确或产品信息不存在于数据库中</li>
+                    <li><strong>解决方法：</strong>
+                        <ul>
+                            <li>检查订单文本格式是否正确</li>
+                            <li>启用自定义模式处理非标准产品</li>
+                            <li>确保数据库中存在相关产品信息</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>8. 安全注意事项</h2>
+            
+            <div class="security-notes">
+                <h3>8.1 安全考虑</h3>
+                <ul>
+                    <li><strong>文件上传：</strong>系统不接受文件上传，只处理用户输入的文本信息</li>
+                    <li><strong>路径遍历：</strong>在文件下载API中实现了路径遍历防护，确保用户只能下载outputs目录中的文件</li>
+                    <li><strong>SQL注入：</strong>使用参数化查询，防止SQL注入攻击</li>
+                    <li><strong>输入验证：</strong>对用户输入进行验证，确保输入符合预期格式</li>
+                    <li><strong>错误处理：</strong>实现了完整的错误处理，避免敏感信息泄露</li>
+                </ul>
+                
+                <h3>8.2 最佳实践</h3>
+                <ul>
+                    <li>定期备份数据库文件</li>
+                    <li>限制系统的访问权限</li>
+                    <li>定期更新依赖库</li>
+                    <li>监控系统日志，及时发现异常</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>9. 总结与展望</h2>
+            
+            <h3>9.1 系统优势</h3>
+            <ul>
+                <li><strong>智能解析：</strong>从自然语言文本中提取结构化信息，提高用户体验</li>
+                <li><strong>自定义模式：</strong>灵活处理非标准产品，增强系统适应性</li>
+                <li><strong>自动化：</strong>从订单输入到标签生成的全流程自动化，提高效率</li>
+                <li><strong>准确性：</strong>使用OCR技术验证标签内容，确保标签信息的正确性</li>
+                <li><strong>可扩展性：</strong>模块化设计，易于添加新功能和集成新系统</li>
+            </ul>
+            
+            <h3>9.2 未来展望</h3>
+            <ul>
+                <li><strong>AI增强：</strong>使用机器学习模型提高订单解析的准确性和适应性</li>
+                <li><strong>多语言支持：</strong>添加对多语言订单的支持</li>
+                <li><strong>云集成：</strong>实现与云存储和云服务的集成</li>
+                <li><strong>移动应用：</strong>开发移动应用，支持随时随地生成发货单和标签</li>
+                <li><strong>数据分析：</strong>添加数据分析功能，提供订单趋势和库存管理建议</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
