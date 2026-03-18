@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音学习简化版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.2rem;
+        }
+        
+        .tab-container {
+            display: flex;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 5px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            color: #7f8c8d;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            background: #3498db;
+            color: white;
+            box-shadow: 0 2px 10px rgba(52, 152, 219, 0.3);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-section {
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ecf0f1;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+            background: #f8f9fa;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+            background: white;
+        }
+        
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            margin-right: 10px;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+            margin-left: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+            transform: translateY(-2px);
+        }
+        
+        .result-section {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 5px solid #3498db;
+        }
+        
+        .result-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .comparison {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .wrong-text {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            flex: 1;
+            text-align: center;
+        }
+        
+        .arrow {
+            font-size: 2rem;
+            color: #3498db;
+        }
+        
+        .correct-text {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            flex: 1;
+            text-align: center;
+        }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 语音学习简化版</h1>
+            <p>输入错误语音识别结果 → 学习正确对应 → 智能匹配</p>
+        </div>
+        
+        <div class="tab-container">
+            <button class="tab active" onclick="switchTab('learn')">
+                📚 学习功能
+            </button>
+            <button class="tab" onclick="switchTab('test')">
+                🧪 测试功能
+            </button>
+            <button class="tab" onclick="switchTab('view')">
+                👁️ 查看数据库
+            </button>
+        </div>
+        
+        <!-- 学习功能 -->
+        <div id="learn" class="tab-content active">
+            <div class="form-section">
+                <h2>📚 学习功能</h2>
+                <p>输入错误的语音识别结果和对应的正确文本</p>
+            </div>
+            
+            <form id="learnForm">
+                <div class="form-group">
+                    <label for="wrongInput">❌ 错误文字（语音识别结果）</label>
+                    <textarea 
+                        id="wrongInput" 
+                        class="form-control" 
+                        placeholder="例如：武统是5桶批优雅白"
+                        required
+                    ></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="correctInput">✅ 正确文字（应该说的是）</label>
+                    <textarea 
+                        id="correctInput" 
+                        class="form-control" 
+                        placeholder="例如：5桶Pu哑光固化剂"
+                        required
+                    ></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    💾 保存学习样板
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="clearForm()">
+                    🗑️ 清空
+                </button>
+            </form>
+            
+            <div id="learnResult"></div>
+        </div>
+        
+        <!-- 测试功能 -->
+        <div id="test" class="tab-content">
+            <div class="form-section">
+                <h2>🧪 测试功能</h2>
+                <p>输入包含错误的文本，查看是否能匹配到正确的对应关系</p>
+            </div>
+            
+            <form id="testForm">
+                <div class="form-group">
+                    <label for="testInput">🔍 输入包含错误的文本</label>
+                    <textarea 
+                        id="testInput" 
+                        class="form-control" 
+                        placeholder="输入包含已知错误的文本，例如：武统是5桶批优雅白"
+                        required
+                    ></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-success">
+                    🔍 测试匹配
+                </button>
+            </form>
+            
+            <div id="testResult"></div>
+        </div>
+        
+        <!-- 查看数据库 -->
+        <div id="view" class="tab-content">
+            <div class="form-section">
+                <h2>👁️ 查看数据库</h2>
+                <p>查看已保存的所有学习样板</p>
+            </div>
+            
+            <div class="form-group">
+                <button type="button" class="btn btn-success" onclick="loadDatabase()">
+                    🔄 刷新数据库
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="clearDatabase()">
+                    🗑️ 清空数据库
+                </button>
+            </div>
+            
+            <div id="databaseList"></div>
+        </div>
+    </div>
+    
+    <div id="alertBox" class="alert"></div>
+    
+    <script>
+        // 切换标签页
+        function switchTab(tabId) {
+            // 隐藏所有内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // 移除所有标签激活状态
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // 显示选中的内容
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+            
+            // 加载对应内容
+            if (tabId === 'view') {
+                loadDatabase();
+            }
+        }
+        
+        // 清空表单
+        function clearForm() {
+            document.getElementById('wrongInput').value = '';
+            document.getElementById('correctInput').value = '';
+            document.getElementById('learnResult').innerHTML = '';
+        }
+        
+        // 学习功能表单处理
+        document.getElementById('learnForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const wrongInput = document.getElementById('wrongInput').value.trim();
+            const correctInput = document.getElementById('correctInput').value.trim();
+            
+            if (!wrongInput || !correctInput) {
+                showAlert('请输入错误和正确的文本', 'error');
+                return;
+            }
+            
+            showLoading('learnResult', '正在保存学习样板...');
+            
+            try {
+                const response = await fetch('/api/voice_learning/add_sample', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        wrong_input: wrongInput,
+                        correct_output: correctInput,
+                        category: '用户学习',
+                        context: '手动学习'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('learnResult').innerHTML = `
+                        <div class="result-section">
+                            <h3>✅ 学习样板保存成功！</h3>
+                            <div class="comparison">
+                                <div class="wrong-text">${wrongInput}</div>
+                                <div class="arrow">→</div>
+                                <div class="correct-text">${correctInput}</div>
+                            </div>
+                            <p>系统已记住这个错误→正确的对应关系，下次遇到相同错误时会自动应用。</p>
+                        </div>
+                    `;
+                    clearForm();
+                    showAlert('学习样板保存成功！', 'success');
+                } else {
+                    showAlert('保存失败: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('保存失败:', error);
+                showAlert('保存失败，请重试', 'error');
+            }
+        });
+        
+        // 测试功能表单处理
+        document.getElementById('testForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const testInput = document.getElementById('testInput').value.trim();
+            
+            if (!testInput) {
+                showAlert('请输入要测试的文本', 'error');
+                return;
+            }
+            
+            showLoading('testResult', '正在测试AI解析...');
+            
+            try {
+                // 改为调用完整的AI解析API
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        order_text: testInput,
+                        custom_mode: true,  // 使用自定义模式获得最佳效果
+                        number_mode: false
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayAITestResults(data, testInput);
+                } else {
+                    showAlert('AI解析失败: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('测试失败:', error);
+                showAlert('测试失败，请重试', 'error');
+            }
+        });
+        
+        // 显示AI测试结果
+        function displayAITestResults(data, originalText) {
+            const resultContainer = document.getElementById('testResult');
+            
+            let html = `
+                <div class="result-section">
+                    <h3>🧪 AI解析测试结果</h3>
+            `;
+            
+            // 学习样板应用情况
+            const learningInfo = data.learning_applied || {};
+            if (learningInfo.corrections_count > 0) {
+                html += `
+                    <div class="comparison" style="margin: 20px 0; padding: 20px; background: #e8f5e8; border-radius: 10px; border: 2px solid #27ae60;">
+                        <h4><i class="fa fa-magic"></i> 学习样板应用效果</h4>
+                        <div class="comparison" style="margin: 15px 0;">
+                            <div class="wrong-text">${learningInfo.original_text}</div>
+                            <div class="arrow">→</div>
+                            <div class="correct-text">${learningInfo.corrected_text}</div>
+                        </div>
+                        <p><strong>✅ 成功应用 ${learningInfo.corrections_count} 个学习样板</strong></p>
+                        
+                        ${learningInfo.applied_corrections ? learningInfo.applied_corrections.map(correction => 
+                            `<div class="suggestion-item" style="margin: 5px 0; padding: 10px; background: white; border-radius: 5px;">
+                                <strong>"${correction.original}"</strong> → <strong>"${correction.corrected}"</strong>
+                                <br><small>置信度: ${(correction.confidence * 100).toFixed(1)}%</small>
+                            </div>`
+                        ).join('') : ''}
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="comparison" style="margin: 20px 0; padding: 20px; background: #fff3cd; border-radius: 10px; border: 2px solid #ffc107;">
+                        <div class="wrong-text">${originalText}</div>
+                        <div class="arrow">→</div>
+                        <div class="correct-text">${originalText}</div>
+                    </div>
+                    <p><strong>⚠️ 本次测试未应用学习样板</strong> - 文本中包含的错误在数据库中没有对应学习样板。</p>
+                `;
+            }
+            
+            // AI解析结果
+            const parsedData = data.parsed_data || {};
+            html += `
+                <div class="ai-suggestion" style="margin-top: 30px;">
+                    <h4><i class="fa fa-cogs"></i> AI产品识别结果</h4>
+                    <p><strong>购买单位:</strong> ${parsedData.purchase_unit || '未识别'}</p>
+                    <p><strong>识别产品数量:</strong> ${(parsedData.products || []).length} 个</p>
+            `;
+            
+            if (parsedData.products && parsedData.products.length > 0) {
+                html += '<h5>📦 识别到的产品：</h5>';
+                parsedData.products.forEach((product, index) => {
+                    html += `
+                        <div class="suggestion-item" style="margin: 10px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;">
+                            <strong>产品 ${index + 1}:</strong> ${product.name || '未命名'}
+                            <br><small>数量: ${product.quantity_tins || 0}桶 (${product.quantity_kg || 0}kg)</small>
+                            ${product.unit_price ? `<br><small>单价: ¥${product.unit_price}, 总价: ¥${product.amount || 0}</small>` : ''}
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<p style="color: #e74c3c;"><strong>❌ 未能识别出产品信息</strong></p>';
+            }
+            
+            const totalAmount = data.document && data.document.total_amount;
+            if (totalAmount) {
+                html += `<p><strong>💰 总金额:</strong> ¥${totalAmount}</p>`;
+            }
+            
+            html += `</div>`;
+            
+            // 生成文件信息
+            if (data.document && data.document.filename) {
+                html += `
+                    <div class="ai-suggestion" style="margin-top: 20px; padding: 20px; background: #d4edda; border-radius: 10px;">
+                        <h4><i class="fa fa-file-excel-o"></i> 自动生成发货单</h4>
+                        <p><strong>文件名:</strong> ${data.document.filename}</p>
+                        ${data.document.record_id ? `<p><strong>记录ID:</strong> ${data.document.record_id}</p>` : ''}
+                    </div>
+                `;
+            }
+            
+            html += `</div>`;
+            resultContainer.innerHTML = html;
+        }
+        
+        // 显示加载状态
+        function showLoading(elementId, message) {
+            document.getElementById(elementId).innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+        
+        // 显示提示信息
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.textContent = message;
+            alertBox.className = `alert alert-${type}`;
+            alertBox.style.display = 'block';
+            
+            setTimeout(() => {
+                alertBox.style.display = 'none';
+            }, 5000);
+        }
+        
+        // 加载示例
+        function loadSampleText() {
+            const samples = [
+                '瑞芯PE白底漆二十桶批优雅白武统pu哑光固化剂武统pu稀释剂180千克一桶',
+                '武统是5桶批优雅白',
+                '瑞星批白底漆20桶',
+                '武统pu哑光固化剂5桶'
+            ];
+            
+            const randomSample = samples[Math.floor(Math.random() * samples.length)];
+            document.getElementById('testInput').value = randomSample;
+            showAlert('已加载示例文本', 'success');
+        }
+
+        // 加载数据库列表
+        async function loadDatabase() {
+            showLoading('databaseList', '正在加载数据库...');
+            
+            try {
+                const response = await fetch('/api/voice_learning/samples');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    displayDatabaseList(data.samples || []);
+                } else {
+                    showAlert('加载数据库失败', 'error');
+                }
+            } catch (error) {
+                console.error('加载数据库失败:', error);
+                showAlert('加载数据库失败', 'error');
+            }
+        }
+        
+        // 显示数据库列表
+        function displayDatabaseList(samples) {
+            const container = document.getElementById('databaseList');
+            
+            if (samples.length === 0) {
+                container.innerHTML = `
+                    <div class="result-section">
+                        <h3>📭 暂无数据</h3>
+                        <p>还没有保存任何学习样板</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 保存样本数据到 dataset 中，以便编辑和删除功能使用
+            container.dataset.samples = JSON.stringify(samples);
+            
+            let html = '<div class="result-section"><h3>📚 学习样板列表</h3>';
+            html += `<p>共 ${samples.length} 个学习样板</p>`;
+            
+            samples.forEach((sample, index) => {
+                html += `
+                    <div class="comparison" style="margin: 15px 0; padding: 20px; background: white; border-radius: 10px; border-left: 5px solid #3498db;">
+                        <div class="wrong-text" style="flex: 1; margin: 0;">${sample.wrong_input}</div>
+                        <div class="arrow" style="flex: none;">→</div>
+                        <div class="correct-text" style="flex: 1; margin: 0;">${sample.correct_output}</div>
+                        <div style="margin-left: 20px; color: #7f8c8d; font-size: 0.9rem; min-width: 200px;">
+                            <div>分类: ${sample.category}</div>
+                            <div>使用次数: ${sample.usage_count}</div>
+                            <div>成功率: ${(sample.success_rate * 100).toFixed(1)}%</div>
+                            <div>创建时间: ${new Date(sample.created_at).toLocaleDateString()}</div>
+                            <div style="margin-top: 10px;">
+                                <button onclick="editSample(${index})" class="btn btn-primary" style="padding: 5px 10px; font-size: 0.8rem; margin-right: 5px;">✏️ 编辑</button>
+                                <button onclick="deleteSample(${index})" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.8rem; background: #e74c3c;">🗑️ 删除</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        // 编辑样板
+        function editSample(index) {
+            const samples = document.getElementById('databaseList').dataset.samples ? JSON.parse(document.getElementById('databaseList').dataset.samples) : [];
+            if (!samples[index]) return;
+            
+            const sample = samples[index];
+            
+            const newWrong = prompt('编辑错误文本:', sample.wrong_input);
+            if (newWrong === null) return; // 用户取消
+            
+            const newCorrect = prompt('编辑正确文本:', sample.correct_output);
+            if (newCorrect === null) return; // 用户取消
+            
+            const newCategory = prompt('编辑分类:', sample.category);
+            if (newCategory === null) return; // 用户取消
+            
+            updateSample(sample.id, newWrong, newCorrect, newCategory);
+        }
+        
+        // 更新样板
+        async function updateSample(id, wrongInput, correctOutput, category) {
+            try {
+                const response = await fetch(`/api/voice_learning/update_sample/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        wrong_input: wrongInput,
+                        correct_output: correctOutput,
+                        category: category
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('样板更新成功', 'success');
+                    loadDatabase(); // 重新加载列表
+                } else {
+                    showAlert('更新失败: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('更新失败:', error);
+                showAlert('更新失败，请重试', 'error');
+            }
+        }
+        
+        // 删除样板
+        function deleteSample(index) {
+            const samples = document.getElementById('databaseList').dataset.samples ? JSON.parse(document.getElementById('databaseList').dataset.samples) : [];
+            if (!samples[index]) return;
+            
+            const sample = samples[index];
+            
+            if (!confirm(`确定要删除这个学习样板吗？\n"${sample.wrong_input}" → "${sample.correct_output}"\n此操作不可恢复！`)) {
+                return;
+            }
+            
+            removeSample(sample.id);
+        }
+        
+        // 移除样板
+        async function removeSample(id) {
+            try {
+                const response = await fetch(`/api/voice_learning/delete_sample/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('样板删除成功', 'success');
+                    loadDatabase(); // 重新加载列表
+                } else {
+                    showAlert('删除失败: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                showAlert('删除失败，请重试', 'error');
+            }
+        }
+        
+        // 清空数据库
+        function clearDatabase() {
+            if (!confirm('确定要清空所有学习样板吗？此操作不可恢复！')) {
+                return;
+            }
+            
+            if (!confirm('请再次确认：真的要清空数据库吗？')) {
+                return;
+            }
+            
+            showLoading('databaseList', '正在清空数据库...');
+            
+            // 这里需要添加清空数据库的API
+            // 为了安全，暂时显示提示
+            document.getElementById('databaseList').innerHTML = `
+                <div class="result-section">
+                    <h3>⚠️ 功能限制</h3>
+                    <p>为了数据安全，清空功能需要管理员权限。</p>
+                    <p>如需清空数据库，请联系系统管理员。</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库管理 - 产品价格管理</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <!-- 配置Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        secondary: {
+                            50: '#fdf2f8',
+                            100: '#fce7f3',
+                            200: '#fbcfe8',
+                            300: '#f9a8d4',
+                            400: '#f472b6',
+                            500: '#ec4899',
+                            600: '#db2777',
+                            700: '#be185d',
+                            800: '#9d174d',
+                            900: '#831843',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-gradient {
+                background-clip: text;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            .bg-gradient-primary {
+                background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            }
+            .bg-gradient-secondary {
+                background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
+            }
+            .shadow-card {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+            .shadow-button {
+                box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1), 0 2px 4px -1px rgba(59, 130, 246, 0.06);
+            }
+            .transition-all-300 {
+                transition: all 0.3s ease-in-out;
+            }
+        }
+    </style>
+    <style>
+        /* 自定义全局样式 */
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-primary-500 to-secondary-500">
+    <!-- 导航栏 -->
+    <nav class="bg-white/10 backdrop-blur-md border-b border-white/20 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <i class="fa fa-database text-white text-2xl mr-3"></i>
+                    <span class="text-white font-bold text-xl">数据库管理系统</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="index.html" class="text-white hover:text-primary-200 transition-all-300">
+                        <i class="fa fa-home mr-1"></i> 首页
+                    </a>
+                    <a href="database_management.html" class="text-primary-200 font-semibold">
+                        <i class="fa fa-database mr-1"></i> 数据库管理
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 页面标题 -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">
+                <i class="fa fa-database mr-2"></i> 产品价格数据库管理
+            </h1>
+            <p class="text-white/80 text-lg">
+                选择客户单位，查看和管理产品信息
+            </p>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="bg-white rounded-2xl shadow-card p-6 mb-6">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <!-- 客户单位选择 -->
+                <div class="lg:col-span-2">
+                    <label for="customerSelect" class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fa fa-building-o mr-2 text-primary-500"></i>
+                        选择客户单位
+                    </label>
+                    <select 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all-300 appearance-none bg-white cursor-pointer"
+                        id="customerSelect"
+                        onchange="loadProductsForCustomer()"
+                    >
+                        <option value="">请选择客户单位...</option>
+                    </select>
+                </div>
+
+                <!-- 搜索框 -->
+                <div class="lg:col-span-1">
+                    <label for="searchInput" class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fa fa-search mr-2 text-primary-500"></i>
+                        搜索产品
+                    </label>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="searchInput"
+                            class="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all-300"
+                            placeholder="搜索产品名称或型号..."
+                            oninput="filterProducts()"
+                        >
+                        <i class="fa fa-search absolute left-3 top-4 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <!-- 统计信息 -->
+                <div class="lg:col-span-1">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        <i class="fa fa-bar-chart mr-2 text-primary-500"></i>
+                        当前统计
+                    </label>
+                    <div id="statsCard" class="bg-gray-50 p-4 rounded-lg">
+                        <div class="text-2xl font-bold text-primary-600" id="productCount">0</div>
+                        <div class="text-sm text-gray-600">个产品</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 按钮组 -->
+            <div class="flex flex-wrap gap-4 mt-6">
+                <button 
+                    type="button" 
+                    id="refreshBtn"
+                    class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-all-300 flex items-center"
+                    onclick="loadAllCustomers()"
+                >
+                    <i class="fa fa-refresh mr-2"></i> 刷新数据
+                </button>
+                <button 
+                    type="button" 
+                    class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-all-300 flex items-center"
+                    onclick="exportData()"
+                >
+                    <i class="fa fa-download mr-2"></i> 导出Excel
+                </button>
+                <button 
+                    type="button" 
+                    class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition-all-300 flex items-center"
+                    onclick="showAddProductModal()"
+                >
+                    <i class="fa fa-plus mr-2"></i> 添加产品
+                </button>
+            </div>
+        </div>
+
+        <!-- 购买单位管理区域 -->
+        <div class="bg-white rounded-2xl shadow-card mb-6">
+            <!-- 可折叠标题 -->
+            <div class="p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors" 
+                 onclick="togglePurchaseUnits()">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                        <i class="fa fa-users text-primary-500 mr-2"></i>
+                        购买单位管理
+                    </h2>
+                    <div class="flex items-center space-x-2">
+                        <span id="unitsCount" class="text-sm text-gray-500">0 个单位</span>
+                        <i id="unitsToggleIcon" class="fa fa-chevron-down text-gray-400 transform transition-transform"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 可折叠内容 -->
+            <div id="unitsContent" class="p-6">
+                <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6">
+                    <strong>管理提示：</strong> 在此区域添加、编辑和删除购买单位信息
+                </div>
+            
+                <!-- 添加新单位 -->
+                <div class="mb-8">
+                    <h3 class="text-xl font-bold text-gray-700 mb-4 flex items-center">
+                        <i class="fa fa-plus-circle text-green-500 mr-2"></i>
+                        添加新购买单位
+                    </h3>
+                    <form id="add-unit-form" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="col-span-1">
+                                <label for="unit-name" class="block text-sm font-medium text-gray-700 mb-1">单位名称 *</label>
+                                <input type="text" id="unit-name" name="unit_name" required 
+                                       placeholder="输入购买单位名称" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="col-span-1">
+                                <label for="contact-person" class="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+                                <input type="text" id="contact-person" name="contact_person" 
+                                       placeholder="联系人姓名" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="col-span-1">
+                                <label for="contact-phone" class="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+                                <input type="text" id="contact-phone" name="contact_phone" 
+                                       placeholder="联系电话" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="col-span-1 flex items-end">
+                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors w-full">
+                                    <i class="fa fa-plus mr-1"></i> 添加单位
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="add-unit-result" class="mt-4"></div>
+                </div>
+                
+                <!-- 购买单位列表 -->
+                <div>
+                    <h3 class="text-xl font-bold text-gray-700 mb-4 flex items-center">
+                        <i class="fa fa-list text-blue-500 mr-2"></i>
+                        购买单位列表
+                    </h3>
+                    <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                        <table id="units-table" class="min-w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单位名称</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系人</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系电话</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">地址</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="units-tbody">
+                                <tr>
+                                    <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                                        <i class="fa fa-spinner fa-spin mr-2"></i> 加载中...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 客户信息卡片 -->
+        <div id="customerInfoCard" class="bg-white rounded-2xl shadow-card p-6 mb-6 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    <i class="fa fa-building-o text-primary-500 mr-2"></i>
+                    客户信息
+                </h3>
+                <button 
+                    onclick="showEditCustomerModal()" 
+                    class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-all-300 flex items-center"
+                >
+                    <i class="fa fa-edit mr-2"></i> 编辑客户信息
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="customerInfo">
+                <!-- 客户信息将通过JavaScript动态填充 -->
+            </div>
+        </div>
+
+        <!-- 产品表格 -->
+        <div class="bg-white rounded-2xl shadow-card p-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
+                <div class="flex items-center">
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                        <i class="fa fa-list-ul text-primary-500 mr-2"></i>
+                        产品列表
+                    </h3>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <div class="relative flex-grow sm:flex-grow-0">
+                        <input 
+                            type="text" 
+                            id="productSearch" 
+                            placeholder="搜索产品型号或名称..." 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all-300"
+                            onkeyup="handleProductSearch(event)"
+                        >
+                        <button 
+                            type="button" 
+                            class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            onclick="clearProductSearch()"
+                        >
+                            <i class="fa fa-times-circle"></i>
+                        </button>
+                    </div>
+                    <div class="text-sm text-gray-600 whitespace-nowrap">
+                        共 <span id="totalProducts">0</span> 个产品
+                    </div>
+                </div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div id="loadingSpinner" class="flex flex-col items-center justify-center py-8 text-center space-y-4 hidden">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-primary-500"></div>
+                <p class="text-gray-600">正在加载产品数据...</p>
+            </div>
+
+            <!-- 产品表格 -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200" id="productsTable">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">型号</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">产品名称</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">价格</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="productsTableBody">
+                        <!-- 产品数据将通过JavaScript动态填充 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 空状态 -->
+            <div id="emptyState" class="text-center py-12 hidden">
+                <i class="fa fa-inbox text-gray-400 text-6xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">暂无数据</h3>
+                <p class="text-gray-500">请选择一个客户单位来查看产品信息</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- 添加产品模态框 -->
+    <div id="addProductModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-gray-800">添加新产品</h3>
+                        <button onclick="closeAddProductModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <form id="addProductForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">型号</label>
+                                <input type="text" id="modelNumber" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">产品名称</label>
+                                <input type="text" id="productName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">价格</label>
+                                <input type="number" step="0.01" id="price" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">购买单位</label>
+                                <select id="purchaseUnitId" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                    <option value="">选择购买单位（可选）</option>
+                                    <!-- 购买单位将通过JavaScript动态加载 -->
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-4 pt-4">
+                            <button type="button" onclick="closeAddProductModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                取消
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600">
+                                添加产品
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑产品模态框 -->
+    <div id="editProductModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-gray-800">编辑产品</h3>
+                        <button onclick="closeEditProductModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <form id="editProductForm" class="space-y-4">
+                        <input type="hidden" id="editProductId">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">型号</label>
+                                <input type="text" id="editModelNumber" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">产品名称</label>
+                                <input type="text" id="editProductName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">规格</label>
+                                <input type="text" id="editSpecification" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">价格</label>
+                                <input type="number" step="0.01" id="editPrice" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">单位</label>
+                                <input type="text" id="editUnit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">数量</label>
+                                <input type="number" id="editQuantity" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">品牌</label>
+                                <input type="text" id="editBrand" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                                <input type="text" id="editCategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                                <textarea id="editDescription" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"></textarea>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="editIsActive" class="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
+                                    <span class="ml-2 text-sm text-gray-700">启用此产品</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-4 pt-4">
+                            <button type="button" onclick="closeEditProductModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                取消
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600">
+                                保存更改
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                            <i class="fa fa-exclamation-triangle text-red-600 text-lg"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-lg font-bold text-gray-800">确认删除</h3>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <p class="text-gray-600">您确定要删除这个产品吗？</p>
+                        <p class="text-sm text-gray-500 mt-2">删除后产品将被永久删除，无法恢复。</p>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" onclick="closeDeleteConfirmModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            取消
+                        </button>
+                        <button type="button" onclick="confirmDeleteProduct()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                            删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑客户信息模态框 -->
+    <div id="editCustomerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-gray-800">编辑客户信息</h3>
+                        <button onclick="closeEditCustomerModal()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <form id="editCustomerForm" class="space-y-4">
+                        <input type="hidden" id="editCustomerId">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">单位名称 <span class="text-gray-400">(不可修改)</span></label>
+                                <input type="text" id="editCustomerName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent" disabled>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+                                <input type="text" id="editContactPerson" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+                                <input type="text" id="editContactPhone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">折扣率</label>
+                                <input type="number" step="0.01" id="editDiscountRate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">地址</label>
+                                <textarea id="editAddress" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"></textarea>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="editCustomerIsActive" class="rounded border-gray-300 text-primary-600 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50">
+                                    <span class="ml-2 text-sm text-gray-700">启用此客户</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-4 pt-4">
+                            <button type="button" onclick="closeEditCustomerModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                取消
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600">
+                                保存更改
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allCustomers = [];
+        let allProducts = [];
+        let filteredProducts = [];
+        
+        // 从URL参数或localStorage或cookie获取session_id
+        function getSessionId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlSessionId = urlParams.get('session_id');
+            if (urlSessionId) return urlSessionId;
+            
+            const localSessionId = localStorage.getItem('session_id');
+            if (localSessionId) return localSessionId;
+            
+            const cookies = document.cookie.split(';');
+            for (const cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'session_id') return value;
+            }
+            return null;
+        }
+        
+        let sessionId = getSessionId();
+        console.log('获取到sessionId:', sessionId ? '已获取' : '未获取');
+
+        // 开发模式：true=禁用登录验证，false=启用登录验证
+        const DEV_MODE = true;
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔄 页面加载完成，开始初始化...');
+            
+            // 如果URL有session_id，保存到localStorage和cookie
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlSessionId = urlParams.get('session_id');
+            if (urlSessionId) {
+                sessionId = urlSessionId;
+                localStorage.setItem('session_id', sessionId);
+                document.cookie = `session_id=${sessionId}; path=/; max-age=86400`;
+            }
+            
+            // 开发模式下跳过登录检查
+            if (!DEV_MODE) {
+                // 检查登录状态
+                if (!sessionId) {
+                    showError('请先登录');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                    return;
+                }
+            }
+            
+            // 初始化购买单位管理功能
+            initPurchaseUnitManagement();
+            
+            // 默认折叠购买单位管理区域
+            const content = document.getElementById('unitsContent');
+            if (content) {
+                content.style.display = 'none';
+                const icon = document.getElementById('unitsToggleIcon');
+                if (icon) {
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-right');
+                    icon.style.transform = 'rotate(-90deg)';
+                }
+            }
+            
+            // 加载其他数据
+            loadAllCustomers();
+            
+            console.log('✅ 页面初始化完成');
+        });
+
+        // 加载所有客户单位
+        async function loadAllCustomers() {
+            try {
+                console.log('开始加载客户单位...');
+                const response = await fetch('/api/customers', {
+                    headers: { 'X-Session-ID': sessionId }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    allCustomers = data.customers;
+                    populateCustomerSelect();
+                    console.log(`已加载 ${allCustomers.length} 个客户单位`);
+                } else {
+                    console.error('加载客户单位失败:', data.message);
+                    if (data.need_login) {
+                        window.location.href = '/';
+                    }
+                    showError('加载客户单位失败');
+                }
+            } catch (error) {
+                console.error('加载客户单位时出错:', error);
+                showError('加载客户单位时出错');
+            }
+        }
+
+        // 填充客户选择下拉菜单
+        async function populateCustomerSelect() {
+            const select = document.getElementById('customerSelect');
+            select.innerHTML = '<option value="">请选择客户单位...</option>';
+            
+            // 为每个客户检查是否有产品数据，并按产品数量排序
+            const customersWithProducts = [];
+            
+            for (const customer of allCustomers) {
+                try {
+                    const response = await fetch(`/api/products/${customer.id}`, {
+                        headers: { 'X-Session-ID': sessionId }
+                    });
+                    const data = await response.json();
+                    if (data.success && data.count > 0) {
+                        customersWithProducts.push({
+                            ...customer,
+                            productCount: data.count
+                        });
+                    }
+                } catch (error) {
+                    console.error(`获取客户 ${customer.unit_name} 产品失败:`, error);
+                }
+            }
+            
+            // 按产品数量降序排序
+            customersWithProducts.sort((a, b) => b.productCount - a.productCount);
+            
+            // 添加有产品的客户到下拉菜单
+            customersWithProducts.forEach(customer => {
+                const option = document.createElement('option');
+                option.value = customer.id;
+                option.textContent = `${customer.unit_name} (${customer.productCount}个产品)`;
+                select.appendChild(option);
+            });
+            
+            // 如果没有客户有产品数据，添加所有客户
+            if (customersWithProducts.length === 0) {
+                allCustomers.forEach(customer => {
+                    const option = document.createElement('option');
+                    option.value = customer.id;
+                    option.textContent = customer.unit_name;
+                    select.appendChild(option);
+                });
+            }
+            
+            console.log(`有产品数据的客户: ${customersWithProducts.length}/${allCustomers.length}`);
+        }
+
+        // 为指定客户加载产品
+        async function loadProductsForCustomer() {
+            const customerId = document.getElementById('customerSelect').value;
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const productsTableBody = document.getElementById('productsTableBody');
+            const emptyState = document.getElementById('emptyState');
+            const customerInfoCard = document.getElementById('customerInfoCard');
+            
+            if (!customerId) {
+                // 如果没有选择客户，隐藏所有内容
+                productsTableBody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                customerInfoCard.classList.add('hidden');
+                document.getElementById('productCount').textContent = '0';
+                document.getElementById('totalProducts').textContent = '0';
+                return;
+            }
+
+            // 显示加载状态
+            loadingSpinner.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            customerInfoCard.classList.add('hidden');
+            
+            try {
+                console.log(`开始加载客户 ${customerId} 的产品...`);
+                const response = await fetch(`/api/products/${customerId}`, {
+                    headers: { 'X-Session-ID': sessionId }
+                });
+                const data = await response.json();
+                
+                console.log('API响应数据:', data);
+                console.log('data.success:', data.success);
+                console.log('data.products:', data.products);
+                console.log('data.customer:', data.customer);
+                
+                if (data.success) {
+                    allProducts = data.products || [];
+                    filteredProducts = [...allProducts];
+                    
+                    console.log('设置产品数据:', allProducts.length);
+                    
+                    // 显示客户信息
+                    if (data.customer_name) {
+                        // 从 allCustomers 中查找当前客户的完整信息
+                        const customer = allCustomers.find(c => c.unit_name === data.customer_name);
+                        if (customer) {
+                            displayCustomerInfo({
+                                unit_name: customer.unit_name,
+                                contact_person: customer.contact_person || '未设置',
+                                contact_phone: customer.contact_phone || '未设置'
+                            });
+                        } else {
+                            displayCustomerInfo({
+                                unit_name: data.customer_name,
+                                contact_person: '未设置',
+                                contact_phone: '未设置'
+                            });
+                        }
+                    }
+                    
+                    // 填充产品表格
+                    displayProducts();
+                    
+                    console.log(`已加载 ${allProducts.length} 个产品`);
+                } else {
+                    console.error('加载产品失败:', data.message);
+                    showError('加载产品失败');
+                }
+            } catch (error) {
+                console.error('加载产品时出错:', error);
+                showError('加载产品时出错');
+            } finally {
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // 显示客户信息
+        function displayCustomerInfo(customer) {
+            const customerInfo = document.getElementById('customerInfo');
+            customerInfo.innerHTML = `
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-600">单位名称</div>
+                    <div class="font-semibold text-gray-800">${customer.unit_name}</div>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-600">联系人</div>
+                    <div class="font-semibold text-gray-800">${customer.contact_person || '未设置'}</div>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-600">联系电话</div>
+                    <div class="font-semibold text-gray-800">${customer.contact_phone || '未设置'}</div>
+                </div>
+            `;
+            document.getElementById('customerInfoCard').classList.remove('hidden');
+        }
+
+        // 显示产品列表
+        function displayProducts() {
+            console.log('=== displayProducts调试信息 ===');
+            console.log('filteredProducts长度:', filteredProducts.length);
+            console.log('filteredProducts内容:', filteredProducts);
+            console.log('allProducts长度:', allProducts.length);
+            console.log('allProducts内容:', allProducts);
+            
+            const productsTableBody = document.getElementById('productsTableBody');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (filteredProducts.length === 0) {
+                console.log('filteredProducts为空，显示空状态');
+                productsTableBody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                document.getElementById('productCount').textContent = '0';
+                document.getElementById('totalProducts').textContent = '0';
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            
+            productsTableBody.innerHTML = filteredProducts.map(product => `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            ${product.model_number || '-'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">${product.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span class="font-medium text-green-600">¥${product.custom_price || product.price}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${product.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${product.is_active ? '启用' : '停用'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onclick="editProduct(${product.id})" class="text-primary-600 hover:text-primary-900 mr-2" title="编辑产品">
+                            <i class="fa fa-edit"></i>
+                        </button>
+                        <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-900" title="删除产品">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // 更新统计信息
+            document.getElementById('productCount').textContent = filteredProducts.length.toString();
+            document.getElementById('totalProducts').textContent = filteredProducts.length.toString();
+        }
+
+        // 搜索和筛选产品
+        function filterProducts() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            
+            if (!searchTerm) {
+                filteredProducts = [...allProducts];
+            } else {
+                filteredProducts = allProducts.filter(product => 
+                    product.name.toLowerCase().includes(searchTerm) ||
+                    (product.model_number && product.model_number.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            displayProducts();
+        }
+
+        // 显示错误提示
+        function showError(message) {
+            // 这里可以实现错误提示逻辑，比如显示toast消息
+            console.error(message);
+            alert(message);
+        }
+
+        // 显示添加产品模态框
+        function showAddProductModal() {
+            const modal = document.getElementById('addProductModal');
+            modal.classList.remove('hidden');
+            document.getElementById('addProductForm').reset();
+            // 加载购买单位列表
+            loadPurchaseUnits();
+        }
+
+        // 处理产品搜索
+        function handleProductSearch(event) {
+            const searchTerm = event.target.value.toLowerCase().trim();
+            filterProducts(searchTerm);
+        }
+
+        // 清除搜索
+        function clearProductSearch() {
+            document.getElementById('productSearch').value = '';
+            filterProducts('');
+        }
+
+        // 过滤产品列表
+        function filterProducts(searchTerm) {
+            const tableBody = document.getElementById('productsTable').querySelector('tbody');
+            const rows = tableBody.querySelectorAll('tr');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const modelCell = row.querySelector('td:nth-child(2)');
+                const nameCell = row.querySelector('td:nth-child(3)');
+                
+                if (modelCell && nameCell) {
+                    const modelText = modelCell.textContent.toLowerCase();
+                    const nameText = nameCell.textContent.toLowerCase();
+                    
+                    if (searchTerm === '' || modelText.includes(searchTerm) || nameText.includes(searchTerm)) {
+                        row.classList.remove('hidden');
+                        visibleCount++;
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                }
+            });
+
+            // 更新显示的产品数量
+            document.getElementById('totalProducts').textContent = visibleCount;
+        }
+
+        // 关闭添加产品模态框
+        function closeAddProductModal() {
+            const modal = document.getElementById('addProductModal');
+            modal.classList.add('hidden');
+        }
+
+        // 编辑产品
+        function editProduct(productId) {
+            console.log('编辑产品:', productId);
+            
+            // 查找产品信息
+            const product = allProducts.find(p => p.id === productId);
+            if (!product) {
+                alert('找不到产品信息');
+                return;
+            }
+            
+            // 填充编辑表单
+            document.getElementById('editProductId').value = product.id;
+            document.getElementById('editModelNumber').value = product.model_number || '';
+            document.getElementById('editProductName').value = product.name || '';
+            document.getElementById('editSpecification').value = product.specification || '';
+            document.getElementById('editPrice').value = product.price || 0;
+            document.getElementById('editUnit').value = product.unit || '个';
+            document.getElementById('editQuantity').value = product.quantity || 1;
+            document.getElementById('editBrand').value = product.brand || '';
+            document.getElementById('editCategory').value = product.category || '';
+            document.getElementById('editDescription').value = product.description || '';
+            document.getElementById('editIsActive').checked = product.is_active !== false;
+            
+            // 显示编辑模态框
+            document.getElementById('editProductModal').classList.remove('hidden');
+        }
+
+        // 关闭编辑产品模态框
+        function closeEditProductModal() {
+            document.getElementById('editProductModal').classList.add('hidden');
+        }
+
+        // 删除产品
+        function deleteProduct(productId) {
+            console.log('删除按钮被点击，产品ID:', productId);
+            console.log('allProducts数组:', allProducts);
+            
+            // 查找产品信息
+            const product = allProducts.find(p => p.id === productId);
+            console.log('找到的产品信息:', product);
+            
+            if (!product) {
+                alert('找不到产品信息');
+                return;
+            }
+            
+            // 显示删除确认信息
+            const modal = document.getElementById('deleteConfirmModal');
+            console.log('删除确认模态框:', modal);
+            
+            const message = modal.querySelector('p.text-gray-600');
+            console.log('确认消息元素:', message);
+            
+            message.textContent = `您确定要删除产品"${product.name}"吗？`;
+            console.log('确认消息:', message.textContent);
+            
+            // 存储要删除的产品ID
+            modal.dataset.productId = productId;
+            console.log('存储的产品ID:', modal.dataset.productId);
+            
+            // 显示删除确认模态框
+            modal.classList.remove('hidden');
+            console.log('删除确认模态框已显示');
+        }
+
+        // 关闭删除确认模态框
+        function closeDeleteConfirmModal() {
+            document.getElementById('deleteConfirmModal').classList.add('hidden');
+        }
+
+        // 确认删除产品
+        async function confirmDeleteProduct() {
+            const modal = document.getElementById('deleteConfirmModal');
+            const productId = parseInt(modal.dataset.productId);
+            
+            // 获取当前选择的客户ID
+            const customerId = document.getElementById('customerSelect').value;
+            if (!customerId) {
+                alert('请先选择一个客户单位');
+                return;
+            }
+            
+            // 直接使用API获取客户单位名称
+            try {
+                const customerResponse = await fetch(`/api/purchase_units`);
+                const customerData = await customerResponse.json();
+                
+                if (customerData.success) {
+                    const customer = customerData.data.find(c => c.id == customerId);
+                    if (!customer) {
+                        alert('找不到客户信息');
+                        return;
+                    }
+                    
+                    const purchaseUnit = customer.unit_name;
+                    
+                    // 发送删除请求
+                    const deleteResponse = await fetch(`/api/products/${productId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Session-ID': sessionId
+                        },
+                        body: JSON.stringify({ purchase_unit: purchaseUnit })
+                    });
+                    
+                    const deleteData = await deleteResponse.json();
+                    
+                    if (deleteData.success) {
+                        alert('产品删除成功');
+                        closeDeleteConfirmModal();
+                        
+                        // 重新加载产品列表
+                        loadProductsForCustomer();
+                    } else {
+                        alert(`删除失败: ${deleteData.message}`);
+                    }
+                } else {
+                    alert('获取客户信息失败');
+                }
+            } catch (error) {
+                console.error('删除产品时出错:', error);
+                alert('删除产品时出错');
+            }
+        }
+
+        // 导出数据
+        function exportData() {
+            console.log('导出数据...');
+            // TODO: 实现导出Excel功能
+            alert('导出功能开发中...');
+        }
+
+        // 加载购买单位列表
+        async function loadPurchaseUnits() {
+            try {
+                const response = await fetch('/api/purchase_units', {
+                    headers: { 'X-Session-ID': sessionId }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    const select = document.getElementById('purchaseUnitId');
+                    select.innerHTML = '<option value="">选择购买单位（可选）</option>';
+                    
+                    data.data.forEach(unit => {
+                        const option = document.createElement('option');
+                        option.value = unit.id;
+                        option.textContent = unit.unit_name;
+                        if (unit.contact_person) {
+                            option.textContent += ` (${unit.contact_person})`;
+                        }
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('加载购买单位失败:', error);
+            }
+        }
+
+        // 添加产品表单提交
+        document.getElementById('addProductForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                model_number: document.getElementById('modelNumber').value,
+                name: document.getElementById('productName').value,
+                price: parseFloat(document.getElementById('price').value),
+                unit: '个',
+                purchase_unit_id: document.getElementById('purchaseUnitId').value || null
+            };
+
+            try {
+                const response = await fetch('/api/products', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-ID': sessionId
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeAddProductModal();
+                    alert('产品添加成功！');
+                    // 刷新当前客户的产品列表
+                    loadProductsForCustomer();
+                } else {
+                    alert('添加产品失败: ' + data.message);
+                }
+            } catch (error) {
+                console.error('添加产品时出错:', error);
+                alert('添加产品时出错');
+            }
+        });
+
+        // 编辑产品表单提交
+        document.getElementById('editProductForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const productId = document.getElementById('editProductId').value;
+            const formData = {
+                model_number: document.getElementById('editModelNumber').value,
+                name: document.getElementById('editProductName').value,
+                specification: document.getElementById('editSpecification').value,
+                price: parseFloat(document.getElementById('editPrice').value),
+                unit: document.getElementById('editUnit').value,
+                quantity: parseInt(document.getElementById('editQuantity').value) || 1,
+                brand: document.getElementById('editBrand').value,
+                category: document.getElementById('editCategory').value,
+                description: document.getElementById('editDescription').value,
+                is_active: document.getElementById('editIsActive').checked,
+                // 添加单位信息以便API确定更新目标
+                customer_id: document.getElementById('customerSelect').value
+            };
+            
+            // 如果没有选择客户，不允许更新产品
+            if (!formData.customer_id) {
+                alert('请先选择一个客户单位');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/products/${productId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-ID': sessionId
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('产品更新成功');
+                    closeEditProductModal();
+                    
+                    // 重新加载产品列表
+                    loadProductsForCustomer();
+                } else {
+                    alert('更新产品失败: ' + data.message);
+                }
+            } catch (error) {
+                console.error('更新产品时出错:', error);
+                alert('更新产品时出错');
+            }
+        });
+
+        // 编辑客户专属价格
+        function editCustomerPrice(productId) {
+            console.log('编辑客户专属价格:', productId);
+            
+            // 获取当前选择的客户ID
+            const customerId = document.getElementById('customerSelect').value;
+            if (!customerId) {
+                alert('请先选择一个客户单位');
+                return;
+            }
+            
+            // 查找产品信息
+            const product = allProducts.find(p => p.id === productId);
+            if (!product) {
+                alert('找不到产品信息');
+                return;
+            }
+            
+            // 填充表单
+            document.getElementById('customerPriceProductId').value = productId;
+            document.getElementById('customerPriceProductInfo').textContent = `${product.name} (${product.model_number || '无型号'})`;
+            document.getElementById('basePriceDisplay').textContent = `¥${product.price.toFixed(2)}`;
+            document.getElementById('customerCustomPrice').value = product.custom_price || 0;
+            document.getElementById('customerPriceIsActive').checked = product.customer_product_active !== false;
+            
+            // 显示模态框
+            document.getElementById('editCustomerPriceModal').classList.remove('hidden');
+        }
+
+        // 保存当前客户信息的变量
+        let currentCustomer = null;
+
+        // 显示编辑客户信息模态框
+        function showEditCustomerModal() {
+            const customerId = document.getElementById('customerSelect').value;
+            if (!customerId) {
+                alert('请先选择一个客户单位');
+                return;
+            }
+            
+            // 查找客户信息
+            const customer = allCustomers.find(c => c.id == customerId);
+            if (!customer) {
+                alert('找不到客户信息');
+                return;
+            }
+            
+            // 保存当前客户信息
+            currentCustomer = customer;
+            
+            // 填充表单
+            document.getElementById('editCustomerId').value = customer.id;
+            document.getElementById('editCustomerName').value = customer.unit_name;
+            document.getElementById('editContactPerson').value = customer.contact_person || '';
+            document.getElementById('editContactPhone').value = customer.contact_phone || '';
+            document.getElementById('editDiscountRate').value = customer.discount_rate || 0;
+            document.getElementById('editAddress').value = customer.address || '';
+            document.getElementById('editCustomerIsActive').checked = customer.is_active !== false;
+            
+            // 显示模态框
+            document.getElementById('editCustomerModal').classList.remove('hidden');
+        }
+
+        // 关闭编辑客户信息模态框
+        function closeEditCustomerModal() {
+            document.getElementById('editCustomerModal').classList.add('hidden');
+        }
+
+        // 编辑客户信息表单提交
+        document.getElementById('editCustomerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const customerId = document.getElementById('editCustomerId').value;
+            const formData = {
+                contact_person: document.getElementById('editContactPerson').value,
+                contact_phone: document.getElementById('editContactPhone').value,
+                address: document.getElementById('editAddress').value,
+                discount_rate: parseFloat(document.getElementById('editDiscountRate').value) || 0,
+                is_active: document.getElementById('editCustomerIsActive').checked
+            };
+            
+            try {
+                const response = await fetch(`/api/customers/${customerId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('客户信息更新成功');
+                    closeEditCustomerModal();
+                    
+                    // 重新加载客户信息和产品列表
+                    loadAllCustomers();
+                    loadProductsForCustomer();
+                } else {
+                    alert('更新客户信息失败: ' + data.message);
+                }
+            } catch (error) {
+                console.error('更新客户信息时出错:', error);
+                alert('更新客户信息时出错');
+            }
+        });
+
+        // 购买单位管理功能
+        function initPurchaseUnitManagement() {
+            console.log('🛠️ 购买单位管理功能初始化开始');
+            
+            // 检查必要元素是否存在
+            const addUnitForm = document.getElementById('add-unit-form');
+            const unitsTbody = document.getElementById('units-tbody');
+            
+            console.log('📋 表单元素检查:');
+            console.log('  - add-unit-form:', addUnitForm ? '✅ 存在' : '❌ 不存在');
+            console.log('  - units-tbody:', unitsTbody ? '✅ 存在' : '❌ 不存在');
+            
+            if (addUnitForm) {
+                addUnitForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    addNewUnit();
+                });
+                console.log('✅ 添加单位表单事件绑定成功');
+            } else {
+                console.error('❌ 找不到 add-unit-form 元素');
+            }
+            
+            // 加载购买单位列表
+            loadPurchaseUnitsForTable();
+            console.log('🛠️ 购买单位管理功能初始化完成');
+        }
+        
+        // 折叠/展开购买单位管理区域
+        function togglePurchaseUnits() {
+            const content = document.getElementById('unitsContent');
+            const icon = document.getElementById('unitsToggleIcon');
+            
+            if (content.style.display === 'none') {
+                // 展开
+                content.style.display = 'block';
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-down');
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                // 折叠
+                content.style.display = 'none';
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-right');
+                icon.style.transform = 'rotate(-90deg)';
+            }
+        }
+        
+        // 更新购买单位数量显示
+        function updateUnitsCount(count) {
+            const countSpan = document.getElementById('unitsCount');
+            if (countSpan) {
+                countSpan.textContent = `${count} 个单位`;
+            }
+        }
+
+        // 加载购买单位列表（表格显示）
+        function loadPurchaseUnitsForTable() {
+            const tbody = document.getElementById('units-tbody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500"><i class="fa fa-spinner fa-spin mr-2"></i> 加载中...</td></tr>';
+            
+            fetch('/api/purchase_units', {
+                headers: { 'X-Session-ID': sessionId }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    if (data.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">暂无购买单位</td></tr>';
+                        updateUnitsCount(0);
+                        return;
+                    }
+                    
+                    let html = '';
+                    data.data.forEach(unit => {
+                        const createdAt = new Date(unit.created_at).toLocaleString('zh-CN');
+                        html += `
+                            <tr>
+                                <td class="px-4 py-2">${unit.id}</td>
+                                <td class="px-4 py-2">${unit.unit_name || ''}</td>
+                                <td class="px-4 py-2">${unit.contact_person || ''}</td>
+                                <td class="px-4 py-2">${unit.contact_phone || ''}</td>
+                                <td class="px-4 py-2">${unit.address || ''}</td>
+                                <td class="px-4 py-2">${createdAt}</td>
+                                <td class="px-4 py-2">
+                                    <button class="edit-unit-btn bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-lg transition-colors text-sm mr-2" data-id="${unit.id}" data-name="${unit.unit_name}" data-person="${unit.contact_person || ''}" data-phone="${unit.contact_phone || ''}" data-address="${unit.address || ''}">
+                                        编辑
+                                    </button>
+                                    <button class="delete-unit-btn bg-red-600 hover:bg-red-700 text-white font-medium py-1 px-3 rounded-lg transition-colors text-sm" data-id="${unit.id}" data-name="${unit.unit_name}">
+                                        删除
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                    
+                    // 更新购买单位数量
+                    updateUnitsCount(data.data.length);
+                    
+                    // 添加编辑和删除事件监听器
+                    addUnitEventListeners();
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-red-500">加载失败: ${data.message || '未知错误'}</td></tr>`;
+                }
+            })
+            .catch(error => {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-red-500">加载失败: ${error.message}</td></tr>`;
+            });
+        }
+        
+        // 添加单位表单提交
+        function addNewUnit() {
+            const form = document.getElementById('add-unit-form');
+            const resultDiv = document.getElementById('add-unit-result');
+            
+            const unitName = document.getElementById('unit-name').value.trim();
+            const contactPerson = document.getElementById('contact-person').value.trim();
+            const contactPhone = document.getElementById('contact-phone').value.trim();
+            
+            if (!unitName) {
+                resultDiv.innerHTML = '<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">单位名称不能为空</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="text-center py-2"><i class="fa fa-spinner fa-spin mr-2"></i> 正在添加...</div>';
+            
+            const formData = {
+                unit_name: unitName,
+                contact_person: contactPerson,
+                contact_phone: contactPhone,
+                address: '' // 暂时为空，后续可以添加地址字段
+            };
+            
+            fetch('/api/purchase_units', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-ID': sessionId
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.innerHTML = '<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded-lg">购买单位添加成功！</div>';
+                    
+                    // 清空表单
+                    form.reset();
+                    
+                    // 重新加载购买单位列表
+                    loadPurchaseUnitsForTable();
+                    loadPurchaseUnits(); // 刷新其他下拉框
+                    loadAllCustomers(); // 刷新客户列表
+                } else {
+                    resultDiv.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">添加失败: ${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">添加失败: ${error.message}</div>`;
+            });
+        }
+        
+        // 添加单位编辑删除事件监听器
+        function addUnitEventListeners() {
+            // 编辑按钮事件
+            document.querySelectorAll('.edit-unit-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const unitId = this.dataset.id;
+                    const unitName = this.dataset.name;
+                    const contactPerson = this.dataset.person;
+                    const contactPhone = this.dataset.phone;
+                    const address = this.dataset.address;
+                    showEditUnitModal(unitId, unitName, contactPerson, contactPhone, address);
+                });
+            });
+            
+            // 删除按钮事件
+            document.querySelectorAll('.delete-unit-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const unitId = this.dataset.id;
+                    const unitName = this.dataset.name;
+                    if (confirm(`确定要删除购买单位 "${unitName}" 吗？`)) {
+                        deleteUnit(unitId);
+                    }
+                });
+            });
+        }
+        
+        // 显示编辑单位模态框
+        function showEditUnitModal(unitId, unitName, contactPerson, contactPhone, address) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+                    <div class="p-6 border-b">
+                        <h3 class="text-xl font-bold text-gray-800">编辑购买单位</h3>
+                    </div>
+                    <div class="p-6">
+                        <form id="edit-unit-form">
+                            <div class="mb-4">
+                                <label for="edit-unit-name" class="block text-sm font-medium text-gray-700 mb-1">单位名称 *</label>
+                                <input type="text" id="edit-unit-name" name="unit_name" required 
+                                       value="${unitName}" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="mb-4">
+                                <label for="edit-contact-person" class="block text-sm font-medium text-gray-700 mb-1">联系人</label>
+                                <input type="text" id="edit-contact-person" name="contact_person" 
+                                       value="${contactPerson}" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="mb-4">
+                                <label for="edit-contact-phone" class="block text-sm font-medium text-gray-700 mb-1">联系电话</label>
+                                <input type="text" id="edit-contact-phone" name="contact_phone" 
+                                       value="${contactPhone}" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                            </div>
+                            <div class="mb-6">
+                                <label for="edit-address" class="block text-sm font-medium text-gray-700 mb-1">地址</label>
+                                <textarea id="edit-address" name="address" rows="3"
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">${address || ''}</textarea>
+                            </div>
+                            <div class="flex justify-end space-x-2">
+                                <button type="button" onclick="this.closest('.fixed').remove()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors">
+                                    取消
+                                </button>
+                                <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                                    保存
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // 绑定表单提交事件
+            const form = modal.querySelector('#edit-unit-form');
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                updateUnit(unitId, form);
+            });
+        }
+        
+        // 更新购买单位
+        function updateUnit(unitId, form) {
+            const formData = new FormData(form);
+            const data = {
+                unit_name: formData.get('unit_name').trim(),
+                contact_person: formData.get('contact_person').trim(),
+                contact_phone: formData.get('contact_phone').trim(),
+                address: formData.get('address').trim()
+            };
+            
+            if (!data.unit_name) {
+                alert('单位名称不能为空');
+                return;
+            }
+            
+            // 关闭模态框
+            document.querySelector('.fixed').remove();
+            
+            fetch(`/api/purchase_units/${unitId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    alert('购买单位更新成功！');
+                    // 重新加载购买单位列表
+                    loadPurchaseUnitsForTable();
+                    loadPurchaseUnits(); // 刷新其他下拉框
+                    loadAllCustomers(); // 刷新客户列表
+                } else {
+                    alert('更新失败: ' + result.message);
+                }
+            })
+            .catch(error => {
+                alert('更新失败: ' + error.message);
+            });
+        }
+        
+        // 删除购买单位
+        function deleteUnit(unitId) {
+            fetch(`/api/purchase_units/${unitId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('购买单位删除成功！');
+                    // 重新加载购买单位列表
+                    loadPurchaseUnitsForTable();
+                    loadPurchaseUnits(); // 刷新其他下拉框
+                    loadAllCustomers(); // 刷新客户列表
+                } else {
+                    alert('删除失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('删除失败: ' + error.message);
+            });
+        }
+
+    </script>
+</body>
+</html>

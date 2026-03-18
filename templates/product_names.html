@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>产品名称管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin: 25px 0 15px;
+            font-size: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 8px;
+        }
+        
+        .card {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .form-col {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-success {
+            background-color: #2ecc71;
+        }
+        
+        .btn-success:hover {
+            background-color: #27ae60;
+        }
+        
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        
+        .btn-secondary {
+            background-color: #95a5a6;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .btn-warning {
+            background-color: #f39c12;
+        }
+        
+        .btn-warning:hover {
+            background-color: #d68910;
+        }
+        
+        .category-key-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #495057;
+            transition: all 0.2s;
+            display: inline-block;
+            margin: 2px;
+        }
+        
+        .category-key-btn:hover {
+            background: #e9ecef;
+            border-color: #adb5bd;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .category-key-btn.active {
+            background: #007bff;
+            border-color: #007bff;
+            color: white;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .status.processing {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #007bff;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        tr:hover {
+            background-color: #f5f7fa;
+        }
+        
+        .action-btns {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .quick-add {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .template-upload {
+            background-color: #e8f4fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #bee5eb;
+        }
+        
+        .file-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .file-info {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        
+        .filter-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .batch-actions {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #bee5eb;
+            display: none;
+        }
+        
+        .batch-actions.active {
+            display: block;
+        }
+        
+        .batch-info {
+            font-size: 14px;
+            color: #0c5460;
+            margin-bottom: 10px;
+        }
+        
+        .checkbox-cell {
+            width: 50px;
+            text-align: center;
+        }
+        
+        .checkbox-cell input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        th.checkbox-cell {
+            background-color: #f8f9fa;
+        }
+        
+        tr.selected {
+            background-color: #d1ecf1 !important;
+        }
+        
+        tr.selected:hover {
+            background-color: #bee5eb !important;
+        }
+        
+        /* 编辑模态框样式 */
+        .product-selector-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 18px;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+        
+        .close-btn:hover {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .duplicate-review {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .duplicate-group {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        
+        .duplicate-group h5 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+        
+        .duplicate-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .duplicate-item:last-child {
+            border-bottom: none;
+        }
+        
+        .duplicate-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background-color: white;
+            border-radius: 5px;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 产品名称管理</h1>
+        
+        <a href="/create" class="back-link">← 返回新建发货单</a>
+        
+        <div class="status" id="status"></div>
+        
+        <!-- 模板上传区域 -->
+        <div class="card">
+            <h2>📤 批量导入产品名称</h2>
+            <div class="template-upload">
+                <p style="margin-bottom: 10px; color: #666;">
+                    上传包含产品名称列表的Excel文件（第一列产品名称，第二列对应型号，第三列对应规格）<br>
+                    <small style="color: #999;">支持 .xlsx 格式</small>
+                </p>
+                <div class="file-input-wrapper">
+                    <input type="file" id="productFile" accept=".xlsx" style="width: auto;">
+                    <button class="btn btn-success" onclick="uploadProductTemplate()">📤 导入产品</button>
+                    <button class="btn btn-secondary" onclick="downloadTemplate()">📥 下载模板</button>
+                </div>
+                <p class="file-info" id="fileInfo">📄 未选择文件</p>
+            </div>
+            
+            <div class="template-upload" style="background-color: #fff3cd; border-color: #ffc107; margin-top: 15px;">
+                <p style="margin-bottom: 10px; color: #856404; font-weight: 500;">
+                    🚚 从送货单导入产品
+                </p>
+                <p style="margin-bottom: 10px; color: #666; font-size: 14px;">
+                    上传送货单Excel文件（如尹玉华1.xlsx），自动提取产品名称、型号、规格、单价和购买单位<br>
+                    <small style="color: #999;">支持标准送货单格式（第1列型号，第4列名称，第6列规格，第8列单价）</small>
+                </p>
+                <div class="file-input-wrapper">
+                    <input type="file" id="invoiceFile" accept=".xlsx" style="width: auto;">
+                    <button class="btn btn-warning" onclick="previewAndAutoImport()">🚀 预览并自动导入</button>
+                </div>
+                <p class="file-info" id="invoiceFileInfo">📄 未选择文件</p>
+            </div>
+            
+            <div class="template-upload" style="background-color: #d4edda; border-color: #28a745; margin-top: 15px;">
+                <p style="margin-bottom: 10px; color: #155724; font-weight: 500;">
+                    📋 通用文件导入产品
+                </p>
+                <p style="margin-bottom: 10px; color: #666; font-size: 14px;">
+                    上传包含产品列表的Excel文件并指定购买单位后一键导入<br>
+                    <small style="color: #999;">简单快速的产品导入功能</small>
+                </p>
+                
+                <!-- 购买单位选择 -->
+                <div class="form-row" style="margin-bottom: 15px;">
+                    <div class="form-col">
+                        <label for="manualUnitName">购买单位名称 *</label>
+                        <input type="text" id="manualUnitName" placeholder="请输入或选择购买单位名称">
+                    </div>
+                    <div class="form-col">
+                        <label for="existingUnitSelect">从现有单位中选择</label>
+                        <select id="existingUnitSelect" onchange="selectExistingUnit()">
+                            <option value="">-- 选择现有单位 --</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 文件上传 -->
+                <div class="file-input-wrapper">
+                    <input type="file" id="manualFile" accept=".xlsx" style="width: auto;">
+                    <button class="btn btn-success" onclick="uploadManualFile()">📋 一键导入产品</button>
+                    <button class="btn btn-secondary" onclick="downloadManualTemplate()">📥 下载模板</button>
+                </div>
+                <p class="file-info" id="manualFileInfo">📄 未选择文件</p>
+                
+                <!-- 智能解析说明 -->
+                <div style="margin-top: 10px; padding: 10px; background-color: #e8f5e8; border: 1px solid #4caf50; border-radius: 5px;">
+                    <p style="margin: 0; color: #2e7d32; font-size: 14px;">
+                        <strong>🎯 智能解析功能：</strong> 
+                        支持七彩乐园.xlsx、宜榢.xlsx、迎扬李总.xlsx文件的自动识别和智能解析。
+                        系统会自动提取产品型号、名称、规格和价格信息。
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 筛选区域 -->
+        <div class="card">
+            <h2>🔍 筛选和排序</h2>
+            <div class="filter-section">
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="filterUnit">按购买单位筛选</label>
+                        <select id="filterUnit" onchange="filterAndSortProducts()">
+                            <option value="">-- 全部购买单位 --</option>
+                        </select>
+                    </div>
+                    <div class="form-col">
+                        <label for="sortBy">排序方式</label>
+                        <select id="sortBy" onchange="filterAndSortProducts()">
+                            <option value="name">按产品名称排序</option>
+                            <option value="unit">按购买单位排序</option>
+                            <option value="price">按单价排序</option>
+                        </select>
+                    </div>
+                    <div class="form-col">
+                        <label for="sortOrder">排序顺序</label>
+                        <select id="sortOrder" onchange="filterAndSortProducts()">
+                            <option value="asc">升序 ↑</option>
+                            <option value="desc">降序 ↓</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <button class="btn" onclick="clearFilter()">清除筛选</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 快速添加 -->
+        <div class="card">
+            <h2>➕ 手动添加产品名称</h2>
+            <div class="quick-add">
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="productName">产品名称 *</label>
+                        <input type="text" id="productName" placeholder="请输入产品名称">
+                    </div>
+                    <div class="form-col">
+                        <label for="productModel">产品型号</label>
+                        <input type="text" id="productModel" placeholder="请输入产品型号">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="productUnit">购买单位</label>
+                        <select id="productUnit">
+                            <option value="">-- 选择购买单位 --</option>
+                        </select>
+                    </div>
+                    <div class="form-col">
+                        <label for="productPrice">单价（元）</label>
+                        <input type="number" id="productPrice" placeholder="请输入单价" min="0" step="0.01">
+                    </div>
+                    <div class="form-col">
+                        <label for="productSpec">规格（kg/桶）</label>
+                        <input type="number" id="productSpec" placeholder="每桶多少kg" min="0" step="0.1">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label for="productDescription">描述</label>
+                        <input type="text" id="productDescription" placeholder="产品描述（可选）">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <button class="btn btn-success" onclick="addProductName()" style="padding: 12px 30px;">💾 保存</button>
+                    <button class="btn btn-secondary" onclick="clearProductForm()" style="padding: 12px 30px;">🔄 清空</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 产品列表 -->
+        <div class="card">
+            <h2>📋 产品名称列表</h2>
+            
+            <!-- 分类键 -->
+            <div class="category-keys" style="margin-bottom: 20px;">
+                <h4 style="margin-bottom: 10px; color: #666;">🔑 产品分类键</h4>
+                <div id="categoryKeys" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+            
+            <!-- 批量操作栏 -->
+            <div class="batch-actions" id="batchActions">
+                <div class="batch-info">
+                    <span id="selectedCount">已选择 0 项</span>
+                </div>
+                <button class="btn btn-danger" onclick="batchDeleteSelected()">🗑️ 批量删除</button>
+                <button class="btn btn-secondary" onclick="clearSelection()">清除选择</button>
+                <button class="btn btn-info" onclick="showDuplicateReview()" style="margin-left: 10px;">🔍 重复审查</button>
+            </div>
+            
+            <div id="productsList">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 编辑模态框 -->
+    <div id="editModal" class="product-selector-modal" style="display: none;">
+        <div class="modal-content" style="width: 500px;">
+            <div class="modal-header">
+                <h3>编辑产品名称</h3>
+                <button type="button" class="close-btn" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editProductId">
+                <div class="form-row">
+                    <div class="form-col">
+                        <label>产品名称 *</label>
+                        <input type="text" id="editProductName" placeholder="产品名称">
+                    </div>
+                    <div class="form-col">
+                        <label>产品型号</label>
+                        <input type="text" id="editProductModel" placeholder="产品型号">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label>单价（元）</label>
+                        <input type="number" id="editProductPrice" placeholder="单价" min="0" step="0.01">
+                    </div>
+                    <div class="form-col">
+                        <label>规格（kg/桶）</label>
+                        <input type="number" id="editProductSpec" placeholder="每桶多少kg" min="0" step="0.1">
+                    </div>
+                    <div class="form-col">
+                        <label>购买单位</label>
+                        <select id="editProductUnit">
+                            <option value="">-- 选择购买单位 --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <label>描述</label>
+                        <input type="text" id="editProductDescription" placeholder="描述">
+                    </div>
+                </div>
+                <div class="form-row" style="justify-content: flex-end; margin-top: 20px;">
+                    <button class="btn" onclick="closeEditModal()" style="margin-right: 10px;">取消</button>
+                    <button class="btn btn-success" onclick="saveEdit()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let allProducts = [];
+        
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('status');
+            if (!statusElement) {
+                console.error('Status element not found');
+                return;
+            }
+            
+            if (message && type) {
+                statusElement.textContent = message;
+                statusElement.className = `status ${type}`;
+                statusElement.style.display = 'block';
+                
+                if (type !== 'info') { // info类型的消息不自动隐藏
+                    setTimeout(() => {
+                        statusElement.style.display = 'none';
+                    }, 3000);
+                }
+            } else {
+                statusElement.style.display = 'none';
+            }
+        }
+        
+        // 调试：检查按钮状态
+        function debugButtonStatus() {
+            console.log('=== 按钮状态调试 ===');
+            console.log('========================');
+        }
+        
+        // 页面加载
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                console.log('页面加载中...');
+                loadUnits();
+                loadProducts();
+                setupFileUpload();
+                setupManualUpload();
+                console.log('页面加载完成');
+                
+                // 调试：定期检查按钮状态
+                setInterval(debugButtonStatus, 2000);
+                
+
+                
+            } catch (error) {
+                console.error('页面加载错误:', error);
+                showStatus('页面加载错误: ' + error.message, 'error');
+            }
+        });
+        
+        // 文件上传
+        function setupFileUpload() {
+            try {
+                console.log('设置文件上传事件监听...');
+                
+                const fileInput = document.getElementById('productFile');
+                const fileInfo = document.getElementById('fileInfo');
+                
+                if (!fileInput) {
+                    console.error('找不到 productFile 元素');
+                }
+                if (!fileInfo) {
+                    console.error('找不到 fileInfo 元素');
+                }
+                
+                if (fileInput && fileInfo) {
+                    fileInput.addEventListener('change', function() {
+                        console.log('productFile 文件选择事件触发');
+                        if (this.files.length > 0) {
+                            fileInfo.textContent = '📄 ' + this.files[0].name;
+                            fileInfo.style.color = '#27ae60';
+                        } else {
+                            fileInfo.textContent = '📄 未选择文件';
+                            fileInfo.style.color = '#6c757d';
+                        }
+                    });
+                }
+                
+                const invoiceFileInput = document.getElementById('invoiceFile');
+                const invoiceFileInfo = document.getElementById('invoiceFileInfo');
+                
+                if (!invoiceFileInput) {
+                    console.error('找不到 invoiceFile 元素');
+                }
+                if (!invoiceFileInfo) {
+                    console.error('找不到 invoiceFileInfo 元素');
+                }
+                
+                if (invoiceFileInput && invoiceFileInfo) {
+                    invoiceFileInput.addEventListener('change', function() {
+                        console.log('invoiceFile 文件选择事件触发');
+                        if (this.files.length > 0) {
+                            invoiceFileInfo.textContent = '📄 ' + this.files[0].name;
+                            invoiceFileInfo.style.color = '#27ae60';
+                        } else {
+                            invoiceFileInfo.textContent = '📄 未选择文件';
+                            invoiceFileInfo.style.color = '#6c757d';
+                        }
+                    });
+                }
+                
+                console.log('文件上传事件监听设置完成');
+            } catch (error) {
+                console.error('设置文件上传失败:', error);
+            }
+        }
+        
+        // 设置通用文件上传
+        function setupManualUpload() {
+            try {
+                console.log('设置通用文件上传事件监听...');
+                
+                const manualFileInput = document.getElementById('manualFile');
+                const manualFileInfo = document.getElementById('manualFileInfo');
+                
+                if (!manualFileInput) {
+                    console.error('找不到 manualFile 元素');
+                }
+                if (!manualFileInfo) {
+                    console.error('找不到 manualFileInfo 元素');
+                }
+                
+                if (manualFileInput && manualFileInfo) {
+                    manualFileInput.addEventListener('change', function() {
+                        console.log('manualFile 文件选择事件触发');
+                        if (this.files.length > 0) {
+                            manualFileInfo.textContent = '📄 ' + this.files[0].name;
+                            manualFileInfo.style.color = '#27ae60';
+                            
+                            // 不再自动预览，直接使用智能解析
+                        } else {
+                            manualFileInfo.textContent = '📄 未选择文件';
+                            manualFileInfo.style.color = '#6c757d';
+                        }
+                    });
+                }
+                
+                console.log('通用文件上传事件监听设置完成');
+            } catch (error) {
+                console.error('设置通用文件上传失败:', error);
+            }
+        }
+        
+        // 选择现有单位
+        function selectExistingUnit() {
+            const select = document.getElementById('existingUnitSelect');
+            const input = document.getElementById('manualUnitName');
+            
+            if (select && input && select.value) {
+                // 根据选择的下拉框值设置输入框
+                const selectedText = select.options[select.selectedIndex].text;
+                input.value = selectedText;
+            } else {
+                // 如果没有选择任何选项，清空输入框
+                input.value = '';
+            }
+        }
+        
+        // 预览并自动导入
+        function previewAndAutoImport() {
+            try {
+                console.log('开始预览并自动导入...');
+                
+                const fileInput = document.getElementById('invoiceFile');
+                if (!fileInput) {
+                    alert('找不到文件选择元素');
+                    return;
+                }
+                
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    alert('请选择要上传的送货单文件');
+                    return;
+                }
+                
+                console.log('选择的文件:', file.name, file.size, 'bytes');
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                showStatus('正在分析Excel文件结构...', 'processing');
+                console.log('发送预览请求...');
+                
+                fetch('/product_names/preview_invoice', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    console.log('预览响应状态:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('预览响应数据:', data);
+                    if (data.success) {
+                        if (data.valid_sheets === 0) {
+                            showStatus('❌ 文件中没有找到有效的送货单数据', 'error');
+                            return;
+                        }
+                        
+                        showStatus(`✅ 找到 ${data.valid_sheets} 个有效的送货单工作表，正在自动导入...`, 'success');
+                        
+                        // 自动导入第一个有效工作表
+                        if (data.sheets && data.sheets.length > 0) {
+                            autoImportFromPreview(data.sheets[0]);
+                        } else {
+                            showStatus('❌ 未找到有效的工作表数据', 'error');
+                        }
+                    } else {
+                        showStatus('❌ 预览失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('预览失败:', error);
+                    showStatus('❌ 预览失败: ' + error.message, 'error');
+                });
+                
+            } catch (error) {
+                console.error('预览函数执行异常:', error);
+                showStatus('❌ 预览功能异常: ' + error.message, 'error');
+            }
+        }
+        
+        
+        
+        
+        
+
+
+        
+        // 隐藏预览区域
+        
+        
+
+        
+        // 一键导入通用文件
+        function uploadManualFile() {
+            const fileInput = document.getElementById('manualFile');
+            const file = fileInput.files[0];
+            const unitName = document.getElementById('manualUnitName').value.trim();
+            
+            if (!file) {
+                alert('请选择要上传的文件');
+                return;
+            }
+            
+            if (!unitName) {
+                alert('请输入购买单位名称');
+                return;
+            }
+            
+            uploadWithoutMapping(file, unitName);
+        }
+        
+        // 下载通用模板
+        function downloadManualTemplate() {
+            window.location.href = '/templates/manual_product_template.xlsx';
+        }
+
+        // 从预览数据自动导入
+        function autoImportFromPreview(sheet) {
+            const fileInput = document.getElementById('invoiceFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('❌ 文件未找到，请重新选择文件', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('sheet_name', sheet.name);
+            
+            showStatus(`🚀 正在自动导入工作表 "${sheet.name}"...`, 'processing');
+            
+            fetch('/product_names/import_invoice', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus(`✅ 自动导入成功！${data.message}`, 'success');
+                    fileInput.value = '';
+                    document.getElementById('invoiceFileInfo').textContent = '📄 未选择文件';
+                    document.getElementById('invoiceFileInfo').style.color = '#6c757d';
+                    loadProducts();
+                    loadUnits();
+                    
+                    // 自动跳转到产品列表页面
+                    // 自动刷新产品列表
+                    setTimeout(() => {
+                        showStatus('🔄 正在刷新产品列表...', 'info');
+                        loadProducts();
+                        setTimeout(() => {
+                            showStatus('✅ 产品列表已刷新', 'success');
+                        }, 500);
+                    }, 1500);
+                } else {
+                    showStatus(`❌ 自动导入失败: ${data.message}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('自动导入失败:', error);
+                showStatus('❌ 自动导入失败: 网络错误', 'error');
+            });
+        }
+        
+        // 下载模板
+        function downloadTemplate() {
+            window.location.href = '/templates/product_name_template.xlsx';
+        }
+        
+        // 上传产品模板（增强版，支持智能解析）
+        function uploadProductTemplate() {
+            const fileInput = document.getElementById('productFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请选择要上传的文件');
+                return;
+            }
+            
+            // 检查是否为我们支持的Excel文件，如果是，使用智能解析
+            const supportedFiles = ['七彩乐园.xlsx', '宜榢.xlsx', '迎扬李总.xlsx'];
+            const isSupported = supportedFiles.some(supported => file.name.includes(supported));
+            
+            if (isSupported) {
+                // 使用智能解析API
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('unit_name', '模板导入单位');  // 使用默认单位
+                
+                showStatus('正在使用智能解析导入产品...', 'processing');
+                
+                fetch('/api/manual_upload_products', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus(`✅ ${data.message}`, 'success');
+                        fileInput.value = '';
+                        document.getElementById('fileInfo').textContent = '📄 未选择文件';
+                        document.getElementById('fileInfo').style.color = '#6c757d';
+                        loadProducts();
+                        loadUnits();
+                    } else {
+                        showStatus('❌ 智能解析失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('智能解析失败:', error);
+                    showStatus('❌ 智能解析失败: 网络错误', 'error');
+                });
+                return;
+            }
+            
+            // 如果不是支持的文件，使用原来的逻辑
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            showStatus('正在上传并导入产品...', 'processing');
+            
+            fetch('/product_names/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus(`✅ 成功导入 ${data.count} 个产品！`, 'success');
+                    fileInput.value = '';
+                    document.getElementById('fileInfo').textContent = '📄 未选择文件';
+                    document.getElementById('fileInfo').style.color = '#6c757d';
+                    loadProducts();
+                    loadUnits();
+                } else {
+                    showStatus('❌ 导入失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('上传失败:', error);
+                showStatus('❌ 导入失败: 网络错误', 'error');
+            });
+        }
+        
+        // 加载购买单位列表
+        function loadUnits() {
+            console.log('开始加载购买单位...');
+            fetch('/api/purchase_units')
+                .then(response => {
+                    console.log('API响应状态:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('购买单位数据:', data);
+                    if (data.success) {
+                        // 保存所有购买单位数据供分类键使用
+                        window.allPurchaseUnits = data.data;
+                        
+                        // 特别处理existingUnitSelect
+                        const existingUnitSelect = document.getElementById('existingUnitSelect');
+                        if (existingUnitSelect) {
+                            existingUnitSelect.innerHTML = '<option value="">-- 选择现有单位 --</option>';
+                            data.data.forEach(unit => {
+                                const option = document.createElement('option');
+                                option.value = unit.id;
+                                option.textContent = unit.unit_name;
+                                existingUnitSelect.appendChild(option);
+                            });
+                        }
+                        
+                        // 处理其他选择器（不包括existingUnitSelect）
+                        const otherSelects = document.querySelectorAll('#filterUnit, #productUnit, #editProductUnit');
+                        otherSelects.forEach(select => {
+                            const currentValue = select.value;
+                            
+                            if (select.id === 'filterUnit') {
+                                // 筛选下拉框保持"-- 全部购买单位 --"选项
+                                select.innerHTML = '<option value="">-- 全部购买单位 --</option>';
+                            } else {
+                                select.innerHTML = '<option value="">-- 选择购买单位 --</option>';
+                            }
+                            
+                            data.data.forEach(unit => {
+                                const option = document.createElement('option');
+                                option.value = unit.id;
+                                option.textContent = unit.unit_name;
+                                select.appendChild(option);
+                            });
+                            
+                            if (currentValue) {
+                                select.value = currentValue;
+                            }
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载购买单位失败:', error);
+                    console.log('错误详情:', error.message);
+                });
+        }
+        
+        // 加载产品列表
+        function loadProducts() {
+            const listContainer = document.getElementById('productsList');
+            listContainer.innerHTML = '<div class="loading">🔄 正在刷新产品列表...</div>';
+            
+            // 使用时间戳强制避免缓存
+            const timestamp = new Date().getTime();
+            fetch(`/api/product_names?_t=${timestamp}`, {
+                cache: 'no-cache'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('产品列表刷新成功，共', data.data.length, '个产品');
+                        allProducts = data.data;
+                        filterAndSortProducts();
+                        showStatus(`✅ 产品列表已刷新，当前共有 ${data.data.length} 个产品`, 'success');
+                    } else {
+                        listContainer.innerHTML = `<div class="error">加载失败: ${data.message}</div>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('加载失败:', error);
+                    listContainer.innerHTML = '<div class="error">加载失败: 网络错误</div>';
+                });
+        }
+        
+        // 显示产品列表
+        function displayProducts(products) {
+            const listContainer = document.getElementById('productsList');
+            const categoryKeysContainer = document.getElementById('categoryKeys');
+            
+            if (!products || products.length === 0) {
+                listContainer.innerHTML = '<div class="no-data">暂无产品，请添加或导入</div>';
+                categoryKeysContainer.innerHTML = '<div class="no-data">暂无分类</div>';
+                return;
+            }
+            
+            // 生成分类键
+            generateCategoryKeys(products);
+            
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="checkbox-cell">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                            </th>
+                            <th>ID</th>
+                            <th>产品名称</th>
+                            <th>产品型号</th>
+                            <th>规格（kg/桶）</th>
+                            <th>单价（元）</th>
+                            <th>购买单位</th>
+                            <th>描述</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            products.forEach(product => {
+                const specDisplay = product.specification && product.specification > 0 
+                    ? `${product.specification} kg/桶` 
+                    : '-';
+                html += `
+                    <tr data-product-id="${product.id}">
+                        <td class="checkbox-cell">
+                            <input type="checkbox" class="product-checkbox" value="${product.id}" onchange="handleCheckboxChange(${product.id})">
+                        </td>
+                        <td>${product.id}</td>
+                        <td style="font-weight: 600;">${product.name || ''}</td>
+                        <td>${product.model_number || '-'}</td>
+                        <td>${specDisplay}</td>
+                        <td>${product.price ? product.price.toFixed(2) : '-'}</td>
+                        <td>${product.purchase_unit_name || '-'}</td>
+                        <td>${product.description || '-'}</td>
+                        <td class="action-btns">
+                            <button class="btn" onclick="editProduct(${product.id})" style="padding: 5px 10px; font-size: 12px;">编辑</button>
+                            <button class="btn btn-danger" onclick="deleteProduct(${product.id})" style="padding: 5px 10px; font-size: 12px;">删除</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            listContainer.innerHTML = html;
+        }
+        
+        // 生成分类键
+        function generateCategoryKeys(products) {
+            const categoryKeysContainer = document.getElementById('categoryKeys');
+            
+            if (!products || products.length === 0) {
+                categoryKeysContainer.innerHTML = '<div class="no-data">暂无分类</div>';
+                return;
+            }
+            
+            // 按产品名称分组统计
+            const nameStats = {};
+            products.forEach(product => {
+                const name = product.name || '未命名';
+                if (!nameStats[name]) {
+                    nameStats[name] = 0;
+                }
+                nameStats[name]++;
+            });
+            
+            // 生成分类键按钮
+            let html = '';
+            Object.entries(nameStats).forEach(([productName, count]) => {
+                html += `
+                    <span class="category-key-btn" 
+                          onclick="filterByProductName('${productName}')"
+                          style="background: #f8f9fa; border: 1px solid #dee2e6; padding: 5px 12px; border-radius: 15px; cursor: pointer; font-size: 14px; color: #495057; transition: all 0.2s;">
+                        ${productName} (${count})
+                    </span>
+                `;
+            });
+            
+            // 添加清除筛选按钮
+            html += `
+                <span class="category-key-btn" 
+                      onclick="clearFilter()"
+                      style="background: #e9ecef; border: 1px solid #adb5bd; padding: 5px 12px; border-radius: 15px; cursor: pointer; font-size: 14px; color: #495057; transition: all 0.2s;">
+                    显示全部
+                </span>
+            `;
+            
+            categoryKeysContainer.innerHTML = html;
+        }
+        
+        // 按产品名称筛选
+        function filterByProductName(productName) {
+            const filtered = allProducts.filter(p => p.name === productName);
+            displayProducts(filtered);
+        }
+        
+        // 筛选产品（已替换为综合筛选和排序）
+        function filterProducts() {
+            const unitId = document.getElementById('filterUnit').value;
+            
+            if (unitId) {
+                const filtered = allProducts.filter(p => p.purchase_unit_id == unitId);
+                displayProducts(filtered);
+            } else {
+                displayProducts(allProducts);
+            }
+        }
+        
+        // 筛选和排序产品
+        function filterAndSortProducts() {
+            const unitId = document.getElementById('filterUnit').value;
+            const sortBy = document.getElementById('sortBy').value;
+            const sortOrder = document.getElementById('sortOrder').value;
+            
+            let products = [...allProducts];
+            
+            // 筛选
+            if (unitId) {
+                products = products.filter(p => p.purchase_unit_id == unitId);
+            }
+            
+            // 排序
+            products.sort((a, b) => {
+                let aValue, bValue;
+                
+                switch(sortBy) {
+                    case 'name':
+                        aValue = (a.name || '').toLowerCase();
+                        bValue = (b.name || '').toLowerCase();
+                        break;
+                    case 'unit':
+                        aValue = (a.purchase_unit_name || '').toLowerCase();
+                        bValue = (b.purchase_unit_name || '').toLowerCase();
+                        break;
+                    case 'price':
+                        aValue = parseFloat(a.price) || 0;
+                        bValue = parseFloat(b.price) || 0;
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                if (sortOrder === 'desc') {
+                    return aValue < bValue ? 1 : (aValue > bValue ? -1 : 0);
+                } else {
+                    return aValue > bValue ? 1 : (aValue < bValue ? -1 : 0);
+                }
+            });
+            
+            displayProducts(products);
+        }
+        
+        // 清除筛选
+        function clearFilter() {
+            document.getElementById('filterUnit').value = '';
+            document.getElementById('sortBy').value = 'name';
+            document.getElementById('sortOrder').value = 'asc';
+            filterAndSortProducts();
+        }
+        
+        // 添加产品
+        function addProductName() {
+            const name = document.getElementById('productName').value.trim();
+            const modelNumber = document.getElementById('productModel').value.trim();
+            const price = document.getElementById('productPrice').value.trim();
+            const specification = document.getElementById('productSpec').value.trim();
+            const unitId = document.getElementById('productUnit').value;
+            const description = document.getElementById('productDescription').value.trim();
+            
+            if (!name) {
+                alert('请输入产品名称');
+                return;
+            }
+            
+            const product = {
+                name: name,
+                model_number: modelNumber,
+                price: price ? parseFloat(price) : 0,
+                specification: specification ? parseFloat(specification) : 0,
+                purchase_unit_id: unitId ? parseInt(unitId) : null,
+                description: description
+            };
+            
+            fetch('/api/product_names', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(product)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus(`✅ "${name}" 添加成功！`, 'success');
+                    clearProductForm();
+                    loadProducts();
+                } else {
+                    showStatus(`❌ 添加失败: ${data.message}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('添加失败:', error);
+                showStatus('❌ 添加失败: 网络错误', 'error');
+            });
+        }
+        
+        // 清空表单
+        function clearProductForm() {
+            document.getElementById('productName').value = '';
+            document.getElementById('productModel').value = '';
+            document.getElementById('productPrice').value = '';
+            document.getElementById('productSpec').value = '';
+            document.getElementById('productUnit').value = '';
+            document.getElementById('productDescription').value = '';
+        }
+        
+        // 编辑产品
+        function editProduct(productId) {
+            console.log('editProduct called with productId:', productId);
+            
+            try {
+                // 显示加载状态
+                showStatus('正在加载产品信息...', 'info');
+                
+                // 通过AJAX获取产品详情
+                fetch(`/product_names/${productId}`)
+                    .then(response => {
+                        console.log('Fetch response:', response);
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Fetch data:', data);
+                        if (data.success) {
+                            const product = data.data;
+                            console.log('Product data:', product);
+                            
+                            // 填充表单数据
+                            const fields = {
+                                'editProductId': product.id,
+                                'editProductName': product.name || '',
+                                'editProductModel': product.model_number || '',
+                                'editProductPrice': product.price || '',
+                                'editProductSpec': product.specification || '',
+                                'editProductUnit': product.purchase_unit_id || '',
+                                'editProductDescription': product.description || ''
+                            };
+                            
+                            Object.entries(fields).forEach(([fieldId, value]) => {
+                                const element = document.getElementById(fieldId);
+                                if (element) {
+                                    element.value = value;
+                                    console.log(`Set ${fieldId} to:`, value);
+                                } else {
+                                    console.error(`Element not found: ${fieldId}`);
+                                }
+                            });
+                            
+                            // 显示编辑模态框
+                            const modal = document.getElementById('editModal');
+                            if (modal) {
+                                modal.style.display = 'flex';
+                                console.log('Modal displayed');
+                            } else {
+                                console.error('editModal element not found');
+                            }
+                            
+                            // 隐藏加载状态
+                            showStatus('', '');
+                        } else {
+                            console.error('API returned error:', data.message);
+                            showStatus('❌ 获取产品信息失败: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Fetch error:', error);
+                        showStatus('❌ 获取产品信息失败: 网络错误', 'error');
+                    });
+            } catch (error) {
+                console.error('editProduct error:', error);
+                showStatus('❌ 编辑功能异常: ' + error.message, 'error');
+            }
+        }
+        
+        // 关闭编辑模态框
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+        
+        // 保存编辑
+        function saveEdit() {
+            const productId = document.getElementById('editProductId').value;
+            const name = document.getElementById('editProductName').value.trim();
+            const modelNumber = document.getElementById('editProductModel').value.trim();
+            const price = document.getElementById('editProductPrice').value.trim();
+            const specification = document.getElementById('editProductSpec').value.trim();
+            const unitId = document.getElementById('editProductUnit').value;
+            const description = document.getElementById('editProductDescription').value.trim();
+            
+            if (!name) {
+                alert('请输入产品名称');
+                return;
+            }
+            
+            const product = {
+                name: name,
+                model_number: modelNumber,
+                price: price ? parseFloat(price) : 0,
+                specification: specification ? parseFloat(specification) : 0,
+                purchase_unit_id: unitId ? parseInt(unitId) : null,
+                description: description
+            };
+            
+            fetch(`/product_names/${productId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(product)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus('✅ 更新成功！', 'success');
+                    closeEditModal();
+                    loadProducts();
+                } else {
+                    showStatus(`❌ 更新失败: ${data.message}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('更新失败:', error);
+                showStatus('❌ 更新失败: 网络错误', 'error');
+            });
+        }
+        
+        // 删除产品
+        function deleteProduct(productId) {
+            if (!confirm('确定要删除这个产品吗？')) {
+                return;
+            }
+            
+            fetch(`/product_names/${productId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus('✅ 删除成功！', 'success');
+                    loadProducts();
+                } else {
+                    showStatus(`❌ 删除失败: ${data.message}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('删除失败:', error);
+                showStatus('❌ 删除失败: 网络错误', 'error');
+            });
+        }
+        
+        // 点击模态框外部关闭
+        document.getElementById('editModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeEditModal();
+            }
+        });
+        
+        // 全选/取消全选
+        function toggleSelectAll() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const checkboxes = document.querySelectorAll('.product-checkbox');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+                const row = checkbox.closest('tr');
+                if (selectAllCheckbox.checked) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            });
+            
+            updateBatchActions();
+        }
+        
+        // 处理单个复选框变化
+        function handleCheckboxChange(productId) {
+            const checkbox = document.querySelector(`.product-checkbox[value="${productId}"]`);
+            const row = checkbox.closest('tr');
+            
+            if (checkbox.checked) {
+                row.classList.add('selected');
+            } else {
+                row.classList.remove('selected');
+            }
+            
+            // 更新全选复选框状态
+            updateSelectAllCheckbox();
+            updateBatchActions();
+        }
+        
+        // 更新全选复选框状态
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const checkboxes = document.querySelectorAll('.product-checkbox');
+            
+            if (checkboxes.length === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+                return;
+            }
+            
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+            
+            if (checkedCount === checkboxes.length) {
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.indeterminate = false;
+            } else if (checkedCount === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = true;
+            }
+        }
+        
+        // 更新批量操作栏状态
+        function updateBatchActions() {
+            const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+            const batchActions = document.getElementById('batchActions');
+            const selectedCount = document.getElementById('selectedCount');
+            
+            const count = selectedCheckboxes.length;
+            selectedCount.textContent = `已选择 ${count} 项`;
+            
+            if (count > 0) {
+                batchActions.classList.add('active');
+            } else {
+                batchActions.classList.remove('active');
+            }
+        }
+        
+        // 清除选择
+        function clearSelection() {
+            const checkboxes = document.querySelectorAll('.product-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.closest('tr').classList.remove('selected');
+            });
+            
+            document.getElementById('selectAllCheckbox').checked = false;
+            document.getElementById('selectAllCheckbox').indeterminate = false;
+            updateBatchActions();
+        }
+        
+
+        
+
+
+        
+
+        
+        // 一键导入产品（智能解析）
+        function uploadManualFile() {
+            const fileInput = document.getElementById('manualFile');
+            const file = fileInput.files[0];
+            const unitName = document.getElementById('manualUnitName').value.trim();
+            
+            if (!file) {
+                alert('请选择要上传的文件');
+                return;
+            }
+            
+            if (!unitName) {
+                alert('请输入购买单位名称');
+                return;
+            }
+            
+            uploadWithoutMapping(file, unitName);
+        }
+        
+        // 简化的一键导入产品（智能解析）
+        function uploadWithoutMapping(file, unitName) {
+            showStatus('正在导入产品数据...', 'processing');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('unit_name', unitName);
+            
+            fetch('/api/manual_upload_products', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus(`✅ ${data.message}`, 'success');
+                    document.getElementById('manualFile').value = '';
+                    document.getElementById('manualFileInfo').textContent = '📄 未选择文件';
+                    document.getElementById('manualFileInfo').style.color = '#6c757d';
+                    document.getElementById('manualUnitName').value = '';
+                    document.getElementById('existingUnitSelect').value = '';
+                    loadProducts();
+                    
+                    // 自动刷新产品列表
+                    setTimeout(() => {
+                        loadProducts();
+                        showStatus('✅ 产品列表已刷新', 'success');
+                    }, 1000);
+                } else {
+                    showStatus('❌ 导入失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('导入失败:', error);
+                showStatus('❌ 导入失败: 网络错误', 'error');
+            });
+        }
+        
+        // 批量删除选中项
+        function batchDeleteSelected() {
+            const selectedCheckboxes = document.querySelectorAll('.product-checkbox:checked');
+            const selectedIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+            
+            if (selectedIds.length === 0) {
+                alert('请先选择要删除的产品');
+                return;
+            }
+            
+            // 限制显示的产品名称数量，避免对话框过长
+            const maxDisplayCount = 8; // 最多显示8个产品名称
+            const productNames = selectedIds.map(id => {
+                const row = document.querySelector(`tr[data-product-id="${id}"]`);
+                if (row) {
+                    return row.querySelector('td:nth-child(3)').textContent.trim();
+                }
+                return null;
+            }).filter(name => name);
+            
+            let displayText = '';
+            if (productNames.length <= maxDisplayCount) {
+                displayText = productNames.join('、');
+            } else {
+                const displayNames = productNames.slice(0, maxDisplayCount);
+                displayText = displayNames.join('、') + ` 等${productNames.length}个产品`;
+            }
+            
+            const confirmMessage = `确定要删除以下 ${selectedIds.length} 个产品吗？\n\n${displayText}`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // 使用真正的批量删除API
+            showStatus(`正在批量删除 ${selectedIds.length} 个产品...`, 'processing');
+            
+            fetch('/api/product_names/batch_delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name_ids: selectedIds
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus(`✅ 批量删除完成：成功 ${data.success_count} 个，失败 ${data.failed_count} 个`, 'success');
+                    loadProducts();
+                } else {
+                    showStatus(`⚠️ 批量删除失败：${data.message}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('批量删除失败:', error);
+                showStatus('❌ 批量删除失败：网络错误', 'error');
+            });
+        }
+        
+        // 显示重复审查
+        function showDuplicateReview() {
+            fetch('/api/product_names/duplicates')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayDuplicateReview(data.data);
+                    } else {
+                        showStatus('❌ 获取重复数据失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('获取重复数据失败:', error);
+                    showStatus('❌ 获取重复数据失败: 网络错误', 'error');
+                });
+        }
+        
+        // 显示重复审查模态框
+        function displayDuplicateReview(data) {
+            const modal = document.createElement('div');
+            modal.className = 'product-selector-modal';
+            modal.id = 'duplicateReviewModal';
+            
+            const content = document.createElement('div');
+            content.className = 'modal-content';
+            content.style.width = '90%';
+            content.style.maxWidth = '1000px';
+            
+            content.innerHTML = `
+                <div class="modal-header">
+                    <h3>🔍 重复产品审查</h3>
+                    <button class="close-btn" onclick="closeDuplicateReview()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    ${displayDuplicateStats(data)}
+                    ${displayDuplicateGroups(data.duplicates)}
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="btn btn-danger" onclick="cleanupDuplicates()">🗑️ 清理重复产品</button>
+                        <button class="btn btn-secondary" onclick="closeDuplicateReview()" style="margin-left: 10px;">关闭</button>
+                    </div>
+                </div>
+            `;
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            modal.style.display = 'flex';
+        }
+        
+        // 显示重复统计
+        function displayDuplicateStats(data) {
+            return `
+                <div class="duplicate-stats">
+                    <div class="stat-item">
+                        <div class="stat-number">${data.total_products}</div>
+                        <div class="stat-label">总产品数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${data.unique_products}</div>
+                        <div class="stat-label">去重后产品数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${data.duplicate_products}</div>
+                        <div class="stat-label">重复产品数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">${data.duplicates.length}</div>
+                        <div class="stat-label">重复组数</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 显示重复组
+        function displayDuplicateGroups(duplicates) {
+            if (duplicates.length === 0) {
+                return '<p style="text-align: center; color: #28a745; font-weight: bold;">🎉 太棒了！没有发现重复产品！</p>';
+            }
+            
+            let html = '';
+            duplicates.forEach((group, index) => {
+                html += `
+                    <div class="duplicate-group">
+                        <h5>🔄 重复组 ${index + 1}</h5>
+                        <p style="margin-bottom: 10px; color: #666;">
+                            <strong>产品信息：</strong>${group.key}
+                        </p>
+                        <p style="margin-bottom: 15px; color: #666;">
+                            <strong>出现次数：</strong>${group.total_count} 次
+                        </p>
+                `;
+                
+                // 按购买单位分组显示
+                Object.entries(group.unit_groups).forEach(([unitName, products]) => {
+                    html += `
+                        <div style="margin-bottom: 15px; padding: 10px; background-color: white; border-radius: 5px;">
+                            <h6 style="color: #007bff; margin-bottom: 8px;">🏢 ${unitName}</h6>
+                    `;
+                    
+                    products.forEach(product => {
+                        html += `
+                            <div class="duplicate-item">
+                                <span>
+                                    <strong>ID:</strong> ${product.id} | 
+                                    <strong>价格:</strong> ¥${product.price} | 
+                                    <strong>规格:</strong> ${product.specification}kg
+                                </span>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteSingleProduct(${product.id})">删除</button>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                });
+                
+                html += '</div>';
+            });
+            
+            return html;
+        }
+        
+        // 关闭重复审查
+        function closeDuplicateReview() {
+            const modal = document.getElementById('duplicateReviewModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        // 清理重复产品
+        function cleanupDuplicates() {
+            if (!confirm('确定要清理所有重复产品吗？\n\n此操作将删除重复项，保留每个产品的最新版本。')) {
+                return;
+            }
+            
+            showStatus('正在清理重复产品...', 'processing');
+            
+            fetch('/api/product_names/cleanup_duplicates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'merge',
+                    keep_strategy: 'latest'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus(`✅ ${data.message}`, 'success');
+                    closeDuplicateReview();
+                    loadProducts();
+                } else {
+                    showStatus('❌ 清理失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('清理失败:', error);
+                showStatus('❌ 清理失败: 网络错误', 'error');
+            });
+        }
+        
+        // 删除单个产品
+        function deleteSingleProduct(productId) {
+            if (!confirm('确定要删除这个产品吗？')) {
+                return;
+            }
+            
+            fetch(`/product_names/${productId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showStatus('✅ 产品删除成功！', 'success');
+                    closeDuplicateReview();
+                    loadProducts();
+                } else {
+                    showStatus('❌ 删除失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('删除失败:', error);
+                showStatus('❌ 删除失败: 网络错误', 'error');
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,4558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智能助手控制台 - 出货单管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary-color: #4a90d9;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-color);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-container { display: flex; height: 100vh; }
+        
+        .sidebar {
+            width: 220px;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h4 { margin: 0; font-size: 16px; }
+        
+        .sidebar-menu { flex: 1; padding: 15px 0; overflow-y: auto; }
+        
+        .menu-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: rgba(255,255,255,0.7);
+            border-left: 3px solid transparent;
+        }
+        
+        .menu-item:hover { background: rgba(255,255,255,0.1); color: white; }
+        .menu-item.active { background: rgba(74,144,217,0.2); color: white; border-left-color: var(--primary-color); }
+
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        .top-bar {
+            height: 50px;
+            background: var(--card-bg);
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .page-title { font-size: 16px; font-weight: 600; color: #333; }
+
+        .chat-container { flex: 1; display: flex; overflow: hidden; }
+
+        .chat-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .message.ai {
+            align-self: flex-start;
+            background: var(--card-bg);
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .message .time { font-size: 11px; opacity: 0.7; margin-top: 5px; }
+
+        .input-area {
+            padding: 15px 20px;
+            background: var(--card-bg);
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .toolbar-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .toolbar-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .input-wrapper { display: flex; gap: 10px; }
+
+        .input-wrapper textarea {
+            flex: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            resize: none;
+            font-family: inherit;
+        }
+
+        .input-wrapper textarea:focus { outline: none; border-color: var(--primary-color); }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-primary:hover { background: #3a7bc8; }
+        .btn-success { background: var(--success-color); color: white; }
+        .btn-secondary { background: var(--secondary-color); color: white; }
+        .btn-danger { background: var(--danger-color); color: white; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+        .quick-actions {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .quick-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+
+        .right-panel {
+            width: 320px;
+            background: var(--card-bg);
+            border-left: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: 600; }
+        .panel-content { flex: 1; padding: 15px; overflow-y: auto; }
+
+        /* 功能页面样式 */
+        .page-view {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .page-view.active { display: flex; }
+
+        .page-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .header-actions input,
+        .header-actions select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .tools-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .tool-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tool-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .tool-category {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .tool-category.products { background: #e3f2fd; color: #1976d2; }
+        .tool-category.materials { background: #e8f5e9; color: #388e3c; }
+        .tool-category.customers { background: #fff3e0; color: #f57c00; }
+        .tool-category.orders { background: #fce4ec; color: #c2185b; }
+        .tool-category.print { background: #ede7f6; color: #7b1fa2; }
+        .tool-category.database { background: #eceff1; color: #546e7a; }
+        .tool-category.system { background: #f5f5f5; color: #757575; }
+
+        .tool-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .tool-description {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .tool-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .tool-action-btn {
+            padding: 4px 10px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .tool-action-btn.query { background: #e3f2fd; color: #1976d2; }
+        .tool-action-btn.add { background: #e8f5e9; color: #388e3c; }
+        .tool-action-btn.edit { background: #fff3e0; color: #f57c00; }
+        .tool-action-btn.delete { background: #ffebee; color: #c62828; }
+
+        .tool-detail-modal .modal-body {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .tool-params {
+            margin: 15px 0;
+        }
+
+        .tool-param {
+            margin-bottom: 10px;
+        }
+
+        .tool-param label {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .tool-param input,
+        .tool-param select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .data-table th, .data-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .data-table th { background: #f8f9fa; font-weight: 600; }
+        .data-table tr:hover { background: #f8f9fa; }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+        .form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+
+        .action-btns { display: flex; gap: 5px; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-card .number { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+        .stat-card .label { font-size: 12px; color: #666; }
+
+        /* 模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal.active { display: flex; }
+        
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header { font-size: 18px; font-weight: 600; margin-bottom: 15px; }
+        .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+        .status-indicator { display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.online { background: var(--success-color); }
+
+        .warning-card { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+        .warning-card .title { font-weight: 600; color: #856404; margin-bottom: 10px; }
+
+        .mode-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+
+        .mode-label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .toggle-switch {
+            width: 40px;
+            height: 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: #4a90d9;
+        }
+
+        .toggle-slider {
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(20px);
+        }
+
+        .pro-mode-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(90deg, rgba(0,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(rgba(0,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(180deg, #050510 0%, #0a0a1a 30%, #0f0f25 60%, #0a0a15 100%);
+            background-size: 50px 50px, 50px 50px, 100% 100%;
+            background-position: center center;
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .pro-mode-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .pro-mode-overlay.entering .sphere-container,
+        .pro-mode-overlay.entering .jarvis-chat-panel,
+        .pro-mode-overlay.entering .jarvis-voice-btn,
+        .pro-mode-overlay.entering .pro-status,
+        .pro-mode-overlay.entering .scan-line {
+            animation-play-state: running;
+        }
+
+        .pro-mode-overlay.exiting {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .pro-mode-overlay::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse at 20% 30%, rgba(0, 150, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 70%, rgba(0, 200, 255, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(0, 100, 200, 0.04) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .pro-mode-overlay.active {
+            display: flex;
+        }
+
+        .stark-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 80px 80px;
+            transform: perspective(500px) rotateX(60deg);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .pro-mode-overlay.active .stark-grid {
+            opacity: 1;
+        }
+
+        /* 数字雨Canvas */
+        .digital-rain-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .pro-mode-overlay.active .digital-rain-canvas {
+            opacity: 1;
+        }
+
+        .pro-mode-overlay.exiting .digital-rain-canvas {
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        /* 科技感字体落下动画 */
+        .falling-text-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .falling-char {
+            position: absolute;
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 
+                0 0 5px #00ffff,
+                0 0 10px #00ffff,
+                0 0 20px #0088ff;
+            opacity: 0;
+            transform: translateY(-200px);
+            letter-spacing: 2px;
+        }
+
+        .pro-mode-overlay.active .falling-char {
+            animation: charFallDown 2s ease-out forwards;
+        }
+
+        .pro-mode-overlay.exiting .falling-char {
+            animation: charFallUpReverse 1.5s ease-in forwards;
+        }
+
+        @keyframes charFallDown {
+            0% {
+                opacity: 0;
+                transform: translateY(-200px) scale(1);
+            }
+            15% {
+                opacity: 0.8;
+                transform: translateY(-120px) scale(1);
+            }
+            50% {
+                opacity: 0.6;
+                transform: translateY(0px) scale(0.8);
+            }
+            80% {
+                opacity: 0.3;
+                transform: translateY(50vh) scale(0.5);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(100vh) scale(0.2);
+            }
+        }
+
+        @keyframes charFallUpReverse {
+            0% {
+                opacity: 0;
+                transform: translateY(100vh) scale(0.2);
+            }
+            30% {
+                opacity: 0.3;
+                transform: translateY(50vh) scale(0.5);
+            }
+            60% {
+                opacity: 0.6;
+                transform: translateY(20vh) scale(0.7);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-200px) scale(1);
+            }
+        }
+
+        .data-stream {
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        .pro-mode-overlay.active .data-stream {
+            opacity: 1;
+        }
+
+        .stream-line {
+            animation-play-state: paused;
+        }
+
+        .pro-mode-overlay.active .stream-line {
+            animation-play-state: running;
+        }
+
+        .scan-line {
+            opacity: 0;
+            transform: translateY(-100%);
+            transition: opacity 0.3s ease, transform 0.8s linear;
+        }
+
+        .pro-mode-overlay.active .scan-line {
+            opacity: 1;
+            transform: translateY(100vh);
+        }
+
+        .pro-mode-overlay.active .grid-bg {
+            transform-origin: center 120%;
+            opacity: 0.5;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 80px; }
+        }
+
+        /* 让过渡文字围绕屏幕中心轨道旋转 */
+        @keyframes turboSpin {
+            0% {
+                transform: rotate(0deg) scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: rotate(360deg) scale(0.9);
+                opacity: 0.8;
+            }
+            100% {
+                transform: rotate(720deg) scale(0);
+                opacity: 0;
+            }
+        }
+
+        @keyframes turboSpinReverse {
+            0% {
+                transform: rotate(720deg) scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: rotate(360deg) scale(0.9);
+                opacity: 0.8;
+            }
+            100% {
+                transform: rotate(0deg) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes bgColorShift {
+            0% {
+                background-color: #0a0a15;
+            }
+            100% {
+                background-color: #050510;
+            }
+        }
+
+        .transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 99999;
+            pointer-events: auto;
+            display: none;
+            overflow: hidden;
+            background: rgba(5, 5, 16, 0.95);
+        }
+
+        .transition-overlay.active {
+            display: block;
+        }
+
+        .transition-text {
+            position: absolute;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            font-weight: bold;
+            font-size: 20px;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+            white-space: nowrap;
+            will-change: transform, opacity;
+            z-index: 100000;
+            display: inline-block;
+            padding: 5px 10px;
+            /* 初始位置在屏幕中心 */
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 从对应位置飞入屏幕中心并消失（进入动画）- 使用贝塞尔曲线实现平滑过渡 */
+        .transition-overlay.entering .transition-text {
+            animation: flyInFromElement 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        /* 从屏幕中心飞出到对应位置（退出动画） */
+        .transition-overlay.exiting .transition-text {
+            animation: flyOutToElement 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes flyInFromElement {
+            0% {
+                left: var(--start-left);
+                top: var(--start-top);
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.3);
+            }
+            20% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+            60% {
+                left: 50%;
+                top: 50%;
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            100% {
+                left: 50%;
+                top: 50%;
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.6);
+            }
+        }
+
+        /* 进入动画：从元素位置飞入，同时围绕屏幕中心旋转并渐变消失 */
+        @keyframes flyInWithOrbit {
+            0% {
+                left: var(--start-left);
+                top: var(--start-top);
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+            }
+            30% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.1) rotate(120deg);
+            }
+            70% {
+                left: 50%;
+                top: 50%;
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1) rotate(240deg);
+            }
+            100% {
+                left: 50%;
+                top: 50%;
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5) rotate(360deg);
+            }
+        }
+
+        /* 退出动画：从屏幕中心飞出，同时围绕屏幕中心旋转并渐变消失 */
+        @keyframes flyOutWithOrbit {
+            0% {
+                left: 50%;
+                top: 50%;
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+            }
+            30% {
+                left: 50%;
+                top: 50%;
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1) rotate(120deg);
+            }
+            70% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.1) rotate(240deg);
+            }
+            100% {
+                left: var(--start-left);
+                top: var(--start-top);
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.3) rotate(360deg);
+            }
+        }
+
+        /* 使用新的旋转动画 */
+        .transition-overlay.entering .transition-text {
+            animation: flyInWithOrbit 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .transition-overlay.exiting .transition-text {
+            animation: flyOutWithOrbit 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .transition-overlay.entering {
+            animation: bgFadeIn 0.4s ease forwards;
+        }
+
+        .transition-overlay.exiting {
+            animation: bgFadeOut 0.4s ease forwards;
+        }
+
+        @keyframes bgFadeIn {
+            0% { background: rgba(5, 5, 16, 0); }
+            70% { background: rgba(5, 5, 16, 0.95); }
+            100% { background: rgba(5, 5, 16, 0.95); }
+        }
+
+        @keyframes bgFadeOut {
+            0% { background: rgba(5, 5, 16, 0.95); }
+            30% { background: rgba(5, 5, 16, 0.95); }
+            100% { background: rgba(5, 5, 16, 0); }
+        }
+
+        .jarvis-container {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            perspective: 1000px;
+            transform-style: preserve-3d;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .pro-mode-overlay.active .jarvis-container {
+            opacity: 1;
+            transform: scale(1);
+            transition-delay: 0.3s;
+        }
+
+        .jarvis-core {
+            position: absolute;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, 
+                rgba(200, 255, 255, 0.9) 0%, 
+                rgba(0, 255, 255, 0.6) 10%, 
+                rgba(0, 180, 255, 0.3) 30%, 
+                rgba(0, 100, 180, 0.15) 60%, 
+                rgba(0, 50, 100, 0.05) 80%,
+                transparent 100%);
+            box-shadow: 
+                0 0 60px rgba(0, 255, 255, 0.9),
+                0 0 120px rgba(0, 200, 255, 0.6),
+                0 0 180px rgba(0, 150, 255, 0.4),
+                0 0 240px rgba(0, 100, 200, 0.2),
+                inset 0 0 80px rgba(0, 255, 255, 0.5),
+                inset 0 0 120px rgba(0, 200, 255, 0.3);
+            animation: coreBreath 4s ease-in-out infinite;
+            filter: blur(0.5px);
+        }
+
+        @keyframes coreBreath {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 
+                    0 0 60px rgba(0, 255, 255, 0.9),
+                    0 0 120px rgba(0, 200, 255, 0.6),
+                    0 0 180px rgba(0, 150, 255, 0.4),
+                    inset 0 0 80px rgba(0, 255, 255, 0.5);
+            }
+            50% { 
+                transform: scale(1.08);
+                box-shadow: 
+                    0 0 80px rgba(0, 255, 255, 1),
+                    0 0 150px rgba(0, 200, 255, 0.8),
+                    0 0 220px rgba(0, 150, 255, 0.5),
+                    inset 0 0 100px rgba(0, 255, 255, 0.7);
+            }
+        }
+
+        .polyhedron {
+            position: absolute;
+            transform-style: preserve-3d;
+            pointer-events: none;
+        }
+
+        .poly-icosa {
+            left: 50%;
+            top: 50%;
+            width: 280px;
+            height: 280px;
+            margin: -140px;
+            transform: translate(-50%, -50%);
+            animation: rotate3D 15s linear infinite;
+        }
+
+        .poly-octa {
+            left: 50%;
+            top: 50%;
+            width: 220px;
+            height: 220px;
+            margin: -110px;
+            transform: translate(-50%, -50%);
+            animation: rotate3DReverse 12s linear infinite;
+        }
+
+        .poly-tetra {
+            left: 50%;
+            top: 50%;
+            width: 180px;
+            height: 180px;
+            margin: -90px;
+            transform: translate(-50%, -50%);
+            animation: rotate3D 18s linear infinite;
+        }
+
+        .poly-dodeca {
+            left: 50%;
+            top: 50%;
+            width: 320px;
+            height: 320px;
+            margin: -160px;
+            transform: translate(-50%, -50%);
+            animation: rotate3DReverse 20s linear infinite;
+        }
+
+        .poly-tetra2 {
+            left: 50%;
+            top: 50%;
+            width: 260px;
+            height: 260px;
+            margin: -130px;
+            transform: translate(-50%, -50%);
+            animation: rotate3D 22s linear infinite;
+        }
+
+        @keyframes rotate3D {
+            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+            100% { transform: rotateX(360deg) rotateY(180deg) rotateZ(90deg); }
+        }
+
+        @keyframes rotate3DReverse {
+            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+            100% { transform: rotateX(-360deg) rotateY(-180deg) rotateZ(-90deg); }
+        }
+
+        .poly-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 1px solid;
+            opacity: 0.7;
+            transform-style: preserve-3d;
+        }
+
+        .poly-icosa .poly-face {
+            border-color: rgba(0, 255, 255, 0.3);
+            box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.1);
+        }
+
+        .poly-octa .poly-face {
+            border-color: rgba(0, 191, 255, 0.35);
+            box-shadow: inset 0 0 15px rgba(0, 191, 255, 0.1);
+        }
+
+        .poly-tetra .poly-face {
+            border-color: rgba(0, 255, 255, 0.25);
+            box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.08);
+        }
+
+        .poly-dodeca .poly-face {
+            border-color: rgba(0, 191, 255, 0.2);
+        }
+
+        .poly-tetra2 .poly-face {
+            border-color: rgba(0, 255, 255, 0.15);
+        }
+
+        .poly-icosa .f1 { transform: rotateX(0deg) rotateY(0deg); }
+        .poly-icosa .f2 { transform: rotateX(60deg) rotateY(0deg); }
+        .poly-icosa .f3 { transform: rotateX(-60deg) rotateY(0deg); }
+        .poly-icosa .f4 { transform: rotateX(0deg) rotateY(60deg); }
+        .poly-icosa .f5 { transform: rotateX(0deg) rotateY(-60deg); }
+
+        .poly-octa .f1 { transform: rotateX(0deg); }
+        .poly-octa .f2 { transform: rotateX(90deg); }
+        .poly-octa .f3 { transform: rotateY(90deg); }
+        .poly-octa .f4 { transform: rotateY(-90deg); }
+        .poly-octa .f5 { transform: rotateX(45deg); }
+        .poly-octa .f6 { transform: rotateX(-45deg); }
+
+        .poly-tetra .f1 { transform: rotateX(0deg) rotateY(0deg); }
+        .poly-tetra .f2 { transform: rotateX(60deg) rotateY(30deg); }
+        .poly-tetra .f3 { transform: rotateX(-60deg) rotateY(-30deg); }
+        .poly-tetra .f4 { transform: rotateX(180deg); }
+
+        .poly-dodeca .f1 { transform: rotateX(0deg); }
+        .poly-dodeca .f2 { transform: rotateX(30deg); }
+        .poly-dodeca .f3 { transform: rotateX(-30deg); }
+        .poly-dodeca .f4 { transform: rotateY(30deg); }
+        .poly-dodeca .f5 { transform: rotateY(-30deg); }
+
+        .poly-tetra2 .f1 { transform: rotateX(45deg); }
+        .poly-tetra2 .f2 { transform: rotateX(-45deg); }
+        .poly-tetra2 .f3 { transform: rotateY(45deg); }
+        .poly-tetra2 .f4 { transform: rotateY(-45deg); }
+
+        .wire-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            border: 1px solid;
+            animation: ringRotate linear infinite;
+            opacity: 0;
+            transform-origin: center center;
+        }
+
+        .pro-mode-overlay.active .wire-ring {
+            animation: ringExpandIn 0.8s ease-out forwards, ringRotate 10s linear infinite;
+        }
+
+        @keyframes ringExpandIn {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.1);
+            }
+            60% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        @keyframes ringRotate {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .core-sphere {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(0, 200, 255, 0.8), rgba(0, 100, 200, 0.4), rgba(0, 50, 100, 0.2));
+            box-shadow: 
+                0 0 30px rgba(0, 200, 255, 0.6),
+                0 0 60px rgba(0, 150, 255, 0.4),
+                inset 0 0 20px rgba(255, 255, 255, 0.3);
+            opacity: 0;
+            z-index: 10;
+        }
+
+        .pro-mode-overlay.active .core-sphere {
+            animation: coreFadeIn 1s ease-out 0.3s forwards, corePulse 3s ease-in-out 1.3s infinite;
+        }
+
+        @keyframes coreFadeIn {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            100% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        @keyframes corePulse {
+            0%, 100% {
+                box-shadow: 
+                    0 0 30px rgba(0, 200, 255, 0.6),
+                    0 0 60px rgba(0, 150, 255, 0.4),
+                    inset 0 0 20px rgba(255, 255, 255, 0.3);
+            }
+            50% {
+                box-shadow: 
+                    0 0 50px rgba(0, 200, 255, 0.8),
+                    0 0 100px rgba(0, 150, 255, 0.6),
+                    inset 0 0 30px rgba(255, 255, 255, 0.5);
+            }
+        }
+
+        .ring-1 {
+            width: 200px; height: 200px;
+            border-color: rgba(0, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+            animation-duration: 8s;
+        }
+
+        .ring-2 {
+            width: 230px; height: 230px;
+            border-color: rgba(0, 191, 255, 0.4);
+            box-shadow: 0 0 8px rgba(0, 191, 255, 0.2);
+            animation-duration: 10s;
+            animation-direction: reverse;
+        }
+
+        .ring-3 {
+            width: 260px; height: 260px;
+            border-color: rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 6px rgba(0, 255, 255, 0.15);
+            animation-duration: 12s;
+        }
+
+        .ring-4 {
+            width: 290px; height: 290px;
+            border-color: rgba(0, 191, 255, 0.25);
+            animation-duration: 14s;
+            animation-direction: reverse;
+        }
+
+        .ring-5 {
+            width: 320px; height: 320px;
+            border-color: rgba(0, 255, 255, 0.2);
+            animation-duration: 16s;
+        }
+
+        .ring-6 {
+            width: 350px; height: 350px;
+            border-color: rgba(0, 191, 255, 0.15);
+            animation-duration: 18s;
+            animation-direction: reverse;
+        }
+
+        .ring-7 {
+            width: 380px; height: 380px;
+            border-color: rgba(0, 255, 255, 0.1);
+            animation-duration: 20s;
+        }
+
+        .ring-8 {
+            width: 410px; height: 410px;
+            border-color: rgba(0, 191, 255, 0.08);
+            animation-duration: 22s;
+            animation-direction: reverse;
+            animation-name: ringRotate, ringBreath;
+        }
+
+        @keyframes ringBreath {
+            0%, 100% { 
+                box-shadow: 0 0 20px rgba(0, 191, 255, 0.1), 
+                            inset 0 0 20px rgba(0, 191, 255, 0.05);
+                border-color: rgba(0, 191, 255, 0.08);
+            }
+            50% { 
+                box-shadow: 0 0 40px rgba(0, 191, 255, 0.3), 
+                            inset 0 0 30px rgba(0, 191, 255, 0.15);
+                border-color: rgba(0, 191, 255, 0.4);
+            }
+        }
+
+        .ring-9 {
+            width: 440px; height: 440px;
+            border-color: rgba(0, 255, 255, 0.05);
+            animation-duration: 25s;
+        }
+
+        .ring-10 {
+            width: 470px; height: 470px;
+            border-color: rgba(0, 191, 255, 0.04);
+            animation-duration: 28s;
+            animation-direction: reverse;
+        }
+
+        @keyframes ringRotate {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .ring-dashed {
+            border-style: dashed !important;
+        }
+
+        .ring-dashed.blue-ring {
+            border: 2px dashed rgba(0, 191, 255, 0.8) !important;
+            box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), inset 0 0 10px rgba(0, 191, 255, 0.2);
+            animation: blueRingPulse 1.5s ease-in-out infinite !important;
+        }
+
+        @keyframes blueRingPulse {
+            0%, 100% { 
+                border-color: rgba(0, 191, 255, 0.6);
+                box-shadow: 0 0 15px rgba(0, 191, 255, 0.4), inset 0 0 10px rgba(0, 191, 255, 0.2);
+            }
+            50% { 
+                border-color: rgba(0, 191, 255, 1);
+                box-shadow: 0 0 25px rgba(0, 191, 255, 0.7), inset 0 0 15px rgba(0, 191, 255, 0.3);
+            }
+        }
+
+        .ring-dashed.expanding {
+            animation: ringExpand 0.6s ease-out forwards !important;
+        }
+
+        @keyframes ringExpand {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 0.8;
+            }
+        }
+
+        .ring-dashed.collapsing {
+            animation: ringCollapse 0.5s ease-in forwards !important;
+        }
+
+        @keyframes ringCollapse {
+            0% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 0.8;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .qrcode-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 320px;
+            background: rgba(10, 15, 30, 0.95);
+            border: 2px solid rgba(0, 191, 255, 0.8);
+            border-radius: 16px;
+            padding: 30px;
+            z-index: 2000;
+            box-shadow: 0 0 40px rgba(0, 191, 255, 0.4), inset 0 0 30px rgba(0, 191, 255, 0.1);
+            backdrop-filter: blur(15px);
+            display: none;
+        }
+
+        .qrcode-popup.show {
+            display: block;
+            animation: qrcodePopupIn 0.5s ease-out forwards;
+        }
+
+        .qrcode-popup.hide {
+            animation: qrcodePopupOut 0.4s ease-in forwards;
+        }
+
+        @keyframes qrcodePopupIn {
+            0% {
+                transform: translate(-50%, -50%) scale(0.3);
+                opacity: 0;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes qrcodePopupOut {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(0.3);
+                opacity: 0;
+            }
+        }
+
+        .qrcode-popup .popup-title {
+            text-align: center;
+            color: #00bfff;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px rgba(0, 191, 255, 0.8);
+        }
+
+        .qrcode-popup .qrcode-frame {
+            position: relative;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 191, 255, 0.4);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .qrcode-popup .qrcode-frame::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00bfff, transparent);
+            animation: scanLine 2s linear infinite;
+        }
+
+        .qrcode-popup .qrcode-frame img {
+            width: 200px;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 191, 255, 0.4);
+        }
+
+        .qrcode-popup .qrcode-status {
+            text-align: center;
+            color: #00bfff;
+            font-size: 14px;
+            margin-top: 15px;
+            opacity: 0.9;
+        }
+
+        .qrcode-popup .close-popup {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: rgba(0, 191, 255, 0.7);
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+        }
+
+        .qrcode-popup .close-popup:hover {
+            color: #00bfff;
+            transform: rotate(90deg);
+        }
+
+        .wechat-status-indicator {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, rgba(10, 20, 40, 0.95) 0%, rgba(20, 30, 60, 0.9) 100%);
+            border: 1px solid rgba(0, 200, 255, 0.4);
+            border-radius: 8px;
+            z-index: 1500;
+            box-shadow: 
+                0 0 20px rgba(0, 200, 255, 0.2),
+                inset 0 0 20px rgba(0, 200, 255, 0.05);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.4s ease;
+        }
+
+        .wechat-status-indicator.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .wechat-status-indicator::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0, 200, 255, 0.8), transparent);
+            animation: statusBarScan 2s linear infinite;
+        }
+
+        @keyframes statusBarScan {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .wechat-status-indicator .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            box-shadow: 0 0 10px #ff4444;
+            animation: statusDotPulse 1.5s ease-in-out infinite;
+            position: relative;
+        }
+
+        .wechat-status-indicator .status-dot::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 1px solid rgba(255, 68, 68, 0.5);
+            border-radius: 50%;
+            animation: statusDotRipple 1.5s ease-out infinite;
+        }
+
+        .wechat-status-indicator .status-dot.logged-in {
+            background: #00ff88;
+            box-shadow: 0 0 15px #00ff88;
+        }
+
+        .wechat-status-indicator .status-dot.logged-in::after {
+            border-color: rgba(0, 255, 136, 0.5);
+        }
+
+        @keyframes statusDotPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.9); }
+        }
+
+        @keyframes statusDotRipple {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+
+        .wechat-status-indicator .status-text {
+            color: #00d4ff;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+        }
+
+        .wechat-status-indicator .status-icon {
+            font-size: 16px;
+        }
+
+        .ring-tilt-1 {
+            transform: translate(-50%, -50%) rotateX(60deg) !important;
+            animation: ringTiltRotate 15s linear infinite !important;
+        }
+
+        .ring-tilt-2 {
+            transform: translate(-50%, -50%) rotateY(60deg) !important;
+            animation: ringTiltRotateReverse 18s linear infinite !important;
+        }
+
+        @keyframes ringTiltRotate {
+            0% { transform: translate(-50%, -50%) rotateX(60deg) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotateX(60deg) rotate(360deg); }
+        }
+
+        @keyframes ringTiltRotateReverse {
+            0% { transform: translate(-50%, -50%) rotateY(60deg) rotate(360deg); }
+            100% { transform: translate(-50%, -50%) rotateY(60deg) rotate(0deg); }
+        }
+
+        .data-particle {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            font-weight: bold;
+            color: rgba(0, 255, 255, 0.9);
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.8), 0 0 10px rgba(0, 255, 255, 0.5);
+            animation: particleFloat linear infinite, particleFlicker ease-in-out infinite;
+            white-space: nowrap;
+        }
+
+        @keyframes particleFloat {
+            0% { transform: translate(-50%, -50%) rotate(var(--start-angle)) translateX(var(--orbit-radius)) rotate(calc(-1 * var(--start-angle))); }
+            100% { transform: translate(-50%, -50%) rotate(calc(var(--start-angle) + 360deg)) translateX(var(--orbit-radius)) rotate(calc(-1 * var(--start-angle) - 360deg)); }
+        }
+
+        @keyframes particleFlicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .particle-layer {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 0;
+            height: 0;
+            transform-style: preserve-3d;
+        }
+
+        .glow-orb {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 400px;
+            height: 400px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: radial-gradient(circle, 
+                rgba(0, 255, 255, 0.1) 0%, 
+                rgba(0, 191, 255, 0.05) 30%,
+                transparent 70%);
+            animation: orbPulse 5s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes orbPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+        }
+
+        .light-source {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(30px);
+            pointer-events: none;
+        }
+
+        .light-key {
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(0, 255, 255, 0.4) 0%, transparent 70%);
+            top: 20%;
+            left: 30%;
+            animation: lightMove 8s ease-in-out infinite;
+        }
+
+        .light-fill {
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle, rgba(0, 191, 255, 0.3) 0%, transparent 70%);
+            top: 40%;
+            right: 25%;
+            animation: lightMove 10s ease-in-out infinite reverse;
+        }
+
+        .light-back {
+            width: 180px;
+            height: 180px;
+            background: radial-gradient(circle, rgba(0, 150, 255, 0.25) 0%, transparent 70%);
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: lightMove 12s ease-in-out infinite;
+        }
+
+        @keyframes lightMove {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(10px, -10px); }
+            50% { transform: translate(-5px, 15px); }
+            75% { transform: translate(-15px, -5px); }
+        }
+
+        .bloom-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 300px;
+            height: 300px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: transparent;
+            box-shadow: 
+                0 0 100px rgba(0, 255, 255, 0.3),
+                0 0 200px rgba(0, 200, 255, 0.2),
+                0 0 300px rgba(0, 150, 255, 0.1);
+            animation: bloomPulse 4s ease-in-out infinite;
+            pointer-events: none;
+            filter: blur(10px);
+        }
+
+        @keyframes bloomPulse {
+            0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(0, 255, 255, 0.8) 50%, 
+                transparent 100%);
+            animation: scanMove 3s linear infinite;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        @keyframes scanMove {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .hologram-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px solid rgba(0, 255, 255, 0.4);
+            border-radius: 50%;
+            animation: hologramRingPulse 2s ease-in-out infinite;
+        }
+
+        .hr-1 { width: 100px; height: 100px; animation-delay: 0s; }
+        .hr-2 { width: 120px; height: 120px; animation-delay: 0.3s; }
+        .hr-3 { width: 140px; height: 140px; animation-delay: 0.6s; }
+
+        @keyframes hologramRingPulse {
+            0%, 100% { 
+                transform: translate(-50%, -50%) scale(1); 
+                opacity: 0.8;
+                border-color: rgba(0, 255, 255, 0.4);
+            }
+            50% { 
+                transform: translate(-50%, -50%) scale(1.05); 
+                opacity: 1;
+                border-color: rgba(0, 255, 255, 0.8);
+            }
+        }
+
+        .corner-decoration {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .corner-tl { top: 50px; left: 50px; border-right: none; border-bottom: none; }
+        .corner-tr { top: 50px; right: 50px; border-left: none; border-bottom: none; }
+        .corner-bl { bottom: 50px; left: 50px; border-right: none; border-top: none; }
+
+        .pro-mode-overlay.active .corner-decoration {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .pro-mode-overlay .corner-tl { transition-delay: 0.1s; }
+        .pro-mode-overlay .corner-tr { transition-delay: 0.15s; }
+        .pro-mode-overlay .corner-bl { transition-delay: 0.2s; }
+        .pro-mode-overlay .corner-br { transition-delay: 0.25s; }
+        .corner-br { bottom: 50px; right: 50px; border-left: none; border-top: none; }
+
+        .arc-reactor {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 60px;
+            height: 60px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: radial-gradient(circle, 
+                rgba(0, 255, 255, 0.9) 0%, 
+                rgba(0, 200, 255, 0.7) 20%,
+                rgba(0, 150, 255, 0.4) 40%,
+                transparent 60%);
+            animation: arcGlow 1s ease-in-out infinite;
+            filter: blur(1px);
+        }
+
+        @keyframes arcGlow {
+            0%, 100% { 
+                transform: translate(-50%, -50%) scale(1);
+                box-shadow: 0 0 20px rgba(0, 255, 255, 0.8), 0 0 40px rgba(0, 200, 255, 0.5);
+            }
+            50% { 
+                transform: translate(-50%, -50%) scale(1.1);
+                box-shadow: 0 0 30px rgba(0, 255, 255, 1), 0 0 60px rgba(0, 200, 255, 0.7);
+            }
+        }
+
+        .pro-exit-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 25px;
+            background: rgba(0, 20, 40, 0.6);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            color: rgba(0, 255, 255, 0.9);
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Segoe UI', sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2), inset 0 0 15px rgba(0, 255, 255, 0.1);
+        }
+
+        .pro-exit-btn:hover {
+            background: rgba(0, 255, 255, 0.15);
+            border-color: rgba(0, 255, 255, 0.8);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .pro-status {
+            position: absolute;
+            bottom: 40px;
+            color: rgba(0, 255, 255, 0.7);
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-dot-anim {
+            width: 8px;
+            height: 8px;
+            background: #00ffff;
+            border-radius: 50%;
+            animation: statusBlink 1.5s ease-in-out infinite;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        @keyframes statusBlink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.8); }
+        }
+
+        .jarvis-chat-panel {
+            position: absolute;
+            top: 60px;
+            left: 30px;
+            width: auto;
+            max-width: 500px;
+            height: auto;
+            max-height: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .jarvis-chat-header {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            color: rgba(0, 255, 255, 0.7);
+            letter-spacing: 4px;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+        }
+
+        .jarvis-chat-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow: hidden;
+        }
+
+        .jarvis-msg {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            animation: msgFadeIn 0.3s ease-out;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.4);
+        }
+
+        @keyframes msgFadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .jarvis-msg.user {
+            color: rgba(100, 200, 255, 0.8);
+        }
+
+        .jarvis-msg.ai {
+            color: rgba(0, 255, 255, 0.9);
+        }
+
+        .jarvis-msg .msg-time {
+            display: none;
+        }
+
+        .jarvis-msg.ai .msg-text::before {
+            content: '> ';
+            color: rgba(0, 255, 255, 0.4);
+        }
+
+        .jarvis-msg.user .msg-text::before {
+            content: '$ ';
+            color: rgba(0, 200, 255, 0.4);
+        }
+
+        .jarvis-task-card {
+            background: rgba(0, 20, 40, 0.9);
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .jarvis-task-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: rgba(0, 255, 255, 0.9);
+            margin-bottom: 8px;
+        }
+
+        .jarvis-task-desc {
+            font-size: 12px;
+            color: rgba(0, 255, 255, 0.7);
+            margin-bottom: 10px;
+        }
+
+        .jarvis-task-items {
+            margin: 10px 0;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .jarvis-task-items table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .jarvis-task-items th,
+        .jarvis-task-items td {
+            padding: 6px 8px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            text-align: left;
+        }
+
+        .jarvis-task-items th {
+            background: rgba(0, 255, 255, 0.1);
+            color: rgba(0, 255, 255, 0.8);
+        }
+
+        .jarvis-task-items td {
+            color: rgba(200, 240, 255, 0.8);
+        }
+
+        .jarvis-task-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .jarvis-task-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .jarvis-task-btn.confirm {
+            background: rgba(0, 200, 100, 0.3);
+            border: 1px solid rgba(0, 255, 150, 0.5);
+            color: rgba(0, 255, 150, 0.9);
+        }
+
+        .jarvis-task-btn.confirm:hover {
+            background: rgba(0, 200, 100, 0.5);
+            box-shadow: 0 0 15px rgba(0, 255, 100, 0.3);
+        }
+
+        .jarvis-task-btn.cancel {
+            background: rgba(200, 100, 100, 0.3);
+            border: 1px solid rgba(255, 100, 100, 0.5);
+            color: rgba(255, 150, 150, 0.9);
+        }
+
+        .jarvis-task-btn.cancel:hover {
+            background: rgba(200, 100, 100, 0.5);
+            box-shadow: 0 0 15px rgba(255, 100, 100, 0.3);
+        }
+
+        .jarvis-voice-btn {
+            position: absolute;
+            bottom: 40px;
+            left: 30px;
+            right: 30px;
+            height: 60px;
+            border-radius: 30px;
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid rgba(0, 255, 255, 0.4);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+            box-shadow: 
+                0 0 30px rgba(0, 255, 255, 0.2),
+                inset 0 0 20px rgba(0, 255, 255, 0.1);
+        }
+
+        .jarvis-voice-btn:hover {
+            border-color: rgba(0, 255, 255, 0.8);
+            box-shadow: 
+                0 0 50px rgba(0, 255, 255, 0.4),
+                inset 0 0 30px rgba(0, 255, 255, 0.2);
+        }
+
+        .jarvis-voice-btn.recording {
+            border-color: #ff4444;
+            box-shadow: 
+                0 0 50px rgba(255, 68, 68, 0.4),
+                inset 0 0 30px rgba(255, 68, 68, 0.2);
+            animation: recordingPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes recordingPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .voice-btn-inner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mic-icon {
+            width: 28px;
+            height: 28px;
+            color: rgba(0, 255, 255, 0.9);
+            transition: all 0.3s ease;
+        }
+
+        .jarvis-voice-btn:hover .mic-icon {
+            color: #00ffff;
+            filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.8));
+        }
+
+        .jarvis-voice-btn.recording .mic-icon {
+            color: #ff4444;
+            animation: micPulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes micPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .btn-text {
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            color: rgba(0, 255, 255, 0.9);
+            letter-spacing: 2px;
+        }
+
+        .jarvis-voice-btn.recording .btn-text {
+            color: #ff4444;
+            animation: textBlink 0.5s ease-in-out infinite;
+        }
+
+        @keyframes textBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .voice-wave {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            opacity: 0;
+            pointer-events: none;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .jarvis-voice-btn.input-mode .voice-wave {
+            display: none;
+        }
+
+        .jarvis-voice-btn.input-mode .voice-btn-inner {
+            display: none;
+        }
+
+        .voice-input {
+            flex: 1;
+            height: 40px;
+            background: rgba(0, 20, 40, 0.9);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            border-radius: 20px;
+            padding: 0 20px;
+            color: rgba(0, 255, 255, 0.9);
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            outline: none;
+            margin: 0 20px;
+        }
+
+        .voice-input::placeholder {
+            color: rgba(0, 255, 255, 0.4);
+        }
+
+        .voice-input:focus {
+            border-color: rgba(0, 255, 255, 0.8);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+
+        .jarvis-voice-btn.recording .voice-wave {
+            animation: waveExpand 1.5s ease-out infinite;
+            border-color: rgba(255, 68, 68, 0.3);
+        }
+
+        @keyframes waveExpand {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+
+        .pro-title {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(0, 255, 255, 0.6);
+            font-size: 18px;
+            font-family: 'Segoe UI', sans-serif;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .pro-mode-overlay.active .pro-title {
+            opacity: 1;
+        }
+
+        .data-stream {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .stream-line {
+            position: absolute;
+            width: 1px;
+            background: linear-gradient(to bottom, transparent, rgba(0, 255, 255, 0.5), transparent);
+            animation: streamFall linear infinite;
+        }
+
+        @keyframes streamFall {
+            0% { transform: translateY(-100%); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+
+        .pro-mode-overlay .jarvis-container {
+            display: flex;
+        }
+
+        .pro-mode-overlay .jarvis-chat-panel,
+        .pro-mode-overlay .jarvis-voice-btn,
+        .pro-mode-overlay .pro-status,
+        .pro-mode-overlay .pro-exit-btn {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .pro-mode-overlay.active .jarvis-chat-panel,
+        .pro-mode-overlay.active .jarvis-voice-btn,
+        .pro-mode-overlay.active .pro-status,
+        .pro-mode-overlay.active .pro-exit-btn {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .pro-mode-overlay .jarvis-chat-panel {
+            transition-delay: 0.3s;
+        }
+
+        .pro-mode-overlay .jarvis-voice-btn {
+            transition-delay: 0.4s;
+        }
+
+        .pro-mode-overlay .pro-status {
+            transition-delay: 0.2s;
+        }
+
+        .pro-mode-overlay .pro-exit-btn {
+            transition-delay: 0.5s;
+        }
+
+        .pro-mode-overlay .scan-line {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            transition-delay: 0.4s;
+        }
+
+        .pro-mode-overlay.active .scan-line {
+            opacity: 1;
+        }
+
+        /* 微信二维码扫描面板 */
+        .wechat-scan-panel {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 260px;
+            background: rgba(10, 15, 30, 0.85);
+            border: 1px solid rgba(0, 200, 255, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 1000;
+            box-shadow: 0 0 30px rgba(0, 200, 255, 0.2), inset 0 0 20px rgba(0, 200, 255, 0.05);
+            backdrop-filter: blur(10px);
+            animation: panelGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes panelGlow {
+            from { box-shadow: 0 0 20px rgba(0, 200, 255, 0.15), inset 0 0 15px rgba(0, 200, 255, 0.05); }
+            to { box-shadow: 0 0 40px rgba(0, 200, 255, 0.25), inset 0 0 25px rgba(0, 200, 255, 0.08); }
+        }
+
+        .wechat-scan-panel .scan-title {
+            text-align: center;
+            color: #00c8ff;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 200, 255, 0.8);
+        }
+
+        .wechat-scan-panel .scan-frame {
+            position: relative;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 200, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            min-height: 200px;
+        }
+
+        .wechat-scan-panel .scan-frame::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00c8ff, transparent);
+            animation: scanLine 2s linear infinite;
+        }
+
+        @keyframes scanLine {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .wechat-scan-panel .scan-frame img {
+            width: 180px;
+            border-radius: 6px;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.3);
+        }
+
+        .wechat-scan-panel .scan-loading {
+            color: rgba(0, 200, 255, 0.7);
+            font-size: 13px;
+            padding: 20px;
+        }
+
+        .wechat-scan-panel .scan-status {
+            text-align: center;
+            color: #00c8ff;
+            font-size: 12px;
+            margin-top: 12px;
+            opacity: 0.8;
+        }
+
+        .wechat-scan-panel .close-scan {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: rgba(0, 200, 255, 0.6);
+            font-size: 18px;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .wechat-scan-panel .close-scan:hover {
+            color: #00c8ff;
+        }
+
+        /* 微信消息查看面板 */
+        .wechat-messages-panel {
+            position: fixed;
+            right: 320px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 320px;
+            max-height: 500px;
+            background: rgba(10, 15, 30, 0.9);
+            border: 1px solid rgba(0, 200, 255, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 1001;
+            box-shadow: 0 0 30px rgba(0, 200, 255, 0.2), inset 0 0 20px rgba(0, 200, 255, 0.05);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .wechat-messages-panel .messages-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #00c8ff;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 200, 255, 0.8);
+        }
+
+        .wechat-messages-panel .messages-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .wechat-messages-panel .msg-action-btn {
+            background: rgba(0, 200, 255, 0.2);
+            border: 1px solid rgba(0, 200, 255, 0.4);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #00c8ff;
+        }
+
+        .wechat-messages-panel .msg-action-btn:hover {
+            background: rgba(0, 200, 255, 0.4);
+            box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+        }
+
+        .wechat-messages-panel .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            max-height: 400px;
+        }
+
+        .wechat-messages-panel .messages-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .wechat-messages-panel .messages-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        .wechat-messages-panel .messages-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 200, 255, 0.5);
+            border-radius: 3px;
+        }
+
+        .wechat-messages-panel .messages-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 200, 255, 0.8);
+        }
+
+        .wechat-messages-panel .message-item {
+            margin-bottom: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid #00c8ff;
+            animation: messageSlide 0.3s ease-out;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .wechat-messages-panel .message-item.self {
+            border-left-color: #00ff88;
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .wechat-messages-panel .message-item .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .wechat-messages-panel .message-item .message-from {
+            font-size: 12px;
+            font-weight: bold;
+            color: #00c8ff;
+        }
+
+        .wechat-messages-panel .message-item .message-time {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .wechat-messages-panel .message-item .message-content {
+            font-size: 13px;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.9);
+            word-wrap: break-word;
+        }
+
+        .wechat-messages-panel .empty,
+        .wechat-messages-panel .error,
+        .wechat-messages-panel .loading-messages {
+            text-align: center;
+            padding: 30px 10px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 13px;
+        }
+
+        .wechat-messages-panel .error {
+            color: #ff6b6b;
+        }
+
+        .wechat-messages-panel .close-messages {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: rgba(0, 200, 255, 0.6);
+            font-size: 18px;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .wechat-messages-panel .close-messages:hover {
+            color: #00c8ff;
+        }
+
+        .jarvis-sphere {
+            display: block;
+        }
+
+        /* 图片/视频预览悬浮窗 */
+        .preview-float-window {
+            position: fixed;
+            top: 60px;
+            left: 20px;
+            width: 400px;
+            max-width: 90vw;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.35s ease-out, transform 0.35s ease-out;
+        }
+
+        .preview-float-window.show {
+            display: block;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .preview-float-window.animating {
+            display: block;
+            transition: none;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .preview-header h4 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .preview-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .preview-close:hover {
+            opacity: 1;
+        }
+
+        .preview-content {
+            padding: 16px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        /* 图片/视频容器 - 左上角对齐 */
+        .preview-media {
+            width: 100%;
+            border-radius: 8px;
+            background: #f5f5f5;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            min-height: 200px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preview-media img {
+            max-width: 100%;
+            max-height: 50vh;
+            border-radius: 8px;
+            object-fit: contain;
+            object-position: top left;
+        }
+
+        .preview-media video {
+            max-width: 100%;
+            max-height: 50vh;
+            border-radius: 8px;
+            object-fit: contain;
+            object-position: top left;
+        }
+
+        .preview-placeholder {
+            color: #999;
+            font-size: 14px;
+            text-align: center;
+            padding: 40px;
+        }
+
+        /* 鼠标跟随方框高亮效果 */
+        .hover-highlight-box {
+            position: fixed;
+            pointer-events: none;
+            border: 2px solid #4a90d9;
+            box-shadow: 0 0 10px rgba(74, 144, 217, 0.6), inset 0 0 10px rgba(74, 144, 217, 0.2);
+            border-radius: 4px;
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .hover-highlight-box.active {
+            opacity: 1;
+        }
+
+        /* 微信悬浮窗整合到图片容器区域 */
+        .preview-float-window .pro-feature-widget-container {
+            position: absolute;
+            top: 50px;
+            right: -450px;
+            left: auto;
+        }
+
+        .preview-float-window .pro-feature-widget-container.show {
+            right: 10px;
+        }
+
+        /* 文件导入悬浮窗 */
+        .import-float-window {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 360px;
+            max-width: 90vw;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+        }
+
+        .import-float-window.show {
+            display: block;
+            animation: slideInUp 0.3s ease;
+        }
+
+        /* 文件上传入口按钮 */
+        .file-upload-entry {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
+            z-index: 999;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+
+        .file-upload-entry:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(17, 153, 142, 0.6);
+        }
+
+        .file-upload-entry.show {
+            display: flex;
+            animation: slideInUp 0.3s ease;
+        }
+
+        .file-upload-entry .entry-icon {
+            font-size: 18px;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
+            }
+            50% {
+                box-shadow: 0 4px 25px rgba(17, 153, 142, 0.7);
+            }
+            100% {
+                box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
+            }
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .import-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .import-header h4 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .import-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .import-close:hover {
+            opacity: 1;
+        }
+
+        .import-content {
+            padding: 16px;
+        }
+
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--primary-color);
+            background: #f0f7ff;
+        }
+
+        .drop-zone-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+            color: #999;
+        }
+
+        .drop-zone-text {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .drop-zone-hint {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .import-actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .import-actions .btn {
+            flex: 1;
+        }
+
+        .camera-panel {
+            margin-top: 16px;
+            border: 2px dashed #28a745;
+            border-radius: 8px;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+
+        .camera-panel video {
+            width: 100%;
+            max-height: 300px;
+            border-radius: 4px;
+            background: #000;
+        }
+
+        .camera-buttons {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .camera-buttons .btn {
+            flex: 1;
+        }
+
+        .import-progress {
+            margin-top: 16px;
+            display: none;
+        }
+
+        .import-progress.show {
+            display: block;
+        }
+
+        .progress-bar-container {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+
+        .import-status {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+
+        .import-status.show {
+            display: block;
+        }
+
+        .import-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .import-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .history-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 350px;
+            height: 100vh;
+            background: #fff;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.15);
+            z-index: 10000;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .history-panel.show {
+            right: 0;
+        }
+
+        .history-header {
+            padding: 16px;
+            background: #4a90d9;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-header h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .history-header button {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .history-item {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            background: #f5f5f5;
+            transition: background 0.2s;
+        }
+
+        .history-item:hover {
+            background: #e8f4ff;
+        }
+
+        .history-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .history-meta {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .task-item {
+            background: #fff;
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: 1px solid #e8e8e8;
+            transition: all 0.3s ease;
+        }
+
+        .task-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            transform: translateY(-2px);
+        }
+
+        .task-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .task-item-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .task-item-status {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .task-item-status.in-progress {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+
+        .task-item-status.completed {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: #fff;
+        }
+
+        .task-progress-container {
+            margin-top: 8px;
+        }
+
+        .task-progress-bar {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .task-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .task-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .task-progress-text {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .task-result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #495057;
+            border-left: 3px solid #11998e;
+        }
+
+        .task-completed-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #11998e;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .task-completed-badge::before {
+            content: '✓';
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #11998e;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 11px;
+        }
+
+        .task-list-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .task-list-empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        /* ========== 响应式适配 ========== */
+        
+        /* 屏幕宽度小于 1024px */
+        @media screen and (max-width: 1023px) {
+            .right-panel {
+                display: none;
+            }
+            
+            .chat-container {
+                width: 100%;
+            }
+            
+            .chat-view {
+                width: 100%;
+            }
+        }
+
+        /* 屏幕宽度小于 768px */
+        @media screen and (max-width: 767px) {
+            .sidebar {
+                display: none;
+            }
+            
+            .main-container {
+                width: 100vw;
+            }
+            
+            .main-content {
+                width: 100%;
+            }
+            
+            .top-bar {
+                padding: 0 10px;
+            }
+            
+            .chat-messages {
+                padding: 10px;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+            
+            .input-area {
+                padding: 10px;
+            }
+            
+            .input-wrapper {
+                flex-direction: column;
+            }
+            
+            .input-wrapper textarea {
+                min-height: 60px;
+            }
+            
+            .quick-actions {
+                padding: 8px 10px;
+                overflow-x: auto;
+            }
+        }
+
+        /* 悬浮窗响应式适配 */
+        @media screen and (max-width: 1023px) {
+            .preview-float-window {
+                top: 60px;
+                left: 10px;
+                right: auto;
+                width: auto;
+                max-width: calc(100vw - 20px);
+            }
+            
+            .import-float-window {
+                right: 10px;
+                bottom: 10px;
+                left: 10px;
+                width: auto;
+                max-width: calc(100vw - 20px);
+            }
+        }
+
+        @media screen and (max-width: 767px) {
+            .preview-float-window {
+                top: 50px;
+                left: 5px;
+                right: auto;
+                max-width: calc(100vw - 10px);
+                max-height: 70vh;
+            }
+            
+            .preview-content {
+                max-height: 50vh;
+            }
+            
+            .preview-media {
+                min-height: 150px;
+            }
+            
+            .preview-media img,
+            .preview-media video {
+                max-height: 40vh;
+            }
+            
+            .import-float-window {
+                right: 5px;
+                bottom: 5px;
+                left: 5px;
+                width: auto;
+                max-width: calc(100vw - 10px);
+            }
+            
+            .jarvis-chat-panel {
+                width: calc(100vw - 20px);
+                max-width: calc(100vw - 20px);
+                right: 10px;
+                bottom: 70px;
+            }
+            
+            .jarvis-voice-btn {
+                right: 15px;
+                bottom: 15px;
+                width: 50px;
+                height: 50px;
+            }
+        }
+
+        /* 防止悬浮窗超出视口 */
+        @media screen and (max-width: 480px) {
+            .preview-float-window {
+                top: 45px;
+                left: 5px;
+                right: auto;
+                width: auto;
+                max-width: calc(100vw - 10px);
+            }
+            
+            .preview-header {
+                padding: 10px 12px;
+            }
+            
+            .preview-header h4 {
+                font-size: 13px;
+            }
+            
+            .import-float-window {
+                right: 5px;
+                bottom: 5px;
+                left: 5px;
+                width: auto;
+            }
+            
+            .import-header {
+                padding: 10px 12px;
+            }
+            
+            .drop-zone {
+                padding: 20px 15px;
+            }
+        }
+
+        /* 左下角进度展示组件 */
+        .progress-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 280px;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, rgba(20, 30, 48, 0.95) 0%, rgba(36, 59, 85, 0.95) 100%);
+            border: 1px solid rgba(74, 144, 217, 0.5);
+            border-radius: 12px;
+            box-shadow: 
+                0 0 20px rgba(74, 144, 217, 0.3),
+                0 0 40px rgba(74, 144, 217, 0.1),
+                inset 0 0 20px rgba(74, 144, 217, 0.1);
+            z-index: 10000;
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .progress-panel::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(74, 144, 217, 0.8) 0%, rgba(100, 200, 255, 0.4) 50%, rgba(74, 144, 217, 0.8) 100%);
+            z-index: -1;
+            opacity: 0.5;
+            animation: borderGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes borderGlow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+        }
+
+        .progress-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .progress-title {
+            color: #64c8ff;
+            font-size: 14px;
+            font-weight: 600;
+            text-shadow: 0 0 10px rgba(100, 200, 255, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-title::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: #64c8ff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #64c8ff;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        .progress-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            transition: color 0.3s;
+        }
+
+        .progress-close:hover {
+            color: #ff6b6b;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+        }
+
+        .progress-percent {
+            color: #64c8ff;
+            font-weight: 600;
+            text-shadow: 0 0 8px rgba(100, 200, 255, 0.5);
+        }
+
+        .progress-bar-wrapper {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4a90d9 0%, #64c8ff 50%, #4a90d9 100%);
+            background-size: 200% 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            position: relative;
+            animation: progressShine 1.5s ease-in-out infinite;
+        }
+
+        @keyframes progressShine {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .progress-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shine 1.5s ease-in-out infinite;
+        }
+
+        @keyframes shine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .progress-task {
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 转场动画覆盖层 -->
+    <div class="transition-overlay" id="transitionOverlay"></div>
+
+    <!-- 图片/视频预览悬浮窗 -->
+    <div class="preview-float-window" id="previewFloatWindow">
+        <div class="preview-header">
+            <h4>📺 媒体预览</h4>
+            <button class="preview-close" onclick="closePreviewWindow()">&times;</button>
+        </div>
+        <div class="preview-content">
+            <div class="preview-media" id="previewMedia">
+                <div class="preview-placeholder">暂无预览内容</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 微信登录状态指示器 -->
+    <div class="wechat-status-indicator" id="wechatStatusIndicator">
+        <span class="status-icon">💬</span>
+        <div class="status-dot" id="wechatStatusDot"></div>
+        <span class="status-text" id="wechatStatusText">微信未登录</span>
+    </div>
+
+    <!-- 左下角进度展示组件 -->
+    <div class="progress-panel" id="progressPanel">
+        <div class="progress-panel-header">
+            <div class="progress-title">任务进度</div>
+            <button class="progress-close" onclick="hideProgress()">&times;</button>
+        </div>
+        <div class="progress-info">
+            <span class="progress-status">处理中...</span>
+            <span class="progress-percent" id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar-wrapper">
+            <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+        </div>
+        <div class="progress-task" id="progressTask">正在初始化任务...</div>
+    </div>
+
+    <!-- 二维码登录弹窗 -->
+    <div class="qrcode-popup" id="qrcodePopup">
+        <button class="close-popup" onclick="closeQRCodePopup()">&times;</button>
+        <div class="popup-title">微信扫码登录</div>
+        <div class="qrcode-frame">
+            <img id="qrcodeImage" src="" alt="微信登录二维码">
+        </div>
+        <div class="qrcode-status" id="qrcodeStatus">请使用手机微信扫描二维码登录</div>
+    </div>
+
+    <!-- 文件上传入口按钮 -->
+    <div class="file-upload-entry" id="fileUploadEntry" onclick="openImportWindow()">
+        <span class="entry-icon">📁</span>
+        <span class="entry-text">上传文件</span>
+    </div>
+
+    <!-- 文件导入悬浮窗 -->
+    <div class="import-float-window" id="importFloatWindow">
+        <div class="import-header">
+            <h4>📁 导入文件</h4>
+            <button class="import-close" onclick="closeImportWindow()">&times;</button>
+        </div>
+        <div class="import-content">
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">📂</div>
+                <div class="drop-zone-text">拖拽文件到此处或点击选择</div>
+                <div class="drop-zone-hint">支持 Excel、CSV、图片等文件</div>
+            </div>
+            <input type="file" class="file-input" id="fileInput" multiple accept=".xlsx,.xls,.csv,.jpg,.jpeg,.png,.gif,.pdf,.doc,.docx">
+            <div class="import-actions">
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">选择文件</button>
+                <button class="btn btn-success" onclick="openCamera()">📷 拍照识别</button>
+                <button class="btn btn-secondary" onclick="closeImportWindow()">取消</button>
+            </div>
+            <div class="camera-panel" id="cameraPanel" style="display: none;">
+                <video id="cameraVideo" autoplay playsinline></video>
+                <canvas id="cameraCanvas" style="display: none;"></canvas>
+                <div class="camera-buttons">
+                    <button class="btn btn-primary" onclick="capturePhoto()">拍照</button>
+                    <button class="btn btn-secondary" onclick="closeCamera()">关闭</button>
+                </div>
+            </div>
+            <div class="import-progress" id="importProgress">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-text" id="progressText">正在导入...</div>
+            </div>
+            <div class="import-status" id="importStatus"></div>
+        </div>
+    </div>
+
+    <!-- 专业模式全屏覆盖层 -->
+    <div class="pro-mode-overlay" id="proModeOverlay">
+        <canvas class="digital-rain-canvas" id="digitalRainCanvas"></canvas>
+        
+        <div class="falling-text-container" id="fallingTextContainer"></div>
+        
+        <div class="stark-grid"></div>
+        
+        <div class="light-source light-key"></div>
+        <div class="light-source light-fill"></div>
+        <div class="light-source light-back"></div>
+
+        <div class="corner-decoration corner-tl"></div>
+        <div class="corner-decoration corner-tr"></div>
+        <div class="corner-decoration corner-bl"></div>
+        <div class="corner-decoration corner-br"></div>
+
+        <div class="data-stream">
+            <div class="stream-line" style="left: 20%; animation-duration: 3s; animation-delay: 0s;"></div>
+            <div class="stream-line" style="left: 40%; animation-duration: 4s; animation-delay: 1s;"></div>
+            <div class="stream-line" style="left: 60%; animation-duration: 3.5s; animation-delay: 0.5s;"></div>
+            <div class="stream-line" style="left: 80%; animation-duration: 4.5s; animation-delay: 1.5s;"></div>
+        </div>
+
+        <div class="scan-line"></div>
+
+        <div class="pro-title">STARK INDUSTRIES</div>
+
+        <button class="pro-exit-btn" onclick="toggleProMode()">EXIT PRO MODE</button>
+
+        <div class="jarvis-container">
+            <div class="bloom-effect"></div>
+            <div class="glow-orb"></div>
+            <div class="core-sphere"></div>
+
+            <div class="wire-ring ring-1"></div>
+            <div class="wire-ring ring-2 ring-dashed"></div>
+            <div class="wire-ring ring-3 ring-tilt-1"></div>
+            <div class="wire-ring ring-4 ring-tilt-2"></div>
+            <div class="wire-ring ring-5"></div>
+            <div class="wire-ring ring-6 ring-dashed"></div>
+            <div class="wire-ring ring-7"></div>
+            <div class="wire-ring ring-8 ring-dashed"></div>
+            <div class="wire-ring ring-9 ring-tilt-1"></div>
+            <div class="wire-ring ring-10 ring-tilt-2"></div>
+
+            <div class="polyhedron poly-icosa">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+                <div class="poly-face f5"></div>
+            </div>
+
+            <div class="polyhedron poly-octa">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+                <div class="poly-face f5"></div>
+                <div class="poly-face f6"></div>
+            </div>
+
+            <div class="polyhedron poly-tetra">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+            </div>
+
+            <div class="polyhedron poly-dodeca">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+                <div class="poly-face f5"></div>
+            </div>
+
+            <div class="polyhedron poly-tetra2">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+            </div>
+
+            <div class="hologram-ring hr-1"></div>
+            <div class="hologram-ring hr-2"></div>
+            <div class="hologram-ring hr-3"></div>
+
+            <div class="arc-reactor"></div>
+
+            <div class="particle-layer">
+                <div class="data-particle" style="--start-angle: 0deg; --orbit-radius: 80px; animation-duration: 8s;">1</div>
+                <div class="data-particle" style="--start-angle: 45deg; --orbit-radius: 100px; animation-duration: 10s; animation-delay: 1s;">0</div>
+                <div class="data-particle" style="--start-angle: 90deg; --orbit-radius: 120px; animation-duration: 12s; animation-delay: 2s;">1</div>
+                <div class="data-particle" style="--start-angle: 135deg; --orbit-radius: 140px; animation-duration: 9s; animation-delay: 0.5s;">1</div>
+                <div class="data-particle" style="--start-angle: 180deg; --orbit-radius: 160px; animation-duration: 11s; animation-delay: 1.5s;">0</div>
+                <div class="data-particle" style="--start-angle: 225deg; --orbit-radius: 180px; animation-duration: 13s; animation-delay: 2.5s;">1</div>
+                <div class="data-particle" style="--start-angle: 270deg; --orbit-radius: 200px; animation-duration: 8s; animation-delay: 0.8s;">0</div>
+                <div class="data-particle" style="--start-angle: 315deg; --orbit-radius: 220px; animation-duration: 10s; animation-delay: 1.8s;">1</div>
+                <div class="data-particle" style="--start-angle: 30deg; --orbit-radius: 90px; animation-duration: 7s; animation-delay: 3s;">0</div>
+                <div class="data-particle" style="--start-angle: 60deg; --orbit-radius: 110px; animation-duration: 9s; animation-delay: 0.3s;">1</div>
+                <div class="data-particle" style="--start-angle: 120deg; --orbit-radius: 130px; animation-duration: 11s; animation-delay: 1.2s;">1</div>
+                <div class="data-particle" style="--start-angle: 150deg; --orbit-radius: 150px; animation-duration: 8s; animation-delay: 2.2s;">0</div>
+                <div class="data-particle" style="--start-angle: 210deg; --orbit-radius: 170px; animation-duration: 10s; animation-delay: 0.7s;">1</div>
+                <div class="data-particle" style="--start-angle: 240deg; --orbit-radius: 190px; animation-duration: 12s; animation-delay: 1.7s;">0</div>
+                <div class="data-particle" style="--start-angle: 300deg; --orbit-radius: 210px; animation-duration: 9s; animation-delay: 2.7s;">1</div>
+                <div class="data-particle" style="--start-angle: 330deg; --orbit-radius: 230px; animation-duration: 11s; animation-delay: 0.2s;">0</div>
+            </div>
+        </div>
+
+        <div class="pro-status">
+            <div class="status-dot-anim"></div>
+            <span>修茈 SYSTEM ONLINE</span>
+            <span style="opacity: 0.5; margin-left: 20px;" id="jarvisStatusText">READY</span>
+        </div>
+
+        <div class="jarvis-chat-panel">
+            <div class="jarvis-chat-header">修茈 ASSISTANT</div>
+            <div class="jarvis-chat-messages" id="jarvisChatMessages"></div>
+        </div>
+
+        <div class="wechat-scan-panel" id="wechatScanPanel" style="display: none;">
+            <button class="close-scan" onclick="closeWechatScan()">&times;</button>
+            <div class="scan-title">微信扫码登录</div>
+            <div class="scan-frame">
+                <img id="wechatQrCode" src="" style="display: none;" />
+                <div class="scan-loading" id="scanLoading">正在获取二维码...</div>
+            </div>
+            <div class="scan-status" id="scanStatus">请使用手机微信扫描上方二维码</div>
+        </div>
+
+        <div class="wechat-messages-panel" id="wechatMessagesPanel" style="display: none;">
+            <button class="close-messages" onclick="closeWechatMessages()">&times;</button>
+            <div class="messages-title">
+                <span>💬 微信消息</span>
+                <div class="messages-actions">
+                    <button class="msg-action-btn" onclick="logoutWechat()" title="退出登录">🚪</button>
+                    <button class="msg-action-btn" onclick="clearWechatMessages()" title="清空消息">🗑️</button>
+                </div>
+            </div>
+            <div class="messages-container" id="wechatMessagesList">
+                <div class="loading-messages">加载中...</div>
+            </div>
+        </div>
+
+        <div class="jarvis-voice-btn" id="jarvisVoiceBtn">
+            <div class="voice-btn-inner" id="voiceBtnContent">
+                <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+                <span class="btn-text">按住说话 / 点击输入</span>
+            </div>
+            <input type="text" class="voice-input" id="voiceInput" placeholder="输入指令..." style="display: none;">
+            <div class="voice-wave"></div>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h4>AI 智能助手</h4>
+                <small style="opacity: 0.7">出货单管理系统</small>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item active" data-view="chat" onclick="switchView('chat')">
+                    <span>💬</span>
+                    <span>智能对话</span>
+                </div>
+                <div class="menu-item" data-view="products" onclick="switchView('products')">
+                    <span>📦</span>
+                    <span>产品管理</span>
+                </div>
+                <div class="menu-item" data-view="materials" onclick="switchView('materials')">
+                    <span>🏭</span>
+                    <span>原材料仓库</span>
+                </div>
+                <div class="menu-item" data-view="orders" onclick="switchView('orders')">
+                    <span>📋</span>
+                    <span>出货单</span>
+                </div>
+                <div class="menu-item" data-view="customers" onclick="switchView('customers')">
+                    <span>👥</span>
+                    <span>客户管理</span>
+                </div>
+                <div class="menu-item" data-view="print" onclick="switchView('print')">
+                    <span>🖨️</span>
+                    <span>标签打印</span>
+                </div>
+                <div class="menu-item" data-view="settings" onclick="switchView('settings')">
+                    <span>⚙️</span>
+                    <span>系统设置</span>
+                </div>
+                <div class="menu-item" data-view="tools" onclick="switchView('tools')">
+                    <span>🔧</span>
+                    <span>工具表</span>
+                </div>
+            </div>
+            <div style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div class="status-indicator" style="margin-bottom: 10px;">
+                    <span class="status-dot online"></span>
+                    <span>系统正常</span>
+                </div>
+                <div class="mode-switch" onclick="toggleProMode()">
+                    <span class="mode-label">专业模式</span>
+                    <div class="toggle-switch" id="proModeToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容 -->
+        <div class="main-content">
+            <!-- 顶部栏 -->
+            <div class="top-bar">
+                <div class="page-title" id="pageTitle">智能对话</div>
+            </div>
+
+            <!-- 智能对话视图 -->
+            <div class="chat-view page-view active" id="view-chat">
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="sendQuick('查一下A001的价格')">查产品</button>
+                    <button class="quick-btn" onclick="sendQuick('有哪些客户？')">客户列表</button>
+                    <button class="quick-btn" onclick="sendQuick('今天的出货单')">出货单</button>
+                    <button class="quick-btn" onclick="sendQuick('库存不足的材料')">库存预警</button>
+                    <button class="quick-btn" onclick="sendQuick('帮我打印A001标签')">打印标签</button>
+                    <button class="quick-btn" onclick="testPreviewAnimation()">测试预览动画</button>
+                </div>
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message ai">
+                            <div>您好！我是您的 AI 智能助手。</div>
+                            <div style="margin-top: 8px;">我可以帮您：</div>
+                            <ul style="margin: 8px 0 0 20px;">
+                                <li>查询产品信息和价格</li>
+                                <li>管理出货单和订单</li>
+                                <li>查看原材料库存</li>
+                                <li>打印产品标签</li>
+                            </ul>
+                            <div style="margin-top: 8px;">请直接输入您的需求</div>
+                        </div>
+                    </div>
+                    <div class="right-panel">
+                        <div class="panel-header">当前任务</div>
+                        <div class="panel-content" id="taskPanel">
+                            <div class="empty-state">暂无任务</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-area">
+                    <div class="input-toolbar">
+                        <button class="toolbar-btn" onclick="newConversation()" title="新建对话">➕ 新对话</button>
+                        <button class="toolbar-btn" onclick="loadHistoryPanel()" title="历史记录">📜 历史</button>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea id="messageInput" rows="2" placeholder="请输入您的需求..." onkeydown="handleKeyDown(event)"></textarea>
+                        <button class="btn btn-primary" onclick="sendMessage()">发送</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 产品管理视图 -->
+            <div class="page-view" id="view-products">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>产品管理</h2>
+                        <div>
+                            <button class="btn btn-danger" onclick="batchDeleteProducts()" style="margin-right:10px;">批量删除</button>
+                            <button class="btn btn-primary" onclick="showProductModal()">+ 添加产品</button>
+                        </div>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="productSearch" placeholder="搜索产品型号或名称..." oninput="searchProducts()">
+                    </div>
+                    <div class="card">
+                        <table class="data-table" id="productsTable">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" onclick="toggleAllProducts(this)"></th>
+                                    <th>型号</th>
+                                    <th>名称</th>
+                                    <th>规格</th>
+                                    <th>价格</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody">
+                                <tr><td colspan="5" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 原材料仓库视图 -->
+            <div class="page-view" id="view-materials">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>原材料仓库</h2>
+                        <div>
+                            <button class="btn btn-danger" onclick="batchDeleteMaterials()" style="margin-right:10px;">批量删除</button>
+                            <button class="btn btn-primary" onclick="showMaterialModal()">+ 添加原材料</button>
+                        </div>
+                    </div>
+                    <div class="warning-card" id="lowStockWarning" style="display:none;">
+                        <div class="title">⚠️ 库存预警</div>
+                        <div id="lowStockList"></div>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="materialSearch" placeholder="搜索原材料..." oninput="searchMaterials()">
+                        <select id="materialCategory" onchange="searchMaterials()">
+                            <option value="">全部分类</option>
+                        </select>
+                    </div>
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" onclick="toggleAllMaterials(this)"></th>
+                                    <th>编码</th>
+                                    <th>名称</th>
+                                    <th>分类</th>
+                                    <th>库存</th>
+                                    <th>单价</th>
+                                    <th>供应商</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="materialsTableBody">
+                                <tr><td colspan="8" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 出货单视图 -->
+            <div class="page-view" id="view-orders">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>出货单记录</h2>
+                        <button class="btn btn-danger" onclick="clearAllOrders()">清空全部</button>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="orderSearch" placeholder="搜索客户名..." oninput="searchOrders()">
+                        <input type="date" id="orderDate" onchange="searchOrders()">
+                    </div>
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>单号</th>
+                                    <th>客户</th>
+                                    <th>日期</th>
+                                    <th>金额</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTableBody">
+                                <tr><td colspan="6" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 客户管理视图 -->
+            <div class="page-view" id="view-customers">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>客户管理</h2>
+                        <button class="btn btn-danger" onclick="batchDeleteCustomers()">批量删除</button>
+                    </div>
+                    <div class="stat-cards" id="customerStats">
+                        <div class="stat-card">
+                            <div class="number" id="customerCount">0</div>
+                            <div class="label">客户总数</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" onclick="toggleAllCustomers(this)"></th>
+                                    <th>客户名称</th>
+                                    <th>联系人</th>
+                                    <th>电话</th>
+                                    <th>地址</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customersTableBody">
+                                <tr><td colspan="5" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标签打印视图 -->
+            <div class="page-view" id="view-print">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>标签打印</h2>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">生成标签</div>
+                        <div class="form-group">
+                            <label>选择产品型号</label>
+                            <select id="printProductSelect" onchange="previewLabel()">
+                                <option value="">请选择产品</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>打印数量</label>
+                            <input type="number" id="printQuantity" value="1" min="1">
+                        </div>
+                        <button class="btn btn-primary" onclick="printLabel()">打印标签</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 系统设置视图 -->
+            <div class="page-view" id="view-settings">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>系统设置</h2>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">基本设置</div>
+                        <div class="form-group">
+                            <label>系统名称</label>
+                            <input type="text" value="AI-Excel Helper 出货单管理系统" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label>数据库路径</label>
+                            <input type="text" value="products.db" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label>AI 模型</label>
+                            <select id="aiModel">
+                                <option value="deepseek">DeepSeek</option>
+                                <option value="local">本地模型 (需配置)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">关于</div>
+                        <p>AI-Excel Helper 出货单智能处理系统</p>
+                        <p>版本: 1.0.0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 工具表视图 -->
+            <div class="page-view" id="view-tools">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>工具表</h2>
+                        <div class="header-actions">
+                            <input type="text" id="toolSearch" placeholder="搜索工具..." onkeyup="filterTools()">
+                            <select id="toolCategoryFilter" onchange="filterTools()">
+                                <option value="">全部分类</option>
+                                <option value="products">产品管理</option>
+                                <option value="customers">客户管理</option>
+                                <option value="orders">出货单</option>
+                                <option value="excel">Excel处理</option>
+                                <option value="ocr">图片OCR</option>
+                                <option value="wechat">微信管理</option>
+                                <option value="materials">原材料仓库</option>
+                                <option value="print">标签打印</option>
+                                <option value="database">数据库管理</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="tools-container" id="toolsContainer">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 产品编辑模态框 -->
+    <div class="modal" id="productModal">
+        <div class="modal-content">
+            <div class="modal-header" id="productModalTitle">添加产品</div>
+            <input type="hidden" id="productId">
+            <div class="form-group">
+                <label>产品型号 *</label>
+                <input type="text" id="productModel" placeholder="如：A001">
+            </div>
+            <div class="form-group">
+                <label>产品名称 *</label>
+                <input type="text" id="productName" placeholder="产品名称">
+            </div>
+            <div class="form-group">
+                <label>规格</label>
+                <input type="text" id="productSpec" placeholder="规格描述">
+            </div>
+            <div class="form-group">
+                <label>价格</label>
+                <input type="number" id="productPrice" placeholder="0.00" step="0.01">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeProductModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveProduct()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 原材料编辑模态框 -->
+    <div class="modal" id="materialModal">
+        <div class="modal-content">
+            <div class="modal-header" id="materialModalTitle">添加原材料</div>
+            <input type="hidden" id="materialId">
+            <div class="form-group">
+                <label>原材料编码 *</label>
+                <input type="text" id="materialCode" placeholder="如：M001">
+            </div>
+            <div class="form-group">
+                <label>名称 *</label>
+                <input type="text" id="materialName" placeholder="原材料名称">
+            </div>
+            <div class="form-group">
+                <label>分类</label>
+                <input type="text" id="materialCategory" placeholder="如：油漆、板材">
+            </div>
+            <div class="form-group">
+                <label>规格</label>
+                <input type="text" id="materialSpec" placeholder="规格描述">
+            </div>
+            <div class="form-group">
+                <label>单位</label>
+                <input type="text" id="materialUnit" value="个">
+            </div>
+            <div class="form-group">
+                <label>库存数量</label>
+                <input type="number" id="materialQuantity" value="0">
+            </div>
+            <div class="form-group">
+                <label>单价</label>
+                <input type="number" id="materialPrice" value="0" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>供应商</label>
+                <input type="text" id="materialSupplier" placeholder="供应商名称">
+            </div>
+            <div class="form-group">
+                <label>最低库存</label>
+                <input type="number" id="materialMinStock" value="0">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeMaterialModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveMaterial()">保存</button>
+            </div>
+        </div>
+    </div>
+
+        <!-- 核心配置和工具 -->
+    <script src="/static/js/core/config.js"></script>
+    <script src="/static/js/core/utils.js"></script>
+    
+    <!-- 模块文件 -->
+    <script src="/static/js/modules/ui.js"></script>
+    <script src="/static/js/modules/products.js"></script>
+    <script src="/static/js/modules/materials.js"></script>
+    <script src="/static/js/modules/orders.js"></script>
+    <script src="/static/js/modules/customers.js"></script>
+    <script src="/static/js/modules/chat.js"></script>
+    <script src="/static/js/modules/pro-mode.js"></script>
+    <script src="/static/js/modules/wechat.js"></script>
+    <script src="/static/js/modules/file-import.js"></script>
+    <script src="/static/js/modules/tools.js"></script>
+    
+    <!-- 页面初始化代码 -->
+    <script>
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const view = this.getAttribute('data-view');
+                switchView(view);
+            });
+        });
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                initConversation();
+                loadUserPreferences();
+            });
+        } else {
+            initConversation();
+            loadUserPreferences();
+        }
+
+        function loadUserPreferences() {
+            fetch(API_BASE + '/api/preferences?user_id=default')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.preferences) {
+                        applyUserPreferences(data.preferences);
+                    }
+                })
+                .catch(err => console.error('加载用户偏好失败:', err));
+        }
+
+        function applyUserPreferences(prefs) {
+            if (prefs.theme) {
+                document.body.setAttribute('data-theme', prefs.theme);
+            }
+            if (prefs.fontSize) {
+                document.body.style.fontSize = prefs.fontSize + 'px';
+            }
+        }
+
+        function saveUserPreference(key, value) {
+            fetch(API_BASE + '/api/preferences', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: 'default',
+                    key: key,
+                    value: value
+                })
+            }).catch(err => console.error('保存偏好失败:', err));
+        }
+
+        window.showProFeature = (feature, config) => {
+            if (window.proFeatureWidget) {
+                window.proFeatureWidget.showFeature(feature, config);
+            } else {
+                console.error('悬浮窗组件未初始化');
+            }
+        };
+
+        window.hideProFeature = () => {
+            if (window.proFeatureWidget) {
+                window.proFeatureWidget.hide();
+            }
+        };
+    </script>
+    <script>
+        // 左下角进度展示组件函数
+        function showProgress() {
+            const panel = document.getElementById('progressPanel');
+            if (panel) {
+                panel.style.display = 'block';
+                panel.style.opacity = '0';
+                panel.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    panel.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    panel.style.opacity = '1';
+                    panel.style.transform = 'translateY(0)';
+                }, 10);
+            }
+        }
+
+        function hideProgress() {
+            const panel = document.getElementById('progressPanel');
+            if (panel) {
+                panel.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                panel.style.opacity = '0';
+                panel.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    panel.style.display = 'none';
+                    panel.style.transform = '';
+                }, 300);
+            }
+        }
+
+        function updateProgress(percent, task) {
+            const panel = document.getElementById('progressPanel');
+            if (!panel) return;
+            
+            if (!panel.style.display || panel.style.display === 'none') {
+                showProgress();
+            }
+
+            const percentEl = document.getElementById('progressPercent');
+            const barFill = document.getElementById('progressBarFill');
+            const taskEl = document.getElementById('progressTask');
+
+            if (percentEl) percentEl.textContent = percent + '%';
+            if (barFill) barFill.style.width = percent + '%';
+            if (taskEl && task) taskEl.textContent = task;
+
+            if (percent >= 100) {
+                setTimeout(() => {
+                    hideProgress();
+                }, 500);
+            }
+        }
+    </script>
+    <script>
+    /**
+     * 专业版功能悬浮窗 - 科技感设计
+     * 支持多种专业功能模块
+     */
+
+    class ProFeatureWidget {
+        constructor() {
+            this.widgetId = 'pro-feature-widget';
+            this.isShowing = false;
+            this.checkInterval = null;
+            this.init();
+        }
+
+        init() {
+            this.createWidget();
+            this.addStyles();
+            this.bindEvents();
+        }
+
+        createWidget() {
+            const widget = document.createElement('div');
+            widget.id = this.widgetId;
+            widget.className = 'pro-feature-widget-container hide';
+            widget.innerHTML = `
+                <div class="pro-feature-widget-panel">
+                    <div class="tech-border top"></div>
+                    <div class="tech-border right"></div>
+                    <div class="tech-border bottom"></div>
+                    <div class="tech-border left"></div>
+                    
+                    <div class="pro-feature-widget-header">
+                        <div class="header-title">
+                            <span class="icon" id="widget-icon">🔧</span>
+                            <span id="widget-title">专业功能</span>
+                        </div>
+                        <button class="close-btn" title="关闭">×</button>
+                    </div>
+                    
+                    <div class="pro-feature-widget-content" id="widget-content"></div>
+                    
+                    <div class="pro-feature-widget-footer">
+                        <div class="status-indicator">
+                            <span class="status-dot"></span>
+                            <span class="status-label" id="widget-status">就绪</span>
+                        </div>
+                        <div class="action-buttons" id="action-buttons"></div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(widget);
+            this.addStyles();
+        }
+
+        addStyles() {
+            const styleId = 'pro-widget-styles';
+            if (document.getElementById(styleId)) return;
+
+            const styles = `
+                <style id="${styleId}">
+                    .pro-feature-widget-container {
+                        position: fixed;
+                        top: 50%;
+                        right: -450px;
+                        transform: translateY(-50%);
+                        z-index: 10000;
+                        transition: right 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                    }
+                    .pro-feature-widget-container.show { right: 20px; }
+                    .pro-feature-widget-container.hide { display: none; }
+                    
+                    .pro-feature-widget-panel {
+                        width: 400px;
+                        background: linear-gradient(135deg, rgba(26,26,46,0.98) 0%, rgba(22,33,62,0.95) 100%);
+                        border-radius: 16px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(74,144,217,0.2);
+                        backdrop-filter: blur(20px);
+                        overflow: hidden;
+                        position: relative;
+                    }
+                    
+                    .tech-border {
+                        position: absolute;
+                        background: linear-gradient(90deg, #4a90d9, #6ab0ff);
+                        opacity: 0.6;
+                    }
+                    .tech-border.top { top: 0; left: 20px; right: 20px; height: 2px; }
+                    .tech-border.right { top: 20px; right: 0; bottom: 20px; width: 2px; }
+                    .tech-border.bottom { bottom: 0; left: 20px; right: 20px; height: 2px; }
+                    .tech-border.left { top: 20px; left: 0; bottom: 20px; width: 2px; }
+                    
+                    .pro-feature-widget-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 16px 20px;
+                        border-bottom: 1px solid rgba(74,144,217,0.2);
+                        background: rgba(0,0,0,0.2);
+                    }
+                    .header-title {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        color: #fff;
+                        font-size: 16px;
+                        font-weight: 600;
+                    }
+                    .header-title .icon { font-size: 20px; }
+                    .close-btn {
+                        background: rgba(255,255,255,0.1);
+                        border: none;
+                        color: rgba(255,255,255,0.6);
+                        width: 28px;
+                        height: 28px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 18px;
+                        transition: all 0.2s;
+                    }
+                    .close-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+                    
+                    .pro-feature-widget-content {
+                        padding: 24px 20px;
+                        min-height: 300px;
+                    }
+                    
+                    .pro-feature-widget-footer {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 12px 20px;
+                        border-top: 1px solid rgba(74,144,217,0.2);
+                        background: rgba(0,0,0,0.2);
+                    }
+                    .status-indicator {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        color: rgba(255,255,255,0.6);
+                        font-size: 13px;
+                    }
+                    .status-dot {
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 50%;
+                        background: #ffc107;
+                        animation: blink 1.5s ease-in-out infinite;
+                    }
+                    @keyframes blink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+                    .status-dot.success {
+                        background: #28a745;
+                        animation: none;
+                        box-shadow: 0 0 8px rgba(40,167,69,0.6);
+                    }
+                    
+                    .action-buttons { display: flex; gap: 8px; }
+                    .action-btn {
+                        background: rgba(74,144,217,0.2);
+                        border: 1px solid rgba(74,144,217,0.4);
+                        color: rgba(255,255,255,0.8);
+                        padding: 6px 12px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        transition: all 0.2s;
+                    }
+                    .action-btn:hover { background: rgba(74,144,217,0.3); }
+                    .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+                    
+                    .wechat-qrcode-wrapper { text-align: center; }
+                    .wechat-qrcode-img {
+                        width: 200px;
+                        height: 200px;
+                        margin: 0 auto 16px;
+                        border-radius: 12px;
+                        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                    }
+                    .scan-line {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        height: 3px;
+                        background: linear-gradient(90deg, transparent, #4a90d9, transparent);
+                        animation: scan 2s linear infinite;
+                    }
+                    @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+                    .wechat-tips {
+                        background: rgba(74,144,217,0.1);
+                        border-radius: 8px;
+                        padding: 16px;
+                        margin-top: 16px;
+                    }
+                    .tip-item {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        color: rgba(255,255,255,0.7);
+                        font-size: 13px;
+                        margin-bottom: 8px;
+                    }
+                    .tip-item:last-child { margin-bottom: 0; }
+                    .tip-icon { color: #4a90d9; font-weight: bold; }
+                </style>
+            `;
+            document.head.insertAdjacentHTML('beforeend', styles);
+        }
+
+        bindEvents() {
+            const widget = document.getElementById(this.widgetId);
+            const closeBtn = widget.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => this.hide());
+        }
+
+        showFeature(featureType, config = {}) {
+            this.currentFeature = featureType;
+            this.featureConfig = config;
+            
+            const widget = document.getElementById(this.widgetId);
+            const title = document.getElementById('widget-title');
+            const icon = document.getElementById('widget-icon');
+            const content = document.getElementById('widget-content');
+            const actionButtons = document.getElementById('action-buttons');
+            
+            switch(featureType) {
+                case 'wechat_login':
+                    title.textContent = '微信登录';
+                    icon.textContent = '📱';
+                    content.innerHTML = this.renderWechatLogin();
+                    actionButtons.innerHTML = `
+                        <button class="action-btn" onclick="window.proFeatureWidget.refreshQRCode()">
+                            刷新二维码
+                        </button>
+                    `;
+                    // 确保后端已触发微信登录并生成二维码
+                    this.ensureWechatLogin();
+                    break;
+                default:
+                    title.textContent = '专业功能';
+                    icon.textContent = '🔧';
+                    content.innerHTML = '<p>功能开发中...</p>';
+                    actionButtons.innerHTML = '';
+            }
+            
+            widget.classList.remove('hide');
+            widget.classList.add('show');
+            this.isShowing = true;
+            
+            if (featureType === 'wechat_login') {
+                this.startWechatStatusCheck();
+            }
+        }
+
+        renderWechatLogin() {
+            const timestamp = Date.now();
+            return `
+                <div class="wechat-qrcode-wrapper">
+                    <div style="position: relative; width: 200px; height: 200px; margin: 0 auto;">
+                        <img src="/api/wechat/qrcode?ts=${timestamp}" 
+                             class="wechat-qrcode-img" 
+                             alt="微信登录二维码"
+                             onerror="if(window.proFeatureWidget){window.proFeatureWidget.handleQRError && window.proFeatureWidget.handleQRError(this);}">
+                        <div class="scan-line"></div>
+                    </div>
+                    <div style="color: rgba(255,255,255,0.8); margin-top: 16px;">
+                        请使用微信扫描二维码登录
+                    </div>
+                    <div class="wechat-tips">
+                        <div class="tip-item">
+                            <span class="tip-icon">✓</span>
+                            <span>打开微信"扫一扫"</span>
+                        </div>
+                        <div class="tip-item">
+                            <span class="tip-icon">✓</span>
+                            <span>扫描二维码</span>
+                        </div>
+                        <div class="tip-item">
+                            <span class="tip-icon">✓</span>
+                            <span>确认登录</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        refreshQRCode() {
+            const img = document.querySelector('.wechat-qrcode-img');
+            if (img) {
+                img.src = '/api/wechat/qrcode?ts=' + Date.now();
+            }
+        }
+
+        // 当二维码加载失败时处理：触发后端登录并稍后重试加载
+        handleQRError(imgEl) {
+            console.warn('二维码加载失败，尝试触发微信登录并重新加载...');
+            this.ensureWechatLogin().then(() => {
+                setTimeout(() => {
+                    if (imgEl) {
+                        imgEl.src = '/api/wechat/qrcode?ts=' + Date.now();
+                    } else {
+                        this.refreshQRCode();
+                    }
+                }, 1500);
+            }).catch(() => {
+                // 即使触发失败，也再尝试刷新一次，避免一直空白
+                setTimeout(() => this.refreshQRCode(), 1500);
+            });
+        }
+
+        // 防止重复触发微信登录的标志
+        async ensureWechatLogin() {
+            try {
+                // 先检查微信是否已登录
+                const statusResp = await fetch('/api/wechat/status');
+                const statusData = await statusResp.json().catch(() => ({}));
+                
+                if (statusData.success && statusData.logined) {
+                    // 已登录，直接提示用户
+                    alert('微信已经登录了，无需再次扫码！');
+                    this.onWechatLoginSuccess();
+                    return;
+                }
+                
+                // 未登录，触发登录流程
+                const resp = await fetch('/api/wechat/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await resp.json().catch(() => ({}));
+                console.log('微信登录触发结果:', data);
+                
+                // 显示二维码让用户扫描
+                this.refreshQRCode();
+                
+                // 开始轮询检查登录状态
+                this.startWechatStatusCheck();
+                
+            } catch (e) {
+                console.error('触发微信登录失败:', e);
+                throw e;
+            }
+        }
+
+        startWechatStatusCheck() {
+            // 降低轮询频率到 10 秒一次，避免过于频繁请求
+            this.checkInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/wechat/status');
+                    const data = await response.json();
+                    
+                    if (data.success && data.logined) {
+                        this.onWechatLoginSuccess();
+                    }
+                } catch (error) {
+                    console.error('检测登录状态失败:', error);
+                }
+            }, 10000);
+        }
+
+        stopStatusCheck() {
+            if (this.checkInterval) {
+                clearInterval(this.checkInterval);
+                this.checkInterval = null;
+            }
+        }
+
+        onWechatLoginSuccess() {
+            this.stopStatusCheck();
+            
+            const statusDot = document.querySelector('.status-dot');
+            const statusLabel = document.getElementById('widget-status');
+            
+            statusDot.classList.add('success');
+            statusLabel.textContent = '已登录';
+            
+            const widget = document.getElementById(this.widgetId);
+            widget.style.animation = 'successPulse 0.6s ease-in-out';
+            
+            setTimeout(() => {
+                this.hide();
+                widget.style.animation = '';
+                statusDot.classList.remove('success');
+                statusLabel.textContent = '就绪';
+            }, 1500);
+        }
+
+        hide() {
+            const widget = document.getElementById(this.widgetId);
+            widget.classList.remove('show');
+            widget.classList.add('hide');
+            this.isShowing = false;
+            this.stopStatusCheck();
+        }
+    }
+
+    // 全局实例
+    window.proFeatureWidget = null;
+
+    // 初始化
+    function initProFeatureWidget() {
+        if (!window.proFeatureWidget) {
+            console.log('初始化专业版功能悬浮窗组件...');
+            window.proFeatureWidget = new ProFeatureWidget();
+            console.log('专业版功能悬浮窗组件初始化完成');
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initProFeatureWidget);
+    } else {
+        initProFeatureWidget();
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            initConversation();
+            loadUserPreferences();
+        });
+    } else {
+        initConversation();
+        loadUserPreferences();
+    }
+    
+    function loadUserPreferences() {
+        fetch(API_BASE + '/api/preferences?user_id=default')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.preferences) {
+                    applyUserPreferences(data.preferences);
+                }
+            })
+            .catch(err => console.error('加载用户偏好失败:', err));
+    }
+    
+    function applyUserPreferences(prefs) {
+        if (prefs.theme) {
+            document.body.setAttribute('data-theme', prefs.theme);
+        }
+        if (prefs.fontSize) {
+            document.body.style.fontSize = prefs.fontSize + 'px';
+        }
+    }
+    
+    function saveUserPreference(key, value) {
+        fetch(API_BASE + '/api/preferences', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                user_id: 'default',
+                key: key,
+                value: value
+            })
+        }).catch(err => console.error('保存偏好失败:', err));
+    }
+
+    // 暴露 API
+    window.showProFeature = (feature, config) => {
+        if (window.proFeatureWidget) {
+            window.proFeatureWidget.showFeature(feature, config);
+        } else {
+            console.error('悬浮窗组件未初始化');
+        }
+    };
+
+    window.hideProFeature = () => {
+        if (window.proFeatureWidget) {
+            window.proFeatureWidget.hide();
+        }
+    };
+    </script>
+</body>
+</html>

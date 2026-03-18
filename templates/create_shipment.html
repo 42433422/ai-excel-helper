@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>新建发货单</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin: 25px 0 15px;
+            font-size: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 8px;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .form-col {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-success {
+            background-color: #2ecc71;
+        }
+        
+        .btn-success:hover {
+            background-color: #27ae60;
+        }
+        
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+        
+        .btn-secondary {
+            background-color: #95a5a6;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.processing {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .card {
+            background-color: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+        
+        .product-row {
+            display: grid;
+            grid-template-columns: 2fr 2fr 1fr 1fr 1fr 1fr 1fr auto;
+            gap: 10px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+            align-items: end;
+        }
+        
+        .product-cell {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .product-cell label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 3px;
+        }
+        
+        .product-cell input {
+            padding: 8px;
+            font-size: 13px;
+        }
+        
+        .header-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 25px;
+            color: white;
+            margin-bottom: 25px;
+        }
+        
+        .header-section h2 {
+            color: white;
+            border-bottom-color: rgba(255,255,255,0.3);
+            margin-top: 0;
+        }
+        
+        .header-section label {
+            color: white;
+        }
+        
+        .header-section input {
+            background-color: rgba(255,255,255,0.9);
+            border: none;
+        }
+        
+        .template-select {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-products {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 2px dashed #dee2e6;
+        }
+        
+        .product-info {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 新建发货单</h1>
+        
+        <div class="status" id="status"></div>
+        
+        <!-- 模板选择 -->
+        <div class="template-select">
+            <h2>选择发货单模板</h2>
+            <div class="form-row">
+                <div class="form-col">
+                    <label for="templateSelect">发货单模板</label>
+                    <select id="templateSelect" onchange="onTemplateChange()">
+                        <option value="">-- 请选择模板 --</option>
+                    </select>
+                </div>
+                <div class="form-col" style="flex: 0; display: flex; align-items: flex-end;">
+                    <button class="btn" onclick="loadTemplates()">刷新模板列表</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 模式选择 -->
+        <div class="template-select" style="margin-top: 15px;">
+            <div class="form-row">
+                <div class="form-col" style="flex: 0; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="numberModeCheckbox" style="width: auto; margin-right: 5px;">
+                        <label for="numberModeCheckbox" style="margin: 0; font-weight: 600; color: #3498db;">编号模式（通过编号匹配产品）</label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="customModeCheckbox" style="width: auto; margin-right: 5px;">
+                        <label for="customModeCheckbox" style="margin: 0; font-weight: 600; color: #e74c3c;">自定义模式（允许使用未匹配的产品）</label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="autoPrintCheckbox" style="width: auto; margin-right: 5px;">
+                        <label for="autoPrintCheckbox" style="margin: 0; font-weight: 600; color: #27ae60;">生成后自动打印（连接打印机时）</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 基础信息 -->
+        <div class="header-section">
+            <h2>📋 基础信息</h2>
+            <div class="form-row">
+                <div class="form-col">
+                    <label for="purchaseUnit">购买单位 *</label>
+                    <div style="display: flex; gap: 10px;">
+                        <select id="purchaseUnit" style="flex: 1;" onchange="onPurchaseUnitChange()">
+                            <option value="">-- 选择购买单位 --</option>
+                        </select>
+                        <a href="/purchase-units" class="btn btn-secondary" style="white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center;">+ 新建</a>
+                    </div>
+                </div>
+                <div class="form-col">
+                    <label for="contactPerson">联系人</label>
+                    <input type="text" id="contactPerson" placeholder="联系人姓名">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-col">
+                    <label for="purchaseDate">日期 *</label>
+                    <input type="date" id="purchaseDate" onchange="onDateChange()">
+                </div>
+                <div class="form-col">
+                    <label for="orderNumber">订单编号</label>
+                    <input type="text" id="orderNumber" placeholder="订单编号">
+                </div>
+            </div>
+        </div>
+        
+        <!-- 产品信息 -->
+        <div class="card">
+            <h2>📦 产品信息</h2>
+            <div class="quick-actions">
+                <button class="btn btn-success" onclick="addProductRow()">+ 添加产品</button>
+                <button class="btn" onclick="showProductNameSelector()">🔍 选择产品名称</button>
+                <a href="/product-names" class="btn btn-secondary" style="text-decoration: none;">📦 管理产品库</a>
+            </div>
+            
+            <div id="productRows">
+                <div class="empty-products">
+                    暂无产品，请点击"添加产品"或"选择产品名称"添加产品
+                </div>
+            </div>
+        </div>
+        
+        <!-- Excel出货记录同步选项 -->
+        <div style="margin-top: 20px; padding: 20px; border: 2px solid #e3f2fd; border-radius: 10px; background: #f8f9fa;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <input type="checkbox" id="excelSyncCheckbox" style="width: 20px; height: 20px; cursor: pointer;">
+                <label for="excelSyncCheckbox" style="font-weight: bold; color: #1976d2; cursor: pointer; font-size: 16px;">
+                    📊 填入出货记录
+                </label>
+                <div style="flex: 1;"></div>
+                <span style="color: #666; font-size: 14px;">启用后将自动同步到Excel出货记录表</span>
+            </div>
+            
+            <!-- 自动同步选项 -->
+            <div id="autoSyncSection" style="margin-top: 15px; padding: 15px; background: #f0f7ff; border-radius: 8px; border: 1px solid #90caf9; display: none;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="autoSyncCheckbox" style="width: 18px; height: 18px; cursor: pointer;">
+                    <label for="autoSyncCheckbox" style="cursor: pointer; color: #1565c0; font-weight: 500;">
+                        🚀 自动同步到Excel
+                    </label>
+                    <span style="color: #666; font-size: 13px; margin-left: 10px;">生成发货单后自动执行Excel同步</span>
+                </div>
+            </div>
+            
+            <!-- 文件上传区域（默认隐藏） -->
+            <div id="excelUploadSection" style="display: none; margin-top: 20px; padding: 20px; background: white; border-radius: 8px; border: 2px dashed #ddd;">
+                <h4 style="color: #1976d2; margin-bottom: 15px;">📂 上传出货记录Excel文件</h4>
+                
+                <div style="border: 2px solid #ddd; border-radius: 8px; padding: 30px; text-align: center; background: #fafafa;">
+                    <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelFileSelect(this)">
+                    <div style="cursor: pointer;" onclick="document.getElementById('excelFileInput').click()">
+                        <div style="font-size: 48px; color: #1976d2; margin-bottom: 10px;">📁</div>
+                        <div style="color: #1976d2; font-weight: bold; margin-bottom: 5px;">点击选择Excel文件</div>
+                        <div style="color: #666; font-size: 14px;">支持 .xlsx 和 .xls 格式</div>
+                    </div>
+                </div>
+                
+                <!-- 文件信息显示 -->
+                <div id="fileInfoSection" style="display: none; margin-top: 15px; padding: 15px; background: #e8f5e8; border-radius: 8px; border: 1px solid #4caf50;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="color: #4caf50; font-size: 20px;">✅</span>
+                        <div style="flex: 1;">
+                            <div id="fileName" style="font-weight: bold; color: #2e7d32;"></div>
+                            <div id="fileSize" style="color: #666; font-size: 14px;"></div>
+                        </div>
+                        <button class="btn btn-danger" onclick="clearSelectedFile()" style="padding: 5px 15px; font-size: 12px;">移除</button>
+                    </div>
+                </div>
+                
+                <!-- Excel分析结果 -->
+                <div id="excelAnalysisSection" style="display: none; margin-top: 15px;">
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border: 1px solid #1976d2;">
+                        <h5 style="color: #1976d2; margin-bottom: 10px;">📋 Excel分析结果</h5>
+                        <div id="excelAnalysisResult" style="color: #333; line-height: 1.6;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div style="margin-top: 30px; text-align: center;">
+            <button class="btn btn-success" onclick="generateShipment()" style="padding: 15px 40px; font-size: 18px;">
+                🚀 生成发货单
+            </button>
+            <button class="btn btn-secondary" onclick="resetForm()" style="padding: 15px 40px; font-size: 18px;">
+                🔄 重置
+            </button>
+            <button class="btn" onclick="window.location.href='/edit'" style="padding: 15px 40px; font-size: 18px;">
+                📝 模板编辑
+            </button>
+        </div>
+    </div>
+    
+    <!-- 选择产品模态框 -->
+    <div id="productSelectorModal" class="product-selector-modal" style="display: none;">
+        <div class="modal-content" style="width: 80%; max-width: 800px;">
+            <div class="modal-header">
+                <h3>选择产品</h3>
+                <button type="button" class="close-btn" onclick="closeProductSelector()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-section">
+                    <input type="text" id="productSearchInput" placeholder="搜索产品名称或型号...">
+                    <button type="button" class="btn-search" onclick="searchProductsForSelection()">搜索</button>
+                </div>
+                <div class="products-list" id="productsList" style="max-height: 400px; overflow-y: auto;">
+                    <!-- 产品列表 -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let productCount = 0;
+        let currentSearchProducts = [];
+        
+        // Excel同步相关变量
+        let excelSyncEnabled = false;
+        let excelFilePath = null;
+        let excelAnalysisResult = null;
+        let autoSyncEnabled = false;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('purchaseDate').value = today;
+            
+            // 加载模板列表
+            loadTemplates();
+            
+            // 加载购买单位列表
+            loadPurchaseUnits();
+            
+            // 加载产品名称列表
+            loadAllProductNames();
+            
+            // 自动获取订单编号
+            generateOrderNumber();
+            
+            // 初始化Excel同步功能
+            initExcelSync();
+        });
+        
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            statusElement.style.display = 'block';
+        }
+        
+        function hideStatus() {
+            document.getElementById('status').style.display = 'none';
+        }
+        
+        // 加载模板列表
+        function loadTemplates() {
+            showStatus('正在加载模板列表...', 'processing');
+            
+            fetch('/templates?action=api', {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('API请求失败: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    hideStatus();
+                    if (data.success) {
+                        const select = document.getElementById('templateSelect');
+                        select.innerHTML = '<option value="">-- 请选择模板 --</option>';
+                        
+                        data.templates.forEach(template => {
+                            const option = document.createElement('option');
+                            option.value = template.name;
+                            option.textContent = template.name;
+                            select.appendChild(option);
+                        });
+                        
+                        if (data.templates.length > 0) {
+                            select.value = data.templates[0].name;
+                        }
+                    } else {
+                        showStatus('加载模板列表失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    hideStatus();
+                    showStatus('加载模板列表失败: ' + error.message, 'error');
+                });
+        }
+        
+        function onTemplateChange() {
+            const templateName = document.getElementById('templateSelect').value;
+            if (templateName) {
+                console.log('已选择模板:', templateName);
+            }
+        }
+        
+        // 加载购买单位列表
+        function loadPurchaseUnits() {
+            fetch('/api/purchase_units')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('API请求失败: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        const select = document.getElementById('purchaseUnit');
+                        const currentValue = select.value;
+                        select.innerHTML = '<option value="">-- 选择购买单位 --</option>';
+                        
+                        data.data.forEach(unit => {
+                            const option = document.createElement('option');
+                            option.value = unit.unit_name;
+                            option.textContent = unit.unit_name;
+                            if (unit.contact_person) {
+                                option.textContent += ` (${unit.contact_person})`;
+                            }
+                            select.appendChild(option);
+                        });
+                        
+                        if (currentValue) {
+                            select.value = currentValue;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('加载购买单位失败:', error);
+                });
+        }
+        
+        function onPurchaseUnitChange() {
+            const unitName = document.getElementById('purchaseUnit').value;
+            if (unitName) {
+                fetch(`/api/purchase_units/by_name/${encodeURIComponent(unitName)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            document.getElementById('contactPerson').value = data.data.contact_person || '';
+                            // 加载该购买单位的产品名称列表
+                            loadProductNamesByUnit(data.data.id);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取购买单位信息失败:', error);
+                    });
+            } else {
+                // 如果没有选择购买单位，加载所有产品
+                loadAllProductNames();
+            }
+        }
+        
+        // 选择产品名称后自动填充型号
+        function onProductNameSelect(select, rowId) {
+            const productId = select.value;
+            const nameInput = document.getElementById(`productName_${rowId}`);
+            const modelInput = document.getElementById(`productModel_${rowId}`);
+            const specInput = document.getElementById(`specification_${rowId}`);
+            const priceInput = document.getElementById(`unitPrice_${rowId}`);
+            const quantityBoxInput = document.getElementById(`quantityBox_${rowId}`);
+            const quantityKgInput = document.getElementById(`quantityKg_${rowId}`);
+            
+            if (nameInput) {
+                nameInput.value = select.options[select.selectedIndex].text.split(' (')[0] || '';
+            }
+            
+            if (productId && window.allProductNames) {
+                const product = window.allProductNames.find(p => p.id == productId);
+                if (product) {
+                    // 自动填充型号
+                    if (modelInput && product.model_number) {
+                        modelInput.value = product.model_number;
+                    }
+                    
+                    // 自动填充规格
+                    if (specInput && product.specification) {
+                        specInput.value = product.specification;
+                        // 自动计算数量/KG
+                        if (quantityBoxInput && quantityKgInput) {
+                            const quantityBox = parseFloat(quantityBoxInput.value) || 1;
+                            quantityKgInput.value = (quantityBox * product.specification).toFixed(2);
+                        }
+                    }
+                    
+                    // 自动填充单价
+                    if (priceInput && product.price) {
+                        priceInput.value = product.price;
+                    }
+                }
+            }
+        }
+        
+        // 加载所有产品名称
+        function loadAllProductNames() {
+            fetch('/api/product_names')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.allProductNames = data.data;
+                        updateAllProductNameSelects();
+                    }
+                })
+                .catch(error => {
+                    console.error('加载产品名称列表失败:', error);
+                });
+        }
+        
+        // 根据购买单位加载产品名称
+        function loadProductNamesByUnit(unitId) {
+            if (!unitId) {
+                loadAllProductNames();
+                return;
+            }
+            
+            fetch(`/api/product_names/by_unit/${unitId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.allProductNames = data.data;
+                        updateAllProductNameSelects();
+                    }
+                })
+                .catch(error => {
+                    console.error('加载产品名称列表失败:', error);
+                    loadAllProductNames();
+                });
+        }
+        
+        // 更新所有产品名称下拉框
+        function updateAllProductNameSelects() {
+            const selects = document.querySelectorAll('[id^="productNameSelect_"]');
+            selects.forEach(select => {
+                const currentValue = select.value;
+                const rowId = select.id.replace('productNameSelect_', '');
+                
+                // 保留"请选择"选项
+                select.innerHTML = '<option value="">-- 请选择产品 --</option>';
+                
+                if (window.allProductNames) {
+                    window.allProductNames.forEach(product => {
+                        const option = document.createElement('option');
+                        option.value = product.id;
+                        option.textContent = product.name;
+                        if (product.model_number) {
+                            option.textContent += ` (${product.model_number})`;
+                        }
+                        select.appendChild(option);
+                    });
+                }
+                
+                if (currentValue) {
+                    select.value = currentValue;
+                }
+            });
+        }
+        
+        // 生成订单编号
+        function generateOrderNumber(suffix = 'A') {
+            fetch(`/orders/next_number?suffix=${suffix}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('orderNumber').value = data.data.order_number;
+                    }
+                })
+                .catch(error => {
+                    console.error('获取订单编号失败:', error);
+                });
+        }
+        
+        // 当日期改变时，重新生成订单编号（基于新日期的年月）
+        function onDateChange() {
+            generateOrderNumber();
+        }
+        
+        // 添加产品行
+        function addProductRow() {
+            const container = document.getElementById('productRows');
+            
+            // 如果是第一个产品，移除空提示
+            if (productCount === 0) {
+                container.innerHTML = '';
+            }
+            
+            productCount++;
+            const rowId = productCount;
+            
+            const html = `
+                <div class="product-row" id="productRow_${rowId}">
+                    <div class="product-cell">
+                        <label>产品型号 *</label>
+                        <input type="text" id="productModel_${rowId}" placeholder="产品型号" oninput="onProductModelChange(this, ${rowId})">
+                    </div>
+                    <div class="product-cell">
+                        <label>产品名称 *</label>
+                        <select id="productNameSelect_${rowId}" onchange="onProductNameSelect(this, ${rowId})">
+                            <option value="">-- 请选择产品 --</option>
+                        </select>
+                        <input type="hidden" id="productName_${rowId}">
+                    </div>
+                    <div class="product-cell">
+                        <label>数量/件</label>
+                        <input type="number" id="quantityBox_${rowId}" placeholder="数量" min="0" step="1" value="1">
+                    </div>
+                    <div class="product-cell">
+                        <label>规格/KG</label>
+                        <input type="number" id="specification_${rowId}" placeholder="规格" min="0" step="0.01">
+                    </div>
+                    <div class="product-cell">
+                        <label>数量/KG</label>
+                        <input type="number" id="quantityKg_${rowId}" placeholder="数量KG" min="0" step="0.01">
+                    </div>
+                    <div class="product-cell">
+                        <label>单价/元</label>
+                        <input type="number" id="unitPrice_${rowId}" placeholder="单价" min="0" step="0.01">
+                    </div>
+                    <div class="product-cell">
+                        <label>金额/元</label>
+                        <input type="number" id="amount_${rowId}" placeholder="金额" min="0" step="0.01" readonly style="background-color: #f0f0f0;">
+                    </div>
+                    <div class="product-cell">
+                        <label>&nbsp;</label>
+                        <button type="button" class="btn btn-danger" onclick="removeProductRow(${rowId})" style="padding: 8px 15px;">删除</button>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', html);
+            
+            // 添加计算事件
+            addCalculationEvents(rowId);
+        }
+        
+        function addCalculationEvents(rowId) {
+            const quantityBox = document.getElementById(`quantityBox_${rowId}`);
+            const specification = document.getElementById(`specification_${rowId}`);
+            const quantityKg = document.getElementById(`quantityKg_${rowId}`);
+            const unitPrice = document.getElementById(`unitPrice_${rowId}`);
+            const amount = document.getElementById(`amount_${rowId}`);
+            
+            // 计算金额
+            function calculateAmount() {
+                const qtyKg = parseFloat(quantityKg?.value) || 0;
+                const price = parseFloat(unitPrice?.value) || 0;
+                if (amount) {
+                    amount.value = (qtyKg * price).toFixed(2);
+                }
+            }
+            
+            // 计算数量/KG（根据数量/件和规格）
+            function calculateQuantityKg() {
+                const qtyBox = parseFloat(quantityBox?.value) || 0;
+                const spec = parseFloat(specification?.value) || 0;
+                if (quantityKg) {
+                    quantityKg.value = (qtyBox * spec).toFixed(2);
+                    // 同时计算金额
+                    calculateAmount();
+                }
+            }
+            
+            // 绑定事件监听器
+            if (quantityBox) quantityBox.addEventListener('input', calculateQuantityKg);
+            if (specification) specification.addEventListener('input', calculateQuantityKg);
+            if (quantityKg) quantityKg.addEventListener('input', calculateAmount);
+            if (unitPrice) unitPrice.addEventListener('input', calculateAmount);
+        }
+        
+        function removeProductRow(rowId) {
+            const row = document.getElementById(`productRow_${rowId}`);
+            if (row) {
+                row.remove();
+                productCount--;
+                
+                if (productCount === 0) {
+                    document.getElementById('productRows').innerHTML = `
+                        <div class="empty-products">
+                            暂无产品，请点击"添加产品"或"选择产品名称"添加产品
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        // 产品名称自动搜索
+        function onProductNameChange(input, rowId) {
+            const productName = input.value.trim();
+            const purchaseUnitName = document.getElementById('purchaseUnit').value;
+            
+            if (productName.length >= 2) {
+                // 如果选择了购买单位，先尝试根据购买单位和产品名称查找
+                if (purchaseUnitName) {
+                    fetch(`/purchase_units/by_name/${encodeURIComponent(purchaseUnitName)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.data.id) {
+                                return fetch(`/api/product_names/by_unit_and_name?unit_id=${data.data.id}&name=${encodeURIComponent(productName)}`);
+                            }
+                            throw new Error('未找到购买单位');
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.data) {
+                                const modelInput = document.getElementById(`productModel_${rowId}`);
+                                if (modelInput && !modelInput.value) {
+                                    modelInput.value = data.data.model_number || '';
+                                }
+                            } else {
+                                // 如果没找到，回退到普通搜索
+                                fallbackSearch(productName, rowId);
+                            }
+                        })
+                        .catch(error => {
+                            console.log('按单位查找失败，回退到普通搜索');
+                            fallbackSearch(productName, rowId);
+                        });
+                } else {
+                    fallbackSearch(productName, rowId);
+                }
+            }
+        }
+        
+        // 普通搜索（无购买单位时使用）
+        function fallbackSearch(productName, rowId) {
+            fetch(`/product_names/search?q=${encodeURIComponent(productName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data.length > 0) {
+                        const product = data.data[0];
+                        const modelInput = document.getElementById(`productModel_${rowId}`);
+                        if (modelInput && !modelInput.value) {
+                            modelInput.value = product.model_number || '';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('搜索产品名称失败:', error);
+                });
+        }
+        
+        function onProductModelChange(input, rowId) {
+            const modelNumber = input.value.trim();
+            
+            if (modelNumber.length >= 2) {
+                fetch(`/enhanced_products/search?q=${encodeURIComponent(modelNumber)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.data.length > 0) {
+                            const product = data.data[0];
+                            const nameInput = document.getElementById(`productName_${rowId}`);
+                            if (nameInput && !nameInput.value) {
+                                nameInput.value = product.product_name || '';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('搜索产品型号失败:', error);
+                    });
+            }
+        }
+        
+        // 产品选择器
+        function showProductNameSelector() {
+            document.getElementById('productSelectorModal').style.display = 'flex';
+            loadProductsForSelection();
+        }
+        
+        function closeProductSelector() {
+            document.getElementById('productSelectorModal').style.display = 'none';
+        }
+        
+        function loadProductsForSelection() {
+            const listContainer = document.getElementById('productsList');
+            listContainer.innerHTML = '<div class="loading">加载中...</div>';
+            
+            fetch('/api/product_names')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayProductsForSelection(data.data);
+                    } else {
+                        listContainer.innerHTML = '<div class="error">加载失败</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('加载产品失败:', error);
+                    listContainer.innerHTML = '<div class="error">网络错误</div>';
+                });
+        }
+        
+        function searchProductsForSelection() {
+            const query = document.getElementById('productSearchInput').value.trim();
+            const listContainer = document.getElementById('productsList');
+            
+            if (!query) {
+                loadProductsForSelection();
+                return;
+            }
+            
+            listContainer.innerHTML = '<div class="loading">搜索中...</div>';
+            
+            fetch(`/api/product_names/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayProductsForSelection(data.data);
+                    } else {
+                        listContainer.innerHTML = '<div class="no-products">未找到匹配的产品</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('搜索失败:', error);
+                    listContainer.innerHTML = '<div class="error">搜索失败</div>';
+                });
+        }
+        
+        function displayProductsForSelection(products) {
+            const listContainer = document.getElementById('productsList');
+            
+            if (!products || products.length === 0) {
+                listContainer.innerHTML = '<div class="no-products">未找到产品</div>';
+                return;
+            }
+            
+            let html = '';
+            products.forEach((product, index) => {
+                html += `
+                    <div class="product-item" onclick="selectProductForAdd(${index})">
+                        <div class="product-info">
+                            <div class="product-name" style="font-weight: 600; font-size: 16px;">${product.name || ''}</div>
+                            <div class="product-specs" style="margin-top: 5px; color: #666; font-size: 14px;">
+                                ${product.model_number ? `型号: ${product.model_number}` : ''}
+                                ${product.model_number && product.purchase_unit_name ? ' | ' : ''}
+                                ${product.purchase_unit_name ? `单位: ${product.purchase_unit_name}` : ''}
+                                ${(product.model_number || product.purchase_unit_name) && product.description ? ' | ' : ''}
+                                ${product.description ? `描述: ${product.description}` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            listContainer.innerHTML = html;
+            currentSearchProducts = products;
+        }
+        
+        function selectProductForAdd(index) {
+            const product = currentSearchProducts[index];
+            if (!product) return;
+            
+            addProductRow();
+            const rowId = productCount;
+            
+            // 将产品添加到下拉框
+            const select = document.getElementById(`productNameSelect_${rowId}`);
+            const option = document.createElement('option');
+            option.value = product.id;
+            option.textContent = product.name;
+            select.appendChild(option);
+            select.value = product.id;
+            
+            // 触发选择事件，自动填充型号、单价等
+            onProductNameSelect(select, rowId);
+            
+            closeProductSelector();
+        }
+        
+        // 生成发货单
+        function generateShipment() {
+            const templateName = document.getElementById('templateSelect').value;
+            const purchaseUnit = document.getElementById('purchaseUnit').value;
+            const purchaseDate = document.getElementById('purchaseDate').value;
+            const orderNumber = document.getElementById('orderNumber').value;
+            const contactPerson = document.getElementById('contactPerson').value;
+            const numberMode = document.getElementById('numberModeCheckbox').checked;
+            const customMode = document.getElementById('customModeCheckbox').checked;
+            
+            if (!templateName) {
+                alert('请选择发货单模板');
+                return;
+            }
+            
+            if (!purchaseUnit) {
+                alert('请选择或输入购买单位');
+                return;
+            }
+            
+            if (!purchaseDate) {
+                alert('请选择日期');
+                return;
+            }
+            
+            // 收集产品数据
+            const productRows = document.querySelectorAll('.product-row');
+            if (productRows.length === 0) {
+                alert('请至少添加一个产品');
+                return;
+            }
+            
+            const editableData = {
+                header_row: {},
+                product_rows: [],
+                price_row: {}
+            };
+            
+            // 构建第二行数据
+            const dateStr = purchaseDate.replace(/(\d{4})-(\d{2})-(\d{2})/, '$1年$2月$3日');
+            editableData.header_row[1] = {
+                purchase_unit: purchaseUnit,
+                contact_person: contactPerson,
+                purchase_date: dateStr,
+                order_number: orderNumber
+            };
+            
+            // 构建产品数据
+            productRows.forEach((row, index) => {
+                const rowNum = index + 4; // 从第4行开始
+                const productData = {};
+                
+                const modelInput = row.querySelector('input[id^="productModel_"]');
+                const nameInput = row.querySelector('input[id^="productName_"]');
+                const quantityBox = row.querySelector('input[id^="quantityBox_"]');
+                const specification = row.querySelector('input[id^="specification_"]');
+                const quantityKg = row.querySelector('input[id^="quantityKg_"]');
+                const unitPrice = row.querySelector('input[id^="unitPrice_"]');
+                const amount = row.querySelector('input[id^="amount_"]');
+                
+                productData[1] = modelInput ? modelInput.value : '';  // 型号
+                productData[4] = nameInput ? nameInput.value : '';    // 名称
+                productData[5] = quantityBox ? quantityBox.value : '';  // 数量/件
+                productData[6] = specification ? specification.value : ''; // 规格/KG
+                productData[7] = quantityKg ? quantityKg.value : '';  // 数量/KG
+                productData[8] = unitPrice ? unitPrice.value : '';    // 单价/元
+                productData[9] = amount ? amount.value : '';          // 金额/元
+                
+                editableData.product_rows.push(productData);
+            });
+            
+            showStatus('正在生成发货单...', 'processing');
+            
+            fetch('/documents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    template_name: templateName,
+                    editable_data: editableData,
+                    number_mode: numberMode,
+                    custom_mode: customMode
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideStatus();
+                if (data.success) {
+                    showStatus('发货单生成成功！', 'success');
+                    document.getElementById('resultContent').innerHTML = `
+                        <div style="text-align: center; padding: 30px;">
+                            <h3 style="color: #27ae60; margin-bottom: 20px;">✅ 发货单生成成功！</h3>
+                            <p style="margin-bottom: 20px;">文件名: ${data.output_filename}</p>
+                            <a href="/download/${data.output_filename}" class="btn btn-success" download style="padding: 15px 30px; font-size: 16px;">
+                                📥 下载发货单
+                            </a>
+                            <button class="btn" onclick="resetForm()" style="padding: 15px 30px; font-size: 16px;">
+                                🔄 新建发货单
+                            </button>
+                        </div>
+                    `;
+                    document.getElementById('resultSection').style.display = 'block';
+                    document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+                    
+                    // 检查是否启用了自动同步
+                    if (autoSyncEnabled && excelSyncEnabled && excelFilePath && excelAnalysisResult) {
+                        // 构建发货单数据
+                        const shipmentData = {
+                            customerName: purchaseUnit,
+                            orderNumber: orderNumber,
+                            contactPerson: contactPerson,
+                            purchaseDate: purchaseDate,
+                            products: []
+                        };
+                        
+                        // 收集产品数据
+                        productRows.forEach((row, index) => {
+                            const nameInput = row.querySelector('input[id^="productName_"]');
+                            const quantityKg = row.querySelector('input[id^="quantityKg_"]');
+                            const unitPrice = row.querySelector('input[id^="unitPrice_"]');
+                            
+                            if (nameInput && quantityKg && unitPrice) {
+                                shipmentData.products.push({
+                                    name: nameInput.value,
+                                    quantity: parseFloat(quantityKg.value) || 0,
+                                    unitPrice: parseFloat(unitPrice.value) || 0
+                                });
+                            }
+                        });
+                        
+                        // 显示自动同步状态
+                        showStatus('正在自动执行Excel同步...', 'processing');
+                        
+                        // 执行自动同步
+                        performAutoSync(shipmentData).then(() => {
+                            // 同步完成后隐藏状态
+                            hideStatus();
+                        });
+                    }
+                } else {
+                    showStatus('生成失败: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                hideStatus();
+                showStatus('生成失败: ' + error.message, 'error');
+            });
+        }
+        
+        function resetForm() {
+            document.getElementById('purchaseUnit').value = '';
+            document.getElementById('contactPerson').value = '';
+            document.getElementById('orderNumber').value = '';
+            document.getElementById('numberModeCheckbox').checked = false;
+            document.getElementById('customModeCheckbox').checked = false;
+            document.getElementById('productRows').innerHTML = `
+                <div class="empty-products">
+                    暂无产品，请点击"添加产品"或"选择产品名称"添加产品
+                </div>
+            `;
+            productCount = 0;
+            
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('purchaseDate').value = today;
+            
+            document.getElementById('status').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'none';
+        }
+        
+        // ========== Excel同步功能 ==========
+        
+        // 初始化Excel同步功能
+        function initExcelSync() {
+            const checkbox = document.getElementById('excelSyncCheckbox');
+            const uploadSection = document.getElementById('excelUploadSection');
+            const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
+            
+            // 绑定复选框事件
+            checkbox.addEventListener('change', function() {
+                excelSyncEnabled = this.checked;
+                uploadSection.style.display = this.checked ? 'block' : 'none';
+                
+                if (!this.checked) {
+                    clearSelectedFile();
+                    // 禁用自动同步
+                    autoSyncEnabled = false;
+                    if (autoSyncCheckbox) autoSyncCheckbox.checked = false;
+                }
+            });
+            
+            // 绑定自动同步复选框事件
+            if (autoSyncCheckbox) {
+                autoSyncCheckbox.addEventListener('change', function() {
+                    autoSyncEnabled = this.checked;
+                    console.log('自动同步已' + (this.checked ? '启用' : '禁用'));
+                });
+            }
+        }
+        
+        // 处理Excel文件选择
+        function handleExcelFileSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            // 验证文件类型
+            if (!file.name.match(/\.(xlsx|xls)$/i)) {
+                showStatus('请选择Excel文件（.xlsx或.xls格式）', 'error');
+                return;
+            }
+            
+            selectedExcelFile = file;
+            excelFilePath = null;
+            
+            // 显示文件信息
+            showFileInfo(file);
+            
+            // 上传并分析文件
+            uploadExcelFile(file);
+        }
+        
+        // 显示文件信息
+        function showFileInfo(file) {
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = `文件大小: ${formatFileSize(file.size)}`;
+            document.getElementById('fileInfoSection').style.display = 'block';
+        }
+        
+        // 清除选中的文件
+        function clearSelectedFile() {
+            const input = document.getElementById('excelFileInput');
+            input.value = '';
+            selectedExcelFile = null;
+            excelFilePath = null;
+            excelAnalysisResult = null;
+            
+            document.getElementById('fileInfoSection').style.display = 'none';
+            document.getElementById('excelAnalysisSection').style.display = 'none';
+        }
+        
+        // 上传Excel文件
+        async function uploadExcelFile(file) {
+            try {
+                showStatus('正在上传Excel文件...', 'processing');
+                
+                const formData = new FormData();
+                formData.append('excel_file', file);
+                
+                const response = await fetch('/api/excel/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    excelFilePath = result.file_path;
+                    excelAnalysisResult = result.analysis;
+                    
+                    showStatus('Excel文件上传成功！', 'success');
+                    showExcelAnalysisResult(result.analysis);
+                    
+                    // 显示自动同步选项
+                    const autoSyncSection = document.getElementById('autoSyncSection');
+                    if (autoSyncSection) {
+                        autoSyncSection.style.display = 'block';
+                    }
+                } else {
+                    throw new Error(result.error || '文件上传失败');
+                }
+            } catch (error) {
+                console.error('Excel文件上传失败:', error);
+                showStatus('Excel文件上传失败: ' + error.message, 'error');
+                clearSelectedFile();
+            }
+        }
+        
+        // 显示Excel分析结果
+        function showExcelAnalysisResult(analysis) {
+            if (!analysis) return;
+            
+            let resultHtml = '';
+            
+            if (analysis.workbook_name) {
+                resultHtml += `<strong>工作簿:</strong> ${analysis.workbook_name}<br>`;
+            }
+            
+            if (analysis.sheets && analysis.sheets.length > 0) {
+                resultHtml += `<strong>工作表:</strong> ${analysis.sheets.join(', ')}<br>`;
+            }
+            
+            if (analysis.headers) {
+                resultHtml += `<strong>表头:</strong> ${analysis.headers.join(' | ')}<br>`;
+            }
+            
+            if (analysis.total_rows) {
+                resultHtml += `<strong>数据行数:</strong> ${analysis.total_rows}<br>`;
+            }
+            
+            if (analysis.confidence) {
+                resultHtml += `<strong>分析置信度:</strong> ${Math.round(analysis.confidence * 100)}%<br>`;
+            }
+            
+            if (analysis.column_mapping) {
+                resultHtml += '<strong>列映射:</strong><br>';
+                Object.entries(analysis.column_mapping).forEach(([key, value]) => {
+                    if (value) {
+                        resultHtml += `&nbsp;&nbsp;${key}: 列${value}<br>`;
+                    }
+                });
+            }
+            
+            document.getElementById('excelAnalysisResult').innerHTML = resultHtml;
+            document.getElementById('excelAnalysisSection').style.display = 'block';
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // 执行自动同步
+        async function performAutoSync(shipmentData) {
+            try {
+                const response = await fetch('/api/excel/sync', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        filePath: excelFilePath,
+                        analysis: excelAnalysisResult,
+                        shipmentData: shipmentData
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showStatus('Excel自动同步成功！', 'success');
+                    showExcelSyncResult(result.excel_sync);
+                } else {
+                    showStatus('Excel自动同步失败: ' + (result.error || '未知错误'), 'error');
+                }
+            } catch (error) {
+                console.error('Excel自动同步失败:', error);
+                showStatus('Excel自动同步失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 显示Excel同步结果
+        function showExcelSyncResult(excelSync) {
+            let syncHtml = '<div style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px; border: 1px solid #4caf50;">';
+            syncHtml += '<h4 style="color: #2e7d32; margin-bottom: 10px;">📊 Excel同步结果</h4>';
+            syncHtml += `<p><strong>同步状态:</strong> ${excelSync.success ? '✅ 成功' : '❌ 失败'}</p>`;
+            
+            if (excelSync.success) {
+                syncHtml += `<p><strong>写入行数:</strong> ${excelSync.rows_written || 0}</p>`;
+                syncHtml += `<p><strong>起始行号:</strong> ${excelSync.start_row || '未知'}</p>`;
+                syncHtml += `<p><strong>产品数量:</strong> ${excelSync.products_count || 0}</p>`;
+                
+                if (excelSync.details) {
+                    syncHtml += '<p><strong>同步详情:</strong></p>';
+                    syncHtml += '<ul style="margin-left: 20px;">';
+                    if (excelSync.details.products) {
+                        excelSync.details.products.forEach((product, index) => {
+                            syncHtml += `<li>产品${index + 1}: ${product.name} - ${product.quantity} ${product.unit}</li>`;
+                        });
+                    }
+                    syncHtml += '</ul>';
+                }
+            } else {
+                syncHtml += `<p style="color: #d32f2f;"><strong>同步失败:</strong> ${excelSync.error || '未知错误'}</p>`;
+            }
+            
+            syncHtml += '</div>';
+            
+            // 添加到结果区域
+            const resultContent = document.getElementById('resultContent');
+            if (resultContent) {
+                resultContent.innerHTML += syncHtml;
+            }
+        }
+    </script>
+    
+    <div class="card" id="resultSection" style="display: none; margin-top: 30px;">
+        <h2>✅ 生成结果</h2>
+        <div id="resultContent"></div>
+    </div>
+</body>
+</html>

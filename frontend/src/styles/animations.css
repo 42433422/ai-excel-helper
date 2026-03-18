@@ -1,0 +1,431 @@
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes rotateIn {
+  from {
+    transform: rotate(-180deg) scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes rotateOut {
+  from {
+    transform: rotate(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(180deg) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px var(--pro-primary-color);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 30px var(--pro-primary-color);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 10px var(--pro-primary-color);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--pro-primary-color), 0 0 30px var(--pro-primary-color);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes spinReverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes expandIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes expandOut {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes ringExpand {
+  from {
+    transform: scale(0);
+    opacity: 1;
+  }
+  to {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes ringPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes particleExplode {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes particleImplode {
+  0% {
+    transform: translate(var(--tx), var(--ty)) scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes charFallDown {
+  0% {
+    transform: translateY(-100vh);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+@keyframes charFallUpReverse {
+  0% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh);
+    opacity: 0;
+  }
+}
+
+@keyframes scanLine {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes gridMove {
+  0% {
+    transform: perspective(1000px) rotateX(60deg) translateY(0);
+  }
+  100% {
+    transform: perspective(1000px) rotateX(60deg) translateY(-50px);
+  }
+}
+
+@keyframes statusBlink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes codeCharFlicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes iconRingBtnBreath {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 10px var(--pro-primary-color);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 20px var(--pro-primary-color);
+  }
+}
+
+@keyframes monitorFloatBob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes proOrderFloatPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 20px var(--pro-primary-color);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px var(--pro-primary-color);
+  }
+}
+
+@keyframes toolExtractToken {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes dodecaScanLine {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+.work-mode .fade-in,
+.work-mode .fade-out,
+.work-mode .slide-in-up,
+.work-mode .slide-in-down,
+.work-mode .slide-in-left,
+.work-mode .slide-in-right,
+.work-mode .scale-in,
+.work-mode .scale-out,
+.work-mode .rotate-in,
+.work-mode .rotate-out,
+.work-mode .pulse,
+.work-mode .breathe,
+.work-mode .glow,
+.work-mode .float,
+.work-mode .shake,
+.work-mode .blink,
+.work-mode .spin,
+.work-mode .spin-reverse,
+.work-mode .expand-in,
+.work-mode .expand-out,
+.work-mode .ring-expand,
+.work-mode .ring-pulse,
+.work-mode .particle-explode,
+.work-mode .particle-implode,
+.work-mode .char-fall-down,
+.work-mode .char-fall-up-reverse,
+.work-mode .scan-line,
+.work-mode .grid-move,
+.work-mode .status-blink,
+.work-mode .code-char-flicker,
+.work-mode .icon-ring-btn-breath,
+.work-mode .monitor-float-bob,
+.work-mode .pro-order-float-pulse,
+.work-mode .tool-extract-token,
+.work-mode .dodeca-scan-line {
+  --pro-primary-color: var(--pro-work-mode-color);
+  --pro-border-color: var(--pro-border-work-mode);
+  --pro-box-shadow: var(--pro-box-shadow-work-mode);
+  --pro-glow: var(--pro-glow-work-mode);
+}

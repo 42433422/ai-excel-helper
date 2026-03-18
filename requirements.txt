@@ -1,0 +1,17 @@
+Flask==3.0.0
+Flask-CORS==4.0.0
+Flask-Caching==2.1.0
+Flasgger==0.9.7.1
+Celery==5.3.4
+redis==5.0.1
+openpyxl==3.1.2
+gunicorn==21.2.0
+python-dotenv==1.0.0
+httpx==0.26.0
+SQLAlchemy>=2.0.0
+alembic>=1.13.0
+
+# 测试依赖
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0

@@ -1,0 +1,450 @@
+/*
+ * 表格和数据展示样式文件
+ */
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th, .data-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+.data-table th { background: #f8f9fa; font-weight: 600; }
+.data-table tr:hover { background: #f8f9fa; }
+
+/* 出货记录管理：表格预览优化 + 操作列 */
+.table-responsive-shipment-records {
+    max-height: 420px;
+    overflow: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #fff;
+}
+.data-table-shipment-records {
+    margin: 0;
+}
+.data-table-shipment-records thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    box-shadow: 0 1px 0 0 #e0e0e0;
+}
+.data-table-shipment-records thead th {
+    background: #f0f4f8;
+    white-space: nowrap;
+    min-width: 80px;
+}
+.data-table-shipment-records thead th.th-actions {
+    min-width: 88px;
+    text-align: center;
+}
+.data-table-shipment-records .shipment-record-cell {
+    max-width: 200px;
+    word-wrap: break-word;
+    word-break: break-word;
+    white-space: normal;
+    line-height: 1.4;
+    vertical-align: top;
+}
+.data-table-shipment-records .shipment-record-actions {
+    white-space: nowrap;
+    text-align: center;
+    vertical-align: middle;
+}
+.data-table-shipment-records .shipment-record-edit-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+.data-table-shipment-records tbody tr.shipment-record-row:hover {
+    background: #e8f4fc;
+}
+
+.search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.page-view {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.page-view.active { display: flex; }
+
+.page-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.btn-icon {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    font-size: 20px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    background: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: #f0f9ff;
+    border-color: #0d6efd;
+}
+
+/* Excel 导出按钮：科技感样式 */
+.btn-icon.btn-excel,
+#exportCustomersExcelBtn.btn-icon {
+    border: 1px solid rgba(0, 200, 150, 0.4);
+    background: linear-gradient(180deg, #f8fffe 0%, #f0fdf9 100%);
+    box-shadow: 0 2px 8px rgba(0, 150, 120, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.btn-icon.btn-excel:hover,
+#exportCustomersExcelBtn.btn-icon:hover {
+    border-color: rgba(0, 180, 140, 0.7);
+    background: linear-gradient(180deg, #f0fdf9 0%, #e6faf5 100%);
+    box-shadow: 0 4px 16px rgba(0, 150, 120, 0.25), 0 0 20px rgba(0, 200, 150, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.btn-icon .excel-icon-svg {
+    transition: filter 0.25s ease;
+}
+
+.btn-icon.btn-excel:hover .excel-icon-svg,
+#exportCustomersExcelBtn.btn-icon:hover .excel-icon-svg {
+    filter: drop-shadow(0 0 6px rgba(0, 180, 140, 0.5));
+}
+
+.panel-header .btn-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+}
+
+.excel-icon-svg {
+    display: block;
+    vertical-align: middle;
+}
+
+.header-actions input,
+.header-actions select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.tools-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+.tool-card {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tool-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.tool-category {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.tool-category.products { background: #e3f2fd; color: #1976d2; }
+.tool-category.materials { background: #e8f5e9; color: #388e3c; }
+.tool-category.customers { background: #fff3e0; color: #f57c00; }
+.tool-category.orders { background: #fce4ec; color: #c2185b; }
+.tool-category.print { background: #ede7f6; color: #7b1fa2; }
+.tool-category.database { background: #eceff1; color: #546e7a; }
+.tool-category.system { background: #f5f5f5; color: #757575; }
+
+.tool-name {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.tool-description {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.tool-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tool-action-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.tool-action-btn.query { background: #e3f2fd; color: #1976d2; }
+.tool-action-btn.add { background: #e8f5e9; color: #388e3c; }
+.tool-action-btn.edit { background: #fff3e0; color: #f57c00; }
+.tool-action-btn.delete { background: #ffebee; color: #c62828; }
+
+.tool-params {
+    margin: 15px 0;
+}
+
+.tool-param {
+    margin-bottom: 10px;
+}
+
+.tool-param label {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.tool-param input,
+.tool-param select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.task-item {
+    background: #fff;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e8e8e8;
+    transition: all 0.3s ease;
+}
+
+.task-item:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+
+.task-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.task-item-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.task-item-status {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.task-item-status.in-progress {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+.task-item-status.completed {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: #fff;
+}
+
+.task-progress-container {
+    margin-top: 8px;
+}
+
+.task-progress-bar {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.task-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.task-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.task-progress-text {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #666;
+}
+
+.task-result {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #495057;
+    border-left: 3px solid #11998e;
+}
+
+.task-completed-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #11998e;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.task-completed-badge::before {
+    content: '✓';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: #11998e;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 11px;
+}
+
+.task-list-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.task-list-empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+/* 微信联系人列表 · 表单式展示 */
+.wechat-contact-list-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.wechat-contact-form-item {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px 20px;
+    align-items: start;
+}
+.wechat-contact-form-item:hover {
+    background: #f0f4f8;
+    border-color: #dee2e6;
+}
+.wechat-contact-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.wechat-contact-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.wechat-contact-label {
+    font-weight: 500;
+    color: #555;
+    min-width: 120px;
+}
+.wechat-contact-value {
+    color: #333;
+}
+.wechat-contact-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.wechat-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.wechat-type-badge.contact {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+.wechat-type-badge.group {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}

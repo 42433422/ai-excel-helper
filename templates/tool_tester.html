@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 工具测试控制台 - 专业版功能验证</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            border: 1px solid rgba(74,144,217,0.3);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #4a90d9, #6ab0ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            opacity: 0.7;
+            font-size: 14px;
+        }
+
+        /* 系统状态面板 */
+        .status-panel {
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(74,144,217,0.2);
+        }
+
+        .status-panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .status-item {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 12px;
+            border-left: 4px solid #ffc107;
+            transition: all 0.3s;
+        }
+
+        .status-item.online {
+            border-left-color: #28a745;
+        }
+
+        .status-item.offline {
+            border-left-color: #dc3545;
+        }
+
+        .status-item.checking {
+            border-left-color: #ffc107;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .status-item h3 {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+
+        .status-item .value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .status-item .detail {
+            font-size: 12px;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+
+        /* 工具测试区域 */
+        .test-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .test-category {
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(74,144,217,0.2);
+        }
+
+        .test-category h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .test-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 12px;
+            transition: all 0.3s;
+            border: 1px solid transparent;
+        }
+
+        .test-item:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(74,144,217,0.3);
+        }
+
+        .test-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .test-item h3 {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .test-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .test-status.pending {
+            background: rgba(255,193,7,0.2);
+            color: #ffc107;
+        }
+
+        .test-status.testing {
+            background: rgba(74,144,217,0.2);
+            color: #4a90d9;
+        }
+
+        .test-status.success {
+            background: rgba(40,167,69,0.2);
+            color: #28a745;
+        }
+
+        .test-status.failed {
+            background: rgba(220,53,69,0.2);
+            color: #dc3545;
+        }
+
+        .test-desc {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 10px;
+        }
+
+        .test-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4a90d9, #357abd);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5aa0e9, #458acd);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 结果展示 */
+        .test-result {
+            margin-top: 10px
