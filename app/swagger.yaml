@@ -1,0 +1,57 @@
+---
+swagger: "2.0"
+info:
+  title: XCAGI API Documentation
+  description: |
+    XCAGI 系统 API 接口文档
+
+    ## 认证说明
+    当前版本 API 暂未实现认证机制，请注意数据安全。
+
+    ## 使用说明
+    - 点击每个接口可展开详情
+    - 点击 "Try it out" 可直接测试接口
+    - 请求参数填写在 Parameter 输入框中
+  version: "1.0.0"
+  contact:
+    name: XCAGI 开发团队
+    email: dev@xcagi.com
+basePath: /
+paths:
+  /api/customers:
+    $ref: "#/paths/~1api~1customers"
+  /api/products:
+    $ref: "#/paths/~1api~1products"
+  /api/shipment:
+    $ref: "#/paths/~1api~1shipment"
+  /api/wechat:
+    $ref: "#/paths/~1api~1wechat"
+  /api/ai:
+    $ref: "#/paths/~1api~1ai"
+  /api/print:
+    $ref: "#/paths/~1api~1print"
+  /api/ocr:
+    $ref: "#/paths/~1api~1ocr"
+  /api/excel:
+    $ref: "#/paths/~1api~1excel"
+  /api/excel/data:
+    $ref: "#/paths/~1api~1excel~1data"
+definitions:
+  SuccessResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+        example: true
+      message:
+        type: string
+        example: 操作成功
+  ErrorResponse:
+    type: object
+    properties:
+      success:
+        type: boolean
+        example: false
+      message:
+        type: string
+        example: 错误信息

@@ -1,0 +1,436 @@
+
+.transition-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 99999;
+    pointer-events: auto;
+    display: none;
+    overflow: hidden;
+    background: rgba(5, 5, 16, 0.95);
+}
+
+.transition-overlay.active {
+    display: block;
+}
+
+.transition-text {
+    position: absolute;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    font-weight: bold;
+    font-size: 20px;
+    color: #00ffff;
+    text-shadow: 0 0 10px #00ffff;
+    white-space: nowrap;
+    will-change: transform, opacity;
+    z-index: 100000;
+    display: inline-block;
+    padding: 5px 10px;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.transition-overlay.entering .transition-text {
+    animation: flyInWithOrbit 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.transition-overlay.exiting .transition-text {
+    animation: flyOutWithOrbit 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.transition-overlay.entering {
+    animation: bgFadeIn 0.4s ease forwards;
+}
+
+.transition-overlay.exiting {
+    animation: bgFadeOut 0.4s ease forwards;
+}
+
+@keyframes bgFadeIn {
+    0% { background: rgba(5, 5, 16, 0); }
+    70% { background: rgba(5, 5, 16, 0.95); }
+    100% { background: rgba(5, 5, 16, 0.95); }
+}
+
+@keyframes bgFadeOut {
+    0% { background: rgba(5, 5, 16, 0.95); }
+    30% { background: rgba(5, 5, 16, 0.95); }
+    100% { background: rgba(5, 5, 16, 0); }
+}
+
+@keyframes flyInFromElement {
+    0% {
+        left: var(--start-left);
+        top: var(--start-top);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.3);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+    60% {
+        left: 50%;
+        top: 50%;
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+        left: 50%;
+        top: 50%;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.6);
+    }
+}
+
+@keyframes flyInWithOrbit {
+    0% {
+        left: var(--start-left);
+        top: var(--start-top);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+    }
+    30% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1) rotate(120deg);
+    }
+    70% {
+        left: 50%;
+        top: 50%;
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(240deg);
+    }
+    100% {
+        left: 50%;
+        top: 50%;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5) rotate(360deg);
+    }
+}
+
+@keyframes flyOutWithOrbit {
+    0% {
+        left: 50%;
+        top: 50%;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+    }
+    30% {
+        left: 50%;
+        top: 50%;
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(120deg);
+    }
+    70% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1) rotate(240deg);
+    }
+    100% {
+        left: var(--start-left);
+        top: var(--start-top);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.3) rotate(360deg);
+    }
+}
+
+@keyframes turboSpin {
+    0% {
+        transform: rotate(0deg) scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: rotate(360deg) scale(0.9);
+        opacity: 0.8;
+    }
+    100% {
+        transform: rotate(720deg) scale(0);
+        opacity: 0;
+    }
+}
+
+@keyframes turboSpinReverse {
+    0% {
+        transform: rotate(720deg) scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: rotate(360deg) scale(0.9);
+        opacity: 0.8;
+    }
+    100% {
+        transform: rotate(0deg) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes bgColorShift {
+    0% {
+        background-color: #0a0a15;
+    }
+    100% {
+        background-color: #050510;
+    }
+}
+
+.qrcode-popup.show {
+    display: block;
+    animation: qrcodePopupIn 0.5s ease-out forwards;
+}
+
+.qrcode-popup.hide {
+    animation: qrcodePopupOut 0.4s ease-in forwards;
+}
+
+@keyframes qrcodePopupIn {
+    0% {
+        transform: translate(-50%, -50%) scale(0.3);
+        opacity: 0;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes qrcodePopupOut {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(0.3);
+        opacity: 0;
+    }
+}
+
+.wechat-status-indicator {
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.4s ease;
+}
+
+.wechat-status-indicator.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.preview-float-window {
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.35s ease-out, transform 0.35s ease-out;
+}
+
+.preview-float-window.show {
+    display: block;
+    opacity: 1;
+    transform: scale(1);
+}
+
+.preview-float-window.animating {
+    display: block;
+    transition: none;
+}
+
+.import-float-window.show {
+    display: block;
+    animation: slideInUp 0.3s ease;
+}
+
+.file-upload-entry.show {
+    display: flex;
+    animation: slideInUp 0.3s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.history-panel {
+    right: -400px;
+    transition: right 0.3s ease;
+}
+
+.history-panel.show {
+    right: 0;
+}
+
+.jarvis-msg {
+    animation: msgFadeIn 0.3s ease-out;
+}
+
+@keyframes msgFadeIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.message-item {
+    animation: messageSlide 0.3s ease-out;
+}
+
+@keyframes messageSlide {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.ring-dashed.expanding {
+    animation: ringExpand 0.6s ease-out forwards !important;
+}
+
+@keyframes ringExpand {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0.8;
+    }
+}
+
+.ring-dashed.collapsing {
+    animation: ringCollapse 0.5s ease-in forwards !important;
+}
+
+@keyframes ringCollapse {
+    0% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0.8;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+}
+
+.pro-mode-overlay {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.pro-mode-overlay.active {
+    opacity: 1;
+}
+
+.pro-mode-overlay.exiting {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.stark-grid {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.pro-mode-overlay.active .stark-grid {
+    opacity: 1;
+}
+
+.digital-rain-canvas {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.pro-mode-overlay.active .digital-rain-canvas {
+    opacity: 1;
+}
+
+.pro-mode-overlay.exiting .digital-rain-canvas {
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.corner-decoration {
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.pro-mode-overlay.active .corner-decoration {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.pro-mode-overlay .corner-tl { transition-delay: 0.1s; }
+.pro-mode-overlay .corner-tr { transition-delay: 0.15s; }
+.pro-mode-overlay .corner-bl { transition-delay: 0.2s; }
+.pro-mode-overlay .corner-br { transition-delay: 0.25s; }
+
+.data-stream {
+    opacity: 0;
+    transition: opacity 0.6s ease;
+}
+
+.pro-mode-overlay.active .data-stream {
+    opacity: 1;
+}
+
+.jarvis-container {
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.pro-mode-overlay.active .jarvis-container {
+    opacity: 1;
+    transform: scale(1);
+    transition-delay: 0.3s;
+}
+
+.pro-mode-overlay .jarvis-chat-panel,
+.pro-mode-overlay .jarvis-voice-btn,
+.pro-mode-overlay .pro-status,
+.pro-mode-overlay .pro-exit-btn {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.pro-mode-overlay.active .jarvis-chat-panel,
+.pro-mode-overlay.active .jarvis-voice-btn,
+.pro-mode-overlay.active .pro-status,
+.pro-mode-overlay.active .pro-exit-btn {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.pro-mode-overlay .jarvis-chat-panel { transition-delay: 0.3s; }
+.pro-mode-overlay .jarvis-voice-btn { transition-delay: 0.4s; }
+.pro-mode-overlay .pro-status { transition-delay: 0.2s; }
+.pro-mode-overlay .pro-exit-btn { transition-delay: 0.5s; }
+
+.scan-line {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    transition-delay: 0.4s;
+}
+
+.pro-mode-overlay.active .scan-line {
+    opacity: 1;
+}
+
+.pro-title {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.pro-mode-overlay.active .pro-title {
+    opacity: 1;
+}
+

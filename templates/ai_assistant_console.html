@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智能助手控制台 - 出货单管理系统</title>
+    
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/components/sidebar.css">
+    <link rel="stylesheet" href="/static/css/components/chat.css">
+    <link rel="stylesheet" href="/static/css/components/tables.css">
+    <link rel="stylesheet" href="/static/css/components/modals.css">
+    <link rel="stylesheet" href="/static/css/components/ui-components.css">
+    <link rel="stylesheet" href="/static/css/animations/transitions.css">
+    <link rel="stylesheet" href="/static/css/animations/ui-effects.css">
+    <link rel="stylesheet" href="/static/css/animations/pro-mode.css">
+    <link rel="stylesheet" href="/static/css/animations/gpu-optimizations.css">
+</head>
+<body>
+
+    <div class="transition-overlay" id="transitionOverlay"></div>
+
+    <div class="preview-float-window" id="previewFloatWindow">
+        <div class="preview-header">
+            <h4>📺 媒体预览</h4>
+            <button class="preview-close" id="previewCloseBtn" data-close-action="closePreviewWindow">&times;</button>
+        </div>
+        <div class="preview-content">
+            <div class="preview-media" id="previewMedia">
+                <div class="preview-placeholder">暂无预览内容</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 微信登录/状态已移除 -->
+
+    <div class="progress-panel" id="progressPanel">
+        <div class="progress-panel-header">
+            <div class="progress-title">任务进度</div>
+            <button class="progress-close" id="progressCloseBtn" data-close-action="hideProgress">&times;</button>
+        </div>
+        <div class="progress-info">
+            <span class="progress-status">处理中...</span>
+            <span class="progress-percent" id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar-wrapper">
+            <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+        </div>
+        <div class="progress-task" id="progressTask">正在初始化任务...</div>
+    </div>
+
+    <!-- 微信扫码登录弹窗已移除 -->
+
+    <div class="file-upload-entry" id="fileUploadEntry">
+        <span class="entry-icon">📁</span>
+        <span class="entry-text">上传文件</span>
+    </div>
+
+    <div class="import-float-window" id="importFloatWindow">
+        <div class="import-header">
+            <h4>📁 导入文件</h4>
+            <button class="import-close" id="importCloseBtn" data-close-action="closeImportWindow">&times;</button>
+        </div>
+        <div class="import-content">
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">📂</div>
+                <div class="drop-zone-text">拖拽文件到此处或点击选择</div>
+                <div class="drop-zone-hint">支持 Excel、CSV、图片等文件</div>
+            </div>
+            <input type="file" class="file-input" id="fileInput" multiple accept="*/*">
+            <div class="import-actions">
+                <button class="btn btn-primary" id="chooseFileBtn">选择文件</button>
+                <button class="btn btn-success" id="openCameraBtn">📷 拍照识别</button>
+                <button class="btn btn-secondary" id="cancelImportBtn" data-close-action="closeImportWindow">取消</button>
+            </div>
+            <div class="camera-panel" id="cameraPanel" style="display: none;">
+                <video id="cameraVideo" autoplay playsinline></video>
+                <canvas id="cameraCanvas" style="display: none;"></canvas>
+                <div class="camera-buttons">
+                    <button class="btn btn-primary" id="capturePhotoBtn">拍照</button>
+                    <button class="btn btn-secondary" id="closeCameraBtn" data-close-action="closeCamera">关闭</button>
+                </div>
+            </div>
+            <div class="import-progress" id="importProgress">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progressText">读取中...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+            </div>
+            <div class="import-status" id="importStatus"></div>
+        </div>
+    </div>
+
+    <div class="import-float-window" id="labelsExportWindow">
+        <div class="import-header">
+            <h4>🏷️ 商标导出</h4>
+            <button class="import-close" id="labelsExportCloseBtn" type="button" title="关闭">&times;</button>
+        </div>
+        <div class="import-content">
+            <div id="labelsExportList" class="labels-export-list">
+                <p class="labels-export-hint">加载中...</p>
+            </div>
+            <div class="import-actions" style="margin-top: 12px;">
+                <button class="btn btn-secondary" id="labelsExportCloseBtn2" type="button">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 标签打印面板：连接打印机 → 调用 API 打印 → 显示打印进程 -->
+    <div class="import-float-window" id="printPanelWindow">
+        <div class="import-header">
+            <h4>🖨️ 标签打印</h4>
+            <button class="import-close" id="printPanelCloseBtn" type="button" title="关闭">&times;</button>
+        </div>
+        <div class="import-content">
+            <div id="printPanelStatus" class="labels-export-hint">正在连接打印机...</div>
+            <div id="printPanelProgress" class="print-panel-progress" style="display:none; margin:10px 0;"></div>
+            <div id="printPanelResults" class="print-panel-results" style="margin:10px 0; max-height:240px; overflow-y:auto;"></div>
+            <div class="import-actions" style="margin-top: 12px;">
+                <button class="btn btn-primary" id="printPanelStartBtn" type="button">开始打印</button>
+                <button class="btn btn-secondary" id="printPanelCloseBtn2" type="button">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 商标漂浮预览：等比例缩小 + 蓝色发光线条风格，沿四周漂浮，点击放大并可下载 -->
+    <div id="labelFloatPreviews" class="label-float-previews hidden" aria-hidden="true"></div>
+
+    <!-- 标签点击放大预览弹层：大图 + 下载 -->
+    <div id="labelPreviewModal" class="label-preview-modal hidden" aria-hidden="true">
+        <div class="label-preview-modal-backdrop"></div>
+        <div class="label-preview-modal-content">
+            <img id="labelPreviewModalImg" src="" alt="标签预览" />
+            <div class="label-preview-modal-actions">
+                <a id="labelPreviewModalDownload" href="" download="" class="btn btn-primary">下载标签</a>
+                <button type="button" class="btn btn-secondary label-preview-modal-close">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="pro-mode-overlay" id="proModeOverlay">
+        <div class="center-expand-box layer-2"></div>
+        <div class="center-expand-box layer-3"></div>
+        <div class="center-expand-box layer-4"></div>
+        <div class="center-expand-box layer-5"></div>
+        
+        <div class="glow-pulse-ring r1"></div>
+        <div class="glow-pulse-ring r2"></div>
+        <div class="glow-pulse-ring r3"></div>
+        
+        <div class="energy-particles" id="energyParticles"></div>
+        
+        <div class="corner-flash tl"></div>
+        <div class="corner-flash tr"></div>
+        <div class="corner-flash bl"></div>
+        <div class="corner-flash br"></div>
+        
+        <canvas class="digital-rain-canvas" id="digitalRainCanvas"></canvas>
+        
+        <div class="falling-text-container" id="fallingTextContainer"></div>
+        
+        <div class="stark-grid"></div>
+        
+        <div class="light-source light-key"></div>
+        <div class="light-source light-fill"></div>
+        <div class="light-source light-back"></div>
+
+        <div class="corner-decoration corner-tl"></div>
+        <div class="corner-decoration corner-tr"></div>
+        <div class="corner-decoration corner-bl"></div>
+        <div class="corner-decoration corner-br"></div>
+
+        <div class="data-stream">
+            <div class="stream-line" style="left: 20%; animation-duration: 3s; animation-delay: 0s;"></div>
+            <div class="stream-line" style="left: 40%; animation-duration: 4s; animation-delay: 1s;"></div>
+            <div class="stream-line" style="left: 60%; animation-duration: 3.5s; animation-delay: 0.5s;"></div>
+            <div class="stream-line" style="left: 80%; animation-duration: 4.5s; animation-delay: 1.5s;"></div>
+        </div>
+
+        <div class="scan-line"></div>
+
+        <div class="pro-title">STARK INDUSTRIES</div>
+
+        <button class="pro-exit-btn" id="proExitBtn">EXIT PRO MODE</button>
+
+        <div class="jarvis-container">
+            <div class="bloom-effect"></div>
+            <div class="glow-orb"></div>
+            <div class="core-polyhedron-container">
+                <div class="core-poly-scale">
+                    <div class="core-polyhedron core-icosa">
+                        <div class="core-poly-face f1"></div>
+                        <div class="core-poly-face f2"></div>
+                        <div class="core-poly-face f3"></div>
+                        <div class="core-poly-face f4"></div>
+                        <div class="core-poly-face f5"></div>
+                        <div class="core-poly-face f6"></div>
+                        <div class="core-poly-face f7"></div>
+                        <div class="core-poly-face f8"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wire-ring ring-1"></div>
+            <div class="wire-ring ring-2 ring-dashed"></div>
+            <div class="wire-ring ring-3 ring-tilt-1"></div>
+            <div class="wire-ring ring-4 ring-tilt-2"></div>
+            <div class="wire-ring ring-5"></div>
+            <div class="wire-ring ring-6 ring-dashed"></div>
+            <div class="wire-ring ring-7"></div>
+            <div class="wire-ring ring-8 ring-dashed"></div>
+            <div class="wire-ring ring-9 ring-tilt-1"></div>
+                        <div class="wire-ring ring-10 ring-tilt-2"></div>
+
+            <div class="code-ring-container" id="codeRingContainer"></div>
+            <div class="icon-ring-container" id="iconRingContainer"></div>
+
+            <div class="polyhedron poly-icosa">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+                <div class="poly-face f5"></div>
+            </div>
+
+            <div class="polyhedron poly-octa">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+                <div class="poly-face f5"></div>
+                <div class="poly-face f6"></div>
+            </div>
+
+            <div class="polyhedron poly-tetra">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+            </div>
+
+            <div class="polyhedron poly-dodeca">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+                <div class="poly-face f5"></div>
+            </div>
+
+            <div class="polyhedron poly-tetra2">
+                <div class="poly-face f1"></div>
+                <div class="poly-face f2"></div>
+                <div class="poly-face f3"></div>
+                <div class="poly-face f4"></div>
+            </div>
+
+            <div class="hologram-ring hr-1"></div>
+            <div class="hologram-ring hr-2"></div>
+            <div class="hologram-ring hr-3"></div>
+
+            <div class="arc-reactor"></div>
+
+            <div class="particle-layer">
+                <div class="data-particle" style="--start-angle: 0deg; --orbit-radius: 80px; animation-duration: 8s;">1</div>
+                <div class="data-particle" style="--start-angle: 45deg; --orbit-radius: 100px; animation-duration: 10s; animation-delay: 1s;">0</div>
+                <div class="data-particle" style="--start-angle: 90deg; --orbit-radius: 120px; animation-duration: 12s; animation-delay: 2s;">1</div>
+                <div class="data-particle" style="--start-angle: 135deg; --orbit-radius: 140px; animation-duration: 9s; animation-delay: 0.5s;">1</div>
+                <div class="data-particle" style="--start-angle: 180deg; --orbit-radius: 160px; animation-duration: 11s; animation-delay: 1.5s;">0</div>
+                <div class="data-particle" style="--start-angle: 225deg; --orbit-radius: 180px; animation-duration: 13s; animation-delay: 2.5s;">1</div>
+                <div class="data-particle" style="--start-angle: 270deg; --orbit-radius: 200px; animation-duration: 8s; animation-delay: 0.8s;">0</div>
+                <div class="data-particle" style="--start-angle: 315deg; --orbit-radius: 220px; animation-duration: 10s; animation-delay: 1.8s;">1</div>
+                <div class="data-particle" style="--start-angle: 30deg; --orbit-radius: 90px; animation-duration: 7s; animation-delay: 3s;">0</div>
+                <div class="data-particle" style="--start-angle: 60deg; --orbit-radius: 110px; animation-duration: 9s; animation-delay: 0.3s;">1</div>
+                <div class="data-particle" style="--start-angle: 120deg; --orbit-radius: 130px; animation-duration: 11s; animation-delay: 1.2s;">1</div>
+                <div class="data-particle" style="--start-angle: 150deg; --orbit-radius: 150px; animation-duration: 8s; animation-delay: 2.2s;">0</div>
+                <div class="data-particle" style="--start-angle: 210deg; --orbit-radius: 170px; animation-duration: 10s; animation-delay: 0.7s;">1</div>
+                <div class="data-particle" style="--start-angle: 240deg; --orbit-radius: 190px; animation-duration: 12s; animation-delay: 1.7s;">0</div>
+                <div class="data-particle" style="--start-angle: 300deg; --orbit-radius: 210px; animation-duration: 9s; animation-delay: 2.7s;">1</div>
+                <div class="data-particle" style="--start-angle: 330deg; --orbit-radius: 230px; animation-duration: 11s; animation-delay: 0.2s;">0</div>
+            </div>
+        </div>
+
+        <!-- 工作模式：监控列表悬浮在核心球附近，一个聊天人对应一个区域 -->
+        <div class="jarvis-monitor-float-wrap" id="jarvisMonitorFloatWrap" style="display: none;" aria-hidden="true"></div>
+
+        <div class="tool-runtime-panel" id="toolRuntimePanel">
+            <div class="tool-runtime-title">TOOL EXECUTION</div>
+            <div class="tool-runtime-chip" id="runtimeToolChip">待命</div>
+            <div class="tool-runtime-task" id="runtimeTaskText">等待工具调用...</div>
+            <div class="tool-runtime-progress-track">
+                <div class="tool-runtime-progress-fill" id="runtimeProgressBar"></div>
+            </div>
+            <div class="tool-runtime-meta">
+                <span id="runtimeProgressPercent">0%</span>
+                <span id="runtimeProgressStatus">IDLE</span>
+            </div>
+        </div>
+        <div class="tool-extract-layer" id="toolExtractLayer"></div>
+
+        <div class="pro-status">
+            <div class="status-dot-anim"></div>
+            <span>修茈 SYSTEM ONLINE</span>
+            <span style="opacity: 0.5; margin-left: 20px;" id="jarvisStatusText">READY</span>
+        </div>
+
+        <div class="jarvis-chat-panel">
+            <div class="jarvis-chat-header">修茈 ASSISTANT</div>
+            <div class="jarvis-chat-messages" id="jarvisChatMessages"></div>
+            <div class="jarvis-monitor-list-wrap" id="jarvisMonitorListWrap" style="display: none;">
+                <div class="jarvis-monitor-list-header">监控列表</div>
+                <div class="jarvis-monitor-list" id="jarvisMonitorList"></div>
+            </div>
+        </div>
+
+        <div class="wechat-messages-panel" id="wechatMessagesPanel" style="display: none;">
+            <button class="close-messages" id="closeWechatMessagesBtn" data-close-action="closeWechatMessages">&times;</button>
+            <div class="messages-title">
+                <span>💬 微信消息</span>
+                <div class="messages-actions">
+                    <button class="msg-action-btn" id="logoutWechatBtn" title="退出登录">🚪</button>
+                    <button class="msg-action-btn" id="clearWechatMessagesBtn" title="清空消息">🗑️</button>
+                </div>
+            </div>
+            <div class="messages-container" id="wechatMessagesList">
+                <div class="loading-messages">加载中...</div>
+            </div>
+        </div>
+
+        <div class="jarvis-voice-btn" id="jarvisVoiceBtn">
+            <div class="voice-btn-inner" id="voiceBtnContent">
+                <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+                <span class="btn-text">按住说话 / 点击输入</span>
+                <span class="voice-loading-text" id="voiceLoadingText" aria-live="polite"></span>
+            </div>
+            <input type="text" class="voice-input" id="voiceInput" placeholder="输入指令..." style="display: none;">
+            <div class="voice-wave"></div>
+        </div>
+
+        <div class="pro-order-float-panel" id="proOrderFloatPanel" aria-hidden="true">
+            <div class="pro-order-float-title">订单信息</div>
+            <div class="pro-order-float-text" id="proOrderFloatText"></div>
+            <div class="pro-order-float-download" id="proOrderFloatDownload" data-hidden="true">
+                <a href="#" id="proOrderFloatDownloadLink" class="pro-order-download-btn">📄 下载发货单</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h4>AI 智能助手</h4>
+                <small style="opacity: 0.7">出货单管理系统</small>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item active" data-view="chat">
+                    <span>💬</span>
+                    <span>智能对话</span>
+                </div>
+                <div class="menu-item" data-view="products">
+                    <span>📦</span>
+                    <span>产品管理</span>
+                </div>
+                <div class="menu-item" data-view="materials">
+                    <span>🏭</span>
+                    <span>原材料仓库</span>
+                </div>
+                <div class="menu-item" data-view="orders">
+                    <span>📋</span>
+                    <span>出货单</span>
+                </div>
+                <div class="menu-item" data-view="shipment-records">
+                    <span>📊</span>
+                    <span>出货记录管理</span>
+                </div>
+                <div class="menu-item" data-view="customers">
+                    <span>👥</span>
+                    <span>客户管理</span>
+                </div>
+                <div class="menu-item" data-view="wechat-contacts">
+                    <span>📱</span>
+                    <span>微信联系人列表</span>
+                </div>
+                <div class="menu-item" data-view="print">
+                    <span>🖨️</span>
+                    <span>标签打印</span>
+                </div>
+                <div class="menu-item" data-view="template-preview">
+                    <span>📄</span>
+                    <span>模板预览</span>
+                </div>
+                <div class="menu-item" data-view="settings">
+                    <span>⚙️</span>
+                    <span>系统设置</span>
+                </div>
+                <div class="menu-item" data-view="tools">
+                    <span>🔧</span>
+                    <span>工具表</span>
+                </div>
+            </div>
+            <div style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div class="status-indicator" style="margin-bottom: 10px;">
+                    <span class="status-dot online"></span>
+                    <span>系统正常</span>
+                </div>
+                <div class="mode-switch" id="modeSwitch">
+                    <span class="mode-label">专业模式</span>
+                    <div class="toggle-switch" id="proModeToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="page-title" id="pageTitle">智能对话</div>
+            </div>
+
+            <div class="chat-view page-view active" id="view-chat">
+                <div class="quick-actions">
+                    <button class="quick-btn" data-quick="查一下A001的价格">查产品</button>
+                    <button class="quick-btn" data-quick="有哪些客户？">客户列表</button>
+                    <button class="quick-btn" data-quick="今天的出货单">出货单</button>
+                    <button class="quick-btn" data-quick="库存不足的材料">库存预警</button>
+                    <button class="quick-btn" data-quick="帮我打印A001标签">打印标签</button>
+                    <button class="quick-btn" data-action="test-preview">测试预览动画</button>
+                </div>
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message ai">
+                            <div>您好！我是您的 AI 智能助手。</div>
+                            <div style="margin-top: 8px;">我可以帮您：</div>
+                            <ul style="margin: 8px 0 0 20px;">
+                                <li>查询产品信息和价格</li>
+                                <li>管理出货单和订单</li>
+                                <li>查看原材料库存</li>
+                                <li>打印产品标签</li>
+                            </ul>
+                            <div style="margin-top: 8px;">请直接输入您的需求</div>
+                        </div>
+                    </div>
+                    <div class="right-panel">
+                        <div class="panel-header">当前任务</div>
+                        <div class="panel-content" id="taskPanel">
+                            <div class="empty-state">暂无任务</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-area">
+                    <div class="input-toolbar">
+                        <button class="toolbar-btn" id="newConversationBtn" title="新建对话">➕ 新对话</button>
+                        <button class="toolbar-btn" id="historyPanelBtn" title="历史记录">📜 历史</button>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea id="messageInput" rows="2" placeholder="说「生成发货单」或「当前用的哪个模板」「用户列表」「打印标签」等..."></textarea>
+                        <button class="btn btn-primary" id="sendMessageBtn">发送</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-products">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>产品管理</h2>
+                        <div>
+                            <button class="btn btn-secondary" id="exportProductPriceListBtn" style="margin-right:10px;" title="导出当前单位产品价格表">导出价格表</button>
+                            <button class="btn btn-danger" id="batchDeleteProductsBtn" style="margin-right:10px;">批量删除</button>
+                            <button class="btn btn-primary" id="showProductModalBtn">+ 添加产品</button>
+                        </div>
+                    </div>
+                    <div class="search-box" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+                        <label style="white-space:nowrap;">购买单位：</label>
+                        <select id="productUnitSelect" style="min-width:180px;">
+                            <option value="">请选择购买单位</option>
+                        </select>
+                        <input type="text" id="productSearch" placeholder="搜索产品型号或名称...">
+                    </div>
+                    <div class="card">
+                        <table class="data-table" id="productsTable">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="toggleAllProductsCheckbox"></th>
+                                    <th>型号</th>
+                                    <th>名称</th>
+                                    <th>规格</th>
+                                    <th>价格</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody">
+                                <tr><td colspan="6" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-materials">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>原材料仓库</h2>
+                        <div>
+                            <button class="btn btn-danger" id="batchDeleteMaterialsBtn" style="margin-right:10px;">批量删除</button>
+                            <button class="btn btn-primary" id="showMaterialModalBtn">+ 添加原材料</button>
+                        </div>
+                    </div>
+                    <div class="warning-card" id="lowStockWarning" style="display:none;">
+                        <div class="title">⚠️ 库存预警</div>
+                        <div id="lowStockList"></div>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="materialSearch" placeholder="搜索原材料...">
+                        <select id="materialCategoryFilter">
+                            <option value="">全部分类</option>
+                        </select>
+                    </div>
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="toggleAllMaterialsCheckbox"></th>
+                                    <th>编码</th>
+                                    <th>名称</th>
+                                    <th>分类</th>
+                                    <th>库存</th>
+                                    <th>单价</th>
+                                    <th>供应商</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="materialsTableBody">
+                                <tr><td colspan="8" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-orders">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>出货单记录</h2>
+                        <button class="btn btn-danger" id="clearAllOrdersBtn">清空全部</button>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="orderSearch" placeholder="搜索客户名...">
+                        <input type="date" id="orderDate">
+                    </div>
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>单号</th>
+                                    <th>客户</th>
+                                    <th>日期</th>
+                                    <th>金额</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTableBody">
+                                <tr><td colspan="6" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-shipment-records">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>出货记录管理</h2>
+                        <div class="header-actions">
+                            <select id="shipmentRecordUnitSelect" style="min-width: 200px; padding: 8px 12px; margin-right: 10px;">
+                                <option value="">请选择购买单位</option>
+                            </select>
+                            <button class="btn btn-primary" id="loadShipmentRecordsBtn">查看记录</button>
+                            <button class="btn btn-success" id="exportShipmentRecordsBtn" title="导出当前单位出货记录 Excel">导出 Excel</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header" id="shipmentRecordsCardTitle">选择购买单位后点击「查看记录」加载数据</div>
+                        <div id="shipmentRecordsSheetsTabs" style="margin-bottom: 12px; display: none;">
+                            <!-- 工作表标签 -->
+                        </div>
+                        <div class="table-responsive table-responsive-shipment-records">
+                            <table class="data-table data-table-shipment-records" id="shipmentRecordsTable">
+                                <thead>
+                                    <tr id="shipmentRecordsTableHead">
+                                        <th>暂无数据</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="shipmentRecordsTableBody">
+                                    <tr><td colspan="1" class="empty-state">请先选择购买单位并加载</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal" id="shipmentRecordEditModal">
+                <div class="modal-content" style="max-width: 640px;">
+                    <div class="modal-header">编辑出货记录</div>
+                    <div class="modal-body" id="shipmentRecordEditForm"></div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" id="shipmentRecordEditCancel">取消</button>
+                        <button type="button" class="btn btn-primary" id="shipmentRecordEditSave">保存</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-customers">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>客户管理</h2>
+                        <div class="header-actions">
+                            <button class="btn btn-icon" id="importCustomersExcelBtn" title="上传Excel更新购买单位">📥</button>
+                            <input type="file" id="importCustomersExcelInput" accept=".xlsx" style="display:none">
+                            <button class="btn btn-icon" id="exportCustomersExcelBtn" title="导出购买单位Excel"><svg class="excel-icon-svg" viewBox="0 0 24 24" width="22" height="22"><rect width="24" height="24" rx="3" fill="#217346"/><path stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none" d="M7 7l10 10M17 7L7 17"/></svg></button>
+                            <button class="btn btn-danger" id="batchDeleteCustomersBtn">批量删除</button>
+                        </div>
+                    </div>
+                    <div class="stat-cards" id="customerStats">
+                        <div class="stat-card">
+                            <div class="number" id="customerCount">0</div>
+                            <div class="label">客户总数</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox" id="toggleAllCustomersCheckbox"></th>
+                                    <th>客户名称</th>
+                                    <th>联系人</th>
+                                    <th>电话</th>
+                                    <th>地址</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customersTableBody">
+                                <tr><td colspan="5" class="empty-state">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-wechat-contacts">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>微信联系人</h2>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">搜索并星标</div>
+                        <p class="muted" style="margin:0 0 10px 0;font-size:13px;">先刷新联系人缓存与聊天记录缓存（从解密库导入一次），之后搜索与查看聊天记录只读本地缓存。</p>
+                        <div class="form-group" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
+                            <button type="button" class="btn btn-primary" id="wechatContactRefreshCacheBtn">刷新联系人缓存</button>
+                            <button type="button" class="btn btn-primary" id="wechatContactRefreshMessagesCacheBtn">刷新聊天记录缓存</button>
+                            <input type="text" id="wechatContactSearchForStar" placeholder="输入昵称/备注/微信号搜索" style="max-width:320px;" onkeydown="if(event.key==='Enter'){ event.preventDefault(); if(typeof searchWechatContactsForStar==='function') searchWechatContactsForStar(); }">
+                            <button type="button" class="btn btn-primary" id="wechatContactSearchBtn">搜索</button>
+                        </div>
+                        <div id="wechatContactSearchResults" style="margin-top:10px;min-height:0;max-height:240px;overflow-y:auto;"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">星标联系人列表</div>
+                        <div class="form-group" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
+                            <label style="margin:0;white-space:nowrap;">类型：</label>
+                            <select id="wechatContactTypeFilter" style="width:120px;">
+                                <option value="all">全部</option>
+                                <option value="contact">联系人</option>
+                                <option value="group">群聊</option>
+                            </select>
+                            <input type="text" id="wechatContactSearch" placeholder="🔍 在星标列表中筛选" style="max-width:320px;">
+                            <button type="button" class="btn btn-secondary" id="wechatContactUnstarAllBtn" title="清除所有星标，列表将为空">一键解除全部星标</button>
+                        </div>
+                        <div id="wechatContactsListContainer">
+                            <div class="empty-state">加载中...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-print">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>标签打印</h2>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">生成标签</div>
+                        <div class="form-group">
+                            <label>选择产品型号</label>
+                            <select id="printProductSelect">
+                                <option value="">请选择产品</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>打印数量</label>
+                            <input type="number" id="printQuantity" value="1" min="1">
+                        </div>
+                        <button class="btn btn-primary" id="printLabelBtn">打印标签</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-template-preview">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>模板预览</h2>
+                        <p class="muted" style="margin:0;font-size:13px;">2 个标签模板 + 2 个 Excel 模板（发货单、出货记录）</p>
+                    </div>
+                    <div class="template-preview-section">
+                        <h3 class="template-preview-section-title">标签模板（2 个）</h3>
+                        <div class="template-preview-grid">
+                            <div class="template-preview-card">
+                                <div class="template-preview-card-icon">🏷️</div>
+                                <div class="template-preview-card-title">产品标签模板</div>
+                                <div class="template-preview-card-desc">按产品型号生成并打印产品标签，支持单张或批量。</div>
+                                <div class="template-preview-actions">
+                                    <button type="button" class="btn btn-primary btn-sm template-preview-action" data-template-action="view-print">查看</button>
+                                    <button type="button" class="btn btn-secondary btn-sm template-preview-action" data-template-action="open-print">打开标签打印</button>
+                                </div>
+                            </div>
+                            <div class="template-preview-card">
+                                <div class="template-preview-card-icon">📦</div>
+                                <div class="template-preview-card-title">商标 / 订单标签模板</div>
+                                <div class="template-preview-card-desc">生成发货单时一并生成的商标标签，可从「商标导出」下载或打印。</div>
+                                <div class="template-preview-actions">
+                                    <button type="button" class="btn btn-primary btn-sm template-preview-action" data-template-action="view-labels-export">查看</button>
+                                    <button type="button" class="btn btn-secondary btn-sm template-preview-action" data-template-action="show-labels-export">打开商标导出</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="template-preview-section">
+                        <h3 class="template-preview-section-title">Excel 模板（2 个）</h3>
+                        <div class="template-preview-grid">
+                            <div class="template-preview-card" data-template-id="shipment_template">
+                                <div class="template-preview-card-icon">📋</div>
+                                <div class="template-preview-card-title">发货单模板</div>
+                                <div class="template-preview-card-desc">当前使用的发货单 Excel 模板，支持抬头、购货单位、词条提取与金额计算。</div>
+                                <div class="template-preview-actions">
+                                    <button type="button" class="btn btn-primary btn-sm template-preview-action" data-template-action="open-excel-preview" data-template-id="shipment_template">打开预览</button>
+                                    <button type="button" class="btn btn-secondary btn-sm template-preview-action" data-template-action="view-template-overview">查看</button>
+                                    <button type="button" class="btn btn-secondary btn-sm template-preview-action" data-template-action="show-template-overview">新窗口概览</button>
+                                </div>
+                            </div>
+                            <div class="template-preview-card" data-template-id="shipment_record">
+                                <div class="template-preview-card-icon">📊</div>
+                                <div class="template-preview-card-title">出货记录模板</div>
+                                <div class="template-preview-card-desc">按单位导出的出货记录 Excel，用于对账与留档。</div>
+                                <div class="template-preview-actions">
+                                    <button type="button" class="btn btn-primary btn-sm template-preview-action" data-template-action="open-excel-preview" data-template-id="shipment_record">打开预览</button>
+                                    <button type="button" class="btn btn-secondary btn-sm template-preview-action" data-template-action="view-shipment-records">查看</button>
+                                    <button type="button" class="btn btn-secondary btn-sm template-preview-action" data-template-action="open-shipment-records">打开出货记录</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal" id="templateOverviewModal">
+                <div class="modal-content" style="max-width:560px;max-height:85vh;overflow:auto;">
+                    <div class="modal-header">发货单模板概览</div>
+                    <div id="templateOverviewContent"><p class="muted">加载中...</p></div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-close-target="templateOverviewModal">关闭</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-settings">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>系统设置</h2>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">基本设置</div>
+                        <div class="form-group">
+                            <label>系统名称</label>
+                            <input type="text" value="AI-Excel Helper 出货单管理系统" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label>数据库路径</label>
+                            <input type="text" value="products.db" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label>AI 模型</label>
+                            <select id="aiModel">
+                                <option value="deepseek">DeepSeek</option>
+                                <option value="local">本地模型 (需配置)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" id="saveSettingsBtn">保存设置</button>
+                    </div>
+                    <div class="card" id="distillationVersionsCard">
+                        <div class="card-header">蒸馏模型版本 <small style="opacity:0.8">专业版对话会参与蒸馏，此处可查看训练产物</small></div>
+                        <div id="distillationVersionsContent">
+                            <p class="muted">加载中...</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">关于</div>
+                        <p>AI-Excel Helper 出货单智能处理系统</p>
+                        <p>版本: 1.0.0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-view" id="view-tools">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>工具表</h2>
+                        <div class="header-actions">
+                            <input type="text" id="toolSearch" placeholder="搜索工具...">
+                            <select id="toolCategoryFilter">
+                                <option value="">全部分类</option>
+                                <option value="products">产品管理</option>
+                                <option value="customers">客户管理</option>
+                                <option value="orders">出货单</option>
+                                <option value="excel">Excel处理</option>
+                                <option value="ocr">图片OCR</option>
+                                <option value="materials">原材料仓库</option>
+                                <option value="print">标签打印</option>
+                                <option value="database">数据库管理</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="tools-container" id="toolsContainer">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="productModal">
+        <div class="modal-content">
+            <div class="modal-header" id="productModalTitle">添加产品</div>
+            <input type="hidden" id="productId">
+            <div class="form-group">
+                <label>产品型号 *</label>
+                <input type="text" id="productModel" placeholder="如：A001">
+            </div>
+            <div class="form-group">
+                <label>产品名称 *</label>
+                <input type="text" id="productName" placeholder="产品名称">
+            </div>
+            <div class="form-group">
+                <label>规格</label>
+                <input type="text" id="productSpec" placeholder="规格描述">
+            </div>
+            <div class="form-group">
+                <label>价格</label>
+                <input type="number" id="productPrice" placeholder="0.00" step="0.01">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="closeProductModalBtn" data-close-target="productModal">取消</button>
+                <button class="btn btn-primary" id="saveProductBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="materialModal">
+        <div class="modal-content">
+            <div class="modal-header" id="materialModalTitle">添加原材料</div>
+            <input type="hidden" id="materialId">
+            <div class="form-group">
+                <label>原材料编码 *</label>
+                <input type="text" id="materialCode" placeholder="如：M001">
+            </div>
+            <div class="form-group">
+                <label>名称 *</label>
+                <input type="text" id="materialName" placeholder="原材料名称">
+            </div>
+            <div class="form-group">
+                <label>分类</label>
+                <input type="text" id="materialCategory" placeholder="如：油漆、板材">
+            </div>
+            <div class="form-group">
+                <label>规格</label>
+                <input type="text" id="materialSpec" placeholder="规格描述">
+            </div>
+            <div class="form-group">
+                <label>单位</label>
+                <input type="text" id="materialUnit" value="个">
+            </div>
+            <div class="form-group">
+                <label>库存数量</label>
+                <input type="number" id="materialQuantity" value="0">
+            </div>
+            <div class="form-group">
+                <label>单价</label>
+                <input type="number" id="materialPrice" value="0" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>供应商</label>
+                <input type="text" id="materialSupplier" placeholder="供应商名称">
+            </div>
+            <div class="form-group">
+                <label>最低库存</label>
+                <input type="number" id="materialMinStock" value="0">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="closeMaterialModalBtn" data-close-target="materialModal">取消</button>
+                <button class="btn btn-primary" id="saveMaterialBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="wechatContactChatModal">
+        <div class="modal-content" style="max-width:560px;max-height:85vh;display:flex;flex-direction:column;">
+            <div class="modal-header" id="wechatContactChatModalTitle">聊天记录</div>
+            <div id="wechatContactChatList" style="flex:1;overflow-y:auto;min-height:200px;max-height:50vh;padding:12px;background:#f8f9fa;border-radius:8px;font-size:13px;">
+                <div class="empty-state">加载中...</div>
+            </div>
+            <div style="margin-top:12px;font-size:12px;color:#666;" id="wechatContactChatHint">AI 可自己找联系人发消息：直接说「发消息给 联系人名：内容」即可（如「发消息给啊桐要努力啊：你在干嘛呀」）。也可先设对话对象再说「发给他：内容」。无记录请先点「刷新聊天记录」。</div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-close-target="wechatContactChatModal">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="wechatContactEditModal">
+        <div class="modal-content">
+            <div class="modal-header">编辑微信联系人</div>
+            <input type="hidden" id="wechatContactEditId">
+            <div class="form-group">
+                <label>微信昵称/备注名 *</label>
+                <input type="text" id="wechatContactEditName" placeholder="联系人名称">
+            </div>
+            <div class="form-group">
+                <label>备注</label>
+                <input type="text" id="wechatContactEditRemark" placeholder="备注">
+            </div>
+            <div class="form-group">
+                <label>微信号</label>
+                <input type="text" id="wechatContactEditWxId" placeholder="wechat_id">
+            </div>
+            <div class="form-group">
+                <label>类型</label>
+                <select id="wechatContactEditType">
+                    <option value="contact">联系人</option>
+                    <option value="group">群聊</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-close-target="wechatContactEditModal">取消</button>
+                <button class="btn btn-primary" id="wechatContactEditSaveBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/core/config.js"></script>
+    <script src="/static/js/core/utils.js"></script>
+    <script src="/static/js/modules/ui.js"></script>
+    <script src="/static/js/modules/chat.js"></script>
+    <script src="/static/js/modules/products.js"></script>
+    <script src="/static/js/modules/materials.js"></script>
+    <script src="/static/js/modules/orders.js"></script>
+    <script src="/static/js/modules/shipment-records.js"></script>
+    <script src="/static/js/modules/customers.js"></script>
+    <script src="/static/js/modules/wechat_contacts.js?v=3"></script>
+    <script src="/static/js/modules/tools.js?v=3"></script>
+    <script src="/static/js/modules/file-import.js"></script>
+    <script src="/static/js/modules/wechat.js"></script>
+    <script src="/static/js/pro_feature_widget.js"></script>
+    <script src="/static/js/modules/pro-mode.js?v=2"></script>
+
+    <script>
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                initConversation();
+                loadUserPreferences();
+            });
+        } else {
+            initConversation();
+            loadUserPreferences();
+        }
+
+        function loadUserPreferences() {
+            fetch(API_BASE + '/api/preferences?user_id=default')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.preferences) {
+                        applyUserPreferences(data.preferences);
+                    }
+                })
+                .catch(err => console.error('加载用户偏好失败:', err));
+        }
+
+        function applyUserPreferences(prefs) {
+            if (prefs.theme) {
+                document.body.setAttribute('data-theme', prefs.theme);
+            }
+            if (prefs.fontSize) {
+                document.body.style.fontSize = prefs.fontSize + 'px';
+            }
+        }
+
+        function saveUserPreference(key, value) {
+            fetch(API_BASE + '/api/preferences', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: 'default',
+                    key: key,
+                    value: value
+                })
+            }).catch(err => console.error('保存偏好失败:', err));
+        }
+
+        window.showProFeature = (feature, config) => {
+            if (window.proFeatureWidget) {
+                window.proFeatureWidget.showFeature(feature, config);
+            } else {
+                console.error('悬浮窗组件未初始化');
+            }
+        };
+
+        window.hideProFeature = () => {
+            if (window.proFeatureWidget) {
+                window.proFeatureWidget.hide();
+            }
+        };
+    </script>
+    <script>
+        function showProgress() {
+            const panel = document.getElementById('progressPanel');
+            if (panel) {
+                panel.style.display = 'block';
+                panel.style.opacity = '0';
+                panel.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    panel.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    panel.style.opacity = '1';
+                    panel.style.transform = 'translateY(0)';
+                }, 10);
+            }
+        }
+
+        function hideProgress() {
+            const panel = document.getElementById('progressPanel');
+            if (panel) {
+                panel.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                panel.style.opacity = '0';
+                panel.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    panel.style.display = 'none';
+                    panel.style.transform = '';
+                }, 300);
+            }
+        }
+
+        function updateProgress(percent, task) {
+            const panel = document.getElementById('progressPanel');
+            if (!panel) return;
+            
+            if (!panel.style.display || panel.style.display === 'none') {
+                showProgress();
+            }
+
+            const percentEl = document.getElementById('progressPercent');
+            const barFill = document.getElementById('progressBarFill');
+            const taskEl = document.getElementById('progressTask');
+
+            if (percentEl) percentEl.textContent = percent + '%';
+            if (barFill) barFill.style.width = percent + '%';
+            if (taskEl && task) taskEl.textContent = task;
+
+            if (percent >= 100) {
+                setTimeout(() => {
+                    hideProgress();
+                }, 500);
+            }
+        }
+    </script>
+    <script type="text/plain" id="legacyProFeatureWidget">
+    /**
+     * 注意：此模板曾内联定义 ProFeatureWidget，但页面现在改为加载外部脚本
+     * `/static/js/pro_feature_widget.js`。
+     * 这里保留旧实现仅作参考，不会被浏览器执行（script type=text/plain）。
+     */
+    class ProFeatureWidget {
+        constructor() {
+            this.widgetId = 'pro-feature-widget';
+            this.isShowing = false;
+            this.checkInterval = null;
+            this.scanTimers = [];
+            this.init();
+        }
+
+        init() {
+            this.createWidget();
+            this.addStyles();
+            this.bindEvents();
+        }
+
+        createWidget() {
+            const widget = document.createElement('div');
+            widget.id = this.widgetId;
+            widget.className = 'pro-feature-widget-container hide';
+            widget.innerHTML = `
+                <div class="pro-feature-widget-panel">
+                    <div class="corner-decor top-left"></div>
+                    <div class="corner-decor top-right"></div>
+                    <div class="corner-decor bottom-left"></div>
+                    <div class="corner-decor bottom-right"></div>
+                    <div class="dodeca-panel-bg" id="dodecaPanelBg"></div>
+                    
+                    <div class="pro-feature-widget-content" id="widget-content"></div>
+                    
+                    <div class="pro-feature-widget-footer">
+                        <div class="status-indicator">
+                            <span class="status-dot"></span>
+                            <span class="status-label" id="widget-status">就绪</span>
+                        </div>
+                        <div class="action-buttons" id="action-buttons"></div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(widget);
+            this.addStyles();
+        }
+
+        addStyles() {
+            const styleId = 'pro-widget-styles';
+            if (document.getElementById(styleId)) return;
+
+            const styles = `
+                <style id="${styleId}">
+                    .pro-feature-widget-container {
+                        position: fixed;
+                        top: 50%;
+                        right: -450px;
+                        transform: translateY(-50%);
+                        z-index: 10000;
+                        transition: right 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+                    }
+                    .pro-feature-widget-container.show { right: 20px; }
+                    .pro-feature-widget-container.hide { display: none; }
+                    
+                    .pro-feature-widget-panel {
+                        width: 400px;
+                        background: linear-gradient(135deg, rgba(26,26,46,0.98) 0%, rgba(22,33,62,0.95) 100%);
+                        border-radius: 16px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(74,144,217,0.2);
+                        backdrop-filter: blur(20px);
+                        overflow: hidden;
+                        position: relative;
+                    }
+                    
+                    .corner-decor {
+                        position: absolute;
+                        width: 30px;
+                        height: 30px;
+                        pointer-events: none;
+                    }
+                    .corner-decor::before, .corner-decor::after {
+                        content: '';
+                        position: absolute;
+                        background: linear-gradient(90deg, #00c8ff, rgba(0,200,255,0.3));
+                    }
+                    .corner-decor.top-left {
+                        top: 8px; left: 8px;
+                    }
+                    .corner-decor.top-left::before {
+                        top: 0; left: 0; width: 20px; height: 2px;
+                    }
+                    .corner-decor.top-left::after {
+                        top: 0; left: 0; width: 2px; height: 20px;
+                    }
+                    .corner-decor.top-right {
+                        top: 8px; right: 8px;
+                    }
+                    .corner-decor.top-right::before {
+                        top: 0; right: 0; width: 20px; height: 2px;
+                    }
+                    .corner-decor.top-right::after {
+                        top: 0; right: 0; width: 2px; height: 20px;
+                    }
+                    .corner-decor.bottom-left {
+                        bottom: 8px; left: 8px;
+                    }
+                    .corner-decor.bottom-left::before {
+                        bottom: 0; left: 0; width: 20px; height: 2px;
+                    }
+                    .corner-decor.bottom-left::after {
+                        bottom: 0; left: 0; width: 2px; height: 20px;
+                    }
+                    .corner-decor.bottom-right {
+                        bottom: 8px; right: 8px;
+                    }
+                    .corner-decor.bottom-right::before {
+                        bottom: 0; right: 0; width: 20px; height: 2px;
+                    }
+                    .corner-decor.bottom-right::after {
+                        bottom: 0; right: 0; width: 2px; height: 20px;
+                    }
+                    
+                    .dodeca-panel-bg {
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        width: 360px;
+                        height: 360px;
+                        z-index: 1;
+                        pointer-events: none;
+                    }
+                    
+                    @keyframes dodecaExpand {
+                        0% {
+                            transform: translate(-50%, -50%) scale(0.3);
+                            opacity: 0;
+                        }
+                        100% {
+                            transform: translate(-50%, -50%) scale(1);
+                            opacity: 1;
+                        }
+                    }
+                    
+                    @keyframes dodecaCollapse {
+                        0% {
+                            transform: translate(-50%, -50%) scale(1);
+                            opacity: 1;
+                        }
+                        100% {
+                            transform: translate(-50%, -50%) scale(0.3);
+                            opacity: 0;
+                        }
+                    }
+                    
+                    @keyframes dodecaReturn {
+                        0% {
+                            transform: translate(-50%, -50%) scale(0.3);
+                            opacity: 0;
+                        }
+                        100% {
+                            transform: translate(-50%, -50%) scale(1);
+                            opacity: 1;
+                        }
+                    }
+                    
+                    .dodeca-panel-bg.animating-expand {
+                        animation: dodecaExpand 0.6s cubic-bezier(0.68, -0.2, 0.265, 1.2) forwards;
+                    }
+                    
+                    .dodeca-panel-bg.animating-collapse {
+                        animation: dodecaCollapse 0.5s cubic-bezier(0.68, -0.2, 0.265, 1.2) forwards;
+                    }
+                    
+                    .dodeca-panel-bg.animating-return {
+                        animation: dodecaReturn 0.6s cubic-bezier(0.68, -0.2, 0.265, 1.2) forwards;
+                    }
+                    
+                    .pro-feature-widget-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 16px 20px;
+                        border-bottom: 1px solid rgba(74,144,217,0.2);
+                        background: rgba(0,0,0,0.2);
+                    }
+                    .header-title {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        color: #fff;
+                        font-size: 16px;
+                        font-weight: 600;
+                    }
+                    .header-title .icon { font-size: 20px; }
+                    .close-btn {
+                        background: rgba(255,255,255,0.1);
+                        border: none;
+                        color: rgba(255,255,255,0.6);
+                        width: 28px;
+                        height: 28px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 18px;
+                        transition: all 0.2s;
+                    }
+                    .close-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+                    
+                    .pro-feature-widget-content {
+                        padding: 24px 20px;
+                        min-height: 300px;
+                    }
+                    
+                    .pro-feature-widget-footer {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 12px 20px;
+                        border-top: 1px solid rgba(74,144,217,0.2);
+                        background: rgba(0,0,0,0.2);
+                    }
+                    .status-indicator {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        color: rgba(255,255,255,0.6);
+                        font-size: 13px;
+                    }
+                    .status-dot {
+                        width: 8px;
+                        height: 8px;
+                        border-radius: 50%;
+                        background: #ffc107;
+                        animation: blink 1.5s ease-in-out infinite;
+                    }
+                    @keyframes blink { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+                    .status-dot.success {
+                        background: #28a745;
+                        animation: none;
+                        box-shadow: 0 0 8px rgba(40,167,69,0.6);
+                    }
+                    
+                    .action-buttons { display: flex; gap: 8px; }
+                    .action-btn {
+                        background: rgba(74,144,217,0.2);
+                        border: 1px solid rgba(74,144,217,0.4);
+                        color: rgba(255,255,255,0.8);
+                        padding: 6px 12px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        transition: all 0.2s;
+                    }
+                    .action-btn:hover { background: rgba(74,144,217,0.3); }
+                    .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+                    
+                    .wechat-qrcode-wrapper { text-align: center; }
+                    .wechat-qrcode-img {
+                        width: 200px;
+                        height: 200px;
+                        margin: 0 auto 16px;
+                        border-radius: 12px;
+                        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                    }
+                    .scan-line {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        height: 3px;
+                        background: linear-gradient(90deg, transparent, #4a90d9, transparent);
+                        animation: scan 2s linear infinite;
+                    }
+                    @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+                    .wechat-tips {
+                        background: rgba(74,144,217,0.1);
+                        border-radius: 8px;
+                        padding: 16px;
+                        margin-top: 16px;
+                    }
+                    .tip-item {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        color: rgba(255,255,255,0.7);
+                        font-size: 13px;
+                        margin-bottom: 8px;
+                    }
+                    .tip-item:last-child { margin-bottom: 0; }
+                    .tip-icon { color: #4a90d9; font-weight: bold; }
+
+                    /* ===== 通用：十二面体静止面板 + 扫描线 + 渐显图片 ===== */
+                    .dodeca-static-panel {
+                        position: relative;
+                        width: 360px;
+                        height: 360px;
+                        margin: 0 auto;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        perspective: 1000px;
+                    }
+
+                    .dodeca-static-panel .dodeca-shell {
+                        position: absolute;
+                        inset: 0;
+                        pointer-events: none;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .dodeca-static-panel .polyhedron.poly-dodeca.panel {
+                        position: relative;
+                        width: 320px;
+                        height: 320px;
+                        transform-style: preserve-3d;
+                        opacity: 0.9;
+                        filter: drop-shadow(0 0 20px rgba(0, 200, 255, 0.12));
+                    }
+
+                    .dodeca-static-panel .polyhedron.poly-dodeca.panel .poly-face {
+                        position: absolute;
+                        width: 100%;
+                        height: 100%;
+                        border: 2px solid rgba(0, 191, 255, 0.35);
+                        box-shadow: inset 0 0 30px rgba(0, 191, 255, 0.12);
+                        backdrop-filter: blur(6px);
+                        background: rgba(0,0,0,0.15);
+                    }
+
+                    /* 五面围绕中心（从原“中心多边形十二面体”提取） */
+                    .dodeca-static-panel .polyhedron.poly-dodeca.panel .poly-face.f1 { transform: rotateX(0deg) translateZ(160px); }
+                    .dodeca-static-panel .polyhedron.poly-dodeca.panel .poly-face.f2 { transform: rotateX(30deg) translateZ(160px); }
+                    .dodeca-static-panel .polyhedron.poly-dodeca.panel .poly-face.f3 { transform: rotateX(-30deg) translateZ(160px); }
+                    .dodeca-static-panel .polyhedron.poly-dodeca.panel .poly-face.f4 { transform: rotateY(30deg) translateZ(160px); }
+                    .dodeca-static-panel .polyhedron.poly-dodeca.panel .poly-face.f5 { transform: rotateY(-30deg) translateZ(160px); }
+
+                    .scan-image-panel {
+                        position: relative;
+                        width: 240px;
+                        height: 240px;
+                        z-index: 3;
+                        text-align: center;
+                    }
+
+                    .scan-image-title {
+                        color: rgba(0, 200, 255, 0.95);
+                        font-size: 14px;
+                        font-weight: 700;
+                        margin-bottom: 10px;
+                        letter-spacing: 2px;
+                        text-transform: uppercase;
+                        text-shadow: 0 0 10px rgba(0, 200, 255, 0.45);
+                    }
+
+                    .scan-image-frame {
+                        position: relative;
+                        background: rgba(0, 0, 0, 0.45);
+                        border: 1px solid rgba(0, 200, 255, 0.35);
+                        border-radius: 10px;
+                        padding: 10px;
+                        height: 200px;
+                        overflow: hidden;
+                        box-shadow: 0 0 0 1px rgba(0, 200, 255, 0.10), 0 18px 40px rgba(0,0,0,0.35);
+                        backdrop-filter: blur(10px);
+                    }
+
+                    .scan-image-line {
+                        position: absolute;
+                        left: 0;
+                        right: 0;
+                        top: -10px;
+                        height: 4px;
+                        background: linear-gradient(90deg,
+                            transparent 0%,
+                            rgba(0, 255, 255, 0.55) 25%,
+                            rgba(0, 255, 255, 0.95) 50%,
+                            rgba(0, 255, 255, 0.55) 75%,
+                            transparent 100%);
+                        box-shadow: 0 0 20px rgba(0, 255, 255, 0.65);
+                        opacity: 0;
+                    }
+
+                    @keyframes proScanSweep {
+                        0% { transform: translateY(0); opacity: 0; }
+                        10% { opacity: 1; }
+                        90% { opacity: 1; }
+                        100% { transform: translateY(220px); opacity: 0; }
+                    }
+
+                    .scan-image-line.scanning {
+                        animation: proScanSweep 1.8s ease-in-out forwards;
+                    }
+
+                    .scan-image-img {
+                        width: 180px;
+                        height: 180px;
+                        border-radius: 8px;
+                        box-shadow: 0 0 20px rgba(0, 200, 255, 0.25);
+                        opacity: 0;
+                        transform: scale(0.98);
+                        transition: opacity 0.45s ease, transform 0.45s ease;
+                        display: inline-block;
+                        margin-top: 4px;
+                        object-fit: cover;
+                    }
+
+                    .scan-image-img.show {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+
+                    .scan-image-loading {
+                        color: rgba(0, 200, 255, 0.65);
+                        font-size: 13px;
+                        padding: 64px 10px;
+                    }
+
+                    .scan-image-status {
+                        color: rgba(0, 200, 255, 0.9);
+                        font-size: 11px;
+                        margin-top: 8px;
+                        opacity: 0.85;
+                    }
+
+                    /* 发货单下载面板样式 */
+                    .pro-order-float-download {
+                        margin-top: 12px;
+                        padding: 10px;
+                        background: rgba(0, 255, 255, 0.08);
+                        border: 1px solid rgba(0, 255, 255, 0.3);
+                        border-radius: 6px;
+                        text-align: center;
+                        transition: all 0.3s ease;
+                    }
+
+                    .pro-order-float-download[data-hidden="true"] {
+                        display: none;
+                        opacity: 0;
+                        visibility: hidden;
+                    }
+
+                    .pro-order-download-btn {
+                        display: inline-block;
+                        padding: 8px 16px;
+                        background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 150, 255, 0.2));
+                        border: 1px solid rgba(0, 255, 255, 0.5);
+                        border-radius: 4px;
+                        color: rgba(0, 255, 255, 0.95);
+                        text-decoration: none;
+                        font-size: 14px;
+                        transition: all 0.3s ease;
+                        cursor: pointer;
+                    }
+
+                    .pro-order-download-btn:hover {
+                        background: rgba(0, 255, 255, 0.15);
+                        box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+                        transform: translateY(-1px);
+                    }
+                </style>
+            `;
+            document.head.insertAdjacentHTML('beforeend', styles);
+        }
+
+        bindEvents() {
+            const widget = document.getElementById(this.widgetId);
+            const closeBtn = widget.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => this.hide());
+        }
+
+        showFeature(featureType, config = {}) {
+            this.currentFeature = featureType;
+            this.featureConfig = config;
+            this.clearScanTimers();
+            
+            const widget = document.getElementById(this.widgetId);
+            const title = document.getElementById('widget-title');
+            const icon = document.getElementById('widget-icon');
+            const content = document.getElementById('widget-content');
+            const actionButtons = document.getElementById('action-buttons');
+            
+            switch(featureType) {
+                case 'wechat_login':
+                    title.textContent = '微信登录';
+                    icon.textContent = '📱';
+                    content.innerHTML = this.renderWechatLogin();
+                    actionButtons.innerHTML = `
+                        <button class="action-btn" onclick="window.proFeatureWidget.refreshQRCode()">
+                            刷新二维码
+                        </button>
+                    `;
+                    this.ensureWechatLogin();
+                    this.queueScanReveal({
+                        imgId: 'wechatQrCodeWidget',
+                        lineId: 'wechatScanLineWidget',
+                        loadingId: 'wechatScanLoadingWidget',
+                        statusId: 'wechatScanStatusWidget'
+                    });
+                    break;
+                case 'wechat_messages':
+                    title.textContent = '微信消息';
+                    icon.textContent = '💬';
+                    content.innerHTML = this.renderWechatMessages();
+                    actionButtons.innerHTML = `
+                        <button class="action-btn" onclick="window.proFeatureWidget.loadMessages()">
+                            刷新消息
+                        </button>
+                    `;
+                    this.loadMessages();
+                    break;
+                default:
+                    title.textContent = '专业功能';
+                    icon.textContent = '🔧';
+                    content.innerHTML = '<p>功能开发中...</p>';
+                    actionButtons.innerHTML = '';
+            }
+            
+            widget.classList.remove('hide');
+            widget.classList.add('show');
+            this.isShowing = true;
+            
+            this.playDodecaAnimation('expand');
+            
+            // wechat_login 的扫码登录 UI 已移除，因此不再启动轮询/扫描动画
+        }
+        
+        playDodecaAnimation(type) {
+            const dodecaBg = document.getElementById('dodecaPanelBg');
+            if (!dodecaBg) return;
+            
+            dodecaBg.classList.remove('animating-expand', 'animating-collapse', 'animating-return');
+            void dodecaBg.offsetWidth;
+            
+            if (type === 'expand') {
+                dodecaBg.innerHTML = this.getDodecaHTML();
+                dodecaBg.classList.add('animating-expand');
+            } else if (type === 'collapse') {
+                dodecaBg.classList.add('animating-collapse');
+                setTimeout(() => {
+                    dodecaBg.innerHTML = '';
+                }, 500);
+            } else if (type === 'return') {
+                dodecaBg.innerHTML = this.getDodecaHTML();
+                dodecaBg.classList.add('animating-return');
+            }
+        }
+        
+        getDodecaHTML() {
+            return `
+                <div class="dodeca-container static">
+                    <div class="polyhedron poly-dodeca">
+                        <div class="poly-face f1"></div>
+                        <div class="poly-face f2"></div>
+                        <div class="poly-face f3"></div>
+                        <div class="poly-face f4"></div>
+                        <div class="poly-face f5"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        renderWechatLogin() {
+            const timestamp = Date.now();
+            return `
+                <div class="dodeca-static-panel">
+                    <div class="dodeca-shell">
+                        <div class="polyhedron poly-dodeca panel">
+                            <div class="poly-face f1"></div>
+                            <div class="poly-face f2"></div>
+                            <div class="poly-face f3"></div>
+                            <div class="poly-face f4"></div>
+                            <div class="poly-face f5"></div>
+                        </div>
+                    </div>
+
+                    <div class="scan-image-panel">
+                        <div class="scan-image-title">微信扫码登录</div>
+                        <div class="scan-image-frame">
+                            <div class="scan-image-line" id="wechatScanLineWidget"></div>
+                            <img
+                                src="/api/wechat/qrcode?ts=${timestamp}"
+                                id="wechatQrCodeWidget"
+                                class="scan-image-img"
+                                alt="微信登录二维码"
+                                onerror="if(window.proFeatureWidget){window.proFeatureWidget.handleQRError(this);}">
+                            <div class="scan-image-loading" id="wechatScanLoadingWidget">正在获取二维码...</div>
+                        </div>
+                        <div class="scan-image-status" id="wechatScanStatusWidget">请使用手机微信扫描上方二维码</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        refreshQRCode() {
+            const img = document.getElementById('wechatQrCodeWidget');
+            const scanLine = document.getElementById('wechatScanLineWidget');
+            const loading = document.getElementById('wechatScanLoadingWidget');
+            const status = document.getElementById('wechatScanStatusWidget');
+            
+            if (img) {
+                img.src = '/api/wechat/qrcode?ts=' + Date.now();
+                img.style.opacity = '0';
+                img.classList.remove('show');
+            }
+            
+            if (scanLine) {
+                scanLine.classList.remove('scanning');
+                scanLine.style.animation = 'none';
+            }
+            
+            if (loading) {
+                loading.style.display = 'block';
+            }
+            
+            if (status) {
+                status.textContent = '请使用手机微信扫描上方二维码';
+            }
+            
+            this.queueScanReveal({
+                imgId: 'wechatQrCodeWidget',
+                lineId: 'wechatScanLineWidget',
+                loadingId: 'wechatScanLoadingWidget',
+                statusId: 'wechatScanStatusWidget'
+            });
+        }
+
+        async handleQRError(imgEl) {
+            console.warn('二维码加载失败，尝试触发微信登录并重新加载...');
+            await this.ensureWechatLogin();
+            setTimeout(() => {
+                this.refreshQRCode();
+            }, 1500);
+        }
+        
+        queueScanReveal({ imgId, lineId, loadingId, statusId }) {
+            // 轻微延迟，确保 DOM 已插入
+            const t = setTimeout(() => this.startScanReveal({ imgId, lineId, loadingId, statusId }), 120);
+            this.scanTimers.push(t);
+        }
+
+        startScanReveal({ imgId, lineId, loadingId, statusId }) {
+            const scanLine = document.getElementById(lineId);
+            const img = document.getElementById(imgId);
+            const loading = document.getElementById(loadingId);
+            const status = statusId ? document.getElementById(statusId) : null;
+
+            if (!scanLine || !img) return;
+
+            // reset
+            img.classList.remove('show');
+            scanLine.classList.remove('scanning');
+            scanLine.style.animation = 'none';
+            void scanLine.offsetWidth;
+
+            scanLine.style.opacity = '1';
+            scanLine.classList.add('scanning');
+
+            const t = setTimeout(() => {
+                if (loading) loading.style.display = 'none';
+                img.classList.add('show');
+                if (status) status.textContent = '等待扫码确认...';
+            }, 1850);
+            this.scanTimers.push(t);
+        }
+
+        clearScanTimers() {
+            if (!this.scanTimers) this.scanTimers = [];
+            this.scanTimers.forEach(t => clearTimeout(t));
+            this.scanTimers = [];
+        }
+        
+        async ensureWechatLogin() {
+            try {
+                const statusResp = await fetch('/api/wechat/status');
+                const statusData = await statusResp.json().catch(() => ({}));
+                
+                if (statusData.success && statusData.logined) {
+                    alert('微信已经登录了，无需再次扫码！');
+                    this.onWechatLoginSuccess();
+                    return;
+                }
+                
+                const resp = await fetch('/api/wechat/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await resp.json().catch(() => ({}));
+                console.log('微信登录触发结果:', data);
+                
+                this.refreshQRCode();
+                this.startWechatStatusCheck();
+                
+            } catch (e) {
+                console.error('触发微信登录失败:', e);
+                throw e;
+            }
+        }
+
+        startWechatStatusCheck() {
+            this.checkInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/wechat/status');
+                    const data = await response.json();
+                    
+                    if (data.success && data.logined) {
+                        this.onWechatLoginSuccess();
+                    }
+                } catch (error) {
+                    console.error('检测登录状态失败:', error);
+                }
+            }, 10000);
+        }
+
+        stopStatusCheck() {
+            if (this.checkInterval) {
+                clearInterval(this.checkInterval);
+                this.checkInterval = null;
+            }
+        }
+
+        onWechatLoginSuccess() {
+            this.stopStatusCheck();
+            this.clearScanTimers();
+            
+            const statusDot = document.querySelector('.status-dot');
+            const statusLabel = document.getElementById('widget-status');
+            
+            statusDot.classList.add('success');
+            statusLabel.textContent = '已登录';
+            
+            const widget = document.getElementById(this.widgetId);
+            widget.style.animation = 'successPulse 0.6s ease-in-out';
+            
+            this.playDodecaAnimation('collapse');
+            
+            setTimeout(() => {
+                widget.classList.remove('show');
+                widget.classList.add('hide');
+                
+                setTimeout(() => {
+                    widget.classList.remove('hide');
+                    widget.classList.add('show');
+                    this.playDodecaAnimation('return');
+                    
+                    setTimeout(() => {
+                        const dodecaBg = document.getElementById('dodecaPanelBg');
+                        if (dodecaBg) {
+                            const container = dodecaBg.querySelector('.dodeca-container');
+                            if (container) {
+                                container.classList.remove('static');
+                                container.classList.add('rotating');
+                                container.style.animation = 'dodecaRotate3D 20s linear infinite';
+                            }
+                        }
+                    }, 600);
+                    
+                    setTimeout(() => {
+                        widget.classList.remove('show');
+                        widget.classList.add('hide');
+                        this.isShowing = false;
+                    }, 3000);
+                    
+                }, 1000);
+                
+                widget.style.animation = '';
+                statusDot.classList.remove('success');
+                statusLabel.textContent = '就绪';
+            }, 1500);
+        }
+        
+        renderWechatMessages() {
+            return `
+                <div class="wechat-messages-content" style="max-height: 400px; overflow-y: auto;">
+                    <div class="messages-loading" style="text-align: center; padding: 40px; color: rgba(0, 200, 255, 0.7);">
+                        正在加载微信消息...
+                    </div>
+                </div>
+            `;
+        }
+        
+        async loadMessages() {
+            const content = document.querySelector('.wechat-messages-content');
+            if (!content) return;
+            
+            try {
+                const response = await fetch('/api/wechat/messages');
+                const data = await response.json();
+                
+                if (data.success && data.messages) {
+                    if (data.messages.length === 0) {
+                        content.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(255,255,255,0.5);">暂无消息</div>';
+                        return;
+                    }
+                    
+                    let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+                    data.messages.slice(0, 20).forEach(msg => {
+                        const isSelf = msg.isSelf ? 'self' : '';
+                        const time = msg.time || '';
+                        html += `
+                            <div class="message-item ${isSelf}" style="padding: 10px; background: rgba(0, 100, 150, 0.2); border-radius: 8px;">
+                                <div style="font-size: 12px; color: rgba(0, 200, 255, 0.7); margin-bottom: 4px;">${msg.from || '未知'}</div>
+                                <div style="color: white;">${msg.content || ''}</div>
+                                <div style="font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px;">${time}</div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(255,100,100,0.7);">' + (data.message || '加载失败') + '</div>';
+                }
+            } catch (e) {
+                content.innerHTML = '<div style="text-align: center; padding: 40px; color: rgba(255,100,100,0.7);">加载失败: ' + e.message + '</div>';
+            }
+        }
+        
+        showMediaPanel(mediaType, source) {
+            const panel = document.createElement('div');
+            panel.className = 'dodeca-media-panel';
+            panel.innerHTML = `
+                <button class="close-media" onclick="this.parentElement.remove()">&times;</button>
+                <div class="dodeca-container static">
+                    <div class="polyhedron poly-dodeca">
+                        <div class="poly-face f1"></div>
+                        <div class="poly-face f2"></div>
+                        <div class="poly-face f3"></div>
+                        <div class="poly-face f4"></div>
+                        <div class="poly-face f5"></div>
+                    </div>
+                </div>
+                <div class="dodeca-media-content">
+                    <div class="dodeca-media-header">
+                        <span class="dodeca-media-title">${mediaType === 'image' ? '🖼️ 图片' : '🎬 视频'}</span>
+                        <span class="dodeca-media-count">加载中...</span>
+                    </div>
+                    <div class="dodeca-media-frame">
+                        <div class="dodeca-media-loading">正在加载媒体文件...</div>
+                    </div>
+                    <div class="dodeca-media-nav">
+                        <button class="dodeca-media-nav-btn prev" disabled>◀</button>
+                        <span class="dodeca-media-indicator">0 / 0</span>
+                        <button class="dodeca-media-nav-btn next" disabled>▶</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(panel);
+            
+            this.loadMediaList(panel, mediaType, source);
+        }
+        
+        async loadMediaList(panel, mediaType, source) {
+            const mediaFrame = panel.querySelector('.dodeca-media-frame');
+            const mediaCount = panel.querySelector('.dodeca-media-count');
+            const mediaIndicator = panel.querySelector('.dodeca-media-indicator');
+            const prevBtn = panel.querySelector('.prev');
+            const nextBtn = panel.querySelector('.next');
+            
+            try {
+                const apiPath = mediaType === 'image' ? '/api/media/images' : '/api/media/videos';
+                const response = await fetch(apiPath);
+                const data = await response.json();
+                
+                if (data.success && data.files) {
+                    const files = data.files;
+                    mediaCount.textContent = `${files.length} 个${mediaType === 'image' ? '文件' : '视频'}`;
+                    
+                    if (files.length === 0) {
+                        mediaFrame.innerHTML = '<div class="dodeca-media-empty">暂无' + (mediaType === 'image' ? '图片' : '视频') + '</div>';
+                        return;
+                    }
+                    
+                    let currentIndex = 0;
+                    
+                    const renderMedia = (index) => {
+                        const file = files[index];
+                        if (mediaType === 'image') {
+                            const imgId = `mediaImg_${Date.now()}_${index}`;
+                            const lineId = `mediaLine_${Date.now()}_${index}`;
+                            const loadingId = `mediaLoading_${Date.now()}_${index}`;
+                            mediaFrame.innerHTML = `
+                                <div class="dodeca-static-panel" style="width: 320px; height: 320px;">
+                                    <div class="dodeca-shell">
+                                        <div class="polyhedron poly-dodeca panel" style="width: 300px; height: 300px;">
+                                            <div class="poly-face f1"></div>
+                                            <div class="poly-face f2"></div>
+                                            <div class="poly-face f3"></div>
+                                            <div class="poly-face f4"></div>
+                                            <div class="poly-face f5"></div>
+                                        </div>
+                                    </div>
+                                    <div class="scan-image-panel" style="width: 220px; height: 220px;">
+                                        <div class="scan-image-frame" style="height: 190px;">
+                                            <div class="scan-image-line" id="${lineId}"></div>
+                                            <img id="${imgId}" class="scan-image-img" src="${file.url}" alt="${file.name}">
+                                            <div class="scan-image-loading" id="${loadingId}" style="padding: 58px 10px;">加载中...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            this.queueScanReveal({ imgId, lineId, loadingId });
+                        } else {
+                            mediaFrame.innerHTML = `<video src="${file.url}" controls class="show"></video>`;
+                        }
+                        mediaIndicator.textContent = `${index + 1} / ${files.length}`;
+                        prevBtn.disabled = index === 0;
+                        nextBtn.disabled = index === files.length - 1;
+                    };
+                    
+                    renderMedia(0);
+                    
+                    prevBtn.onclick = () => {
+                        if (currentIndex > 0) {
+                            currentIndex--;
+                            renderMedia(currentIndex);
+                        }
+                    };
+                    
+                    nextBtn.onclick = () => {
+                        if (currentIndex < files.length - 1) {
+                            currentIndex++;
+                            renderMedia(currentIndex);
+                        }
+                    };
+                } else {
+                    mediaFrame.innerHTML = '<div class="dodeca-media-error">加载失败: ' + (data.message || '未知错误') + '</div>';
+                }
+            } catch (e) {
+                mediaFrame.innerHTML = '<div class="dodeca-media-error">加载失败: ' + e.message + '</div>';
+            }
+        }
+        
+        hide() {
+            const widget = document.getElementById(this.widgetId);
+            this.playDodecaAnimation('collapse');
+            
+            setTimeout(() => {
+                widget.classList.remove('show');
+                widget.classList.add('hide');
+                this.isShowing = false;
+                this.stopStatusCheck();
+                this.clearScanTimers();
+            }, 500);
+        }
+    }
+
+    window.proFeatureWidget = null;
+
+    function initProFeatureWidget() {
+        if (!window.proFeatureWidget) {
+            console.log('初始化专业版功能悬浮窗组件...');
+            window.proFeatureWidget = new ProFeatureWidget();
+            console.log('专业版功能悬浮窗组件初始化完成');
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initProFeatureWidget);
+    } else {
+        initProFeatureWidget();
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            initConversation();
+            loadUserPreferences();
+        });
+    } else {
+        initConversation();
+        loadUserPreferences();
+    }
+    
+    function loadUserPreferences() {
+        fetch(API_BASE + '/api/preferences?user_id=default')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.preferences) {
+                applyUserPreferences(data.preferences);
+            }
+        })
+        .catch(err => console.error('加载用户偏好失败:', err));
+    }
+    
+    function applyUserPreferences(prefs) {
+        if (prefs.theme) {
+            document.body.setAttribute('data-theme', prefs.theme);
+        }
+        if (prefs.fontSize) {
+            document.body.style.fontSize = prefs.fontSize + 'px';
+        }
+    }
+    
+    function saveUserPreference(key, value) {
+        fetch(API_BASE + '/api/preferences', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                user_id: 'default',
+                key: key,
+                value: value
+            })
+        }).catch(err => console.error('保存偏好失败:', err));
+    }
+
+    window.showProFeature = (feature, config) => {
+        if (window.proFeatureWidget) {
+            window.proFeatureWidget.showFeature(feature, config);
+        } else {
+            console.error('悬浮窗组件未初始化');
+        }
+    };
+
+    window.hideProFeature = () => {
+        if (window.proFeatureWidget) {
+            window.proFeatureWidget.hide();
+        }
+    };
+    </script>
+</body>
+</html>

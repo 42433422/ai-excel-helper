@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>产品管理 - AI 智能助手</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/components/sidebar.css">
+    <link rel="stylesheet" href="/static/css/components/tables.css">
+    <link rel="stylesheet" href="/static/css/components/modals.css">
+    <link rel="stylesheet" href="/static/css/components/ui-components.css">
+    <style>
+        .page-view { display: none; }
+        .page-view.active { display: block; }
+        .page-content { padding: 20px; }
+        .page-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .search-box {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .data-table th {
+            background: #f5f7fa;
+            font-weight: 600;
+        }
+        .data-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h4>AI 智能助手</h4>
+                <small style="opacity: 0.7">出货单管理系统</small>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item" data-view="chat">
+                    <span>💬</span>
+                    <span>智能对话</span>
+                </div>
+                <div class="menu-item active" data-view="products">
+                    <span>📦</span>
+                    <span>产品管理</span>
+                </div>
+                <div class="menu-item" data-view="materials">
+                    <span>🏭</span>
+                    <span>原材料仓库</span>
+                </div>
+                <div class="menu-item" data-view="orders">
+                    <span>📋</span>
+                    <span>出货单</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="page-title">产品管理</div>
+            </div>
+
+            <div class="page-view active" id="view-products">
+                <div class="page-content">
+                    <div class="page-header">
+                        <h2>产品管理</h2>
+                        <div>
+                            <button class="btn btn-secondary" style="margin-right: 10px;">导出价格表</button>
+                            <button class="btn btn-primary">+ 添加产品</button>
+                        </div>
+                    </div>
+                    <div class="search-box">
+                        <label style="white-space: nowrap; margin-right: 10px;">购买单位：</label>
+                        <select style="min-width: 180px; padding: 8px;">
+                            <option value="">请选择购买单位</option>
+                        </select>
+                        <input type="text" placeholder="搜索产品型号或名称..." 
+                               style="margin-left: 10px; padding: 8px; min-width: 200px;">
+                    </div>
+                    <div class="card">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th><input type="checkbox"></th>
+                                    <th>型号</th>
+                                    <th>名称</th>
+                                    <th>规格</th>
+                                    <th>价格</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="empty-state">暂无产品数据</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 简单的菜单切换
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

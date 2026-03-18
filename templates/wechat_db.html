@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微信本地库 SQL 查询</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f5f7fa; color: #333; padding: 24px; }
+        .container { max-width: 1000px; margin: 0 auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 24px; }
+        h1 { margin-bottom: 8px; font-size: 22px; color: #1a1a2e; }
+        .tip { color: #666; font-size: 13px; margin-bottom: 20px; }
+        .row { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; color: #444; }
+        input[type="text"], textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; }
+        textarea { min-height: 80px; resize: vertical; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; background: #3498db; color: #fff; margin-right: 8px; margin-top: 4px; }
+        .btn:hover { background: #2980b9; }
+        .btn-secondary { background: #95a5a6; }
+        .btn-secondary:hover { background: #7f8c8d; }
+        .btn-success { background: #2ecc71; }
+        .btn-success:hover { background: #27ae60; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; color: #495057; }
+        tr:hover { background: #f8f9fa; }
+        .back { display: inline-block; margin-bottom: 16px; color: #3498db; text-decoration: none; }
+        .back:hover { text-decoration: underline; }
+        .status { padding: 10px; border-radius: 6px; margin-top: 12px; display: none; }
+        .status.error { background: #fee; color: #c00; }
+        .status.success { background: #efe; color: #060; }
+        .path-list { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 8px; background: #fafafa; }
+        .path-item { padding: 6px 8px; cursor: pointer; border-radius: 4px; font-size: 13px; }
+        .path-item:hover { background: #e8f4fd; }
+        .section { margin-top: 24px; padding-top: 20px; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/ai_assistant" class="back">← 返回专业版</a>
+        <a href="/wechat-contacts" class="back" style="margin-left:12px">微信联系人</a>
+        <h1>微信本地库 SQL 查询</h1>
+        <p class="tip">仅支持已解密的 .db 文件。若为加密库，请先用第三方工具（如 wechat-db-decrypt）解密后再选择文件。</p>
+
+        <div class="row">
+            <label>1. 获取本机微信数据目录下的 .db 文件</label>
+            <button type="button" class="btn btn-secondary" id="btnListDb">列出 .db 文件</button>
+            <div class="path-list" id="dbList" style="display:none; margin-top:10px;"></div>
+        </div>
+
+        <div class="row">
+            <label>2. 已解密的 .db 完整路径（或从上方点击选择）</label>
+            <input type="text" id="dbPath" placeholder="例如: C:\Users\xxx\Documents\WeChat Files\xxx\Msg\MSG0_decrypted.db">
+        </div>
+
+        <div class="row">
+            <label>3. 查看该库的表名</label>
+            <button type="button" class="btn btn-secondary" id="btnTables">列出表</button>
+            <div id="tablesResult" class="path-list" style="display:none; margin-top:10px;"></div>
+        </div>
+
+        <div class="section">
+            <label>4. 执行 SQL（仅允许 SELECT）</label>
+            <textarea id="sqlText" placeholder="例如: SELECT * FROM MSG ORDER BY createTime DESC LIMIT 20">SELECT * FROM sqlite_master WHERE type='table'</textarea>
+            <button type="button" class="btn btn-success" id="btnQuery">执行查询</button>
+            <button type="button" class="btn btn-secondary" id="btnRecent">快捷：最近消息 50 条</button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div id="resultWrap" style="margin-top:16px; overflow-x:auto;">
+            <table id="resultTable"></table>
+        </div>
+    </div>
+    <script>
+        function showStatus(msg, isError) {
+            var el = document.getElementById('status');
+            el.textContent = msg;
+            el.className = 'status ' + (isError ? 'error' : 'success');
+            el.style.display = 'block';
+        }
+        function getDbPath() { return document.getElementById('dbPath').value.trim(); }
+        function setDbPath(p) { document.getElementById('dbPath').value = p; }
+
+        document.getElementById('btnListDb').onclick = function() {
+            fetch('/api/wechat_db/list_db', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var wrap = document.getElementById('dbList');
+                    if (data.success && data.data && data.data.length) {
+                        wrap.innerHTML = data.data.map(function(p) {
+                            return '<div class="path-item" data-path="' + p.replace(/"/g, '&quot;') + '">' + p + '</div>';
+                        }).join('');
+                        wrap.style.display = 'block';
+                        wrap.querySelectorAll('.path-item').forEach(function(el) {
+                            el.onclick = function() { setDbPath(this.getAttribute('data-path')); };
+                        });
+                    } else {
+                        wrap.innerHTML = '<div class="tip">未找到 .db 文件，或需在「微信 → 设置 → 文件管理」查看实际路径后手动输入。</div>';
+                        wrap.style.display = 'block';
+                    }
+                })
+                .catch(function(e) { showStatus('列出失败: ' + e.message, true); });
+        };
+
+        document.getElementById('btnTables').onclick = function() {
+            var path = getDbPath();
+            if (!path) { showStatus('请先填写或选择 .db 路径', true); return; }
+            fetch('/api/wechat_db/tables', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ db_path: path })
+            })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var wrap = document.getElementById('tablesResult');
+                    if (data.success && data.rows && data.rows.length) {
+                        wrap.innerHTML = data.rows.map(function(r) { return '<div class="path-item">' + (r.name || r.NAME) + '</div>'; }).join('');
+                        wrap.style.display = 'block';
+                    } else {
+                        wrap.innerHTML = '<div class="tip">' + (data.message || '无表或库仍加密') + '</div>';
+                        wrap.style.display = 'block';
+                    }
+                })
+                .catch(function(e) { showStatus('列出表失败: ' + e.message, true); });
+        };
+
+        function renderTable(rows) {
+            var table = document.getElementById('resultTable');
+            if (!rows || rows.length === 0) {
+                table.innerHTML = '<tbody><tr><td>无数据</td></tr></tbody>';
+                return;
+            }
+            var keys = Object.keys(rows[0]);
+            table.innerHTML = '<thead><tr>' + keys.map(function(k) { return '<th>' + k + '</th>'; }).join('') + '</tr></thead><tbody>' +
+                rows.map(function(row) {
+                    return '<tr>' + keys.map(function(k) { return '<td>' + (row[k] != null ? String(row[k]) : '') + '</td>'; }).join('') + '</tr>';
+                }).join('') + '</tbody>';
+        }
+
+        document.getElementById('btnQuery').onclick = function() {
+            var path = getDbPath();
+            var sql = document.getElementById('sqlText').value.trim();
+            if (!path || !sql) { showStatus('请填写 .db 路径和 SQL', true); return; }
+            fetch('/api/wechat_db/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ db_path: path, sql: sql })
+            })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        showStatus('共 ' + (data.count || data.rows.length) + ' 条', false);
+                        renderTable(data.rows);
+                    } else {
+                        showStatus(data.message || '查询失败', true);
+                        renderTable([]);
+                    }
+                })
+                .catch(function(e) { showStatus('请求失败: ' + e.message, true); });
+        };
+
+        document.getElementById('btnRecent').onclick = function() {
+            var path = getDbPath();
+            if (!path) { showStatus('请先填写或选择 .db 路径', true); return; }
+            fetch('/api/wechat_db/recent_messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ db_path: path, limit: 50, table_name: 'MSG' })
+            })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        showStatus('共 ' + (data.count || data.rows.length) + ' 条（表 MSG）', false);
+                        renderTable(data.rows);
+                    } else {
+                        showStatus(data.message || '读取失败（可能表名不是 MSG 或库仍加密）', true);
+                        renderTable([]);
+                    }
+                })
+                .catch(function(e) { showStatus('请求失败: ' + e.message, true); });
+        };
+    </script>
+</body>
+</html>

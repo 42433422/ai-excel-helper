@@ -1,0 +1,26 @@
+{
+  "name": "xcagi-frontend",
+  "version": "1.0.0",
+  "description": "XCAGI 前端测试配置",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "lint": "eslint static/js/"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@babel/preset-env": "^7.23.0",
+    "eslint": "^8.56.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "moduleFileExtensions": ["js", "json"],
+    "testMatch": ["**/tests/**/*.test.js"],
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "static/js/**/*.js",
+      "!static/js/**/*.test.js"
+    ]
+  }
+}

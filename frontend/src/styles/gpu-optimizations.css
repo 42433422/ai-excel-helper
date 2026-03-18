@@ -1,0 +1,139 @@
+.pro-mode-overlay,
+.jarvis-container,
+.polyhedron,
+.wire-ring,
+.energy-particle,
+.falling-char,
+.digital-rain,
+.stark-grid,
+.code-ring,
+.icon-ring,
+.tool-runtime-panel,
+.work-mode-monitor,
+.pro-feature-widget,
+.pro-panel {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
+.pro-mode-overlay {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.jarvis-container {
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.polyhedron {
+  transform-style: preserve-3d;
+  position: relative;
+}
+
+.poly-face {
+  position: absolute;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+.wire-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid var(--pro-primary-color);
+  box-shadow: 0 0 5px var(--pro-primary-color);
+  will-change: transform;
+}
+
+.energy-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--pro-primary-color);
+  box-shadow: 0 0 10px var(--pro-primary-color);
+  will-change: transform, opacity;
+}
+
+.falling-char {
+  position: absolute;
+  font-family: var(--pro-font-family-mono);
+  font-size: 14px;
+  color: var(--pro-primary-color);
+  text-shadow: 0 0 5px var(--pro-primary-color);
+  will-change: transform, opacity;
+}
+
+.digital-rain {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--pro-z-index-overlay);
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.stark-grid {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--pro-z-index-overlay);
+  pointer-events: none;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  will-change: transform;
+}
+
+.code-ring {
+  position: absolute;
+  will-change: transform;
+}
+
+.icon-ring {
+  position: absolute;
+  will-change: transform;
+}
+
+.tool-runtime-panel {
+  position: absolute;
+  will-change: transform, opacity;
+}
+
+.work-mode-monitor {
+  position: absolute;
+  will-change: transform, opacity;
+}
+
+.pro-feature-widget {
+  position: fixed;
+  z-index: var(--pro-z-index-modal);
+  will-change: transform, opacity;
+}
+
+.pro-panel {
+  position: relative;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .pro-mode-overlay,
+  .jarvis-container,
+  .polyhedron,
+  .wire-ring {
+    will-change: auto;
+  }
+}

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 助手 + OpenClaw 整合面板</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header .logo {
+            font-size: 24px;
+        }
+        .header .nav {
+            display: flex;
+            gap: 15px;
+        }
+        .header .nav a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.2);
+            transition: background 0.3s;
+        }
+        .header .nav a:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+            gap: 10px;
+            padding: 10px;
+        }
+        .panel {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel-header {
+            background: #f8f9fa;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+            font-weight: 600;
+            color: #495057;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-header .badge {
+            background: #28a745;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        .panel-header .badge.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        .panel-content {
+            flex: 1;
+            position: relative;
+        }
+        .panel-content iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .toggle-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            font-size: 14px;
+            z-index: 1000;
+        }
+        .toggle-btn:hover {
+            background: #5a6fd6;
+        }
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .system-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .system-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        
+        .card-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .system-card h3 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .system-card p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        
+        .card-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+        
+        .status-dot.online {
+            background: #28a745;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.2);
+        }
+        
+        .status-dot.checking {
+            background: #ffc107;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .card-btn {
+            display: block;
+            text-align: center;
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        
+        .card-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .card-btn.primary:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+        
+        .card-btn.secondary {
+            background: #f8f9fa;
+            color: #667eea;
+            border: 1px solid #e9ecef;
+        }
+        
+        .card-btn.secondary:hover {
+            background: #e9ecef;
+        }
+        
+        .quick-links {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f0f0;
+        }
+        
+        .quick-links a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        
+        .quick-links a:hover {
+            text-decoration: underline;
+        }
+        
+        .status-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .badge.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .badge.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        @media (max-width: 768px) {
+            .cards-grid {
+                grid-template-columns: 1fr;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <span class="logo">🦞</span>
+            AI 助手 + OpenClaw 整合面板
+        </h1>
+        <div class="nav">
+            <a href="/ai_assistant" target="_blank">单独打开 AI 助手</a>
+            <a href="http://127.0.0.1:18789" target="_blank">单独打开 OpenClaw</a>
+        </div>
+    </div>
+    
+    <div class="container" id="container">
+        <!-- 系统卡片网格 -->
+        <div class="cards-grid">
+            <!-- OpenClaw 卡片 -->
+            <div class="system-card">
+                <div class="card-icon">🦞</div>
+                <h3>OpenClaw Dashboard</h3>
+                <p>AI 代理管理系统</p>
+                <div class="card-status" id="openclawStatus">
+                    <span class="status-dot checking"></span>
+                    <span>检测中...</span>
+                </div>
+                <a href="http://127.0.0.1:18789" target="_blank" class="card-btn primary">
+                    打开 Dashboard
+                </a>
+                <a href="http://127.0.0.1:18789/__openclaw__/canvas/" target="_blank" class="card-btn secondary">
+                    打开 Canvas
+                </a>
+            </div>
+            
+            <!-- AI 助手卡片 -->
+            <div class="system-card">
+                <div class="card-icon">🤖</div>
+                <h3>AI 出货单助手</h3>
+                <p>智能对话与数据管理</p>
+                <div class="card-status online">
+                    <span class="status-dot online"></span>
+                    <span>运行中</span>
+                </div>
+                <a href="/ai_assistant" target="_blank" class="card-btn primary">
+                    打开 AI 助手
+                </a>
+                <div class="quick-links">
+                    <a href="/database" target="_blank">数据库管理</a>
+                    <a href="/voice_learning" target="_blank">语音学习</a>
+                </div>
+            </div>
+            
+            <!-- 出货记录卡片 -->
+            <div class="system-card">
+                <div class="card-icon">📦</div>
+                <h3>出货记录管理</h3>
+                <p>Excel 同步与出货单</p>
+                <div class="card-status online">
+                    <span class="status-dot online"></span>
+                    <span>Excel 同步已启用</span>
+                </div>
+                <a href="/shipment_management" target="_blank" class="card-btn primary">
+                    出货单管理
+                </a>
+                <div class="quick-links">
+                    <a href="/api/orders" target="_blank">API 接口</a>
+                    <a href="/database" target="_blank">数据浏览</a>
+                </div>
+            </div>
+            
+            <!-- 系统状态卡片 -->
+            <div class="system-card">
+                <div class="card-icon">⚙️</div>
+                <h3>系统状态</h3>
+                <div class="status-list">
+                    <div class="status-item">
+                        <span>Flask 服务</span>
+                        <span class="badge success">运行中</span>
+                    </div>
+                    <div class="status-item">
+                        <span>OpenClaw Gateway</span>
+                        <span class="badge" id="gatewayBadge">检测中...</span>
+                    </div>
+                    <div class="status-item">
+                        <span>DeepSeek API</span>
+                        <span class="badge success">已配置</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Excel 同步</span>
+                        <span class="badge success">已启用</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 检查 OpenClaw 是否在线
+        async function checkOpenClaw() {
+            const statusEl = document.getElementById('openclawStatus');
+            const badgeEl = document.getElementById('gatewayBadge');
+            
+            try {
+                const response = await fetch('http://127.0.0.1:18789', { 
+                    method: 'HEAD',
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                });
+                
+                if (statusEl) {
+                    statusEl.innerHTML = '<span class="status-dot online"></span><span>运行中</span>';
+                    statusEl.className = 'card-status online';
+                }
+                if (badgeEl) {
+                    badgeEl.className = 'badge success';
+                    badgeEl.textContent = '运行中';
+                }
+            } catch (e) {
+                if (statusEl) {
+                    statusEl.innerHTML = '<span class="status-dot"></span><span>离线</span>';
+                    statusEl.className = 'card-status';
+                }
+                if (badgeEl) {
+                    badgeEl.className = 'badge error';
+                    badgeEl.textContent = '离线';
+                }
+            }
+        }
+        
+        // 页面加载时检查
+        checkOpenClaw();
+        // 每10秒检查一次
+        setInterval(checkOpenClaw, 10000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "name": "ai-assistant-vue",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "test:e2e": "playwright test",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "pinia": "^3.0.4",
+    "vue": "^3.3.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@vitejs/plugin-vue": "^4.2.3",
+    "@vue/test-utils": "^2.4.0",
+    "eslint": "^8.56.0",
+    "jsdom": "^23.0.0",
+    "vite": "^4.4.5",
+    "vitest": "^1.0.0"
+  }
+}

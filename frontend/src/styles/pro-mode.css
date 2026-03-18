@@ -1,0 +1,459 @@
+.pro-mode-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--pro-bg-color);
+  z-index: var(--pro-z-index-overlay);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s var(--pro-animation-easing);
+}
+
+.pro-mode-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pro-mode-overlay.entering {
+  animation: fadeIn 0.5s var(--pro-animation-easing) forwards;
+}
+
+.pro-mode-overlay.exiting {
+  animation: fadeOut 0.5s var(--pro-animation-easing) forwards;
+}
+
+.jarvis-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jarvis-core {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  transform-style: preserve-3d;
+  transition: transform 0.3s var(--pro-animation-easing);
+}
+
+.jarvis-core.speaking {
+  animation: breathe 1s ease-in-out infinite;
+}
+
+.jarvis-sphere {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(0, 255, 255, 0.6), rgba(0, 191, 255, 0.4));
+  box-shadow: 0 0 30px var(--pro-primary-color), inset 0 0 20px rgba(255, 255, 255, 0.3);
+  transition: background 0.3s var(--pro-animation-easing), box-shadow 0.3s var(--pro-animation-easing);
+}
+
+.work-mode .jarvis-sphere {
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(255, 0, 0, 0.6), rgba(255, 51, 51, 0.4));
+  box-shadow: 0 0 30px var(--pro-work-mode-color), inset 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.polyhedron {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.polyhedron.icosa {
+  animation: spin 20s linear infinite;
+}
+
+.polyhedron.octa {
+  animation: spinReverse 15s linear infinite;
+}
+
+.polyhedron.tetra {
+  animation: spin 10s linear infinite;
+}
+
+.polyhedron.dodeca {
+  animation: spinReverse 25s linear infinite;
+}
+
+.poly-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--pro-primary-color);
+  background: rgba(0, 255, 255, 0.1);
+  backface-visibility: visible;
+  transition: border-color 0.3s var(--pro-animation-easing), background 0.3s var(--pro-animation-easing);
+}
+
+.work-mode .poly-face {
+  border-color: var(--pro-work-mode-color);
+  background: rgba(255, 0, 0, 0.1);
+}
+
+.wire-rings-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.wire-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 1px solid var(--pro-primary-color);
+  box-shadow: 0 0 5px var(--pro-primary-color);
+  transition: border-color 0.3s var(--pro-animation-easing), box-shadow 0.3s var(--pro-animation-easing);
+}
+
+.work-mode .wire-ring {
+  border-color: var(--pro-work-mode-color);
+  box-shadow: 0 0 5px var(--pro-work-mode-color);
+}
+
+.wire-ring.ring-0 {
+  width: 220px;
+  height: 220px;
+  animation: spin 30s linear infinite;
+}
+
+.wire-ring.ring-1 {
+  width: 240px;
+  height: 240px;
+  animation: spinReverse 25s linear infinite;
+}
+
+.wire-ring.ring-2 {
+  width: 260px;
+  height: 260px;
+  animation: spin 20s linear infinite;
+}
+
+.wire-ring.ring-3 {
+  width: 280px;
+  height: 280px;
+  animation: spinReverse 15s linear infinite;
+}
+
+.wire-ring.ring-4 {
+  width: 300px;
+  height: 300px;
+  animation: spin 12s linear infinite;
+}
+
+.wire-ring.ring-5 {
+  width: 320px;
+  height: 320px;
+  animation: spinReverse 10s linear infinite;
+}
+
+.wire-ring.ring-6 {
+  width: 340px;
+  height: 340px;
+  animation: spin 8s linear infinite;
+}
+
+.wire-ring.ring-7 {
+  width: 360px;
+  height: 360px;
+  animation: spinReverse 6s linear infinite;
+}
+
+.wire-rings-container.breathing .wire-ring {
+  animation: ringPulse 2s ease-in-out infinite;
+}
+
+.energy-particles-container {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.energy-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--pro-primary-color);
+  box-shadow: 0 0 10px var(--pro-primary-color);
+  transition: background 0.3s var(--pro-animation-easing), box-shadow 0.3s var(--pro-animation-easing);
+}
+
+.work-mode .energy-particle {
+  background: var(--pro-work-mode-color);
+  box-shadow: 0 0 10px var(--pro-work-mode-color);
+}
+
+.energy-particle.exploding {
+  animation: particleExplode 0.5s var(--pro-animation-easing) forwards;
+}
+
+.energy-particle.imploding {
+  animation: particleImplode 0.5s var(--pro-animation-easing) forwards;
+}
+
+.jarvis-voice-button {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(0, 255, 255, 0.2);
+  border: 2px solid var(--pro-primary-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s var(--pro-animation-easing);
+  box-shadow: 0 0 20px var(--pro-primary-color);
+}
+
+.jarvis-voice-button:hover {
+  background: rgba(0, 255, 255, 0.3);
+  transform: translateX(-50%) scale(1.1);
+}
+
+.jarvis-voice-button.recording {
+  background: rgba(255, 0, 0, 0.3);
+  border-color: var(--pro-work-mode-color);
+  box-shadow: 0 0 20px var(--pro-work-mode-color);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.jarvis-voice-button svg {
+  width: 40px;
+  height: 40px;
+  fill: var(--pro-primary-color);
+  transition: fill 0.3s var(--pro-animation-easing);
+}
+
+.work-mode .jarvis-voice-button svg {
+  fill: var(--pro-work-mode-color);
+}
+
+.jarvis-chat-panel {
+  position: absolute;
+  bottom: 140px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  max-height: 300px;
+  background: rgba(10, 14, 39, 0.9);
+  border: 1px solid var(--pro-border-color);
+  border-radius: var(--pro-border-radius);
+  padding: var(--pro-spacing-md);
+  overflow-y: auto;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s var(--pro-animation-easing);
+}
+
+.jarvis-chat-panel.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+  pointer-events: none;
+}
+
+.jarvis-message {
+  margin-bottom: var(--pro-spacing-sm);
+  padding: var(--pro-spacing-sm);
+  border-radius: var(--pro-border-radius-sm);
+  animation: slideInUp 0.3s var(--pro-animation-easing);
+}
+
+.jarvis-message.ai {
+  background: rgba(0, 255, 255, 0.1);
+  border-left: 3px solid var(--pro-primary-color);
+}
+
+.jarvis-message.user {
+  background: rgba(255, 255, 255, 0.1);
+  border-right: 3px solid var(--pro-primary-color);
+  text-align: right;
+}
+
+.work-mode .jarvis-message.ai {
+  background: rgba(255, 0, 0, 0.1);
+  border-left-color: var(--pro-work-mode-color);
+}
+
+.work-mode .jarvis-message.user {
+  border-right-color: var(--pro-work-mode-color);
+}
+
+.jarvis-task-card {
+  background: rgba(255, 204, 0, 0.1);
+  border: 1px solid rgba(255, 204, 0, 0.3);
+  border-radius: var(--pro-border-radius-sm);
+  padding: var(--pro-spacing-sm);
+  margin: var(--pro-spacing-sm) 0;
+}
+
+.jarvis-task-card button {
+  margin-top: var(--pro-spacing-sm);
+  padding: var(--pro-spacing-xs) var(--pro-spacing-sm);
+  background: rgba(255, 204, 0, 0.2);
+  border: 1px solid rgba(255, 204, 0, 0.5);
+  border-radius: var(--pro-border-radius-sm);
+  color: var(--pro-text-color);
+  cursor: pointer;
+  transition: all 0.3s var(--pro-animation-easing);
+}
+
+.jarvis-task-card button:hover {
+  background: rgba(255, 204, 0, 0.3);
+  transform: scale(1.05);
+}
+
+.jarvis-status {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--pro-spacing-sm);
+  padding: var(--pro-spacing-sm) var(--pro-spacing-md);
+  background: rgba(10, 14, 39, 0.9);
+  border: 1px solid var(--pro-border-color);
+  border-radius: var(--pro-border-radius);
+  backdrop-filter: blur(10px);
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--pro-primary-color);
+  box-shadow: 0 0 10px var(--pro-primary-color);
+  transition: background 0.3s var(--pro-animation-easing), box-shadow 0.3s var(--pro-animation-easing);
+}
+
+.work-mode .status-dot {
+  background: var(--pro-work-mode-color);
+  box-shadow: 0 0 10px var(--pro-work-mode-color);
+}
+
+.status-dot.animating {
+  animation: statusBlink 1s ease-in-out infinite;
+}
+
+.status-text {
+  color: var(--pro-text-color);
+  font-size: 14px;
+  font-family: var(--pro-font-family);
+}
+
+.pro-exit-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: var(--pro-spacing-sm) var(--pro-spacing-md);
+  background: rgba(255, 0, 102, 0.2);
+  border: 1px solid var(--pro-accent-color);
+  border-radius: var(--pro-border-radius);
+  color: var(--pro-text-color);
+  cursor: pointer;
+  font-family: var(--pro-font-family);
+  font-size: 14px;
+  transition: all 0.3s var(--pro-animation-easing);
+}
+
+.pro-exit-button:hover {
+  background: rgba(255, 0, 102, 0.3);
+  transform: scale(1.1);
+}
+
+.center-expansion-box {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--pro-primary-color);
+  border-radius: var(--pro-border-radius);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.center-expansion-box.entering {
+  animation: expandIn 0.3s var(--pro-animation-easing) forwards;
+}
+
+.center-expansion-box.exiting {
+  animation: expandOut 0.3s var(--pro-animation-easing) forwards;
+}
+
+.halo-pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--pro-primary-color);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.halo-pulse-ring.entering {
+  animation: ringExpand 0.5s var(--pro-animation-easing) forwards;
+}
+
+.corner-flash {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  background: var(--pro-primary-color);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s var(--pro-animation-easing);
+}
+
+.corner-flash.entering {
+  animation: fadeIn 0.3s var(--pro-animation-easing) forwards;
+}
+
+.corner-flash.exiting {
+  animation: fadeOut 0.3s var(--pro-animation-easing) forwards;
+}
+
+.corner-flash.top-left {
+  top: 0;
+  left: 0;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.corner-flash.top-right {
+  top: 0;
+  right: 0;
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+}
+
+.corner-flash.bottom-left {
+  bottom: 0;
+  left: 0;
+  clip-path: polygon(0 100%, 100% 100%, 0 0);
+}
+
+.corner-flash.bottom-right {
+  bottom: 0;
+  right: 0;
+  clip-path: polygon(100% 100%, 100% 0, 0 100%);
+}
+
+.work-mode .corner-flash {
+  background: var(--pro-work-mode-color);
+}

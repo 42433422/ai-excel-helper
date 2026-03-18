@@ -1,0 +1,65 @@
+
+.pro-mode-overlay,
+.jarvis-container,
+.transition-text,
+.transition-overlay,
+.preview-float-window,
+.hover-highlight-box,
+.jarvis-chat-panel,
+.jarvis-voice-btn,
+.pro-status,
+.scan-line,
+.falling-text-container,
+.falling-char,
+.bloom-effect,
+.glow-orb,
+.core-sphere,
+.wire-ring,
+.polyhedron,
+.hologram-ring,
+.arc-reactor,
+.particle-layer,
+.data-particle {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    will-change: transform, opacity;
+}
+
+.pro-mode-overlay.entering,
+.pro-mode-overlay.exiting,
+.transition-overlay.entering,
+.transition-overlay.exiting,
+.preview-float-window.animating,
+.jarvis-voice-btn.recording,
+.scan-line,
+.data-particle {
+    will-change: transform, opacity;
+}
+
+.stark-grid {
+    will-change: opacity;
+}
+
+.digital-rain-canvas {
+    will-change: opacity;
+    image-rendering: pixelated;
+}
+
+.menu-item,
+.page-view,
+.card,
+.btn,
+.message {
+    backface-visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
