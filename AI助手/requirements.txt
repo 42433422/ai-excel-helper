@@ -1,0 +1,22 @@
+# 项目依赖
+Flask==3.0.3
+Flask-CORS==4.0.1
+openpyxl==3.1.5
+pywinauto==0.6.8
+numpy==1.26.4
+opencv-python==4.9.0.80
+Pillow==10.3.0
+requests==2.32.0
+pydantic==2.7.1
+transformers==4.41.1
+accelerate==0.30.1
+
+# AI助手依赖
+easyocr==1.7.1
+pytesseract==0.3.10
+pyautogui==0.9.54
+keyboard==0.13.5
+mouse==0.7.1
+mss==9.0.1
+ APScheduler==3.10.4
+screeninfo==0.8.1

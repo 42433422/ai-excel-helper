@@ -25,7 +25,7 @@ MANIFEST
 venv/
 env/
 ENV/
-.venv
+.venv/
 
 # IDE
 .idea/
@@ -43,22 +43,54 @@ coverage.xml
 coverage/
 .tox/
 
+# Database files
+*.db
+*.db.backup
+*.sqlite
+*.sqlite3
+
 # Logs
 *.log
 logs/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Project specific
+# Environment variables
 .env
 .env.local
+.env.*.local
+
+# Excel temporary files
+~$*.xlsx
+~$*.xls
+
+# Output files
+outputs/
+*.exe
+
+# Unit databases with customer data
+unit_databases/
+
+# Customer data
+customer_products_final_corrected.db
+出货记录/
+
+# Python 32bit distribution
+python32/
+
+# Build artifacts
+build/
+dist/*.exe
+*.spec
+
+# Test files
+test_*.html
+current_page.html
+custom_mode_test.html
+
+# Project specific
 *.xlsx
 *.xls
 output/

@@ -1,0 +1,290 @@
+[
+  {
+    "unit_name": "金汉武",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 100,
+    "unique_models": 100,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "金汉武（宾驰）",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 16,
+    "unique_models": 16,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "半岛风情",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 3,
+    "unique_models": 3,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "国邦:钟志勇",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 2,
+    "unique_models": 2,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "侯雪梅",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 3,
+    "unique_models": 3,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "金汉武鼎丰：国邦",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 1,
+    "unique_models": 1,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "金汉武三江源",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 2,
+    "unique_models": 2,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "名品（晶美鑫）",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 21,
+    "unique_models": 21,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "澜宇",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 30,
+    "unique_models": 30,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "七彩乐园",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 95,
+    "unique_models": 95,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "温总",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 119,
+    "unique_models": 119,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "陈鑫强",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 7,
+    "unique_models": 7,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "杰妮熊",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 13,
+    "unique_models": 13,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "小火洋",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 20,
+    "unique_models": 20,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "鑫顺",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 2,
+    "unique_models": 2,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "奔奔熊鞋柜",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 6,
+    "unique_models": 6,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "博旺家私",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 32,
+    "unique_models": 32,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "宜榢",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 1,
+    "unique_models": 1,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "迎扬电视墙",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 47,
+    "unique_models": 47,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "中江博郡家私",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 47,
+    "unique_models": 47,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "志泓家私",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 82,
+    "unique_models": 82,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "宗南家私",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 51,
+    "unique_models": 51,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "蕊芯家私",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 27,
+    "unique_models": 27,
+    "duplicates": 0,
+    "message": "验证通过"
+  },
+  {
+    "unit_name": "蕊芯家私1",
+    "status": "PASS",
+    "tables": [
+      "products",
+      "sqlite_sequence"
+    ],
+    "product_count": 27,
+    "unique_models": 27,
+    "duplicates": 0,
+    "message": "验证通过"
+  }
+]
