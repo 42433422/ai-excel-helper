@@ -37,7 +37,8 @@ function renderCustomers(customers) {
         tr.appendChild(checkboxTd);
 
         const unitTd = document.createElement('td');
-        unitTd.textContent = c.unit_name || c.name || '';
+        // 接口字段以 customer_name 为准；兼容老字段 unit_name/name
+        unitTd.textContent = c.customer_name || c.unit_name || c.name || '';
         tr.appendChild(unitTd);
 
         const contactTd = document.createElement('td');
@@ -49,7 +50,8 @@ function renderCustomers(customers) {
         tr.appendChild(phoneTd);
 
         const addressTd = document.createElement('td');
-        addressTd.textContent = c.address || '';
+        // 新字段是 contact_address；兼容旧字段 address
+        addressTd.textContent = c.contact_address || c.address || '';
         tr.appendChild(addressTd);
 
         tbody.appendChild(tr);
@@ -79,7 +81,8 @@ function batchDeleteCustomers() {
     fetch(API_BASE + '/api/customers/batch-delete', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({customer_ids: ids})
+        // 后端接口期望字段为 `ids`
+        body: JSON.stringify({ ids })
     }).then(r => r.json()).then(data => {
         if (data.success) {
             alert(data.message);

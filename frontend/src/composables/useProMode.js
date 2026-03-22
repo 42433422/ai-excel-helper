@@ -26,7 +26,15 @@ export function useProMode() {
   const exitWorkMode = () => {
     store.exitWorkMode()
   }
-  
+
+  const enterMonitorMode = () => {
+    store.enterMonitorMode()
+  }
+
+  const exitMonitorMode = () => {
+    store.exitMonitorMode()
+  }
+
   const setStage = (stage, payload = {}) => {
     store.setStage(stage, payload)
   }
@@ -35,9 +43,14 @@ export function useProMode() {
     store.resetTransientState()
   }
   
+  const stepBack = () => {
+    store.stepBack()
+  }
+  
   const isActive = computed(() => store.isActive)
   const isTransitioning = computed(() => store.isTransitioning)
   const isWorkMode = computed(() => store.isWorkMode)
+  const isMonitorMode = computed(() => store.isMonitorMode)
   const currentStage = computed(() => store.currentStage)
   const selectedCompany = computed(() => store.selectedCompany)
   const selectedProduct = computed(() => store.selectedProduct)
@@ -54,6 +67,7 @@ export function useProMode() {
     isActive,
     isTransitioning,
     isWorkMode,
+    isMonitorMode,
     currentStage,
     selectedCompany,
     selectedProduct,
@@ -64,7 +78,10 @@ export function useProMode() {
     exitProMode,
     enterWorkMode,
     exitWorkMode,
+    enterMonitorMode,
+    exitMonitorMode,
     setStage,
-    resetTransientState
+    resetTransientState,
+    stepBack
   }
 }

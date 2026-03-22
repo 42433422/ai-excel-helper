@@ -3,6 +3,7 @@
     ref="canvasRef"
     class="digital-rain"
     :class="{ 'work-mode': isWorkMode }"
+    :style="{ display: isActive ? 'block' : 'none' }"
   ></canvas>
 </template>
 
@@ -12,6 +13,10 @@ import { useDigitalRain } from '@/composables/useDigitalRain'
 
 const props = defineProps({
   isWorkMode: {
+    type: Boolean,
+    default: false
+  },
+  isActive: {
     type: Boolean,
     default: false
   },
@@ -33,10 +38,22 @@ watch(() => props.isWorkMode, (newValue) => {
   setWorkMode(newValue)
 })
 
+watch(() => props.isActive, (newValue) => {
+  if (newValue) {
+    if (!isRunning.value) {
+      start()
+    }
+  } else {
+    if (isRunning.value) {
+      stop()
+    }
+  }
+})
+
 onMounted(() => {
   window.addEventListener('resize', handleResize)
   
-  if (props.autoStart) {
+  if (props.autoStart && props.isActive) {
     start()
   }
   

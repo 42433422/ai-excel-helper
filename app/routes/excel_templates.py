@@ -8,12 +8,12 @@ Excel 模板管理路由模块
 - /api/excel/template/decompose: 分解模板提取词条
 """
 
-import os
-import shutil
 import logging
+import os
 from datetime import datetime
-from flask import Blueprint, request, jsonify, send_file
+
 from flasgger import swag_from
+from flask import Blueprint, jsonify, request, send_file
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,28 @@ os.makedirs(TEMP_EXCEL_DIR, exist_ok=True)
 def get_base_dir():
     """获取项目根目录"""
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def _map_template_category(template_type: str) -> str:
+    t = (template_type or "").strip().lower()
+    if any(k in t for k in ["标签", "label", "print", "打印"]):
+        return "label_print"
+    return "excel"
+
+
+def _normalize_template_dto(template: dict) -> dict:
+    tpl = dict(template or {})
+    template_type = tpl.get("template_type", "")
+    category = tpl.get("category") or _map_template_category(template_type)
+    file_path = tpl.get("file_path") or tpl.get("path")
+    normalized = {
+        **tpl,
+        "category": category,
+        "file_path": file_path,
+        "is_active": bool(tpl.get("is_active", True)),
+        "preview_capable": bool(file_path and tpl.get("exists", False)),
+    }
+    return normalized
 
 
 def _resolve_template_path(filename):
@@ -47,25 +69,60 @@ def _resolve_template_path(filename):
 
 def _get_template_list():
     """获取模板列表"""
-    base_dir = get_base_dir()
-    templates = []
+    from app.application import TemplateApplicationService, get_template_app_service
 
-    common_templates = [
-        {"id": "shipment", "name": "发货单模板", "filename": "发货单模板.xlsx"},
-        {"id": "fallback", "name": "备用模板", "filename": "尹玉华132.xlsx"},
-    ]
+    return get_template_app_service().get_templates().get('templates', [])
 
-    for t in common_templates:
-        path = os.path.join(base_dir, t["filename"])
-        templates.append({
-            "id": t["id"],
-            "name": t["name"],
-            "filename": t["filename"],
-            "exists": os.path.exists(path),
-            "path": path if os.path.exists(path) else None,
+
+@excel_templates_bp.route('/templates', methods=['GET'])
+@swag_from({
+    'summary': '获取模板列表',
+    'description': '获取所有模板列表（支持 Excel 和标签打印）',
+    'responses': {
+        '200': {
+            'description': '成功响应',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'success': {'type': 'boolean'},
+                    'templates': {'type': 'array', 'items': {'type': 'object'}}
+                }
+            }
+        }
+    }
+})
+def get_templates():
+    """获取模板列表"""
+    try:
+        templates = _get_template_list()
+        return jsonify({
+            "success": True,
+            "templates": templates
         })
+    except Exception as e:
+        logger.error(f"获取模板列表失败：{e}")
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
 
-    return templates
+
+# 兼容旧 API 路径 /api/templates/list
+@excel_templates_bp.route('/list', methods=['GET'])
+def get_templates_list():
+    """获取模板列表（兼容旧路径）"""
+    try:
+        templates = _get_template_list()
+        return jsonify({
+            "success": True,
+            "templates": templates
+        })
+    except Exception as e:
+        logger.error(f"获取模板列表失败：{e}")
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
 
 
 def _decompose_template(file_path, sheet_name=None, sample_rows=5):
@@ -183,7 +240,7 @@ def list_templates():
     }
     """
     try:
-        templates = _get_template_list()
+        templates = [_normalize_template_dto(t) for t in _get_template_list()]
         return jsonify({
             "success": True,
             "templates": templates
@@ -222,16 +279,10 @@ def get_template_file(template_id):
         template = next((t for t in templates if t["id"] == template_id), None)
 
         if not template:
-            return jsonify({
-                "success": False,
-                "message": "模板不存在"
-            }), 404
+            return jsonify({"success": False, "message": "模板不存在"}), 404
 
         if not template.get("exists") or not template.get("path"):
-            return jsonify({
-                "success": False,
-                "message": "模板文件不存在"
-            }), 404
+            return jsonify({"success": False, "message": "模板文件不存在"}), 404
 
         return send_file(
             template["path"],
@@ -305,35 +356,11 @@ def save_template():
         source_name = data.get("source_name", "尹玉华132.xlsx")
         target_name = data.get("target_name", "发货单模板.xlsx")
         overwrite = bool(data.get("overwrite", False))
+        from app.application import TemplateApplicationService, get_template_app_service
 
-        base_dir = get_base_dir()
-        source_path = os.path.join(base_dir, source_name)
-        target_path = os.path.join(base_dir, target_name)
-
-        if not os.path.exists(source_path):
-            return jsonify({
-                "success": False,
-                "message": f"源模板不存在: {source_name}"
-            }), 404
-
-        if os.path.exists(target_path) and not overwrite:
-            return jsonify({
-                "success": True,
-                "message": "目标模板已存在，未覆盖",
-                "saved": False,
-                "template_name": target_name,
-                "template_path": target_path
-            })
-
-        shutil.copy2(source_path, target_path)
-
-        return jsonify({
-            "success": True,
-            "message": "模板保存成功",
-            "saved": True,
-            "template_name": target_name,
-            "template_path": target_path
-        })
+        result = get_template_app_service().save_template_file(source_name, target_name, overwrite)
+        status = 200 if result.get("success") else 404
+        return jsonify(result), status
 
     except Exception as e:
         logger.error(f"保存模板失败: {e}")
@@ -581,8 +608,9 @@ def get_template(template_id: int):
     }
     """
     try:
-        from app.db.session import get_db
         from sqlalchemy import text
+
+        from app.db.session import get_db
         
         with get_db() as db:
             result = db.execute(
@@ -624,135 +652,6 @@ def get_template(template_id: int):
         return jsonify({
             "success": False,
             "message": f"获取失败：{str(e)}"
-        }), 500
-
-
-@excel_templates_bp.route("/templates", methods=["POST"])
-@swag_from({
-    'summary': '创建模板',
-    'description': '创建新模板',
-    'parameters': [
-        {
-            'name': 'body',
-            'in': 'body',
-            'required': True,
-            'schema': {
-                'type': 'object',
-                'properties': {
-                    'name': {'type': 'string', 'description': '模板名称'},
-                    'description': {'type': 'string', 'description': '模板描述'}
-                },
-                'required': ['name']
-            }
-        }
-    ],
-    'responses': {
-        '200': {
-            'description': '成功响应',
-            'schema': {
-                'type': 'object',
-                'properties': {
-                    'success': {'type': 'boolean'},
-                    'template': {'type': 'object'}
-                }
-            }
-        }
-    }
-})
-def create_template():
-    """
-    创建新模板
-    
-    Request:
-    {
-        "template_name": "模板名称",
-        "template_type": "发货单",
-        "analyzed_data": {...},
-        "editable_config": {...},
-        "zone_config": {...},
-        ...
-    }
-    
-    Response:
-    {
-        "success": True,
-        "template_id": 1,
-        "template_key": "TPL_xxx"
-    }
-    """
-    try:
-        from app.db.session import get_db
-        from sqlalchemy import text
-        import json
-        import uuid
-        
-        data = request.json or {}
-        
-        template_name = data.get('template_name')
-        template_type = data.get('template_type', '通用')
-        
-        if not template_name:
-            return jsonify({
-                "success": False,
-                "message": "模板名称不能为空"
-            }), 400
-        
-        # 生成模板 key
-        template_key = f"TPL_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8].upper()}"
-        
-        with get_db() as db:
-            result = db.execute(
-                text("""
-                    INSERT INTO templates (
-                        template_key, template_name, template_type,
-                        original_file_path, analyzed_data, editable_config,
-                        zone_config, merged_cells_config, style_config,
-                        business_rules
-                    ) VALUES (
-                        :template_key, :template_name, :template_type,
-                        :original_file_path, :analyzed_data, :editable_config,
-                        :zone_config, :merged_cells_config, :style_config,
-                        :business_rules
-                    )
-                """),
-                {
-                    'template_key': template_key,
-                    'template_name': template_name,
-                    'template_type': template_type,
-                    'original_file_path': data.get('original_file_path'),
-                    'analyzed_data': json.dumps(data.get('analyzed_data', {}), ensure_ascii=False),
-                    'editable_config': json.dumps(data.get('editable_config', {}), ensure_ascii=False),
-                    'zone_config': json.dumps(data.get('zone_config', {}), ensure_ascii=False),
-                    'merged_cells_config': json.dumps(data.get('merged_cells_config', {}), ensure_ascii=False),
-                    'style_config': json.dumps(data.get('style_config', {}), ensure_ascii=False),
-                    'business_rules': json.dumps(data.get('business_rules', {}), ensure_ascii=False)
-                }
-            )
-            template_id = result.lastrowid
-            db.commit()
-            
-            # 记录使用日志
-            db.execute(
-                text("""
-                    INSERT INTO template_usage_log (template_id, action, result)
-                    VALUES (:template_id, 'create', :result)
-                """),
-                {'template_id': template_id, 'result': f'创建模板：{template_name}'}
-            )
-            db.commit()
-        
-        return jsonify({
-            "success": True,
-            "template_id": template_id,
-            "template_key": template_key,
-            "message": "模板创建成功"
-        })
-        
-    except Exception as e:
-        logger.error(f"创建模板失败：{e}")
-        return jsonify({
-            "success": False,
-            "message": f"创建失败：{str(e)}"
         }), 500
 
 
@@ -812,9 +711,11 @@ def update_template(template_id: int):
     }
     """
     try:
-        from app.db.session import get_db
-        from sqlalchemy import text
         import json
+
+        from sqlalchemy import text
+
+        from app.db.session import get_db
         
         data = request.json or {}
         
@@ -922,8 +823,9 @@ def delete_template(template_id: int):
     }
     """
     try:
-        from app.db.session import get_db
         from sqlalchemy import text
+
+        from app.db.session import get_db
         
         with get_db() as db:
             # 检查模板是否存在
@@ -963,4 +865,117 @@ def delete_template(template_id: int):
         return jsonify({
             "success": False,
             "message": f"删除失败：{str(e)}"
+        }), 500
+
+
+@excel_templates_bp.route("/templates/by_type", methods=["GET"])
+@swag_from({
+    'summary': '按类型获取模板列表',
+    'description': '按模板类型（例如 发货单）获取模板列表，可选仅返回启用模板',
+    'parameters': [
+        {
+            'name': 'type',
+            'in': 'query',
+            'type': 'string',
+            'description': '模板类型，例如 发货单，默认 发货单'
+        },
+        {
+            'name': 'active_only',
+            'in': 'query',
+            'type': 'boolean',
+            'description': '仅返回启用模板，默认 true'
+        },
+    ],
+    'responses': {
+        '200': {
+            'description': '成功响应',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'success': {'type': 'boolean'},
+                    'templates': {'type': 'array'},
+                    'count': {'type': 'integer'},
+                }
+            }
+        }
+    }
+})
+def list_templates_by_type():
+    """
+    GET /api/excel/templates/by_type?type=发货单&active_only=true
+    """
+    try:
+        from app.application import TemplateApplicationService, get_template_app_service
+
+        template_type = request.args.get("type", "发货单")
+        active_only = request.args.get("active_only", "true").lower() == "true"
+
+        svc = get_template_app_service()
+        templates = [_normalize_template_dto(t) for t in svc.list_by_type(template_type, active_only=active_only)]
+        return jsonify({
+            "success": True,
+            "templates": templates,
+            "count": len(templates),
+        }), 200
+    except Exception as e:
+        logger.error(f"按类型获取模板列表失败：{e}")
+        return jsonify({
+            "success": False,
+            "message": f"获取失败：{str(e)}"
+        }), 500
+
+
+@excel_templates_bp.route("/templates/default", methods=["GET"])
+@swag_from({
+    'summary': '获取某类型默认模板',
+    'description': '获取指定类型当前默认模板的元数据（优先使用数据库模板，失败时回退到固定文件模板）',
+    'parameters': [
+        {
+            'name': 'type',
+            'in': 'query',
+            'type': 'string',
+            'description': '模板类型，例如 发货单，默认 发货单'
+        }
+    ],
+    'responses': {
+        '200': {
+            'description': '成功响应',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'success': {'type': 'boolean'},
+                    'template': {'type': 'object'}
+                }
+            }
+        },
+        '404': {
+            'description': '无可用模板'
+        }
+    }
+})
+def get_default_template():
+    """
+    GET /api/excel/templates/default?type=发货单
+    返回当前类型默认模板的元数据。
+    """
+    try:
+        from app.application import TemplateApplicationService, get_template_app_service
+
+        template_type = request.args.get("type", "发货单")
+        svc = get_template_app_service()
+        tpl = svc.get_default_for_type(template_type)
+        if not tpl:
+            return jsonify({
+                "success": False,
+                "message": "暂无可用模板"
+            }), 404
+        return jsonify({
+            "success": True,
+            "template": _normalize_template_dto(tpl)
+        }), 200
+    except Exception as e:
+        logger.error(f"获取默认模板失败：{e}")
+        return jsonify({
+            "success": False,
+            "message": f"获取失败：{str(e)}"
         }), 500

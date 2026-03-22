@@ -5,21 +5,58 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI 智能助手控制台 - 出货单管理系统</title>
-    <link rel="stylesheet" href="/static/css/base.css">
-    <link rel="stylesheet" href="/static/css/components/sidebar.css">
-    <link rel="stylesheet" href="/static/css/components/chat.css">
-    <link rel="stylesheet" href="/static/css/components/tables.css">
-    <link rel="stylesheet" href="/static/css/components/modals.css">
-    <link rel="stylesheet" href="/static/css/components/ui-components.css">
-    <link rel="stylesheet" href="/static/css/animations/transitions.css">
-    <link rel="stylesheet" href="/static/css/animations/ui-effects.css">
-    <link rel="stylesheet" href="/static/css/animations/pro-mode.css">
-    <link rel="stylesheet" href="/static/css/animations/gpu-optimizations.css">
-    <script type="module" crossorigin src="/assets/index-cc1d34ed.js"></script>
-    <link rel="stylesheet" href="/assets/index-48e8fe9a.css">
+    <script type="module" crossorigin src="/assets/js/index-a1068fca.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/js/vendor-vue-180beead.js">
+    <link rel="modulepreload" crossorigin href="/assets/js/vendor-stores-26f3a6c7.js">
+    <link rel="stylesheet" href="/assets/css/index-d50909cf.css">
   </head>
   <body>
     <div id="app"></div>
     
+    <script>
+      // 兼容旧版 HTML 的全局脚本：在 Vue 挂载后按原顺序加载。
+      window.addEventListener('load', () => {
+        // 全量 legacy 脚本（仅用于调试）
+        const legacyScriptsFull = [
+          '/static/js/core/config.js',
+          '/static/js/core/utils.js',
+          '/static/js/modules/ui.js',
+          '/static/js/modules/chat.js',
+          '/static/js/modules/file-import.js',
+          '/static/js/modules/wechat.js',
+          '/static/js/pro_feature_widget.js',
+          '/static/js/modules/pro-mode.js?v=2'
+        ]
+        // 默认仅保留 Vue 仍未替代的少量 legacy 能力。
+        // 已迁移到 Vue 的模块：products, materials, orders, customers, shipment-records
+        const legacyScriptsMinimal = [
+          '/static/js/core/config.js',
+          '/static/js/core/utils.js',
+          '/static/js/modules/chat.js',
+          '/static/js/modules/file-import.js',
+          '/static/js/modules/wechat.js',
+          '/static/js/pro_feature_widget.js',
+          '/static/js/modules/pro-mode.js?v=2'
+        ]
+        // 开关：
+        // - window.__ENABLE_LEGACY__ = false 彻底关闭 legacy 注入
+        // - window.__USE_FULL_LEGACY__ = true 恢复全量 legacy 注入
+        const enableLegacy = window.__ENABLE_LEGACY__ !== false
+        const useFullLegacy = window.__USE_FULL_LEGACY__ === true
+        const legacyScripts = useFullLegacy ? legacyScriptsFull : legacyScriptsMinimal
+        if (!enableLegacy) return
+
+        const loadSequentially = (index) => {
+          if (index >= legacyScripts.length) return
+          const script = document.createElement('script')
+          script.src = legacyScripts[index]
+          script.onload = () => loadSequentially(index + 1)
+          script.onerror = () => loadSequentially(index + 1)
+          document.body.appendChild(script)
+        }
+
+        loadSequentially(0)
+      })
+    </script>
   </body>
 </html>

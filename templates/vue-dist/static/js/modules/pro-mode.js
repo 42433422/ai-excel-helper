@@ -35,7 +35,10 @@
     let isPlaying = false;
     let voiceQueue = [];
     let speechSynth = window.speechSynthesis;
-    let ttsApiUrl = 'http://localhost:8080';
+    // TTS 服务地址：
+    // - 默认跟随当前页面域名，避免部署到局域网/服务器时仍指向本机 localhost
+    // - 可通过全局变量覆盖（例如在 index.html 里提前注入 window.__TTS_API_URL__）
+    let ttsApiUrl = (window.__TTS_API_URL__ || window.TTS_API_URL || window.API_BASE || window.location.origin);
     let digitalRainCtx = null;
     let digitalRainDrops = [];
     let digitalRainCharTypeByColumn = [];
@@ -57,6 +60,7 @@
     };
     let proTaskAcquisitionActive = false;
     let isWorkMode = false;
+    let isMonitorMode = false;
     let workModeIntervalId = null;
     let lastMessageSourceSize = undefined;
 
@@ -77,8 +81,14 @@
         const hasShipment = /^发货单|生成发货单|开发货单|发货单生成/.test(t);
         const hasLabel = /标签/.test(t);
         const orderLike = /桶|规格|公斤|kg|白底|面漆|稀释剂|色漆|\d+\s*桶|\d+\s*公斤/i.test(t);
+
+        // 中文数字/数字样 token（用于识别“一桶...规格28”这类语音结果）
+        const hasNumberLike = /\d+|[一二两三四五六七八九十零〇]+/.test(t);
+        const bucketNumberLike = /(\d+|[一二两三四五六七八九十零〇]+)\s*桶|桶\s*(\d+|[一二两三四五六七八九十零〇]+)/.test(t);
+        const kgNumberLike = /(\d+|[一二两三四五六七八九十零〇]+)\s*公斤|公斤\s*(\d+|[一二两三四五六七八九十零〇]+)/i.test(t);
+
         // 纯订单（如「七彩乐园1桶9803规格28」）也进入任务获取：同时有规格和桶/数量
-        const pureOrderLike = orderLike && /规格/.test(t) && (/\d+\s*桶|桶\s*\d+/.test(t) || /\d+\s*公斤|公斤\s*\d+/i.test(t));
+        const pureOrderLike = orderLike && /规格/.test(t) && hasNumberLike && (bucketNumberLike || kgNumberLike);
         return (hasPrint && orderLike) || (hasShipment && orderLike) || (hasLabel && orderLike) || pureOrderLike;
     }
 
@@ -93,7 +103,7 @@
         if (textEl) textEl.textContent = orderText || '';
         if (downloadWrap) downloadWrap.setAttribute('data-hidden', 'true');
         if (overlay && overlay.classList.contains('work-mode')) {
-            createFallingText('加载中WORKMODE0123456789处理任务', 35);
+            createFallingText('加载中WORKMODE处理任务', 35);
         }
     }
 
@@ -260,6 +270,14 @@
         var monitorWrap = document.getElementById('jarvisMonitorListWrap');
         var floatWrap = document.getElementById('jarvisMonitorFloatWrap');
         if (!ov) return;
+
+        if (enabled) {
+            // 状态互斥：如果当前是监控模式，先退出监控模式
+            if (isMonitorMode && typeof window.setMonitorModeFromChat === 'function') {
+                window.setMonitorModeFromChat(false);
+            }
+        }
+
         isWorkMode = !!enabled;
         if (isWorkMode) {
             ov.classList.add('work-mode');
@@ -332,20 +350,162 @@
         if (isWorkMode) fetchWorkModeFeed();
     };
 
+    window.setMonitorModeFromChat = function(enabled) {
+        if (!isProMode) return;
+        var ov = document.getElementById('proModeOverlay');
+        var floatWrap = document.getElementById('jarvisMonitorFloatWrap');
+        var monitorWrap = document.getElementById('jarvisMonitorWrap');
+        if (!ov) return;
+
+        if (enabled) {
+            // 状态互斥：如果当前是工作模式，先退出工作模式
+            if (isWorkMode && typeof window.setWorkModeFromChat === 'function') {
+                window.setWorkModeFromChat(false);
+            }
+
+            isMonitorMode = true;
+            ov.classList.add('monitor-mode');
+            ov.classList.add('monitor-mode-entering');
+
+            // 显示监控数据悬浮窗
+            if (floatWrap) {
+                floatWrap.style.display = 'block';
+                floatWrap.setAttribute('aria-hidden', 'false');
+                floatWrap.innerHTML = createMonitorFloatHTML();
+            }
+
+            if (typeof createFallingText === 'function') {
+                createFallingText('监控模式MONITOR', 26);
+            }
+
+            // 刷新监控数据
+            fetchMonitorData();
+
+            window.setTimeout(function() {
+                ov.classList.remove('monitor-mode-entering');
+            }, 2000);
+        } else {
+            isMonitorMode = false;
+            ov.classList.remove('monitor-mode-entering');
+            ov.classList.add('monitor-mode-exiting');
+
+            if (typeof createFallingText === 'function') {
+                createFallingText('退出监控模式', 22);
+            }
+
+            // 隐藏监控悬浮窗
+            if (floatWrap) {
+                floatWrap.style.display = 'none';
+                floatWrap.setAttribute('aria-hidden', 'true');
+                floatWrap.innerHTML = '';
+            }
+
+            window.setTimeout(function() {
+                ov.classList.remove('monitor-mode-exiting');
+                ov.classList.remove('monitor-mode');
+            }, 1600);
+        }
+    };
+
+    function createMonitorFloatHTML() {
+        return '<div class="jarvis-monitor-list-wrap" style="width: 320px; max-height: 400px; overflow-y: auto;">' +
+            '<div class="jarvis-monitor-list-header" style="padding: 8px 12px; font-size: 13px; font-weight: bold; border-bottom: 1px solid rgba(255, 215, 0, 0.3);">📊 系统监控</div>' +
+            '<div id="monitorFloatContent">' +
+            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
+            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+            '<span class="monitor-data-label">🖥️ CPU 使用率</span>' +
+            '<span class="monitor-data-value" id="mfCpu">--%</span></div>' +
+            '<div class="monitor-bar-fill" id="mfCpuBar" style="height: 3px; background: rgba(255, 215, 0, 0.2); margin-top: 6px; border-radius: 2px;"><div style="height: 100%; width: 0%; background: linear-gradient(90deg, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0.9)); border-radius: 2px;"></div></div></div>' +
+            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
+            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+            '<span class="monitor-data-label">💾 内存使用</span>' +
+            '<span class="monitor-data-value" id="mfMemory">--%</span></div>' +
+            '<div class="monitor-bar-fill" style="height: 3px; background: rgba(255, 215, 0, 0.2); margin-top: 6px; border-radius: 2px;"><div style="height: 100%; width: 0%; background: linear-gradient(90deg, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0.9)); border-radius: 2px;"></div></div></div>' +
+            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
+            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+            '<span class="monitor-data-label">💿 磁盘使用</span>' +
+            '<span class="monitor-data-value" id="mfDisk">--%</span></div>' +
+            '<div style="height: 3px; background: rgba(255, 215, 0, 0.2); margin-top: 6px; border-radius: 2px;"><div style="height: 100%; width: 0%; background: linear-gradient(90deg, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0.9)); border-radius: 2px;"></div></div></div>' +
+            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
+            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+            '<span class="monitor-data-label">🌐 网络IO</span>' +
+            '<span class="monitor-data-value" id="mfNetwork">--</span></div></div>' +
+            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
+            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+            '<span class="monitor-data-label">📝 活跃请求</span>' +
+            '<span class="monitor-data-value" id="mfRequests">--</span></div></div>' +
+            '<div style="padding: 8px 12px; font-size: 11px; color: rgba(255, 215, 0, 0.5); text-align: center;">每 5 秒自动刷新</div>' +
+            '</div></div>';
+    }
+
+    function fetchMonitorData() {
+        if (!isMonitorMode) return;
+        var apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
+        fetch(apiBase + '/health/details')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.system) {
+                    var cpu = Math.round(data.system.cpu_percent || 0);
+                    var memory = Math.round(data.system.memory_percent || 0);
+                    var disk = Math.round(data.system.disk_percent || 0);
+
+                    var cpuEl = document.getElementById('mfCpu');
+                    var memEl = document.getElementById('mfMemory');
+                    var diskEl = document.getElementById('mfDisk');
+
+                    if (cpuEl) {
+                        cpuEl.textContent = cpu + '%';
+                        cpuEl.className = 'monitor-data-value' + (cpu > 80 ? ' danger' : cpu > 60 ? ' warning' : '');
+                    }
+                    if (memEl) {
+                        memEl.textContent = memory + '%';
+                        memEl.className = 'monitor-data-value' + (memory > 80 ? ' danger' : memory > 60 ? ' warning' : '');
+                    }
+                    if (diskEl) {
+                        diskEl.textContent = disk + '%';
+                        diskEl.className = 'monitor-data-value' + (disk > 90 ? ' danger' : disk > 70 ? ' warning' : '');
+                    }
+
+                    // 更新进度条
+                    var cpuBar = document.querySelector('#mfCpuBar div');
+                    var memBar = document.querySelector('#mfMemory + div div');
+                    var diskBar = document.querySelector('#mfDisk + div div');
+                    if (cpuBar) cpuBar.style.width = cpu + '%';
+                    if (memBar) memBar.style.width = memory + '%';
+                    if (diskBar) diskBar.style.width = disk + '%';
+                }
+
+                // 服务状态
+                if (data.checks) {
+                    var reqEl = document.getElementById('mfRequests');
+                    if (reqEl && data.checks.active_requests !== undefined) {
+                        reqEl.textContent = data.checks.active_requests;
+                    }
+                }
+            })
+            .catch(function() {});
+
+        // 每5秒刷新一次
+        if (isMonitorMode) {
+            setTimeout(fetchMonitorData, 5000);
+        }
+    }
+
     function showProPanelDownload(filename) {
+        console.log('showProPanelDownload 被调用，文件名:', filename);
         const wrap = document.getElementById('proOrderFloatDownload');
         const link = document.getElementById('proOrderFloatDownloadLink');
         const panel = document.getElementById('proOrderFloatPanel');
         const overlay = document.getElementById('proModeOverlay');
-        
-        console.log('showProPanelDownload:', {wrap, link, panel, overlay, filename});
-        
+        console.log('wrap 元素:', wrap);
+        console.log('link 元素:', link);
+        console.log('panel 元素:', panel);
         if (!wrap || !link) {
-            console.log('未找到下载元素wrap或link');
+            console.error('未找到下载面板元素');
             return;
         }
         
-        // 确保面板可见
+        // 确保面板可见（如果之前被隐藏了）
         if (panel) {
             panel.setAttribute('aria-hidden', 'false');
             panel.style.opacity = '1';
@@ -357,6 +517,7 @@
         
         const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
         const url = apiBase + '/outputs/' + encodeURIComponent(filename);
+        console.log('下载 URL:', url);
         link.setAttribute('href', url);
         link.setAttribute('download', filename);
         link.onclick = function(e) {
@@ -480,9 +641,30 @@
         }, 700);
     }
 
-    function initDigitalRain() {
+    function normalizeDigitalRainText(text) {
+        const raw = (text == null) ? '' : String(text);
+        return raw
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+            .replace(/[`*_>#]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 5000);
+    }
+
+    function buildDigitalRainCharPool(text) {
+        const normalized = normalizeDigitalRainText(text);
+        const chars = Array.from(normalized).filter(ch => ch && !/\s/.test(ch));
+        // 避免空 seed 时退化为数字 0/1 导致“1010 代码雨”观感
+        return chars.length > 0 ? chars : ['A', 'I', 'T', 'O', 'N'];
+    }
+
+    function initDigitalRain(sourceText) {
         const canvas = document.getElementById('digitalRainCanvas');
         if (!canvas) return;
+        
+        // 防止重复进入时旧动画/列数据未停止（例如反复启停 pro mode）
+        try { stopDigitalRain(); } catch (_) {}
         
         const ctx = canvas.getContext('2d');
         digitalRainCtx = ctx;
@@ -494,10 +676,11 @@
         const columns = Math.floor(canvas.width / fontSize);
         digitalRainDrops = [];
         digitalRainCharTypeByColumn = [];
+        const charPool = buildDigitalRainCharPool(sourceText);
         
         for (let i = 0; i < columns; i++) {
             digitalRainDrops[i] = Math.random() * -150;
-            digitalRainCharTypeByColumn[i] = i % 2 === 0 ? '1' : '0';
+            digitalRainCharTypeByColumn[i] = charPool[i % charPool.length];
         }
         
         digitalRainActive = true;
@@ -516,7 +699,7 @@
         digitalRainCtx.fillRect(0, 0, canvas.width, canvas.height);
         
         digitalRainCtx.fillStyle = isWorkModeTaskAcquiring ? 'rgba(255, 80, 80, 0.75)' : 'rgba(0, 100, 0, 0.7)';
-        digitalRainCtx.font = fontSize + 'px "Courier New", monospace';
+        digitalRainCtx.font = fontSize + 'px "Courier New","Microsoft YaHei","SimSun",monospace';
         digitalRainCtx.textAlign = 'center';
         
         const columnCount = digitalRainDrops.length;
@@ -542,9 +725,27 @@
             digitalRainAnimationId = null;
         }
         
+        // 清空列数据，避免内存/状态残留（你看到的 1010 即 columns）
+        digitalRainDrops = [];
+        digitalRainCharTypeByColumn = [];
+        
         const canvas = document.getElementById('digitalRainCanvas');
         if (canvas && digitalRainCtx) {
             digitalRainCtx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    function setDigitalRainText(text) {
+        const charPool = buildDigitalRainCharPool(text);
+
+        if (!digitalRainCharTypeByColumn || digitalRainCharTypeByColumn.length === 0) {
+            initDigitalRain(text);
+            return;
+        }
+
+        const shift = Math.floor(Math.random() * charPool.length);
+        for (let i = 0; i < digitalRainCharTypeByColumn.length; i++) {
+            digitalRainCharTypeByColumn[i] = charPool[(i + shift) % charPool.length];
         }
     }
 
@@ -576,7 +777,7 @@
     }
 
     function runFallingTextEnter() {
-        const techChars = 'PRO MODE初始化系统加载中AITONYSTARK0123456789';
+        const techChars = 'PRO MODE初始化系统加载中AITONYSTARK';
         createFallingText(techChars, 30);
     }
 
@@ -586,7 +787,7 @@
         
         container.innerHTML = '';
         
-        const techChars = 'PRO MODE退出系统关闭中AI0123456789';
+        const techChars = 'PRO MODE退出系统关闭中AI';
         const chars = techChars.split('');
         const containerWidth = window.innerWidth;
         
@@ -1181,8 +1382,11 @@
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
-            recognition.continuous = false;
+            // 连续识别可减少用户按住说话时被“提前结束”截断的问题
+            recognition.continuous = true;
             recognition.interimResults = true;
+            // 允许取更多候选转写，后续我们会基于业务关键字做轻量评分选择最优
+            recognition.maxAlternatives = 5;
             recognition.lang = 'zh-CN';
 
             recognition.onstart = function() {
@@ -1192,15 +1396,55 @@
             };
 
             recognition.onresult = function(event) {
-                let finalTranscript = '';
-                let interimTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
+                // 根据候选转写做轻量评分，避免只取 [0] 导致的“桶/规格/型号”关键字误差
+                function scoreTranscript(t) {
+                    t = (t || '').trim();
+                    let score = 0;
+                    if (/发货单|送货单|出货单|开单|打单|生成发货单|生成出货单|打印/.test(t)) score += 8;
+                    if (/桶|箱|件|公斤|kg|规格/.test(t)) score += 6;
+                    if (/\d+/.test(t)) score += 4;
+                    if (/[一二三四五六七八九十零〇两]/.test(t)) score += 2;
+                    return score;
                 }
+
+                function pickBestAlt(result) {
+                    // result 是 SpeechRecognitionResult（array-like: alternatives at [0], [1] ...）
+                    function confToScore(c) {
+                        if (typeof c !== 'number' || !isFinite(c)) return 0;
+                        // Edge 的 confidence 可能在 0..1 或 0..100，统一到 0..1 再做小幅加成
+                        const n = c > 1 ? Math.min(c / 100, 1) : Math.max(0, Math.min(c, 1));
+                        return n * 8;
+                    }
+
+                    let bestAlt = result && result[0] ? result[0] : null;
+                    let best = bestAlt ? (bestAlt.transcript || '') : '';
+                    let bestScore = scoreTranscript(best) + confToScore(bestAlt && bestAlt.confidence);
+                    if (!result || typeof result.length !== 'number') return best;
+
+                    for (let j = 1; j < result.length; j++) {
+                        const altObj = result[j];
+                        const alt = altObj ? (altObj.transcript || '') : '';
+                        const s = scoreTranscript(alt) + confToScore(altObj && altObj.confidence);
+                        if (s > bestScore) {
+                            best = alt;
+                            bestScore = s;
+                        }
+                    }
+                    return best;
+                }
+
+                let finalParts = [];
+                let interimParts = [];
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const r = event.results[i];
+                    const bestText = pickBestAlt(r);
+                    if (r.isFinal) finalParts.push(bestText);
+                    else interimParts.push(bestText);
+                }
+
+                const finalTranscript = finalParts.join('');
+                const interimTranscript = interimParts.join('');
+
                 if (finalTranscript) {
                     jarvisSendMessage(finalTranscript.trim());
                 }
@@ -1213,7 +1457,32 @@
             recognition.onerror = function(event) {
                 console.error('Speech recognition error:', event.error);
                 stopVoiceInput();
-                updateJarvisStatus('ERROR: ' + event.error);
+
+                const err = event && event.error ? event.error : 'unknown';
+
+                // Web Speech API often relies on external/cloud speech services
+                // and/or microphone permissions. Fall back to manual input on known errors.
+                if (err === 'network') {
+                    if (!isInputMode) toggleInputMode();
+                    updateJarvisStatus('语音服务网络不可用（已切换到输入模式）');
+                    setTimeout(function() {
+                        const voiceInput = document.getElementById('voiceInput');
+                        if (voiceInput) voiceInput.focus();
+                    }, 50);
+                    return;
+                }
+
+                if (err === 'not-allowed' || err === 'service-not-allowed') {
+                    if (!isInputMode) toggleInputMode();
+                    updateJarvisStatus('麦克风/语音服务未授权（已切换到输入模式）');
+                    setTimeout(function() {
+                        const voiceInput = document.getElementById('voiceInput');
+                        if (voiceInput) voiceInput.focus();
+                    }, 50);
+                    return;
+                }
+
+                updateJarvisStatus('ERROR: ' + err);
                 setTimeout(() => updateJarvisStatus('READY'), 2000);
             };
 
@@ -1251,21 +1520,31 @@
         if (isRecording) return;
         
         if (recognition) {
-            isRecording = true;
-            const voiceBtn = document.getElementById('jarvisVoiceBtn');
-            if (voiceBtn) {
-                voiceBtn.classList.add('recording');
-                setVoiceButtonLoadingText('正在聆听...');
-            }
-            updateJarvisStatus('正在聆听...');
             try {
+                if (recognition.state === 'running') {
+                    return;
+                }
+                isRecording = true;
+                const voiceBtn = document.getElementById('jarvisVoiceBtn');
+                if (voiceBtn) {
+                    voiceBtn.classList.add('recording');
+                    setVoiceButtonLoadingText('正在聆听...');
+                }
+                updateJarvisStatus('正在聆听...');
                 recognition.start();
             } catch(e) {
                 console.error('Recognition start error:', e);
                 isRecording = false;
+                const voiceBtn = document.getElementById('jarvisVoiceBtn');
                 if (voiceBtn) {
                     voiceBtn.classList.remove('recording');
                     setVoiceButtonLoadingText('');
+                }
+                if (e.name === 'InvalidStateError') {
+                    recognition = null;
+                    setTimeout(function() {
+                        initJarvisChat();
+                    }, 100);
                 }
             }
         }
@@ -1299,6 +1578,53 @@
 
     function jarvisSendMessage(message) {
         if (!message || !message.trim()) return;
+        message = message.trim();
+
+        // 工作模式/专业模式：支持用户只说“5桶/改成5桶”更新当前订单草稿
+        // 前提：当前已在任务获取态，且浮层里已有 unit/model/spec 上下文。
+        (function normalizeBucketOnlyMessage() {
+            if (!proTaskAcquisitionActive) return;
+            const qtyMatch = message.match(/^(?:改成|改为)?\s*(\d+|[一二三四五六七八九十零〇两]+)\s*桶\s*$/);
+            if (!qtyMatch) return;
+
+            function parseZhNumber(token) {
+                const t = (token || '').trim();
+                if (!t) return null;
+                if (/^\d+$/.test(t)) return parseInt(t, 10);
+                const map = { 零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+                if (t === '十') return 10;
+                if (/^[一二两三四五六七八九]十$/.test(t)) return map[t[0]] * 10;
+                if (/^十[一二三四五六七八九]$/.test(t)) return 10 + map[t[1]];
+                if (/^[一二两三四五六七八九]十[一二三四五六七八九]$/.test(t)) return map[t[0]] * 10 + map[t[2]];
+                if (t.length === 1 && map[t] !== undefined) return map[t];
+                return null;
+            }
+
+            const bucketQty = parseZhNumber(qtyMatch[1]);
+            if (!bucketQty || bucketQty <= 0) return;
+
+            const contextText = (document.getElementById('proOrderFloatText') || {}).textContent || '';
+            if (!contextText) return;
+
+            // 从上一次订单文本中提取 unit/model/spec
+            const specMatch = contextText.match(/规格\s*(\d+(?:\.\d+)?)/);
+            const modelMatch = contextText.match(/(\d+)\s*(?:的)?\s*规格/);
+            if (!specMatch || !modelMatch) return;
+
+            const modelNumber = modelMatch[1];
+            const tinSpec = specMatch[1];
+
+            const unitRaw = contextText.replace(/[\s\S]*?(发货单|送货单|出货单)/, '').trim() || contextText;
+            const beforeModel = unitRaw.split(modelNumber)[0] || unitRaw;
+            let unitName = beforeModel
+                .replace(/^(帮我|给我)?打印(一下)?/, '')
+                .replace(/^(改成|改为)/, '')
+                .replace(/的$/, '')
+                .trim();
+            if (!unitName) return;
+
+            message = `${unitName}${bucketQty} 桶 ${modelNumber} 规格 ${tinSpec}`;
+        })();
 
         // 只有非订单流程第二步、且非任务获取类消息时才让球复位；商标导出是同流程第二步，球不回来
         if (!isProTaskAcquisitionMessage(message) && !isLabelsExportStepMessage(message)) {
@@ -1326,6 +1652,30 @@
         })
         .then(data => {
             if (data.success) {
+                if (data.followup) {
+                    const followupText = (data.response != null && data.response !== '') ? data.response : '请补充必要信息后继续。';
+                    jarvisAddMessage(followupText, 'ai');
+                    const slotLabelMap = {
+                        unit_name: '单位名称',
+                        model_number: '编号/型号',
+                        tin_spec: '规格',
+                        quantity_tins: '桶数',
+                        keyword: '关键词',
+                        customer_name: '客户名称'
+                    };
+                    // followup 阶段保持在同一任务上下文中，避免球体复位导致中断
+                    if (!proTaskAcquisitionActive) {
+                        enterProTaskAcquisitionState(followupText);
+                    } else {
+                        const el = document.getElementById('proOrderFloatText');
+                        if (el && data.followup.missing_slots && data.followup.missing_slots.length) {
+                            const missingZh = data.followup.missing_slots.map(s => slotLabelMap[s] || s);
+                            el.textContent = `${el.textContent || ''}（待补：${missingZh.join('、')}）`;
+                        }
+                    }
+                    updateJarvisStatus('等待补充信息...');
+                    return;
+                }
                 startToolRuntimeFromResponse(message, data);
                 if (data.toolCall && data.toolCall.tool_id) {
                     executeProToolCall(data.toolCall, message);
@@ -1405,16 +1755,58 @@
         })
         .then(execResult => {
             let docName = null;
-            console.log('工具执行结果:', execResult);
+            console.log('专业版执行结果:', execResult);
             if (execResult.success) {
                 let msg = execResult.message || '工具执行成功';
-                docName = execResult.doc_name || (execResult.data && execResult.data.document && execResult.data.document.filename);
-                console.log('获取到的docName:', docName);
+                docName = execResult.doc_name || (execResult.data && execResult.data.doc_name) || (execResult.data && execResult.data.document && execResult.data.document.filename);
+                console.log('提取的 docName:', docName);
                 if (docName) {
                     msg += `\n生成文件：${docName}`;
                 }
+                setDigitalRainText(msg);
                 jarvisAddMessage(msg, 'ai');
                 finishRuntimeProgress('完成');
+                // 工具执行完成但未退出 pro mode 时，也需要停止数字雨，避免“任务结束雨滴未退出”
+                stopDigitalRain();
+                // 专业版兜底：部分部署下 tools/execute 不会返回 autoAction，
+                // 导致“客户列表”科技感浮窗不出现；这里根据 tool_id 直接拉起 UI。
+                const toolId = String(
+                    payload.tool_id ||
+                    (toolCall && (toolCall.tool_id || toolCall.tool_key || toolCall.id)) ||
+                    ''
+                ).toLowerCase();
+                if (toolId.includes('customer')) {
+                    try {
+                        if (window.proFeatureWidget && typeof window.proFeatureWidget.showFeature === 'function') {
+                            console.log('[pro-mode] customers tool -> showFeature(user_list)');
+                            window.proFeatureWidget.showFeature('user_list', { query: (originalMessage || '').trim() });
+                        } else if (typeof window.showProFeature === 'function') {
+                            window.showProFeature('user_list', { query: (originalMessage || '').trim() });
+                        }
+                    } catch (_) {
+                        // best-effort only
+                    }
+                } else if (toolId.includes('product')) {
+                    // 产品查询：打开产品查询界面
+                    try {
+                        const query = (originalMessage || '').trim();
+                        const unitName = (execResult.data && execResult.data.unit_name) || '';
+                        const modelNumber = (execResult.data && execResult.data.model_number) || '';
+                        console.log('[pro-mode] products tool execResult:', execResult);
+                        console.log('[pro-mode] products tool -> showFeature(product_query)', { unitName, modelNumber, query });
+                        if (window.proFeatureWidget && typeof window.proFeatureWidget.showFeature === 'function') {
+                            window.proFeatureWidget.showFeature('product_query', {
+                                query: query || unitName || modelNumber,
+                                unit_name: unitName,
+                                model_number: modelNumber
+                            });
+                        } else if (typeof window.showProFeature === 'function') {
+                            window.showProFeature('product_query', { query: query });
+                        }
+                    } catch (_) {
+                        // best-effort only
+                    }
+                }
                 updateTaskContextState({
                     status: 'done',
                     current_task: payload.action || '执行工具',
@@ -1435,8 +1827,11 @@
                         .finally(() => { updateJarvisStatus('READY'); });
                 }
             } else {
-                jarvisAddMessage('工具执行失败: ' + (execResult.message || '未知错误'), 'ai');
+                const failMsg = '工具执行失败: ' + (execResult.message || '未知错误');
+                setDigitalRainText(failMsg);
+                jarvisAddMessage(failMsg, 'ai');
                 finishRuntimeProgress('失败');
+                stopDigitalRain();
                 updateTaskContextState({
                     status: 'failed',
                     current_task: payload.action || '执行工具',
@@ -1444,23 +1839,29 @@
                 });
             }
             if (docName) {
-                console.log('准备显示下载, docName:', docName);
                 showProPanelDownload(docName);
                 if (typeof window.showShipmentDownloadEntry === 'function') {
                     window.showShipmentDownloadEntry(docName);
                 }
                 // 专业版：发货单生成成功且生成了标签时，自动打开商标导出面板便于下载
-                if (payload.tool_id === 'shipment_generate' && execResult.data && execResult.data.labels && execResult.data.labels.length > 0) {
-                    if (typeof window.handleAutoAction === 'function') {
-                        window.handleAutoAction({ type: 'show_labels_export' });
+                // 注意：后端返回格式中 labels 在根级别，不在 data 里
+                var labels = execResult.labels || (execResult.data && execResult.data.labels);
+                if (payload.tool_id === 'shipment_generate' && labels && labels.length > 0) {
+                    if (typeof window.showLabelsExportPanelWithLabels === 'function') {
+                        window.showLabelsExportPanelWithLabels(labels);
+                    } else if (typeof window.handleAutoAction === 'function') {
+                        window.handleAutoAction({ type: 'show_labels_export', labels: labels });
                     }
                 }
             }
             updateJarvisStatus('READY');
         })
         .catch(err => {
-            jarvisAddMessage('工具执行失败: ' + err.message, 'ai');
+            const errMsg = '工具执行失败: ' + ((err && err.message) ? err.message : '未知错误');
+            setDigitalRainText(errMsg);
+            jarvisAddMessage(errMsg, 'ai');
             finishRuntimeProgress('异常');
+            stopDigitalRain();
             updateTaskContextState({
                 status: 'error',
                 current_task: payload.action || '执行工具',
@@ -1504,7 +1905,8 @@
         window.currentJarvisTask = task;
         updateJarvisStatus('等待确认...');
         
-        initDigitalRain();
+        const rainSeedText = [task && task.title, task && task.description].filter(Boolean).join(' ');
+        initDigitalRain(rainSeedText || '');
     }
 
     function jarvisConfirmTask() {
@@ -1524,6 +1926,10 @@
             runtime_context: buildRuntimeContextSnapshot()
         })
         .then(data => {
+            const finalRainText = data && data.success
+                ? (data.response || '任务执行完成')
+                : ('执行失败: ' + ((data && data.message) || '未知错误'));
+
             if (data.success) {
                 jarvisAddMessage(data.response || '任务执行完成', 'ai');
                 finishRuntimeProgress('任务完成');
@@ -1535,12 +1941,14 @@
             window.currentJarvisTask = null;
             const taskPanel = document.getElementById('jarvisTaskPanel');
             if (taskPanel) taskPanel.remove();
+            setDigitalRainText(finalRainText);
             stopDigitalRain();
         })
         .catch(e => {
             jarvisAddMessage('执行失败: ' + e.message, 'ai');
             updateJarvisStatus('READY');
             window.currentJarvisTask = null;
+            setDigitalRainText((e && e.message) ? e.message : '执行异常');
             stopDigitalRain();
             finishRuntimeProgress('执行异常');
         });
@@ -1558,11 +1966,12 @@
 
     function playJarvisVoice(text) {
         if (!text) return;
-        
+
         if (isPlaying) {
-            stopJarvisVoice();
+            voiceQueue.push(text);
+            return;
         }
-        
+
         voiceQueue = [text];
         playNextInQueue();
     }
@@ -1956,7 +2365,8 @@
                 action: () => {
                     const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
                     const link = document.createElement('a');
-                    link.href = `${apiBase}/api/customers/export.xlsx`;
+                    // 后端客户导出接口是 `/api/customers/export`
+                    link.href = `${apiBase}/api/customers/export`;
                     link.download = '购买单位列表.xlsx';
                     link.style.display = 'none';
                     document.body.appendChild(link);
@@ -2325,6 +2735,7 @@
         // 非工具执行场景：按实际响应立即结束（仅保留短动画展示）
         runtimeFinishTimer = setTimeout(() => {
             finishRuntimeProgress('完成');
+            stopDigitalRain();
         }, 300);
     }
 

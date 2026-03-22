@@ -1,12 +1,14 @@
 {
-  "name": "ai-assistant-vue",
+  "name": "xcagi-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vue-tsc && vite build",
     "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit",
+    "type-check:watch": "vue-tsc --noEmit --watch",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "test:e2e": "playwright test",
@@ -14,15 +16,19 @@
   },
   "dependencies": {
     "pinia": "^3.0.4",
-    "vue": "^3.3.4"
+    "vue": "^3.3.4",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
+    "@types/node": "^25.5.0",
     "@vitejs/plugin-vue": "^4.2.3",
     "@vue/test-utils": "^2.4.0",
     "eslint": "^8.56.0",
     "jsdom": "^23.0.0",
+    "typescript": "^5.9.3",
     "vite": "^4.4.5",
-    "vitest": "^1.0.0"
+    "vitest": "^1.0.0",
+    "vue-tsc": "^3.2.6"
   }
 }

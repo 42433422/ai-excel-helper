@@ -32,16 +32,21 @@ function loadProductUnits() {
     const sel = document.getElementById('productUnitSelect');
     if (!sel || sel.options.length > 1) return;
     const base = (typeof API_BASE !== 'undefined' ? API_BASE : '') || '';
-    fetch(base + '/api/customers')
+    // 兼容：如果 /api/products/units 不存在，则从产品列表推导 distinct(Product.unit)
+    fetch(base + '/api/products?per_page=1000&page=1')
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (!sel) return;
-            var list = (data && data.customers) ? data.customers : (data && data.data) ? data.data : [];
-            list.forEach(function (item) {
+            var list = (data && data.success && Array.isArray(data.data))
+                ? data.data.map(function (p) { return p.unit || p.unit_name || ''; })
+                : [];
+            // 去空 + 去重保序
+            list = list.filter(function (x) { return !!x; });
+            list = Array.from(new Set(list));
+            list.forEach(function (u) {
                 var opt = document.createElement('option');
-                opt.value = item.customer_name || item.unit_name || item.name || '';
-                opt.textContent = item.customer_name || item.unit_name || item.name || ('单位' + (item.id || ''));
-                if (item.id) opt.setAttribute('data-id', String(item.id));
+                opt.value = u;
+                opt.textContent = u;
                 sel.appendChild(opt);
             });
         })
@@ -55,18 +60,10 @@ function loadProducts() {
     var unitName = (sel && sel.value) ? sel.value.trim() : '';
     currentProductUnitName = unitName;
     var tbody = document.getElementById('productsTableBody');
-    
-    // 如果没有选择单位，显示提示信息
-    if (!unitName) {
-        if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">请先选择购买单位，即可查看或添加该单位的产品</td></tr>';
-        }
-        return;
-    }
-    
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-state">加载中...</td></tr>';
     var base = (typeof API_BASE !== 'undefined' ? API_BASE : '') || '';
-    var url = base + '/api/products?unit=' + encodeURIComponent(unitName);
+    var url = base + '/api/products';
+    if (unitName) url += '?unit=' + encodeURIComponent(unitName);
     fetch(url)
         .then(function (r) { return r.json().catch(function () { return { success: false, message: '返回格式异常' }; }); })
         .then(function (data) {
@@ -301,7 +298,7 @@ function exportProductPriceList() {
     var params = new URLSearchParams();
     if (unitId) params.set('unit_id', unitId);
     params.set('unit', unitName);
-    var url = base + '/api/export_unit_products_xlsx?' + params.toString();
+    var url = base + '/api/products/export_unit_products_xlsx?' + params.toString();
     fetch(url)
         .then(function (res) {
             if (res.ok) return res.blob();
@@ -321,7 +318,17 @@ function exportProductPriceList() {
         .then(function (blob) {
             var a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = (unitName || '产品') + '_价格表.xlsx';
+            var contentDisposition = res.headers && res.headers.get('content-disposition');
+            if (contentDisposition) {
+                var filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                if (filenameMatch && filenameMatch[1]) {
+                    a.download = filenameMatch[1].replace(/['"]/g, '');
+                } else {
+                    a.download = (unitName || '产品') + '_价格表.xlsx';
+                }
+            } else {
+                a.download = (unitName || '产品') + '_价格表.xlsx';
+            }
             a.style.display = 'none';
             document.body.appendChild(a);
             a.click();

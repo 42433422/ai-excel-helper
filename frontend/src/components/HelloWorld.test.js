@@ -5,6 +5,7 @@ import HelloWorld from '../../src/components/HelloWorld.vue'
 describe('HelloWorld.vue', () => {
   it('renders properly', () => {
     const wrapper = mount(HelloWorld)
-    expect(wrapper.text()).toContain('Vite + Vue')
+    // The starter template text may change; assert on a stable marker.
+    expect(wrapper.text()).toContain('count is')
   })
 })

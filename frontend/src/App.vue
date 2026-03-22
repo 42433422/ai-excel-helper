@@ -1,43 +1,145 @@
 <script setup>
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import MainLayout from './components/MainLayout.vue'
 import ProMode from './components/ProMode.vue'
-import ChatView from './views/ChatView.vue'
-import ProductsView from './views/ProductsView.vue'
-import MaterialsView from './views/MaterialsView.vue'
-import OrdersView from './views/OrdersView.vue'
-import ShipmentRecordsView from './views/ShipmentRecordsView.vue'
-import CustomersView from './views/CustomersView.vue'
-import WechatContactsView from './views/WechatContactsView.vue'
-import PrintView from './views/PrintView.vue'
-import TemplatePreviewView from './views/TemplatePreviewView.vue'
-import SettingsView from './views/SettingsView.vue'
-import ToolsView from './views/ToolsView.vue'
 
-const activeView = ref('chat')
+const route = useRoute()
+const router = useRouter()
 const isProMode = ref(false)
 
-const views = {
-  'chat': ChatView,
-  'products': ProductsView,
-  'materials': MaterialsView,
-  'orders': OrdersView,
-  'shipment-records': ShipmentRecordsView,
-  'customers': CustomersView,
-  'wechat-contacts': WechatContactsView,
-  'print': PrintView,
-  'template-preview': TemplatePreviewView,
-  'settings': SettingsView,
-  'tools': ToolsView
+let switchViewEvent = null
+
+const hasLegacyProModeRuntime = () => {
+  const legacyToggle = window.__legacyToggleProMode || window.toggleProMode
+  return typeof legacyToggle === 'function'
 }
 
-const handleViewChange = (viewKey) => {
-  activeView.value = viewKey
+const readProModeStateFromDom = () => {
+  const overlay = document.getElementById('proModeOverlay')
+  const bodyActive = document.body.classList.contains('pro-mode-active')
+  const overlayActive = !!overlay?.classList.contains('active')
+  const overlayVisible = !!overlay && overlay.style.display !== 'none'
+  const toggle = document.getElementById('proModeToggle')
+  const toggleActive = !!toggle?.classList.contains('active')
+  return bodyActive || (overlayActive && overlayVisible) || toggleActive
+}
+
+const syncProModeStateSoon = () => {
+  requestAnimationFrame(() => {
+    isProMode.value = readProModeStateFromDom()
+  })
+  setTimeout(() => {
+    isProMode.value = readProModeStateFromDom()
+  }, 350)
+  setTimeout(() => {
+    isProMode.value = readProModeStateFromDom()
+  }, 1650)
 }
 
 const handleToggleProMode = () => {
+  const legacyToggle = window.__legacyToggleProMode || window.toggleProMode
+  if (typeof legacyToggle === 'function') {
+    legacyToggle()
+    syncProModeStateSoon()
+    return
+  }
   isProMode.value = !isProMode.value
 }
+
+let proModeObserver = null
+let onToggleProModeEvent = null
+
+onMounted(() => {
+  const syncProModeFromDom = () => {
+    isProMode.value = readProModeStateFromDom()
+  }
+
+  window.setProModeEnabled = (enabled) => {
+    const shouldEnable = !!enabled
+    const active = readProModeStateFromDom()
+    if (shouldEnable === active) {
+      isProMode.value = active
+      return
+    }
+    if (hasLegacyProModeRuntime()) {
+      const legacyToggle = window.__legacyToggleProMode || window.toggleProMode
+      legacyToggle()
+      syncProModeStateSoon()
+    } else {
+      isProMode.value = shouldEnable
+    }
+  }
+
+  onToggleProModeEvent = () => {
+    handleToggleProMode()
+  }
+
+  window.addEventListener('xcagi:toggle-pro-mode', onToggleProModeEvent)
+
+  proModeObserver = new MutationObserver(() => {
+    syncProModeFromDom()
+  })
+  proModeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+  const overlay = document.getElementById('proModeOverlay')
+  if (overlay) {
+    proModeObserver.observe(overlay, { attributes: true, attributeFilter: ['class', 'style'] })
+  }
+  syncProModeFromDom()
+
+  const bindOnce = (id, eventName, handler) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    if (el.getAttribute('data-xcagi-bound') === '1') return
+    el.setAttribute('data-xcagi-bound', '1')
+    el.addEventListener(eventName, handler)
+  }
+
+  bindOnce('fileUploadEntry', 'click', () => {
+    try {
+      if (typeof window.openImportWindow === 'function') {
+        console.log('[xcagi] click fileUploadEntry -> openImportWindow()')
+        window.openImportWindow()
+      } else {
+        console.warn('[xcagi] openImportWindow not found on window')
+      }
+    } catch (err) {
+      console.warn('[xcagi] fileUploadEntry click failed:', err)
+    }
+  })
+
+  bindOnce('chooseFileBtn', 'click', () => {
+    const fileInput = document.getElementById('fileInput')
+    if (fileInput) fileInput.click()
+  })
+
+  switchViewEvent = (event) => {
+    const view = event.detail?.view
+    if (view) {
+      console.log('[App] xcagi:switch-view received, navigating to:', view)
+      router.push({ name: view })
+    }
+  }
+  window.addEventListener('xcagi:switch-view', switchViewEvent)
+})
+
+onBeforeUnmount(() => {
+  if (proModeObserver) {
+    proModeObserver.disconnect()
+    proModeObserver = null
+  }
+  if (onToggleProModeEvent) {
+    window.removeEventListener('xcagi:toggle-pro-mode', onToggleProModeEvent)
+    onToggleProModeEvent = null
+  }
+  if (switchViewEvent) {
+    window.removeEventListener('xcagi:switch-view', switchViewEvent)
+    switchViewEvent = null
+  }
+  if (window.setProModeEnabled) {
+    delete window.setProModeEnabled
+  }
+})
 </script>
 
 <template>
@@ -46,7 +148,7 @@ const handleToggleProMode = () => {
   <div class="preview-float-window" id="previewFloatWindow">
     <div class="preview-header">
       <h4>📺 媒体预览</h4>
-      <button class="preview-close" id="previewCloseBtn">&times;</button>
+      <button class="preview-close" id="previewCloseBtn" data-close-action="closePreviewWindow">&times;</button>
     </div>
     <div class="preview-content">
       <div class="preview-media" id="previewMedia">
@@ -58,7 +160,7 @@ const handleToggleProMode = () => {
   <div class="progress-panel" id="progressPanel">
     <div class="progress-panel-header">
       <div class="progress-title">任务进度</div>
-      <button class="progress-close" id="progressCloseBtn">&times;</button>
+      <button class="progress-close" id="progressCloseBtn" data-close-action="hideProgress">&times;</button>
     </div>
     <div class="progress-info">
       <span class="progress-status">处理中...</span>
@@ -78,7 +180,7 @@ const handleToggleProMode = () => {
   <div class="import-float-window" id="importFloatWindow">
     <div class="import-header">
       <h4>📁 导入文件</h4>
-      <button class="import-close" id="importCloseBtn">&times;</button>
+      <button class="import-close" id="importCloseBtn" data-close-action="closeImportWindow">&times;</button>
     </div>
     <div class="import-content">
       <div class="drop-zone" id="dropZone">
@@ -90,14 +192,14 @@ const handleToggleProMode = () => {
       <div class="import-actions">
         <button class="btn btn-primary" id="chooseFileBtn">选择文件</button>
         <button class="btn btn-success" id="openCameraBtn">📷 拍照识别</button>
-        <button class="btn btn-secondary" id="cancelImportBtn">取消</button>
+        <button class="btn btn-secondary" id="cancelImportBtn" data-close-action="closeImportWindow">取消</button>
       </div>
       <div class="camera-panel" id="cameraPanel" style="display: none;">
         <video id="cameraVideo" autoplay playsinline></video>
         <canvas id="cameraCanvas" style="display: none;"></canvas>
         <div class="camera-buttons">
           <button class="btn btn-primary" id="capturePhotoBtn">拍照</button>
-          <button class="btn btn-secondary" id="closeCameraBtn">关闭</button>
+          <button class="btn btn-secondary" id="closeCameraBtn" data-close-action="closeCamera">关闭</button>
         </div>
       </div>
       <div class="import-progress" id="importProgress">
@@ -160,12 +262,10 @@ const handleToggleProMode = () => {
   <ProMode v-model="isProMode" />
 
   <MainLayout
-    :active-view="activeView"
     :is-pro-mode="isProMode"
-    @change-view="handleViewChange"
     @toggle-pro-mode="handleToggleProMode"
   >
-    <component :is="views[activeView]" />
+    <router-view />
   </MainLayout>
 </template>
 

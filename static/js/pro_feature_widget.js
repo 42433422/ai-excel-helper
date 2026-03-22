@@ -884,7 +884,8 @@ class ProFeatureWidget {
                 exportUsersBtn.addEventListener('click', () => {
                     const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
                     const link = document.createElement('a');
-                    link.href = `${apiBase}/api/customers/export.xlsx`;
+                    // 后端客户导出接口是 `/api/customers/export`
+                    link.href = `${apiBase}/api/customers/export`;
                     link.style.display = 'none';
                     document.body.appendChild(link);
                     link.click();
@@ -2141,6 +2142,13 @@ class ProFeatureWidget {
         if (companyNameEl) companyNameEl.textContent = '请选择购买单位';
         if (productListEl) productListEl.innerHTML = '<div class="product-query-empty">先选择右侧购买单位</div>';
 
+        const passedProducts = config && config.products;
+        const passedUnitName = (config && config.unit_name ? String(config.unit_name) : '').trim();
+
+        if (passedProducts && Array.isArray(passedProducts) && passedProducts.length > 0) {
+            this._passedProducts = passedProducts;
+        }
+
         try {
             const response = await fetch('/api/customers');
             const data = await response.json();
@@ -2202,12 +2210,47 @@ class ProFeatureWidget {
             }
 
             const query = (config && config.query ? String(config.query) : '').trim();
-            if (query) {
-                const matched = this._productCompanies.find(item => item.name.includes(query));
+            const unitName = passedUnitName;
+            const searchTarget = unitName || query;
+
+            if (searchTarget) {
+                const matched = this._productCompanies.find(item => item.name.includes(searchTarget));
                 if (matched) {
                     const row = cloud ? cloud.querySelector(`.customer-row[data-id="${matched.id}"]`) : null;
                     const token = row ? row.querySelector('.floating-unit-token') : null;
-                    this.selectProductCompany(matched, row || null, token || null);
+
+                    if (passedProducts && Array.isArray(passedProducts) && passedProducts.length > 0) {
+                        this._selectedProductCompany = matched;
+                        this._productAllItems = passedProducts;
+                        this._selectedProductCompanyRow = row || null;
+                        if (cloud) {
+                            const rows = cloud.querySelectorAll('.customer-row');
+                            rows.forEach((r) => {
+                                const t = r.querySelector('.floating-unit-token');
+                                const active = String(matched.id) === r.getAttribute('data-id');
+                                r.classList.toggle('expanded', active);
+                                r.classList.toggle('collapsed', !active);
+                                if (t) t.classList.toggle('active', active);
+                            });
+                        }
+                        if (token && token.classList) token.classList.add('active', 'pinned');
+                        const companyNameEl2 = document.getElementById('proProductCompanyName');
+                        if (companyNameEl2) companyNameEl2.textContent = matched.name || '已选择单位';
+                        const exportBtn2 = document.getElementById('proProductExportExcelBtn');
+                        if (exportBtn2) exportBtn2.style.display = '';
+                        this.renderProductQueryList(passedProducts);
+                        if (typeof window.setProProductQueryStage === 'function') {
+                            window.setProProductQueryStage('company_selected', {
+                                company: matched.name,
+                                products: passedProducts.map((p) => p.name || p.model_number || '产品')
+                            });
+                        }
+                        const iconRing2 = document.getElementById('iconRingContainer');
+                        if (iconRing2) iconRing2.classList.add('visible');
+                        this.updateProductQueryIconRing();
+                    } else {
+                        this.selectProductCompany(matched, row || null, token || null);
+                    }
                 }
             }
         } catch (error) {
@@ -2381,11 +2424,12 @@ class ProFeatureWidget {
         const params = new URLSearchParams();
         if (company.id) params.set('unit_id', String(company.id));
         if (company.name) params.set('unit', company.name);
-        // 使用单段路径避免 404
-        const url = `${apiBase}/api/export_unit_products_xlsx?${params.toString()}`;
+        const url = `${apiBase}/api/products/export_unit_products_xlsx?${params.toString()}`;
         fetch(url)
             .then(function (res) {
-                if (res.ok) return res.blob();
+                if (res.ok) return res.blob().then(function(blob) {
+                    return { blob: blob, res: res };
+                });
                 return res.text().then(function (text) {
                     try {
                         const data = JSON.parse(text);
@@ -2399,10 +2443,30 @@ class ProFeatureWidget {
                     }
                 });
             })
-            .then(function (blob) {
+            .then(function (data) {
+                if (!data.blob) return;
+                const blob = data.blob;
+                const res = data.res;
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = (company.name || '产品') + '_产品列表.xlsx';
+                var contentDisposition = res.headers && res.headers.get('content-disposition');
+                var filename = (company.name || '产品') + '_产品列表.xlsx';
+                if (contentDisposition) {
+                    var filenameStarMatch = contentDisposition.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
+                    if (filenameStarMatch && filenameStarMatch[1]) {
+                        try {
+                            filename = decodeURIComponent(filenameStarMatch[1]);
+                        } catch(e) {
+                            filename = filenameStarMatch[1];
+                        }
+                    } else {
+                        var simpleMatch = contentDisposition.match(/filename=["']?([^;"\n]+)/);
+                        if (simpleMatch && simpleMatch[1]) {
+                            filename = simpleMatch[1].replace(/['"]/g, '');
+                        }
+                    }
+                }
+                a.download = filename;
                 a.style.display = 'none';
                 document.body.appendChild(a);
                 a.click();
@@ -2639,3 +2703,32 @@ window.hideProFeature = () => {
         window.proFeatureWidget.hide();
     }
 };
+
+// Vue 版会在 autoAction 触发时派发 `auto-action` 事件（不会一定走 legacy handleAutoAction）。
+// 为了保证“专业版客户列表”工具调用后一定出现科技感浮窗，这里补一个兜底监听。
+window.addEventListener('auto-action', (evt) => {
+    try {
+        const action = evt && evt.detail && evt.detail.action ? evt.detail.action : null;
+        const userMessage = evt && evt.detail && typeof evt.detail.userMessage === 'string'
+            ? evt.detail.userMessage
+            : '';
+
+        if (!action || !action.type) return;
+        if (!window.proFeatureWidget || typeof window.proFeatureWidget.showFeature !== 'function') {
+            // 极端时序下 proFeatureWidget 可能还没初始化；尝试在本模块内补初始化
+            if (typeof initProFeatureWidget === 'function') initProFeatureWidget();
+        }
+        if (!window.proFeatureWidget || typeof window.proFeatureWidget.showFeature !== 'function') return;
+
+        switch (action.type) {
+            case 'show_customers':
+                window.proFeatureWidget.showFeature('user_list', { query: userMessage || '' });
+                break;
+            case 'show_products':
+                window.proFeatureWidget.showFeature('product_query', { query: userMessage || '' });
+                break;
+        }
+    } catch (_) {
+        // avoid breaking UI; best-effort UI bridge
+    }
+});

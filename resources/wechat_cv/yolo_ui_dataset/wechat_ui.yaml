@@ -1,0 +1,8 @@
+# 微信 UI 多类别 YOLO 数据集（区域分割模板）
+# 采集: python collect_wechat_ui_regions.py
+# 训练: python train_wechat_ui_yolo.py
+path: yolo_ui_dataset
+train: images
+val: images
+nc: 4
+names: ['search_box', 'contact_card', 'send_button', 'input_area']

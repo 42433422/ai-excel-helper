@@ -4,13 +4,14 @@
 提供从 Excel 提取的数据导入到数据库的服务。
 """
 
-from typing import List, Dict, Any, Optional, Tuple
 import logging
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
-from app.db.session import get_db
-from app.db.models import Product
 from sqlalchemy import inspect
+
+from app.db.models import Product
+from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 

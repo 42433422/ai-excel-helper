@@ -1,0 +1,244 @@
+# 行业配置 v1
+# 支持多行业配置，默认使用涂料行业，可扩展更多行业
+
+default_industry: "涂料"
+
+industries:
+  涂料:
+    name: "涂料/油漆行业"
+    description: "适用于涂料、油漆、固化剂等化工产品"
+    units:
+      primary: "桶"
+      secondary: "kg"
+      primary_label: "桶数"
+      secondary_label: "公斤"
+      spec_label: "规格"
+      conversion:
+        桶_to_kg: 20.0
+
+    quantity_fields:
+      primary_field: "tins"
+      secondary_field: "kg"
+      spec_field: "spec_per_tin"
+      primary_label: "桶数"
+      secondary_label: "公斤"
+      spec_label: "规格"
+
+    product_fields:
+      name: "产品名称"
+      model: "型号"
+      category: "产品类型"
+      price: "单价"
+      unit: "单位"
+
+    order_types:
+      shipment: "发货单"
+      receipt: "收货单"
+      return: "退货单"
+
+    intent_keywords:
+      create_order:
+        - "开发货单"
+        - "生成发货单"
+        - "做发货单"
+        - "开单"
+        - "打单"
+        - "做出货单"
+        - "送货单"
+      quantity_unit: "桶"
+      print_label:
+        - "商标"
+        - "标签"
+        - "打印标签"
+        - "商标打印"
+      product:
+        - "产品"
+        - "型号"
+        - "规格"
+        - "产品列表"
+      customer:
+        - "客户"
+        - "购买单位"
+        - "单位"
+        - "客户列表"
+
+    print_config:
+      printer_type: "TSC"
+      label_width: 60
+      label_height: 40
+
+  电商:
+    name: "电商/零售行业"
+    description: "适用于电商、零售、批发等商品销售"
+    units:
+      primary: "件"
+      secondary: "箱"
+      primary_label: "件数"
+      secondary_label: "箱数"
+      spec_label: "规格"
+      conversion:
+        箱_to_件: 12.0
+
+    quantity_fields:
+      primary_field: "pieces"
+      secondary_field: "cartons"
+      spec_field: "spec_per_box"
+      primary_label: "件数"
+      secondary_label: "箱数"
+      spec_label: "规格"
+
+    product_fields:
+      name: "商品名称"
+      model: "SKU"
+      category: "分类"
+      price: "售价"
+      unit: "单位"
+
+    order_types:
+      shipment: "销售单"
+      receipt: "采购单"
+      return: "退货单"
+
+    intent_keywords:
+      create_order:
+        - "开销售单"
+        - "创建订单"
+        - "下单"
+        - "开单"
+        - "做销售单"
+      quantity_unit: "件"
+      print_label:
+        - "面单"
+        - "快递单"
+        - "标签"
+        - "打印标签"
+      product:
+        - "商品"
+        - "SKU"
+        - "货品"
+        - "商品列表"
+      customer:
+        - "客户"
+        - "买家"
+        - "顾客"
+        - "客户列表"
+
+    print_config:
+      printer_type: "PDF"
+      label_width: 100
+      label_height: 50
+
+  餐饮:
+    name: "餐饮/食品行业"
+    description: "适用于餐饮、食品加工、原材料采购"
+    units:
+      primary: "斤"
+      secondary: "公斤"
+      primary_label: "斤数"
+      secondary_label: "公斤"
+      spec_label: "规格"
+      conversion:
+        公斤_to_斤: 2.0
+
+    quantity_fields:
+      primary_field: "jin"
+      secondary_field: "kg"
+      spec_field: "spec_per_jin"
+      primary_label: "斤数"
+      secondary_label: "公斤"
+      spec_label: "规格"
+
+    product_fields:
+      name: "食材名称"
+      model: "编号"
+      category: "类别"
+      price: "单价"
+      unit: "单位"
+
+    order_types:
+      shipment: "领料单"
+      receipt: "采购单"
+      return: "退货单"
+
+    intent_keywords:
+      create_order:
+        - "开领料单"
+        - "领料"
+        - "申请食材"
+        - "采购"
+      quantity_unit: "斤"
+      print_label:
+        - "标签"
+        - "食材标签"
+        - "打印标签"
+      product:
+        - "食材"
+        - "原料"
+        - "材料"
+        - "货品"
+      customer:
+        - "客户"
+        - "供应商"
+        - "采购商"
+
+    print_config:
+      printer_type: "PDF"
+      label_width: 60
+      label_height: 40
+
+  物流:
+    name: "物流/运输行业"
+    description: "适用于物流、运输、仓储等场景"
+    units:
+      primary: "件"
+      secondary: "吨"
+      primary_label: "件数"
+      secondary_label: "吨数"
+      spec_label: "体积"
+      conversion:
+        吨_to_件: 1000.0
+
+    quantity_fields:
+      primary_field: "pieces"
+      secondary_field: "tons"
+      spec_field: "volume"
+      primary_label: "件数"
+      secondary_label: "吨数"
+      spec_label: "体积"
+
+    product_fields:
+      name: "货物名称"
+      model: "运单号"
+      category: "货物类型"
+      price: "运费"
+      unit: "单位"
+
+    order_types:
+      shipment: "发货单"
+      receipt: "收货单"
+      return: "退货单"
+
+    intent_keywords:
+      create_order:
+        - "创建运单"
+        - "发货"
+        - "录单"
+        - "开单"
+      quantity_unit: "件"
+      print_label:
+        - "运单"
+        - "面单"
+        - "标签"
+      product:
+        - "货物"
+        - "货品"
+        - "商品"
+      customer:
+        - "客户"
+        - "收货人"
+        - "发货人"
+
+    print_config:
+      printer_type: "PDF"
+      label_width: 100
+      label_height: 50

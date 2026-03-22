@@ -1,0 +1,69 @@
+version: "3.1"
+
+intents:
+  - shipment_generate
+  - customers
+  - products
+  - shipments
+  - wechat_send
+  - print_label
+  - upload_file
+  - materials
+  - shipment_template
+  - excel_decompose
+  - show_images
+  - show_videos
+  - greet
+  - goodbye
+  - help
+  - negation_test
+  - customer_export
+  - customer_edit
+  - customer_supplement
+
+entities:
+  - product_name
+  - customer_name
+  - quantity
+  - specification
+  - order_number
+
+slots:
+  product_name:
+    type: text
+    influence_conversation: false
+  customer_name:
+    type: text
+    influence_conversation: false
+  quantity:
+    type: text
+    influence_conversation: false
+  specification:
+    type: text
+    influence_conversation: false
+  order_number:
+    type: text
+    influence_conversation: false
+
+responses:
+  utter_greet:
+    - text: "您好！有什么可以帮您的？"
+
+  utter_goodbye:
+    - text: "再见，有需要随时找我！"
+
+  utter_help:
+    - text: "我可以帮您处理发货单、客户管理、产品查询、文件上传等业务。有什么需要请告诉我！"
+
+  utter_default:
+    - text: "抱歉，我没有理解您的意思，请换个说法或者告诉我您想要做什么。"
+
+actions:
+  - action_greet
+  - action_goodbye
+  - action_help
+  - action_default
+
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true

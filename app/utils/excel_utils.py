@@ -4,7 +4,7 @@ Excel 处理工具函数模块
 提供 Excel 文件读写、合并单元格处理等工具函数。
 """
 
-from typing import Iterable, Tuple, Any
+from typing import Any, Iterable, Tuple
 
 
 def get_header_indices(header: Iterable[str]) -> Tuple[int | None, int | None, int | None, int | None]:

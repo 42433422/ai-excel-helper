@@ -19,10 +19,9 @@ class TestShipmentService:
     """发货单服务测试"""
 
     def test_service_import(self):
-        """测试服务类可以导入"""
-        from app.services.shipment_service import ShipmentService
-        service = ShipmentService()
-        assert service is not None
+        """测试应用服务类可以导入"""
+        from app.application.shipment_app_service import ShipmentApplicationService
+        assert ShipmentApplicationService is not None
 
 
 class TestOCRService:

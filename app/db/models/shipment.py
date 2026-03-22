@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
+
 from app.db.base import Base
 
 
@@ -8,6 +10,7 @@ class ShipmentRecord(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     purchase_unit = Column(String, nullable=False)
+    # Note: ForeignKey removed - cross-database constraints not supported in SQLite
     unit_id = Column(Integer)
     product_name = Column(String, nullable=False)
     model_number = Column(String)
@@ -23,3 +26,5 @@ class ShipmentRecord(Base):
     printer_name = Column(String)
     raw_text = Column(Text)
     parsed_data = Column(Text)
+    
+    # Relationship removed - cross-database relationships not supported

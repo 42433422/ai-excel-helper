@@ -118,11 +118,6 @@ export const ProModeComponents = {
     loadingComponent,
     errorComponent
   }),
-  DigitalRainCanvas: defineAsyncComponent({
-    loader: () => import('./components/pro-mode/DigitalRainCanvas.vue'),
-    loadingComponent,
-    errorComponent
-  }),
   FallingTextContainer: defineAsyncComponent({
     loader: () => import('./components/pro-mode/FallingTextContainer.vue'),
     loadingComponent,
@@ -163,7 +158,6 @@ export function preloadAllComponents() {
 export const componentPreloadMap = {
   'ProModeOverlay': ['JarvisCore', 'WireRings', 'EnergyParticles'],
   'ProFeatureWidget': ['WeChatLoginPanel', 'UserListPanel', 'ProductQueryPanel'],
-  'DigitalRainCanvas': ['FallingTextContainer'],
   'StarkGrid': []
 }
 

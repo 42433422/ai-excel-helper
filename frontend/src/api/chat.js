@@ -38,7 +38,8 @@ export const chatApi = {
   },
 
   saveMessage(payload) {
-    return api.post('/api/ai/message/save', payload);
+    // Use conversation endpoint directly to avoid alias incompatibilities.
+    return api.post('/api/conversations/message', payload);
   },
 
   newConversation(data = {}) {

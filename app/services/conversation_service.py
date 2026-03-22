@@ -5,13 +5,13 @@
 提供对话历史和会话管理的业务逻辑。
 """
 
-from typing import List, Tuple, Any, Optional
 import logging
 import uuid
 from datetime import datetime
+from typing import Any, List, Optional, Tuple
 
-from app.db.session import get_db
 from app.db.models import AIConversation, AIConversationSession
+from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 <template>
   <div 
     class="jarvis-core"
-    :class="{ 'speaking': isSpeaking, 'work-mode': isWorkMode }"
+    :class="{ 'speaking': isSpeaking, 'work-mode': isWorkMode, 'monitor-mode': isMonitorMode }"
     :style="{ transform: coreTransform }"
     @click="handleClick"
   >
@@ -47,7 +47,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { createIcosahedron, createOctahedron, createTetrahedron, createDodecahedron } from '@/utils/geometry'
+import { createIcosahedron, createOctahedron, createTetrahedron, createDodecahedron } from '@/utils/geometry-real'
 
 const props = defineProps({
   isSpeaking: {
@@ -55,6 +55,10 @@ const props = defineProps({
     default: false
   },
   isWorkMode: {
+    type: Boolean,
+    default: false
+  },
+  isMonitorMode: {
     type: Boolean,
     default: false
   }
@@ -118,6 +122,26 @@ function createPolyhedronFaces() {
 }
 
 function faceTransform(face, index, totalFaces) {
+  if (face?.normal) {
+    const [nx, ny, nz] = face.normal
+    const rotateY = Math.atan2(nx, nz) * (180 / Math.PI)
+    const rotateX = -Math.atan2(ny, Math.hypot(nx, nz)) * (180 / Math.PI)
+
+    // 基于面的中心点半径动态设置深度，让不同几何体层次更自然。
+    let translateZ = 140
+    if (Array.isArray(face.vertices) && face.vertices.length > 0) {
+      const center = face.vertices.reduce(
+        (acc, v) => [acc[0] + v[0], acc[1] + v[1], acc[2] + v[2]],
+        [0, 0, 0]
+      ).map((n) => n / face.vertices.length)
+
+      const radius = Math.hypot(center[0], center[1], center[2])
+      translateZ = Math.max(110, Math.min(165, radius * 1.25))
+    }
+
+    return `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(${translateZ}px)`
+  }
+
   const transforms = [
     'rotateX(0deg) rotateY(0deg) translateZ(140px)',
     'rotateX(60deg) rotateY(0deg) translateZ(140px)',
@@ -196,6 +220,11 @@ onUnmounted(() => {
 .work-mode .jarvis-sphere {
   background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(255, 0, 0, 0.6), rgba(255, 51, 51, 0.4));
   box-shadow: 0 0 30px rgba(255, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.monitor-mode .jarvis-sphere {
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(255, 215, 0, 0.6), rgba(255, 180, 0, 0.4));
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.3);
 }
 
 .jarvis-core.speaking .jarvis-sphere {

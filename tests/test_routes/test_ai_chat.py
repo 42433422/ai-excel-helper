@@ -12,8 +12,16 @@ class TestAIChat:
     """AI 对话路由测试"""
 
     @pytest.fixture
+    def mock_ai_chat_service(self):
+        """Mock AI 聊天应用服务"""
+        with patch('app.routes.ai_chat.get_ai_chat_app_service') as mock:
+            service = MagicMock()
+            mock.return_value = service
+            yield service
+
+    @pytest.fixture
     def mock_ai_service(self):
-        """Mock AI 服务"""
+        """Mock AI 服务（用于非 chat 路由）"""
         with patch('app.routes.ai_chat.get_ai_service') as mock:
             service = MagicMock()
             mock.return_value = service
@@ -25,12 +33,17 @@ class TestAIChat:
         with patch('app.routes.ai_chat.recognize_intents') as mock:
             yield mock
 
-    def test_chat_success(self, client, mock_ai_service, mock_intent_service):
+    def test_chat_success(self, client, mock_ai_chat_service, mock_intent_service):
         """测试正常聊天"""
-        mock_ai_service.chat = AsyncMock(return_value={
-            "text": "测试回复",
-            "action": "ai_response",
-            "data": {}
+        mock_ai_chat_service.process_chat = MagicMock(return_value={
+            "success": True,
+            "message": "处理完成",
+            "data": {
+                "text": "测试回复",
+                "action": "ai_response",
+                "data": {}
+            },
+            "response": "测试回复"
         })
         
         response = client.post(
@@ -45,12 +58,17 @@ class TestAIChat:
         assert "data" in data
         assert data["data"]["text"] == "测试回复"
 
-    def test_chat_with_user_id(self, client, mock_ai_service, mock_intent_service):
+    def test_chat_with_user_id(self, client, mock_ai_chat_service, mock_intent_service):
         """测试带用户 ID 的聊天"""
-        mock_ai_service.chat = AsyncMock(return_value={
-            "text": "测试回复",
-            "action": "ai_response",
-            "data": {}
+        mock_ai_chat_service.process_chat = MagicMock(return_value={
+            "success": True,
+            "message": "处理完成",
+            "data": {
+                "text": "测试回复",
+                "action": "ai_response",
+                "data": {}
+            },
+            "response": "测试回复"
         })
         
         response = client.post(
@@ -60,7 +78,7 @@ class TestAIChat:
         )
         
         assert response.status_code == 200
-        mock_ai_service.chat.assert_called_once()
+        mock_ai_chat_service.process_chat.assert_called_once()
 
     def test_chat_with_context(self, client, mock_ai_service, mock_intent_service):
         """测试带额外上下文的聊天"""
@@ -247,6 +265,47 @@ class TestAIChat:
         data = response.get_json()
         assert data["data"]["action"] == "tool_call"
         assert data["data"]["data"]["tool_key"] == "shipment_generate"
+
+    def test_chat_followup_response_shape(self, client, mock_ai_service):
+        """测试 followup 响应结构"""
+        mock_ai_service.chat = AsyncMock(return_value={
+            "text": "还缺少桶数，请告诉我需要多少桶？",
+            "action": "followup",
+            "data": {"task_type": "shipment_generate", "missing_slots": ["quantity_tins"]},
+        })
+
+        response = client.post(
+            '/api/ai/chat',
+            json={"message": "打印七彩乐园发货单，编号9803，规格28"},
+            content_type='application/json'
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert "followup" in data
+        assert data["followup"]["missing_slots"] == ["quantity_tins"]
+
+    def test_chat_toolcall_uses_structured_order_text(self, client, mock_ai_service):
+        """测试 toolCall 优先使用结构化 order_text 参数"""
+        mock_ai_service.chat = AsyncMock(return_value={
+            "text": "正在处理工具调用：shipment_generate",
+            "action": "tool_call",
+            "data": {
+                "tool_key": "shipment_generate",
+                "intent": "shipment_generate",
+                "params": {"order_text": "七彩乐园5 桶 9803 规格 28"},
+            },
+        })
+
+        response = client.post(
+            '/api/ai/chat',
+            json={"message": "改成5桶", "source": "pro"},
+            content_type='application/json'
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["toolCall"]["params"]["order_text"] == "七彩乐园5 桶 9803 规格 28"
 
     def test_chat_stream_success(self, client, mock_ai_service):
         """测试流式对话成功"""

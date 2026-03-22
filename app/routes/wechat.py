@@ -6,21 +6,23 @@
 """
 
 import os
-from flasgger import swag_from
-from flask import Blueprint, request, jsonify
+from functools import lru_cache
 
-from app.services.wechat_task_service import WechatTaskService
-from app.services.wechat_contact_service import WechatContactService
+from flasgger import swag_from
+from flask import Blueprint, jsonify, request
+
+from app.application import get_wechat_contact_app_service, get_wechat_task_app_service
 
 wechat_bp = Blueprint("wechat", __name__, url_prefix="/api/wechat")
 
 
+@lru_cache(maxsize=1)
 def get_wechat_task_service():
-    return WechatTaskService()
+    return get_wechat_task_app_service()
 
 
 def get_wechat_contact_service():
-    return WechatContactService()
+    return get_wechat_contact_app_service()
 
 
 @wechat_bp.route("/tasks", methods=["GET"])
@@ -469,7 +471,12 @@ def wechat_contact_star(contact_id):
         starred = data.get("starred", True)
 
         service = get_wechat_contact_service()
-        result = service.star_contact(contact_id, starred)
+        # 兼容：旧服务提供 star_contact；新应用服务使用 update_contact
+        star_fn = getattr(service, "star_contact", None)
+        if callable(star_fn):
+            result = star_fn(contact_id, starred)
+        else:
+            result = service.update_contact(contact_id=contact_id, is_starred=starred)
 
         status_code = 200 if result.get("success") else 400
         return jsonify(result), status_code
@@ -631,7 +638,12 @@ def wechat_status():
     """获取微信登录状态"""
     try:
         import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'wechat_cv'))
+
+        from app.utils.path_utils import get_resource_path
+
+        wechat_cv_path = get_resource_path("wechat_cv")
+        if os.path.isdir(wechat_cv_path) and wechat_cv_path not in sys.path:
+            sys.path.insert(0, wechat_cv_path)
         from wechat_cv_send import _find_wechat_handle
         hwnd = _find_wechat_handle()
         is_logined = hwnd is not None

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>按钮布局测试</title>
+    <style>
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        
+        .test-container {
+            text-align: center;
+            padding: 40px;
+            border: 2px solid #00aaff;
+            border-radius: 10px;
+            background: rgba(0, 20, 40, 0.8);
+        }
+        
+        .pro-title {
+            color: #00aaff;
+            font-size: 24px;
+            letter-spacing: 4px;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px #00aaff;
+        }
+        
+        /* 方案 1: flex 垂直布局 */
+        .pro-buttons-flex {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 15px !important;
+            align-items: center !important;
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px dashed #ff0;
+        }
+        
+        /* 方案 2: block 元素 */
+        .pro-buttons-block {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px dashed #0f0;
+        }
+        
+        .pro-buttons-block button {
+            display: block;
+            margin: 10px auto;
+        }
+        
+        /* 按钮样式 */
+        .pro-exit-btn {
+            background: rgba(0, 150, 255, 0.2);
+            border: 1px solid rgba(0, 150, 255, 0.5);
+            color: #00aaff;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .pro-exit-btn:hover {
+            background: rgba(0, 150, 255, 0.3);
+            border-color: #00aaff;
+            box-shadow: 0 0 20px rgba(0, 170, 255, 0.5);
+        }
+        
+        .test-label {
+            color: #fff;
+            margin-top: 40px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="pro-title">STARK INDUSTRIES</div>
+        
+        <!-- 测试方案 1: flex 布局 -->
+        <div class="pro-buttons-flex">
+            <button class="pro-exit-btn">EXIT PRO MODE</button>
+            <button class="pro-exit-btn" title="返回上一步">撤回</button>
+        </div>
+        
+        <div class="test-label">↑ 方案 1: flex-direction: column (黄色边框)</div>
+        
+        <!-- 测试方案 2: block 布局 -->
+        <div class="pro-buttons-block">
+            <button class="pro-exit-btn">EXIT PRO MODE</button>
+            <button class="pro-exit-btn" title="返回上一步">撤回</button>
+        </div>
+        
+        <div class="test-label">↑ 方案 2: display: block (绿色边框)</div>
+        
+        <div class="test-label" style="margin-top: 60px; color: #00aaff;">
+            如果两个方案的按钮都垂直排列，说明 CSS 正确<br>
+            请检查 Vue 组件中是否应用了相同的 CSS
+        </div>
+    </div>
+</body>
+</html>

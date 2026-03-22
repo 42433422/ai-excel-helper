@@ -76,6 +76,28 @@ class TestTools:
         data = response.get_json()
         assert data['success'] is True
 
+    def test_execute_tool_products_search_with_keyword(self, client):
+        response = client.post(
+            '/api/tools/execute',
+            json={"tool_id": "products", "action": "search", "params": {"keyword": "9803"}},
+            content_type='application/json'
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert "products&keyword=9803" in data["redirect"]
+
+    def test_execute_tool_customers_search_with_keyword(self, client):
+        response = client.post(
+            '/api/tools/execute',
+            json={"tool_id": "customers", "action": "search", "params": {"keyword": "七彩乐园"}},
+            content_type='application/json'
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert "customers&keyword=七彩乐园" in data["redirect"]
+
     def test_execute_tool_orders(self, client):
         """测试执行出货单工具"""
         response = client.post(
@@ -97,6 +119,22 @@ class TestTools:
         assert response.status_code == 200
         data = response.get_json()
         assert data['success'] is True
+
+    def test_execute_shipment_generate_missing_bucket_followup(self, client):
+        """测试发货单字段缺失时返回追问而非静默失败"""
+        response = client.post(
+            '/api/tools/execute',
+            json={
+                "tool_id": "shipment_generate",
+                "action": "run",
+                "params": {"order_text": "打印一下七彩乐园的9803规格28"},
+            },
+            content_type='application/json'
+        )
+        assert response.status_code == 400
+        data = response.get_json()
+        assert data["success"] is False
+        assert "需要多少桶" in data["message"]
 
     def test_execute_tool_print(self, client):
         """测试执行标签打印工具"""

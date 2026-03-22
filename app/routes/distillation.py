@@ -2,10 +2,11 @@
 """
 蒸馏模型版本 API
 """
-import os
 import json
 import logging
+import os
 from datetime import datetime
+
 from flask import Blueprint, jsonify
 
 logger = logging.getLogger(__name__)

@@ -1,0 +1,94 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+.eggs
+*.egg
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+*.cover
+.hypothesis
+
+# Virtual environments
+venv
+.venv
+env
+.env
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Node.js / Frontend
+frontend/node_modules
+frontend/dist
+frontend/.vite
+
+# Build artifacts
+*.log
+*.pot
+*.pyc
+build
+dist
+*.egg
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Uploads and data
+uploads/
+data/
+logs/
+temp_excel/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.docker
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Tests
+tests/
+coverage.xml
+.pytest_cache
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+.monitor
+*.btw
+resources/wechat-decrypt/decrypted/

@@ -1812,6 +1812,255 @@
     transition: transform 0.45s ease-out;
 }
 
+/* 监控模式样式 - 金色/黄色主题（完整版） */
+.pro-mode-overlay.monitor-mode {
+    --mode-color: rgba(255, 215, 0, 0.8);
+    --mode-glow: rgba(255, 215, 0, 0.4);
+}
+
+/* 核心球体金色发光 */
+.pro-mode-overlay.monitor-mode .jarvis-core-sphere {
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.6),
+                0 0 60px rgba(255, 215, 0, 0.4),
+                0 0 90px rgba(255, 215, 0, 0.2),
+                inset 0 0 30px rgba(255, 215, 0, 0.3);
+}
+
+/* 脉冲环金色 */
+.pro-mode-overlay.monitor-mode .glow-pulse-ring {
+    border-color: rgba(255, 215, 0, 0.5);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.4),
+                0 0 40px rgba(255, 215, 0, 0.2);
+}
+
+/* 能量粒子金色 */
+.pro-mode-overlay.monitor-mode .energy-particle {
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.9), transparent);
+}
+
+/* 数字雨金色 */
+.pro-mode-overlay.monitor-mode .digital-rain {
+    color: rgba(255, 215, 0, 0.5);
+}
+
+/* 网格金色 */
+.pro-mode-overlay.monitor-mode .stark-grid {
+    border-color: rgba(255, 215, 0, 0.25);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.15),
+                inset 0 0 30px rgba(255, 215, 0, 0.05);
+}
+
+/* 中心扩展框金色 */
+.pro-mode-overlay.monitor-mode .center-expand-box {
+    border-color: rgba(255, 215, 0, 0.5);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.4),
+                inset 0 0 20px rgba(255, 215, 0, 0.15);
+}
+
+/* 扫描线金色 */
+.pro-mode-overlay.monitor-mode .scan-line {
+    background: linear-gradient(to bottom,
+        transparent,
+        rgba(255, 215, 0, 0.3),
+        transparent);
+}
+
+/* 容器内元素金色过渡 */
+.pro-mode-overlay.monitor-mode .jarvis-container .wire-ring,
+.pro-mode-overlay.monitor-mode .jarvis-container .core-icosa .core-poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-icosa .poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-octa .poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-tetra .poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-dodeca .poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-tetra2 .poly-face {
+    transition: all 0.5s ease;
+}
+
+/* 聊天面板金色 */
+.pro-mode-overlay.monitor-mode .jarvis-chat-panel {
+    border-color: rgba(255, 215, 0, 0.3);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+.pro-mode-overlay.monitor-mode .jarvis-chat-panel .jarvis-chat-header {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 180, 0, 0.1));
+    border-color: rgba(255, 215, 0, 0.3);
+}
+.pro-mode-overlay.monitor-mode .pro-status {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 180, 0, 0.1));
+}
+.pro-mode-overlay.monitor-mode .jarvis-voice-btn {
+    background: rgba(255, 215, 0, 0.15);
+    border-color: rgba(255, 215, 0, 0.4);
+}
+.pro-mode-overlay.monitor-mode .jarvis-voice-btn:hover {
+    background: rgba(255, 215, 0, 0.25);
+}
+
+/* 工具按钮金色 */
+.pro-mode-overlay.monitor-mode .tool-name-text {
+    color: rgba(255, 215, 0, 0.8);
+}
+.pro-mode-overlay.monitor-mode .tool-name-text:hover {
+    color: rgba(255, 215, 0, 1);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+/* 代码字符金色 */
+.pro-mode-overlay.monitor-mode .code-char {
+    color: rgba(255, 215, 0, 0.5);
+}
+
+/* 监控悬浮窗样式 */
+.pro-mode-overlay.monitor-mode .jarvis-monitor-float-wrap {
+    border-color: rgba(255, 215, 0, 0.3);
+}
+.pro-mode-overlay.monitor-mode .jarvis-monitor-float-header {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 180, 0, 0.1));
+    color: rgba(255, 215, 0, 0.95);
+    border-color: rgba(255, 215, 0, 0.3);
+}
+.pro-mode-overlay.monitor-mode .jarvis-monitor-float-close {
+    color: rgba(255, 215, 0, 0.7);
+}
+.pro-mode-overlay.monitor-mode .jarvis-monitor-float-close:hover {
+    color: rgba(255, 215, 0, 1);
+    background: rgba(255, 215, 0, 0.1);
+}
+
+/* 监控数据列表 */
+.pro-mode-overlay.monitor-mode .jarvis-monitor-list-wrap {
+    border-top-color: rgba(255, 215, 0, 0.3);
+}
+.pro-mode-overlay.monitor-mode .jarvis-monitor-list-header {
+    color: rgba(255, 215, 0, 0.9);
+}
+.pro-mode-overlay.monitor-mode .monitor-data-item {
+    background: rgba(25, 15, 5, 0.9);
+    border-color: rgba(255, 215, 0, 0.35);
+}
+.pro-mode-overlay.monitor-mode .monitor-data-label {
+    color: rgba(255, 215, 0, 0.7);
+}
+.pro-mode-overlay.monitor-mode .monitor-data-value {
+    color: rgba(255, 215, 0, 0.95);
+}
+.pro-mode-overlay.monitor-mode .monitor-data-value.warning {
+    color: rgba(255, 165, 0, 0.95);
+}
+.pro-mode-overlay.monitor-mode .monitor-data-value.danger {
+    color: rgba(255, 80, 80, 0.95);
+}
+
+/* 进度条金色 */
+.pro-mode-overlay.monitor-mode .monitor-bar-fill {
+    background: linear-gradient(90deg, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0.9));
+}
+
+/* 进入监控模式：金色波纹动画 */
+.pro-mode-overlay.monitor-mode.monitor-mode-entering .jarvis-container::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 200px;
+    height: 200px;
+    margin-left: -100px;
+    margin-top: -100px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 215, 0, 0.6);
+    animation: monitorRippleEnter 1.5s ease-out forwards;
+}
+.pro-mode-overlay.monitor-mode.monitor-mode-entering .jarvis-container::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 300px;
+    height: 300px;
+    margin-left: -150px;
+    margin-top: -150px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    animation: monitorRippleEnter 1.5s ease-out 0.3s forwards;
+}
+@keyframes monitorRippleEnter {
+    0% {
+        transform: scale(0.5);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+
+/* 退出监控模式：金色环向中心收缩 */
+.pro-mode-overlay.monitor-mode.monitor-mode-exiting .jarvis-container::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 400px;
+    height: 400px;
+    margin-left: -200px;
+    margin-top: -200px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 215, 0, 0.8);
+    animation: monitorRippleExit 0.8s ease-in forwards;
+}
+.pro-mode-overlay.monitor-mode.monitor-mode-exiting .jarvis-container::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 300px;
+    height: 300px;
+    margin-left: -150px;
+    margin-top: -150px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 215, 0, 0.5);
+    animation: monitorRippleExit 0.8s ease-in 0.15s forwards;
+}
+@keyframes monitorRippleExit {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(0);
+        opacity: 0;
+    }
+}
+
+/* 监控模式统一过渡效果 */
+.pro-mode-overlay.monitor-mode .glow-orb,
+.pro-mode-overlay.monitor-mode .bloom-effect,
+.pro-mode-overlay.monitor-mode .jarvis-container .wire-ring,
+.pro-mode-overlay.monitor-mode .jarvis-container .core-icosa .core-poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-icosa .poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-octa .poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-tetra .poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-dodeca .poly-face,
+.pro-mode-overlay.monitor-mode .jarvis-container .poly-tetra2 .poly-face,
+.pro-mode-overlay.monitor-mode .scan-line,
+.pro-mode-overlay.monitor-mode .jarvis-voice-btn,
+.pro-mode-overlay.monitor-mode .jarvis-chat-panel,
+.pro-mode-overlay.monitor-mode .jarvis-chat-panel .jarvis-chat-header,
+.pro-mode-overlay.monitor-mode .pro-status,
+.pro-mode-overlay.monitor-mode .code-char,
+.pro-mode-overlay.monitor-mode .tool-name-text {
+    transition: all 0.5s ease;
+}
+
+/* 状态互斥：确保同时只有一个模式生效 */
+.pro-mode-overlay.work-mode.monitor-mode {
+    /* 不应该同时存在，但以防万一 */
+}
+.pro-mode-overlay.work-mode.monitor-mode .jarvis-core-sphere {
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.8),
+                0 0 60px rgba(255, 255, 255, 0.4);
+}
+
 .jarvis-msg {
     font-family: 'Courier New', monospace;
     font-size: 14px;

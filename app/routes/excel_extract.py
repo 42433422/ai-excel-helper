@@ -7,11 +7,12 @@ Excel 提取与生成路由模块
 - /api/excel/generate: 生成 Excel 文件
 """
 
-import os
 import logging
+import os
 from datetime import datetime
-from flask import Blueprint, request, jsonify, send_file
+
 from flasgger import swag_from
+from flask import Blueprint, jsonify, request, send_file
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,13 @@ os.makedirs(TEMP_EXCEL_DIR, exist_ok=True)
 def get_base_dir():
     """获取项目根目录"""
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def _get_ai_product_parser():
+    """延迟导入 AI 产品解析服务，避免循环依赖。"""
+    from app.services import get_ai_product_parser
+
+    return get_ai_product_parser()
 
 
 def _extract_from_excel(file_path, sheet_name=None, header_row=1):
@@ -80,7 +88,7 @@ def _generate_excel(data, filename=None, sheet_name="Sheet1"):
     """生成 Excel 文件"""
     try:
         from openpyxl import Workbook
-        from openpyxl.styles import Font, Alignment
+        from openpyxl.styles import Alignment, Font
 
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -516,8 +524,13 @@ def import_products():
     }
     """
     try:
-        from app.services import ProductImportService, ExtractLogService
-        
+        from app.application import (
+            ExtractLogApplicationService,
+            ProductImportApplicationService,
+            get_extract_log_app_service,
+            get_product_import_application_service,
+        )
+
         data = request.json or {}
         extracted_data = data.get('data', [])
         options = data.get('options', {})
@@ -526,7 +539,7 @@ def import_products():
             return jsonify({'success': False, 'message': '缺少数据'}), 400
         
         # 创建日志记录
-        log_service = ExtractLogService()
+        log_service = get_extract_log_service()
         log_id = log_service.create_log(
             file_name=data.get('file_name', 'products_import'),
             data_type='products',
@@ -534,13 +547,40 @@ def import_products():
             field_mapping=data.get('field_mapping')
         )
         
+        # 如启用 AI 解析，则先用 AIProductParser 将原始文本标准化为产品字段
+        use_ai_parse = bool(options.get("use_ai_parse", False))
+        ai_source_field = options.get("ai_source_field") or ""
+        if use_ai_parse and ai_source_field:
+            parser = _get_ai_product_parser()
+            normalized_rows = []
+            for row in extracted_data:
+                raw_text = str(row.get(ai_source_field, "") or "")
+                if not raw_text.strip():
+                    normalized_rows.append(row)
+                    continue
+                parsed = parser.parse_single(raw_text, use_ai=True, fallback_to_rule=True)
+                if parsed.get("success"):
+                    row = dict(row)
+                    if parsed.get("product_code"):
+                        row["product_code"] = parsed["product_code"]
+                    if parsed.get("product_name"):
+                        row["product_name"] = parsed["product_name"]
+                    if parsed.get("specification"):
+                        row["specification"] = parsed["specification"]
+                    if parsed.get("unit") and "unit" not in row:
+                        row["unit"] = parsed["unit"]
+                    if parsed.get("unit_price") is not None and "unit_price" not in row:
+                        row["unit_price"] = parsed.get("unit_price")
+                normalized_rows.append(row)
+            extracted_data = normalized_rows
+
         # 导入数据
-        service = ProductImportService()
+        service = get_product_import_service()
         result = service.import_data(
             data=extracted_data,
             skip_duplicates=options.get('skip_duplicates', True),
             validate_before_import=options.get('validate_before_import', True),
-            clean_data=options.get('clean_data', True)
+            clean_data=options.get('clean_data', True),
         )
         
         # 更新日志
@@ -627,8 +667,13 @@ def import_customers():
     }
     """
     try:
-        from app.services import CustomerImportService, ExtractLogService
-        
+        from app.application import (
+            CustomerApplicationService,
+            ExtractLogApplicationService,
+            get_customer_app_service,
+            get_extract_log_app_service,
+        )
+
         data = request.json or {}
         extracted_data = data.get('data', [])
         options = data.get('options', {})
@@ -637,7 +682,7 @@ def import_customers():
             return jsonify({'success': False, 'message': '缺少数据'}), 400
         
         # 创建日志记录
-        log_service = ExtractLogService()
+        log_service = get_extract_log_service()
         log_id = log_service.create_log(
             file_name=data.get('file_name', 'customers_import'),
             data_type='customers',
@@ -646,7 +691,7 @@ def import_customers():
         )
         
         # 导入数据
-        service = CustomerImportService()
+        service = get_customer_app_service()
         result = service.import_data(
             data=extracted_data,
             skip_duplicates=options.get('skip_duplicates', True),
@@ -724,14 +769,14 @@ def get_extract_logs():
     }
     """
     try:
-        from app.services import ExtractLogService
-        
+        from app.application import ExtractLogApplicationService, get_extract_log_app_service
+
         data_type = request.args.get('data_type')
         status = request.args.get('status')
         limit = int(request.args.get('limit', 50))
         offset = int(request.args.get('offset', 0))
         
-        log_service = ExtractLogService()
+        log_service = get_extract_log_service()
         logs = log_service.get_logs(
             data_type=data_type,
             status=status,
@@ -790,9 +835,9 @@ def get_extract_log(log_id: int):
     }
     """
     try:
-        from app.services import ExtractLogService
-        
-        log_service = ExtractLogService()
+        from app.application import ExtractLogApplicationService, get_extract_log_app_service
+
+        log_service = get_extract_log_app_service()
         log = log_service.get_log(log_id)
         
         if not log:
@@ -852,11 +897,11 @@ def get_preview(log_id: int):
     }
     """
     try:
-        from app.services import ExtractLogService
-        
-        log_service = ExtractLogService()
+        from app.application import ExtractLogApplicationService, get_extract_log_app_service
+
+        log_service = get_extract_log_app_service()
         log = log_service.get_log(log_id)
-        
+
         if not log:
             return jsonify({
                 'success': False,

@@ -169,6 +169,158 @@ function sendChatMessage(message, options = {}) {
         }
     }
 
+    // pending import：当文件上传识别到“购买单位产品列表库”后，用户回复是/否/改成... 将触发导入
+    try {
+        const storageKey = 'xcagiPendingUnitProductsImport';
+        let pending = window && window.__xcagiPendingUnitProductsImport;
+
+        // Restore pending import state if window variable is lost (e.g. refresh).
+        if (!pending) {
+            try {
+                const raw = localStorage.getItem(storageKey);
+                if (raw) pending = JSON.parse(raw);
+                if (pending && window) window.__xcagiPendingUnitProductsImport = pending;
+            } catch (_) {}
+        }
+
+        // Ensure pending import belongs to the current chat session.
+        try {
+            const curSessionId = localStorage.getItem('ai_session_id') || '';
+            if (pending && pending.session_id && pending.session_id !== curSessionId) {
+                try { delete window.__xcagiPendingUnitProductsImport; } catch (_) {}
+                try { localStorage.removeItem(storageKey); } catch (_) {}
+                return;
+            }
+        } catch (_) {}
+
+        if (pending && pending.saved_name && pending.stage) {
+            const msgTrim = String(message || '').trim();
+            const stage = String(pending.stage || 'confirm_filename');
+            const candidates = Array.isArray(pending.unit_candidates) ? pending.unit_candidates : [];
+
+            const clearPending = () => {
+                try { delete window.__xcagiPendingUnitProductsImport; } catch (_) {}
+                try { localStorage.removeItem(storageKey); } catch (_) {}
+            };
+
+            const addAi = (text) => {
+                removeLoading(loadingId);
+                addMessage(text, 'ai');
+                try { saveMessage('ai', text); } catch (_) {}
+            };
+
+            const doImport = (unitNameToUse) => {
+                const body = {
+                    saved_name: pending.saved_name,
+                    unit_name: (unitNameToUse || '').trim(),
+                    create_purchase_unit: true,
+                    skip_duplicates: true
+                };
+                return fetch(API_BASE + '/api/ai/sqlite/import_unit_products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                }).then(r => r.json()).then(res => {
+                    if (res && res.success) {
+                        clearPending();
+                        const msg = res.message || `导入成功：${body.unit_name}`;
+                        addAi(msg);
+                    } else {
+                        const errMsg = (res && res.message) ? res.message : '导入失败（未知错误）';
+                        addAi('导入失败：' + errMsg);
+                    }
+                }).catch(e => {
+                    addAi('导入请求失败：' + (e && e.message ? e.message : String(e)));
+                });
+            };
+
+            // 解析“改成/改为”
+            const renameMatch = msgTrim.match(/^(改成|改为)\s*(.+)$/);
+
+            if (stage === 'confirm_filename') {
+                const yesMatch = /^(是|确认|确定|导入|开始导入|执行|添加购买单位)/.test(msgTrim);
+                const noMatch = /^(否|取消|不导入|不要|别导入|不用|停止)/.test(msgTrim);
+
+                if (renameMatch && renameMatch[2]) {
+                    doImport(renameMatch[2]);
+                    return;
+                }
+                if (noMatch) {
+                    pending.stage = 'choose_candidate';
+                    if (candidates.length > 0) {
+                        const list = candidates
+                            .slice(0, 10)
+                            .map((u, i) => `${i + 1})${u}`)
+                            .join('  ');
+                        addAi('好的。我从该库里提取到一些“购买单位”候选：' + list + '。回复序号或直接输入名称即可导入。');
+                    } else {
+                        addAi('我从该库里没有提取到购买单位候选。请你直接回复“改成 <名称>”。');
+                    }
+                    return;
+                }
+                if (yesMatch) {
+                    const guess = (pending.unit_name_guess || '').trim();
+                    if (guess) {
+                        doImport(guess);
+                        return;
+                    }
+                    // If we can't guess unit_name, ask user to pick an available candidate.
+                    pending.stage = 'choose_candidate';
+                    if (candidates.length > 0) {
+                        const list = candidates
+                            .slice(0, 10)
+                            .map((u, i) => `${i + 1})${u}`)
+                            .join('  ');
+                        addAi('好的。但我没法从文件名猜到购买单位名称。候选如下：' + list + '。回复序号或直接输入名称即可导入。');
+                    } else {
+                        addAi('我从该库里没有提取到购买单位候选。请你直接回复“改成 <名称>”。');
+                    }
+                    return;
+                }
+
+                addAi('没太明白。请回复：是 / 否 / 改成 <名称>。');
+                return;
+            }
+
+            if (stage === 'choose_candidate') {
+                const cancelMatch = /^(取消|不导入|不要|别导入|不用|停止|算了)/.test(msgTrim);
+                if (cancelMatch) {
+                    clearPending();
+                    removeLoading(loadingId);
+                    addMessage('已取消导入。', 'ai');
+                    try { saveMessage('ai', '已取消导入。'); } catch (_) {}
+                    return;
+                }
+
+                if (renameMatch && renameMatch[2]) {
+                    doImport(renameMatch[2]);
+                    return;
+                }
+
+                const numMatch = msgTrim.match(/^(\d{1,2})$/) || msgTrim.match(/^(\d{1,2})号$/);
+                if (numMatch && numMatch[1]) {
+                    const idx = parseInt(numMatch[1], 10) - 1;
+                    if (idx >= 0 && idx < candidates.length) {
+                        doImport(candidates[idx]);
+                        return;
+                    }
+                }
+
+                // 兜底：把用户输入当作名称
+                if (msgTrim.length >= 2 && !/^(是|否|确认|确定|导入|取消)/.test(msgTrim)) {
+                    doImport(msgTrim);
+                    return;
+                }
+
+                addAi('请回复候选序号（如 1/2/3）或直接输入购买单位名称。');
+                return;
+            }
+        }
+    } catch (e) {
+        // 不影响正常聊天
+        console.warn('pending import intercept failed:', e);
+    }
+
     callUnifiedChat({
         message: message,
         isWechatCheck: options.isWechatCheck || false
@@ -255,11 +407,24 @@ function handleAutoAction(action, userMessage = '') {
             showFileUploadPanel(action.purpose);
             break;
         case 'show_labels_export':
-            showLabelsExportPanel();
+            if (action.labels && Array.isArray(action.labels) && action.labels.length > 0) {
+                showLabelsExportPanelWithLabels(action.labels);
+            } else {
+                showLabelsExportPanel();
+            }
             break;
         case 'set_work_mode':
             if (typeof window.setWorkModeFromChat === 'function') {
                 window.setWorkModeFromChat(!!action.enabled);
+            }
+            break;
+        case 'show_monitor':
+            if (typeof window.setMonitorModeFromChat === 'function') {
+                window.setMonitorModeFromChat(true);
+            } else if (typeof window.enterMonitorModeFromChat === 'function') {
+                window.enterMonitorModeFromChat();
+            } else if (window.proFeatureWidget && typeof window.proFeatureWidget.showFeature === 'function') {
+                window.proFeatureWidget.showFeature('monitor');
             }
             break;
         case 'show_wechat_messages':
@@ -392,7 +557,8 @@ async function downloadCustomersXlsxFile(url) {
 function exportCustomersXlsx() {
     const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
     const entry = ensureCustomersExportEntry();
-    const url = `${apiBase}/api/customers/export.xlsx`;
+    // 后端客户导出接口是 `/api/customers/export`
+    const url = `${apiBase}/api/customers/export`;
     entry.setAttribute('data-download-url', url);
     entry.classList.add('show');
     if (typeof hideFileUploadEntry === 'function') {
@@ -771,46 +937,7 @@ function showLabelsExportPanel() {
         })
         .then(function(data) {
             if (data && data.success && Array.isArray(data.labels) && data.labels.length > 0) {
-                var base = window.location.origin || (window.location.protocol + '//' + window.location.host);
-                var html = '<p class="labels-export-hint" style="margin-bottom:10px;">点击文件名下载标签（共 ' + data.labels.length + ' 个）</p><ul class="labels-export-ul">';
-                data.labels.forEach(function(item) {
-                    var url = base + '/商标导出/' + encodeURIComponent(item.filename);
-                    var label = (item.order_number || '') + ' 第' + (item.label_number || '') + ' 项';
-                    html += '<li><a href="' + url + '" download="' + (item.filename || 'label.png') + '" target="_blank" rel="noopener">' + (item.filename || label) + '</a></li>';
-                });
-                html += '</ul>';
-                listEl.innerHTML = html;
-                if (floatContainer) {
-                    var maxPreviews = Math.min(8, data.labels.length);
-                    for (var i = 0; i < maxPreviews; i++) {
-                        var item = data.labels[i];
-                        var url = base + '/商标导出/' + encodeURIComponent(item.filename);
-                        var img = document.createElement('img');
-                        img.className = 'label-float-preview';
-                        img.src = url;
-                        img.alt = item.filename || ('标签 ' + (i + 1));
-                        img.loading = 'lazy';
-                        img.setAttribute('data-download-url', url);
-                        img.setAttribute('data-filename', item.filename || 'label.png');
-                        img.addEventListener('click', function (e) {
-                            e.preventDefault();
-                            var u = this.getAttribute('data-download-url');
-                            var f = this.getAttribute('data-filename');
-                            if (!u) return;
-                            var modal = document.getElementById('labelPreviewModal');
-                            var modalImg = document.getElementById('labelPreviewModalImg');
-                            var modalDownload = document.getElementById('labelPreviewModalDownload');
-                            if (modal && modalImg && modalDownload) {
-                                modalImg.src = u;
-                                modalDownload.href = u;
-                                modalDownload.download = f;
-                                modal.classList.remove('hidden');
-                                modal.setAttribute('aria-hidden', 'false');
-                            }
-                        });
-                        floatContainer.appendChild(img);
-                    }
-                }
+                renderLabelPanel(data.labels);
             } else {
                 listEl.innerHTML = '<p class="labels-export-hint">暂无标签文件。请先生成发货单，系统会自动生成标签到商标导出。</p>';
                 if (floatContainer) { floatContainer.innerHTML = ''; floatContainer.classList.add('hidden'); }
@@ -820,17 +947,71 @@ function showLabelsExportPanel() {
             listEl.innerHTML = '<p class="labels-export-hint">加载失败：' + (e && e.message ? e.message : '请稍后重试') + '。</p>';
             if (floatContainer) { floatContainer.innerHTML = ''; floatContainer.classList.add('hidden'); }
         });
-    if (!window._labelsExportCloseBound) {
-        window._labelsExportCloseBound = true;
-        function closeLabelsPanel() {
-            win.classList.remove('show');
-            var c = document.getElementById('labelFloatPreviews');
-            if (c) { c.innerHTML = ''; c.classList.add('hidden'); }
+}
+
+function showLabelsExportPanelWithLabels(labels) {
+    var win = document.getElementById('labelsExportWindow');
+    var listEl = document.getElementById('labelsExportList');
+    var floatContainer = document.getElementById('labelFloatPreviews');
+    if (!win || !listEl) return;
+    _bindLabelPreviewModalClose();
+    listEl.innerHTML = '<p class="labels-export-hint">加载中...</p>';
+    win.classList.add('show');
+    if (floatContainer) {
+        floatContainer.classList.remove('hidden');
+        floatContainer.innerHTML = '';
+    }
+    if (labels && Array.isArray(labels) && labels.length > 0) {
+        renderLabelPanel(labels);
+    } else {
+        listEl.innerHTML = '<p class="labels-export-hint">暂无标签文件。请先生成发货单，系统会自动生成标签到商标导出。</p>';
+        if (floatContainer) { floatContainer.innerHTML = ''; floatContainer.classList.add('hidden'); }
+    }
+}
+
+function renderLabelPanel(labels) {
+    var listEl = document.getElementById('labelsExportList');
+    var floatContainer = document.getElementById('labelFloatPreviews');
+    if (!listEl) return;
+    var base = window.location.origin || (window.location.protocol + '//' + window.location.host);
+    var html = '<p class="labels-export-hint" style="margin-bottom:10px;">点击文件名下载标签（共 ' + labels.length + ' 个）</p><ul class="labels-export-ul">';
+    labels.forEach(function(item) {
+        var url = base + '/api/print/label/' + encodeURIComponent(item.filename);
+        var label = (item.order_number || '') + ' 第' + (item.label_number || '') + ' 项';
+        html += '<li><a href="' + url + '" download="' + (item.filename || 'label.png') + '" target="_blank" rel="noopener">' + (item.filename || label) + '</a></li>';
+    });
+    html += '</ul>';
+    listEl.innerHTML = html;
+    if (floatContainer) {
+        var maxPreviews = Math.min(8, labels.length);
+        for (var i = 0; i < maxPreviews; i++) {
+            var item = labels[i];
+            var url = base + '/api/print/label/' + encodeURIComponent(item.filename);
+            var img = document.createElement('img');
+            img.className = 'label-float-preview';
+            img.src = url;
+            img.alt = item.filename || ('标签 ' + (i + 1));
+            img.loading = 'lazy';
+            img.setAttribute('data-download-url', url);
+            img.setAttribute('data-filename', item.filename || 'label.png');
+            img.addEventListener('click', function (e) {
+                e.preventDefault();
+                var u = this.getAttribute('data-download-url');
+                var f = this.getAttribute('data-filename');
+                if (!u) return;
+                var modal = document.getElementById('labelPreviewModal');
+                var modalImg = document.getElementById('labelPreviewModalImg');
+                var modalDownload = document.getElementById('labelPreviewModalDownload');
+                if (modal && modalImg && modalDownload) {
+                    modalImg.src = u;
+                    modalDownload.href = u;
+                    modalDownload.download = f;
+                    modal.classList.remove('hidden');
+                    modal.setAttribute('aria-hidden', 'false');
+                }
+            });
+            floatContainer.appendChild(img);
         }
-        ['labelsExportCloseBtn', 'labelsExportCloseBtn2'].forEach(function(id) {
-            var btn = document.getElementById(id);
-            if (btn) btn.addEventListener('click', closeLabelsPanel);
-        });
     }
 }
 

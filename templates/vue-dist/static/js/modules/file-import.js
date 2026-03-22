@@ -383,6 +383,8 @@ async function processGenericFiles(files, progressBar, progressText, progressPer
     let hasExcelUpload = false;
     let hasCustomersList = false;
     let customersImportFileCount = 0;
+    // Some multi-step flows (e.g. unit_products_db) need extra time for the user to read prompt.
+    let delayCloseMs = 900;
     for (let i = 0; i < files.length; i++) {
         if (uploadSessionId !== activeUploadSessionId) {
             return;
@@ -582,6 +584,28 @@ async function processGenericFiles(files, progressBar, progressText, progressPer
                 if (preview && summary && preview !== summary) {
                     messageParts.push(`内容预览:\n${preview.slice(0, 350)}`);
                 }
+                // Multi-step: unit_products_db requires user confirmation in chat.
+                if (result.suggested_use === 'unit_products_db' && result.saved_name) {
+                    delayCloseMs = Math.max(delayCloseMs, 2500);
+                    try {
+                        let sessionId = '';
+                        try { sessionId = localStorage.getItem('ai_session_id') || ''; } catch (_) {}
+                        window.__xcagiPendingUnitProductsImport = {
+                            saved_name: result.saved_name,
+                            unit_name_guess: (result.unit_name_guess || '').trim(),
+                            unit_candidates: Array.isArray(result.unit_candidates) ? result.unit_candidates : [],
+                            stage: 'confirm_filename',
+                            session_id: sessionId
+                        };
+                        try { localStorage.setItem('xcagiPendingUnitProductsImport', JSON.stringify(window.__xcagiPendingUnitProductsImport)); } catch (_) {}
+                    } catch (_) { /* best-effort */ }
+                    const guess = (result.unit_name_guess || '').trim();
+                    messageParts.push(
+                        guess
+                            ? `下一步：请到聊天里回复“是”以导入购买单位「${guess}」的产品；也可回复“否 / 改成 <名称>”。`
+                            : `下一步：请到聊天里回复“是 / 否 / 改成 <名称>”以完成购买单位 + 产品导入。`
+                    );
+                }
                 const msg = messageParts.join('\n\n');
                 allSummaries.push(msg);
                 appendUploadMessage(msg);
@@ -636,7 +660,7 @@ async function processGenericFiles(files, progressBar, progressText, progressPer
         } catch (e) {
             console.warn('自动关闭上传窗失败:', e);
         }
-    }, 900);
+    }, delayCloseMs);
 }
 
 async function openCamera() {
@@ -682,3 +706,39 @@ function capturePhoto() {
         closeCamera();
     }, 'image/jpeg');
 }
+
+// Vue `vue-dist` 页面在部分部署下可能不会加载 legacy `ui.js`，
+// 导致 `[data-close-action="closeImportWindow"]` 的点击委托失效。
+// 这里直接绑定 import 关闭按钮，确保 `importCloseBtn` 可点击。
+(function ensureImportWindowCloseHandlers() {
+    try {
+        if (typeof window === 'undefined') return;
+        if (window.__XCAGI_IMPORT_CLOSE_HANDLERS_BOUND__) return;
+        window.__XCAGI_IMPORT_CLOSE_HANDLERS_BOUND__ = true;
+
+        const bindCloseBtn = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (el.getAttribute('data-xcagi-bound-close-import') === '1') return;
+            el.setAttribute('data-xcagi-bound-close-import', '1');
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                try { closeImportWindow(); } catch (_) {}
+            });
+        };
+
+        bindCloseBtn('importCloseBtn');
+        bindCloseBtn('cancelImportBtn');
+
+        document.addEventListener('click', (e) => {
+            const target = e && e.target && e.target.closest ? e.target.closest('[data-close-action="closeImportWindow"]') : null;
+            if (!target) return;
+            e.preventDefault();
+            e.stopPropagation();
+            try { closeImportWindow(); } catch (_) {}
+        });
+    } catch (_) {
+        // best-effort; do not break import module
+    }
+})();

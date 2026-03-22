@@ -1,0 +1,78 @@
+{"text": "补充客户信息", "label": "customer_supplement", "slots": {}}
+{"text": "产品图片", "label": "show_images", "slots": {}}
+{"text": "提取词条", "label": "excel_decompose", "slots": {}}
+{"text": "发送微信消息", "label": "wechat_send", "slots": {}}
+{"text": "修改客户信息", "label": "customer_edit", "slots": {}}
+{"text": "产品视频", "label": "show_videos", "slots": {}}
+{"text": "显示产品规格", "label": "products", "slots": {}}
+{"text": "别发消息", "label": "negation", "slots": {}}
+{"text": "hi", "label": "greet", "slots": {}}
+{"text": "导入Excel", "label": "upload_file", "slots": {}}
+{"text": "客户名单在哪", "label": "customers", "slots": {}}
+{"text": "显示所有客户", "label": "customers", "slots": {}}
+{"text": "最近的发货单", "label": "shipments", "slots": {}}
+{"text": "帮助", "label": "help", "slots": {}}
+{"text": "完善客户资料", "label": "customer_supplement", "slots": {}}
+{"text": "导出商标", "label": "print_label", "slots": {}}
+{"text": "订单列表", "label": "shipments", "slots": {}}
+{"text": "发消息通知向总", "label": "wechat_send", "slots": {}}
+{"text": "解析发货单文件", "label": "upload_file", "slots": {}}
+{"text": "分解Excel", "label": "excel_decompose", "slots": {}}
+{"text": "取消订单", "label": "negation", "slots": {}}
+{"text": "我要给恒达公司开单", "label": "shipment_generate", "slots": {"unit_name": "恒达公司开单"}}
+{"text": "生成发货单给七彩乐园", "label": "shipment_generate", "slots": {"unit_name": "七彩乐园"}}
+{"text": "发货单七彩乐园2桶28规格", "label": "shipment_generate", "slots": {"quantity_tins": 2}}
+{"text": "我的订单有哪些", "label": "shipments", "slots": {}}
+{"text": "打单给向总", "label": "shipment_generate", "slots": {"unit_name": "向总"}}
+{"text": "产品标签怎么打印", "label": "print_label", "slots": {}}
+{"text": "显示图片", "label": "show_images", "slots": {}}
+{"text": "关闭", "label": "goodbye", "slots": {}}
+{"text": "开发货单，3桶规格20的PE白底漆", "label": "shipment_generate", "slots": {"quantity_tins": 3, "tin_spec": 20.0}}
+{"text": "查看客户列表", "label": "customers", "slots": {}}
+{"text": "做出货单，5桶20kg规格的", "label": "shipment_generate", "slots": {"quantity_tins": 5}}
+{"text": "hello", "label": "greet", "slots": {}}
+{"text": "你好", "label": "greet", "slots": {}}
+{"text": "下载客户数据", "label": "customer_export", "slots": {}}
+{"text": "添加联系人", "label": "customer_supplement", "slots": {}}
+{"text": "导出客户列表", "label": "customer_export", "slots": {}}
+{"text": "还有多少原料", "label": "materials", "slots": {}}
+{"text": "我想看客户信息", "label": "customers", "slots": {}}
+{"text": "上传文件", "label": "upload_file", "slots": {}}
+{"text": "帮客户做发货单，数量3桶", "label": "shipment_generate", "slots": {"quantity_tins": 3}}
+{"text": "查看模板设置", "label": "shipment_template", "slots": {}}
+{"text": "都有哪些购买单位", "label": "customers", "slots": {}}
+{"text": "打印标签", "label": "print_label", "slots": {}}
+{"text": "PE白底漆的规格", "label": "products", "slots": {}}
+{"text": "导出Excel", "label": "customer_export", "slots": {}}
+{"text": "标签打印", "label": "print_label", "slots": {}}
+{"text": "产品库有哪些", "label": "products", "slots": {}}
+{"text": "上传数据文件", "label": "upload_file", "slots": {}}
+{"text": "拜拜", "label": "goodbye", "slots": {}}
+{"text": "发货单模板", "label": "shipment_template", "slots": {}}
+{"text": "模板是什么", "label": "shipment_template", "slots": {}}
+{"text": "生成一张发货单，客户是利民厂", "label": "shipment_generate", "slots": {}}
+{"text": "更新客户资料", "label": "customer_edit", "slots": {}}
+{"text": "材料库查询", "label": "materials", "slots": {}}
+{"text": "查看发货记录", "label": "shipments", "slots": {}}
+{"text": "功能介绍", "label": "help", "slots": {}}
+{"text": "编辑客户", "label": "customer_edit", "slots": {}}
+{"text": "发微信给客户", "label": "wechat_send", "slots": {"unit_name": "客户"}}
+{"text": "不要打印", "label": "negation", "slots": {}}
+{"text": "帮侯雪梅开一张发货单", "label": "shipment_generate", "slots": {}}
+{"text": "查一下产品信息", "label": "products", "slots": {}}
+{"text": "查看产品列表", "label": "products", "slots": {}}
+{"text": "出货记录查询", "label": "shipments", "slots": {}}
+{"text": "产品型号有什么", "label": "products", "slots": {}}
+{"text": "早上好", "label": "greet", "slots": {}}
+{"text": "购买单位有哪些", "label": "customers", "slots": {}}
+{"text": "表头提取", "label": "excel_decompose", "slots": {}}
+{"text": "导出产品标签", "label": "print_label", "slots": {}}
+{"text": "您好", "label": "greet", "slots": {}}
+{"text": "查看原材料库存", "label": "materials", "slots": {}}
+{"text": "怎么用", "label": "help", "slots": {}}
+{"text": "教我使用", "label": "help", "slots": {}}
+{"text": "查看图片", "label": "show_images", "slots": {}}
+{"text": "不要开单", "label": "negation", "slots": {}}
+{"text": "再见", "label": "goodbye", "slots": {}}
+{"text": "退出", "label": "goodbye", "slots": {}}
+{"text": "查看视频", "label": "show_videos", "slots": {}}

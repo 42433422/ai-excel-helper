@@ -1203,6 +1203,46 @@ class TestExcelTemplatesErrorHandling:
         data = response.get_json()
         assert data['success'] == False
 
+    @patch('app.routes.excel_templates._get_template_list')
+    def test_list_templates_should_include_category_dto_fields(self, mock_get_list, client):
+        """模板列表应返回统一 DTO 字段并保留兼容字段"""
+        mock_get_list.return_value = [
+            {
+                "id": "db:1",
+                "name": "发货单模板A",
+                "template_type": "发货单",
+                "exists": True,
+                "path": "/tmp/a.xlsx",
+                "source": "db",
+            },
+            {
+                "id": "db:2",
+                "name": "标签模板B",
+                "template_type": "标签打印",
+                "exists": False,
+                "path": None,
+                "source": "db",
+            },
+        ]
+
+        response = client.get('/api/excel/templates')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert len(data["templates"]) == 2
+
+        excel_tpl = data["templates"][0]
+        label_tpl = data["templates"][1]
+        assert excel_tpl["category"] == "excel"
+        assert "file_path" in excel_tpl
+        assert "preview_capable" in excel_tpl
+        assert "template_type" in excel_tpl
+        assert "path" in excel_tpl  # 兼容旧字段
+        assert excel_tpl["preview_capable"] is True
+
+        assert label_tpl["category"] == "label_print"
+        assert label_tpl["preview_capable"] is False
+
     @patch('shutil.copy2')
     @patch('os.path.exists')
     def test_save_template_copy_error(self, mock_exists, mock_copy, client):

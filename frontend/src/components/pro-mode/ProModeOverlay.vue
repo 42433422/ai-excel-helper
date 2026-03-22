@@ -5,7 +5,8 @@
       'active': isActive,
       'entering': isEntering,
       'exiting': isExiting,
-      'work-mode': isWorkMode
+      'work-mode': isWorkMode,
+      'monitor-mode': isMonitorMode
     }"
   >
     <div class="corner-flash top-left" :class="{ 'entering': isEntering, 'exiting': isExiting }"></div>
@@ -19,7 +20,6 @@
     <div class="halo-pulse-ring" :class="{ 'entering': isEntering }" style="animation-delay: 0.1s"></div>
     <div class="halo-pulse-ring" :class="{ 'entering': isEntering }" style="animation-delay: 0.2s"></div>
     
-    <DigitalRainCanvas :is-work-mode="isWorkMode" />
     <FallingTextContainer 
       :is-entering="isEntering" 
       :is-exiting="isExiting" 
@@ -31,6 +31,7 @@
       <JarvisCore 
         :is-speaking="isCoreSpeaking"
         :is-work-mode="isWorkMode"
+        :is-monitor-mode="isMonitorMode"
         @click="handleCoreClick"
       />
       <WireRings :is-work-mode="isWorkMode" :is-breathing="isBreathing" />
@@ -115,6 +116,13 @@
       @reset-task="handleResetTaskAcquisition"
     />
     
+    <MonitorModePanel 
+      v-if="isMonitorMode"
+      :is-monitor-mode="isMonitorMode"
+      @close="handleMonitorModeClose"
+      @view-history="handleViewHistory"
+    />
+    
     <ProFeatureWidget 
       v-if="showFeatureWidget"
       :active-panel="activeFeaturePanel"
@@ -128,7 +136,6 @@
 import { computed } from 'vue'
 import { useProMode } from '@/composables/useProMode'
 import { useJarvisChat } from '@/composables/useJarvisChat'
-import DigitalRainCanvas from './DigitalRainCanvas.vue'
 import FallingTextContainer from './FallingTextContainer.vue'
 import StarkGrid from './StarkGrid.vue'
 import JarvisCore from './JarvisCore.vue'
@@ -142,18 +149,22 @@ import CodeRings from './CodeRings.vue'
 import IconRingContainer from './IconRingContainer.vue'
 import ToolRuntimePanel from './ToolRuntimePanel.vue'
 import WorkModeMonitor from './WorkModeMonitor.vue'
+import MonitorModePanel from './MonitorModePanel.vue'
 import ProFeatureWidget from '../pro-feature-widget/ProFeatureWidget.vue'
 
 const {
   isActive,
   isTransitioning,
   isWorkMode,
+  isMonitorMode,
   currentStage,
   selectedCompany,
   selectedProduct,
   coreScale,
   orbitLayerScale,
   exitProMode,
+  exitMonitorMode,
+  enterMonitorMode,
   resetTransientState
 } = useProMode()
 
@@ -257,6 +268,14 @@ function handleResetTaskAcquisition() {
 function handleFeatureWidgetClose() {
   showFeatureWidget.value = false
   activeFeaturePanel.value = 'none'
+}
+
+function handleMonitorModeClose() {
+  exitMonitorMode()
+}
+
+function handleViewHistory() {
+  console.log('View history')
 }
 </script>
 

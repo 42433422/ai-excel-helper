@@ -5,11 +5,11 @@
 提供用户偏好设置的业务逻辑。
 """
 
-from typing import Dict, Optional
 import logging
+from typing import Dict, Optional
 
-from app.db.session import get_db
 from app.db.models import UserPreference
+from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 

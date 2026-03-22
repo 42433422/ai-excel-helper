@@ -1,0 +1,315 @@
+{
+  "test_user": {
+    "user_id": "test_user",
+    "preferences": {
+      "favorite_customer": {
+        "value": "七彩乐园",
+        "updated_at": "2026-03-22T00:30:14.181446",
+        "count": 1
+      }
+    },
+    "frequent_actions": [
+      {
+        "pattern": "133c60ea4307f22c",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "七彩乐园"
+        },
+        "frequency": 1,
+        "last_used": "2026-03-22T00:30:14.193730",
+        "confidence": 0.5
+      }
+    ],
+    "historical_contexts": [
+      {
+        "timestamp": "2026-03-22T00:30:14.193730",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "七彩乐园"
+        },
+        "message": "",
+        "turn_count": 1
+      }
+    ],
+    "feedback_history": [],
+    "updated_at": "2026-03-22T00:30:14.193730"
+  },
+  "test_multi": {
+    "user_id": "test_multi",
+    "preferences": {},
+    "frequent_actions": [
+      {
+        "pattern": "133c60ea4307f22c",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "七彩乐园",
+          "spec": "9803",
+          "quantity": "1桶"
+        },
+        "frequency": 2,
+        "last_used": "2026-03-22T00:31:31.247501",
+        "confidence": 0.55
+      }
+    ],
+    "historical_contexts": [
+      {
+        "timestamp": "2026-03-22T00:31:31.247501",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "七彩乐园",
+          "spec": "9860",
+          "quantity": "2桶"
+        },
+        "message": "",
+        "turn_count": 1
+      },
+      {
+        "timestamp": "2026-03-22T00:31:31.247501",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "七彩乐园",
+          "spec": "9803",
+          "quantity": "1桶"
+        },
+        "message": "",
+        "turn_count": 1
+      }
+    ],
+    "feedback_history": [],
+    "updated_at": "2026-03-22T00:31:31.247501"
+  },
+  "test_feedback": {
+    "user_id": "test_feedback",
+    "preferences": {},
+    "frequent_actions": [
+      {
+        "pattern": "133c60ea4307f22c",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "七彩乐园"
+        },
+        "frequency": 1,
+        "last_used": "2026-03-22T00:31:46.927482",
+        "confidence": 0.44999999999999996
+      }
+    ],
+    "historical_contexts": [
+      {
+        "timestamp": "2026-03-22T00:31:46.927482",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "七彩乐园"
+        },
+        "message": "",
+        "turn_count": 1
+      }
+    ],
+    "feedback_history": [
+      {
+        "timestamp": "2026-03-22T00:31:46.929024",
+        "message": "不是这个客户",
+        "recognized_intent": "shipment_generate",
+        "user_feedback": "negated",
+        "corrected_intent": null,
+        "slots": {}
+      },
+      {
+        "timestamp": "2026-03-22T00:31:46.929024",
+        "message": "确认开单",
+        "recognized_intent": "shipment_generate",
+        "user_feedback": "confirmed",
+        "corrected_intent": null,
+        "slots": {}
+      }
+    ],
+    "updated_at": "2026-03-22T00:31:46.929024"
+  },
+  "test_fix": {
+    "user_id": "test_fix",
+    "preferences": {},
+    "frequent_actions": [
+      {
+        "pattern": "133c60ea4307f22c",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "七彩乐园",
+          "spec": "9803",
+          "quantity": "1桶"
+        },
+        "frequency": 1,
+        "last_used": "2026-03-22T00:35:11.833439",
+        "confidence": 0.5
+      }
+    ],
+    "historical_contexts": [
+      {
+        "timestamp": "2026-03-22T00:35:11.833439",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "七彩乐园",
+          "spec": "9803",
+          "quantity": "1桶"
+        },
+        "message": "",
+        "turn_count": 1
+      }
+    ],
+    "feedback_history": [],
+    "updated_at": "2026-03-22T00:35:11.833439"
+  },
+  "user_127.0.0.1": {
+    "user_id": "user_127.0.0.1",
+    "preferences": {
+      "favorite_customer": {
+        "value": "澜宇",
+        "updated_at": "2026-03-22T12:58:35.918767",
+        "count": 2
+      }
+    },
+    "frequent_actions": [
+      {
+        "pattern": "d90ce6e6ae9326ff",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "澜宇",
+          "quantity_tins": 10,
+          "tin_spec": 25.0,
+          "products": [
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737B",
+              "spec": 25.0
+            },
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737A",
+              "spec": 25.0
+            }
+          ]
+        },
+        "frequency": 2,
+        "last_used": "2026-03-22T12:58:35.916646",
+        "confidence": 0.65
+      }
+    ],
+    "historical_contexts": [
+      {
+        "timestamp": "2026-03-22T12:58:35.916646",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "澜宇",
+          "quantity_tins": 10,
+          "tin_spec": 25.0,
+          "products": [
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737B",
+              "spec": 25.0
+            },
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737A",
+              "spec": 25.0
+            }
+          ]
+        },
+        "message": "好的：帮打蔺宇的货单，10桶5003-2737B规格25，4桶5003-2737A规格25、",
+        "turn_count": 1
+      },
+      {
+        "timestamp": "2026-03-22T12:54:22.099247",
+        "intent": "shipment_generate",
+        "slots": {
+          "unit_name": "澜宇",
+          "quantity_tins": 10,
+          "tin_spec": 25.0,
+          "products": [
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737B",
+              "spec": 25.0
+            },
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737A",
+              "spec": 25.0
+            }
+          ]
+        },
+        "message": "好的：帮打蔺宇的货单，10桶5003-2737B规格25，4桶5003-2737A规格25",
+        "turn_count": 1
+      }
+    ],
+    "feedback_history": [
+      {
+        "timestamp": "2026-03-22T12:58:35.912555",
+        "message": "好的：帮打蔺宇的货单，10桶5003-2737B规格25，4桶5003-2737A规格25、",
+        "recognized_intent": "shipment_generate",
+        "user_feedback": "confirmed",
+        "corrected_intent": null,
+        "slots": {
+          "unit_name": "澜宇",
+          "quantity_tins": 10,
+          "tin_spec": 25.0,
+          "products": [
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737B",
+              "spec": 25.0
+            },
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737A",
+              "spec": 25.0
+            }
+          ]
+        }
+      },
+      {
+        "timestamp": "2026-03-22T12:54:22.097233",
+        "message": "好的：帮打蔺宇的货单，10桶5003-2737B规格25，4桶5003-2737A规格25",
+        "recognized_intent": "shipment_generate",
+        "user_feedback": "confirmed",
+        "corrected_intent": null,
+        "slots": {
+          "unit_name": "澜宇",
+          "quantity_tins": 10,
+          "tin_spec": 25.0,
+          "products": [
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737B",
+              "spec": 25.0
+            },
+            {
+              "model": "5003"
+            },
+            {
+              "model": "2737A",
+              "spec": 25.0
+            }
+          ]
+        }
+      }
+    ],
+    "updated_at": "2026-03-22T12:58:35.918767"
+  }
+}

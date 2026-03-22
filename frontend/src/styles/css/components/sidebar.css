@@ -66,8 +66,6 @@
     background: white;
     border-radius: 50%;
     position: absolute;
-    top: 2px;
-    left: 2px;
     transition: transform 0.3s;
 }
 

@@ -46,11 +46,96 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': {
+      // 兼容拆分后端：5000 提供出货/AI助手兼容，5001 提供材料/基础数据。
+      // 规则：尽量使用“更具体的前缀 -> 对应端口”，最后用 '/api' 兜底到 5001。
+
+      // compat：/orders/*（不带 /api 前缀）
+      '/orders': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
-        ws: true
-      }
+      },
+
+      // compat：/health
+      '/health': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+
+      // 出货/打印/AI/chat/以及 compat 中的相关接口都走 5000
+      '/api/shipment': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/ai': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/print': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/generate': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/orders': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/shipment-records': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/purchase_units': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/product_names': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/printers': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/tts': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+
+      // 兼容：基础数据/聊天/联系人等也应转发到 5000
+      // 否则会落入兜底 '/api' -> 5001，导致前端看到 500
+      '/api/conversations': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/wechat_contacts': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/products': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/materials': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/system': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+      '/api/intent-packages': {
+        target: 'http://127.0.0.1:5000',
+        changeOrigin: true,
+      },
+
+      // 兜底：其余所有 /api 都发给材料/基础数据服务（5001）
+      '/api': {
+        target: 'http://127.0.0.1:5001',
+        changeOrigin: true,
+        ws: true,
+      },
     }
   },
   publicDir: 'public',
@@ -62,19 +147,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           'vendor-vue': ['vue'],
-          'vendor-pro-mode': [
-            './src/composables/useProMode.js',
-            './src/composables/useJarvisChat.js',
-            './src/composables/useProductQuery.js',
-            './src/composables/useWorkMode.js',
-            './src/composables/useAnimations.js',
-            './src/composables/useDigitalRain.js'
-          ],
-          'vendor-utils': [
-            './src/utils/animation-helpers.js',
-            './src/utils/geometry.js',
-            './src/utils/particle-system.js'
-          ],
           'vendor-stores': [
             './src/stores/proMode.js',
             './src/stores/jarvisChat.js',
@@ -97,13 +169,8 @@ export default defineConfig({
         }
       }
     },
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true
-      }
-    },
+    // 使用 Vite 默认的 esbuild 压缩，避免对 terser 额外依赖
+    minify: 'esbuild',
     sourcemap: false,
     cssCodeSplit: true,
     target: 'es2015',

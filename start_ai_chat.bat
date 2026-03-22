@@ -6,7 +6,8 @@ echo ============================================================
 echo.
 
 REM 设置 DeepSeek API Key
-set DEEPSEEK_API_KEY=sk-5670fc1d73c74f21b4948d7496b7bf16
+REM 建议通过环境变量或 resources/config/.env 配置，不要在脚本中硬编码密钥
+REM set DEEPSEEK_API_KEY=your-api-key-here
 
 echo ✓ DeepSeek API Key 已配置
 echo.

@@ -196,28 +196,6 @@ def init_user_db():
 USER_DB_PATH = init_user_db()
 
 
-def create_default_admin():
-    """创建默认管理员账户"""
-    import hashlib
-    conn = sqlite3.connect(USER_DB_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute('SELECT id FROM users WHERE username = ?', ('970882904',))
-    if not cursor.fetchone():
-        hashed_password = hashlib.sha256('1499383833'.encode()).hexdigest()
-        cursor.execute('''
-            INSERT INTO users (username, password, display_name, role)
-            VALUES (?, ?, ?, ?)
-        ''', ('970882904', hashed_password, '管理员', 'admin'))
-        logger.info("管理员账户已创建 (970882904/1499383833)")
-    
-    conn.commit()
-    conn.close()
-
-
-create_default_admin()
-
-
 def get_unit_db_connection(unit):
     """
     获取单位数据库连接

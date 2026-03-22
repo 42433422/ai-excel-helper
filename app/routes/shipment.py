@@ -4,13 +4,20 @@
 提供发货单生成、打印相关 HTTP 接口。
 """
 
-from flask import Blueprint, request, jsonify, send_file
 import os
 
 from flasgger import swag_from
-from app.services.shipment_service import ShipmentService
+from flask import Blueprint, jsonify, request, send_file
+
+from app.application import ShipmentApplicationService
+from app.bootstrap import get_shipment_app_service
 
 shipment_bp = Blueprint("shipment", __name__)
+
+
+def get_shipment_service():
+    """获取发货单应用服务实例"""
+    return get_shipment_app_service()
 
 
 @shipment_bp.route("/generate", methods=["POST"])
@@ -93,11 +100,11 @@ def shipment_generate():
                 "message": "产品列表不能为空"
             }), 400
         
-        service = ShipmentService()
-        result = service.generate_shipment_document(
+        app_service = get_shipment_app_service()
+        result = app_service.generate_shipment_document(
             unit_name=unit_name,
             products=products,
-            date=date
+            date=date,
         )
         
         status_code = 200 if result.get("success") else 500
@@ -171,12 +178,26 @@ def shipment_print():
             }), 404
         
         # 更新发货单状态为已打印
-        service = ShipmentService()
-        result = service.mark_as_printed(
-            file_path=file_path,
-            order_id=order_id,
-            printer_name=printer_name
-        )
+        from datetime import datetime
+
+        app_service = get_shipment_app_service()
+        if order_id:
+            try:
+                shipment_id = int(order_id)
+            except Exception:
+                return jsonify({"success": False, "message": "order_id 无效"}), 400
+
+            result = app_service.mark_as_printed(shipment_id, printer_name=printer_name or "")
+            if isinstance(result, dict):
+                result["file_path"] = file_path
+        else:
+            # 兼容旧行为：未提供 order_id 时，只回传成功，不强制更新数据库
+            result = {
+                "success": True,
+                "message": "发货单已标记为已打印",
+                "printed_at": datetime.now().isoformat(),
+                "file_path": file_path,
+            }
         
         status_code = 200 if result.get("success") else 500
         return jsonify(result), status_code
@@ -262,7 +283,7 @@ def shipment_list():
         page = int(request.args.get("page", 1))
         per_page = int(request.args.get("per_page", 20))
         
-        service = ShipmentService()
+        service = get_shipment_app_service()
         result = service.query_shipment_orders(
             unit_name=unit_name,
             start_date=start_date,
@@ -310,21 +331,14 @@ def shipment_download(filename):
         - 文件流
     """
     try:
-        service = ShipmentService()
-        result = service.download_shipment_order(filename)
-        
-        if not result.get("success"):
-            return jsonify(result), 404
-        
-        # 发送文件
-        file_path = result.get("file_path")
+        from app.utils.path_utils import get_app_data_dir
+
+        output_dir = os.path.join(get_app_data_dir(), "shipment_outputs")
+        file_path = os.path.join(output_dir, filename)
+
         if file_path and os.path.exists(file_path):
             return send_file(file_path, as_attachment=True, download_name=filename)
-        else:
-            return jsonify({
-                "success": False,
-                "message": "文件不存在"
-            }), 404
+        return jsonify({"success": False, "message": "文件不存在"}), 404
         
     except Exception as e:
         return jsonify({
@@ -409,8 +423,8 @@ def get_next_order_number():
 def get_purchase_units():
     """获取所有购买单位"""
     try:
-        service = ShipmentService()
-        units = service.get_purchase_units()
+        app_service = get_shipment_app_service()
+        units = app_service.get_purchase_units()
         return jsonify({"success": True, "data": units, "count": len(units)})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
@@ -458,8 +472,8 @@ def clear_shipment():
         if not purchase_unit:
             return jsonify({"success": False, "message": "缺少购买单位参数"}), 400
         
-        service = ShipmentService()
-        result = service.clear_shipment_by_unit(purchase_unit)
+        app_service = get_shipment_app_service()
+        result = app_service.clear_shipment_by_unit(purchase_unit)
         
         status_code = 200 if result.get("success") else 500
         return jsonify(result), status_code
@@ -497,9 +511,12 @@ def clear_shipment():
 def get_orders():
     """获取订单列表"""
     try:
-        limit = request.args.get('limit', 100, type=int)
-        service = ShipmentService()
-        orders = service.get_orders(limit)
+        limit = request.args.get("limit", 100, type=int)
+        app_service = get_shipment_app_service()
+        orders_list = app_service.get_orders(limit)
+
+        # 兼容旧路由输出结构：data 里塞入旧 service 的 dict（避免前端依赖 shape 回归）
+        orders = {"success": True, "data": orders_list, "count": len(orders_list)}
         return jsonify({"success": True, "data": orders, "count": len(orders)})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
@@ -539,7 +556,7 @@ def search_orders():
         query = request.args.get('q', '').strip()
         if not query:
             return jsonify({"success": True, "data": [], "count": 0})
-        service = ShipmentService()
+        service = get_shipment_app_service()
         orders = service.search_orders(query)
         return jsonify({"success": True, "data": orders, "count": len(orders)})
     except Exception as e:
@@ -577,7 +594,7 @@ def search_orders():
 def get_order(order_number):
     """获取订单详情"""
     try:
-        service = ShipmentService()
+        service = get_shipment_app_service()
         order = service.get_order(order_number)
         if order:
             return jsonify({"success": True, "data": order})
@@ -607,8 +624,26 @@ def get_order(order_number):
 def delete_order(order_number):
     """删除订单"""
     try:
-        return jsonify({"success": True, "message": f"订单 {order_number} 已删除"})
+        app_service = get_shipment_app_service()
+
+        try:
+            shipment_id = int(order_number)
+        except ValueError:
+            return jsonify({
+                "success": False,
+                "message": f"无效的订单编号格式：{order_number}"
+            }), 400
+
+        try:
+            result = app_service.delete_shipment(shipment_id)
+            if result.get("success") or result.get("deleted"):
+                return jsonify({"success": True, "message": f"订单 {order_number} 已删除"}), 200
+            return jsonify({"success": False, "message": result.get("message", "删除失败")}), 400
+        except Exception as e:
+            logger.error(f"删除订单失败：order_number={order_number}, error={e}")
+            return jsonify({"success": False, "message": f"删除订单失败：{str(e)}"}), 500
     except Exception as e:
+        logger.exception(f"删除订单异常：order_number={order_number}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 
@@ -625,7 +660,10 @@ def delete_order(order_number):
 def clear_all_orders():
     """清空所有订单"""
     try:
-        return jsonify({"success": True, "message": "已清空所有订单"})
+        app_service = get_shipment_app_service()
+        result = app_service.clear_all_orders()
+        status_code = 200 if result.get("success") else 500
+        return jsonify(result), status_code
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
@@ -652,7 +690,7 @@ def clear_all_orders():
 def get_latest_orders():
     """获取最新订单"""
     try:
-        service = ShipmentService()
+        service = get_shipment_app_service()
         orders = service.get_orders(10)
         return jsonify({"success": True, "data": orders})
     except Exception as e:
@@ -697,8 +735,8 @@ def set_order_sequence():
         data = request.get_json() or {}
         sequence = data.get('sequence', 1)
         
-        service = ShipmentService()
-        result = service.set_order_sequence(sequence)
+        app_service = get_shipment_app_service()
+        result = app_service.set_order_sequence(sequence)
         
         status_code = 200 if result.get("success") else 500
         return jsonify(result), status_code
@@ -729,8 +767,8 @@ def set_order_sequence():
 def reset_order_sequence():
     """重置订单序号"""
     try:
-        service = ShipmentService()
-        result = service.reset_order_sequence()
+        app_service = get_shipment_app_service()
+        result = app_service.reset_order_sequence()
         
         status_code = 200 if result.get("success") else 500
         return jsonify(result), status_code
@@ -760,8 +798,8 @@ def reset_order_sequence():
 def get_shipment_units():
     """获取出货单位列表"""
     try:
-        service = ShipmentService()
-        units = service.get_purchase_units()
+        app_service = get_shipment_app_service()
+        units = app_service.get_purchase_units()
         return jsonify({"success": True, "data": units})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
@@ -797,8 +835,8 @@ def get_shipment_records():
     """获取出货记录列表"""
     try:
         unit = request.args.get('unit')
-        service = ShipmentService()
-        records = service.get_shipment_records(unit)
+        app_service = get_shipment_app_service()
+        records = app_service.get_shipment_records(unit)
         return jsonify({"success": True, "data": records})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
@@ -853,13 +891,17 @@ def update_shipment_record():
                 "message": "缺少记录 ID"
             }), 400
         
-        service = ShipmentService()
-        result = service.update_shipment_record(
+        app_service = get_shipment_app_service()
+        result = app_service.update_shipment_record(
             record_id=record_id,
-            unit_name=data.get('unit_name'),
-            products=data.get('products'),
-            date=data.get('date'),
-            **{k: v for k, v in data.items() if k not in ['id', 'unit_name', 'products', 'date']}
+            unit_name=data.get("unit_name"),
+            products=data.get("products"),
+            date=data.get("date"),
+            **{
+                k: v
+                for k, v in data.items()
+                if k not in ["id", "unit_name", "products", "date"]
+            },
         )
         
         status_code = 200 if result.get("success") else 404
@@ -914,8 +956,8 @@ def delete_shipment_record():
                 "message": "缺少记录 ID"
             }), 400
         
-        service = ShipmentService()
-        result = service.delete_shipment_record(record_id)
+        app_service = get_shipment_app_service()
+        result = app_service.delete_shipment_record(record_id)
         
         status_code = 200 if result.get("success") else 404
         return jsonify(result), status_code
@@ -956,8 +998,8 @@ def export_shipment_records():
     try:
         unit = request.args.get('unit')
         
-        service = ShipmentService()
-        result = service.export_to_excel(unit_name=unit)
+        app_service = get_shipment_app_service()
+        result = app_service.export_shipment_records(unit_name=unit)
         
         status_code = 200 if result.get("success") else 500
         return jsonify(result), status_code

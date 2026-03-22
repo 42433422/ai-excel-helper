@@ -1,0 +1,363 @@
+# 意图识别配置 v2
+# 此文件支持热更新：修改后调用 reload_intent_config() 即可生效
+
+negation:
+  prefixes:
+    - 不要
+    - 别
+    - 不用
+    - 不需要
+    - 不必
+    - 取消
+    - 别给我
+    - 别帮我
+    - 不用了
+    - 不要了
+    - 算了
+    - 不生成
+    - 不开发
+    - 不导入
+    - 不上传
+    - 不想
+    - 不用帮我
+    - 别弄
+    - 不用弄
+    - 不用做
+    - 不要做
+  phrases:
+    - 不要生成
+    - 别生成
+    - 不用生成
+    - 不要开发货单
+    - 别开发货单
+    - 不要开单
+    - 别开单
+    - 不要上传
+    - 别上传
+    - 不用上传
+    - 不要导入
+    - 别导入
+    - 不要打印
+    - 别打印
+    - 不用打印
+    - 取消打印
+    - 不打印
+    - 不要打标签
+
+greeting:
+  patterns:
+    - 你好
+    - 您好
+    - 嗨
+    - 嗨喽
+    - hello
+    - hi
+    - 早上好
+    - 下午好
+    - 晚上好
+    - 在吗
+    - 在么
+    - 有人吗
+    - 在不在
+    - 在不在呀
+
+goodbye:
+  patterns:
+    - 再见
+    - 拜拜
+    - bye
+    - 先这样
+    - 没事了
+    - 谢谢再见
+    - 好的谢谢
+    - 先忙
+
+help:
+  patterns:
+    - 你能做什么
+    - 你会什么
+    - 有什么功能
+    - 怎么用
+    - 帮助
+    - 帮帮我
+    - 功能介绍
+    - 说明一下
+    - 有什么可以帮
+    - 能干啥
+    - 支持什么
+    - 怎么操作
+
+tool_intents:
+  - id: shipment_generate
+    keywords:
+      - 生成发货单
+      - 发货单生成
+      - 做发货单
+      - 开发货单
+      - 生成送货单
+      - 开单
+      - 打单
+      - 开送货单
+      - 做出货单
+      - 生成出货单
+    priority: 12
+    tool_key: shipment_generate
+    block_if_negated: true
+    patterns:
+      - ^发货单(.+?)\s*(\d+)\s*桶
+      - ^送货单(.+?)\s*(\d+)\s*箱
+      - ^出货单(.+?)\s*(\d+)\s*件
+
+  - id: wechat_send
+    keywords:
+      - 发给他
+      - 发送
+      - 发微信
+      - 发消息
+      - 转发给他
+      - 发一下
+      - 发给
+      - 转给他
+      - 发给对方
+      - 发过去
+      - 发消息给
+      - 发送消息给
+      - 发送给
+    priority: 10
+    tool_key: wechat_send
+    block_if_negated: true
+
+  - id: shipment_template
+    keywords:
+      - 发货单模板
+      - 模板
+      - 抬头
+      - 购货单位
+      - 联系人
+      - 订单编号
+      - 当前模板
+      - 现在用的模板
+      - 哪个模板
+      - 词条
+      - 可编辑词条
+    priority: 9
+    tool_key: shipment_template
+    block_if_negated: false
+
+  - id: excel_decompose
+    keywords:
+      - 分解 excel
+      - 解析 excel
+      - 分解模板
+      - 提取词条
+      - excel 模板
+      - 表头
+      - 解析模板
+      - 表头提取
+      - 词条提取
+      - 分解表
+    priority: 9
+    tool_key: excel_decompose
+    block_if_negated: false
+
+  - id: excel_analyzer
+    keywords:
+      - 分析 excel
+      - 分析模板
+      - 模板分析
+      - excel 结构
+      - Excel 分析
+      - 模板结构
+      - 可编辑区域
+      - 表头分析
+      - 分析表结构
+      - 查看模板
+    priority: 8
+    tool_key: excel_analyzer
+    block_if_negated: false
+
+  - id: shipments
+    keywords:
+      - 出货
+      - 订单
+      - 发货
+      - 出货单
+      - 发货记录
+      - 订单列表
+    priority: 8
+    tool_key: shipments
+    block_if_negated: false
+
+  - id: products
+    keywords:
+      - 产品
+      - 商品
+      - 型号
+      - 产品列表
+      - 产品库
+      - 规格
+    priority: 7
+    tool_key: products
+    block_if_negated: false
+
+  - id: customers
+    keywords:
+      - 客户
+      - 顾客
+      - 单位
+      - 用户列表
+      - 用户名单
+      - 购买单位
+      - 单位列表
+      - 客户列表
+      - 用户清单
+      - 客户名单
+    priority: 6
+    tool_key: customers
+    block_if_negated: false
+
+  - id: show_images
+    keywords:
+      - 图片
+      - 照片
+      - 图片列表
+      - 查看图片
+      - 看图片
+      - 打开图片
+    priority: 6
+    tool_key: show_images
+    block_if_negated: false
+
+  - id: show_videos
+    keywords:
+      - 视频
+      - 录像
+      - 视频列表
+      - 查看视频
+      - 看视频
+      - 打开视频
+    priority: 6
+    tool_key: show_videos
+    block_if_negated: false
+
+  - id: print_label
+    keywords:
+      - 打印
+      - 标签
+      - 打印标签
+      - 商标导出
+      - 标签导出
+      - 下载标签
+      - 打标签
+      - 商标打印
+      - 商标
+    priority: 5
+    tool_key: print_label
+    block_if_negated: true
+
+  - id: upload_file
+    keywords:
+      - 上传
+      - 导入
+      - 解析
+      - 上传文件
+      - 导入文件
+      - 上传 excel
+    priority: 5
+    tool_key: upload_file
+    block_if_negated: true
+
+  - id: materials
+    keywords:
+      - 原材料
+      - 材料
+      - 库存
+      - 原材料库存
+      - 库存查询
+      - 材料库
+    priority: 4
+    tool_key: materials
+    block_if_negated: false
+
+hint_intents:
+  - id: template_query
+    keywords:
+      - 发货单模板
+      - 当前模板
+      - 现在用的模板
+      - 现在模板
+      - 哪个模板
+      - 用的哪个模板
+    priority: 8
+
+  - id: customer_export
+    keywords:
+      - 导出 excel
+      - 导出 xlsx
+      - 导出表格
+      - 导出用户列表
+      - 导出客户列表
+      - 导出购买单位
+      - 导出单位
+    priority: 7
+
+  - id: customer_list
+    keywords:
+      - 查看用户列表
+      - 用户列表
+      - 用户名单
+      - 查看用户
+      - 客户列表
+      - 查看客户列表
+      - 购买单位列表
+    priority: 7
+
+  - id: customer_edit
+    keywords:
+      - 改成
+      - 修改
+      - 更新
+      - 设为
+      - 设置为
+      - 改一下
+      - 改下
+    priority: 5
+
+  - id: customer_supplement
+    keywords:
+      - 联系人
+      - 电话
+      - 手机
+      - 地址
+      - 补充
+    priority: 6
+
+confirmation_keywords:
+  - 是
+  - 好的
+  - 确认
+  - 没问题
+  - 可以
+  - 行
+  - 执行
+  - 开始
+  - 来
+  - 好
+  - 同意
+  - 就这么做
+  - 对
+  - 是的
+
+negation_keywords:
+  - 否
+  - 不要
+  - 不用
+  - 算了
+  - 取消
+  - 不用了
+  - 不要了
+  - 不对
+  - 不是
+  - 别
+  - 停止
+  - 终止

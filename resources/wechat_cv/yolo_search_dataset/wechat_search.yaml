@@ -1,0 +1,8 @@
+# YOLO 搜索框检测数据集（类别 0 = search_box）
+# 采集: python collect_search_box_labels.py
+# 训练: 在 wechat_cv 目录下运行 python train_wechat_yolo.py
+path: yolo_search_dataset
+train: images
+val: images
+nc: 1
+names: ['search_box']

@@ -4,13 +4,19 @@
 提供产品库相关 HTTP 接口。
 """
 
-from flask import Blueprint, request, jsonify, send_file
-from flasgger import swag_from
 import os
 
-from app.services.products_service import ProductsService
+from flasgger import swag_from
+from flask import Blueprint, jsonify, request, send_file
+
+from app.application import get_product_app_service
 
 products_bp = Blueprint("products", __name__)
+
+
+def get_products_service():
+    """获取产品服务实例"""
+    return get_product_app_service()._products_service
 
 
 @products_bp.route("/", methods=["GET"])
@@ -94,7 +100,7 @@ def products_list():
         page = int(request.args.get("page", 1))
         per_page = int(request.args.get("per_page", 20))
         
-        service = ProductsService()
+        service = get_products_service()
         result = service.get_products(
             unit_name=unit_name,
             keyword=keyword,
@@ -184,13 +190,13 @@ def get_product(product_id):
     
     Path Parameters:
         - product_id: 产品 ID
-        
+         
     Response:
         - success: 是否成功
         - data: 产品详细信息
     """
     try:
-        service = ProductsService()
+        service = get_products_service()
         result = service.get_product(product_id)
         
         if result.get("success"):
@@ -290,7 +296,7 @@ def products_add():
     try:
         data = request.get_json() or {}
         
-        service = ProductsService()
+        service = get_products_service()
         result = service.create_product(data)
         
         status_code = 200 if result.get("success") else 400
@@ -393,7 +399,7 @@ def products_update():
                 "message": "产品 ID 不能为空"
             }), 400
         
-        service = ProductsService()
+        service = get_products_service()
         result = service.update_product(product_id, data)
         
         status_code = 200 if result.get("success") else 400
@@ -772,7 +778,7 @@ def search_products():
     """搜索产品"""
     try:
         keyword = request.args.get('keyword', '')
-        service = ProductsService()
+        service = get_products_service()
         result = service.get_products(keyword=keyword)
         return jsonify(result)
     except Exception as e:
@@ -981,7 +987,7 @@ def batch_delete_products():
                 "message": "产品 ID 列表不能为空"
             }), 400
         
-        service = ProductsService()
+        service = get_products_service()
         result = service.batch_delete_products(ids)
         
         status_code = 200 if result.get("success") else 400

@@ -4,13 +4,19 @@
 提供购买单位导入/导出相关 HTTP 接口。
 """
 
-from flask import Blueprint, request, jsonify, send_file
-from flasgger import swag_from
 import os
 
-from app.services.customer_import_service import CustomerImportService
+from flasgger import swag_from
+from flask import Blueprint, jsonify, request, send_file
+
+from app.application import CustomerApplicationService, get_customer_app_service
 
 customers_bp = Blueprint("customers", __name__)
+
+
+def get_customer_service():
+    """获取客户应用服务实例"""
+    return get_customer_app_service()
 
 
 @customers_bp.route("", methods=["GET"])
@@ -230,7 +236,7 @@ def customers_create():
                 "message": "客户名称不能为空"
             }), 400
         
-        service = CustomerImportService()
+        service = get_customer_app_service()
         result = service.create(data)
         
         if result["success"]:
@@ -297,7 +303,7 @@ def customers_get(customer_id):
         - data: 客户详细信息
     """
     try:
-        service = CustomerImportService()
+        service = get_customer_app_service()
         result = service.get_by_id(customer_id)
         
         if result["success"]:
@@ -413,7 +419,7 @@ def customers_update(customer_id):
                 "message": "请求体不能为空"
             }), 400
         
-        service = CustomerImportService()
+        service = get_customer_app_service()
         result = service.update(customer_id, data)
         
         if result["success"]:
@@ -471,7 +477,7 @@ def customers_delete(customer_id):
         - deleted_count: 删除的记录数
     """
     try:
-        service = CustomerImportService()
+        service = get_customer_app_service()
         result = service.delete(customer_id)
         
         if result["success"]:
@@ -522,8 +528,7 @@ def customers_batch_delete():
             }), 400
         
         # 调用服务层删除
-        from app.services.customer_import_service import CustomerImportService
-        service = CustomerImportService()
+        service = get_customer_app_service()
         result = service.batch_delete(ids)
         
         return jsonify(result), 200
@@ -580,8 +585,7 @@ def customers_list():
 def import_customers_from_excel(file):
     """从 Excel 文件导入客户"""
     try:
-        from app.services.customer_import_service import CustomerImportService
-        service = CustomerImportService()
+        service = get_customer_app_service()
         result = service.import_from_excel(file)
         return True, result, 200
     except Exception as e:
@@ -591,8 +595,7 @@ def import_customers_from_excel(file):
 def export_customers_to_excel(keyword=None):
     """导出客户到 Excel"""
     try:
-        from app.services.customer_import_service import CustomerImportService
-        service = CustomerImportService()
+        service = get_customer_app_service()
         result = service.export_to_excel(keyword=keyword)
         return True, result, 200
     except Exception as e:
@@ -602,8 +605,7 @@ def export_customers_to_excel(keyword=None):
 def get_all_customers(keyword=None, page=1, per_page=20):
     """获取所有客户"""
     try:
-        from app.services.customer_import_service import CustomerImportService
-        service = CustomerImportService()
+        service = get_customer_app_service()
         result = service.get_all(keyword=keyword, page=page, per_page=per_page)
         return result
     except Exception as e:

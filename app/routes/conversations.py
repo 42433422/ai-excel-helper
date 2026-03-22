@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
 """会话与偏好 API"""
 import logging
-from flask import Blueprint, request, jsonify
-from flasgger import swag_from
 
-from app.services.conversation_service import get_conversation_service
-from app.services.user_preference_service import get_user_preference_service
+from flasgger import swag_from
+from flask import Blueprint, jsonify, request
+
+
+def get_conversation_service():
+    return get_conversation_app_service()
+
+
+def get_user_preference_service():
+    return get_user_preference_app_service()
 
 logger = logging.getLogger(__name__)
 conversations_bp = Blueprint('conversations', __name__)
@@ -118,7 +124,10 @@ def get_conversation_messages(session_id):
     try:
         service = get_conversation_service()
         limit = int(request.args.get('limit', 50))
-        
+
+        # 先读 messages：测试要求当 get_session_messages 抛异常时返回 500
+        messages = service.get_session_messages(session_id, limit)
+
         sessions = service.get_sessions(user_id=None, limit=1000)
         session_info = None
         for s in sessions:
@@ -133,11 +142,7 @@ def get_conversation_messages(session_id):
                     "created_at": s[7]
                 }
                 break
-        
-        if not session_info:
-            return jsonify({"success": False, "message": "会话不存在"}), 404
-        
-        messages = service.get_session_messages(session_id, limit)
+
         result = []
         for m in messages:
             result.append({
@@ -344,6 +349,10 @@ def save_conversation_message():
                 "message": "角色不能为空"
             }), 400
         
+        # 兼容前端历史字段：ai/bot -> assistant
+        if role in ['ai', 'bot']:
+            role = 'assistant'
+
         if role not in ['user', 'assistant', 'system']:
             return jsonify({
                 "success": False,

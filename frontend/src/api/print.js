@@ -2,7 +2,7 @@ import api from './index';
 
 export const printApi = {
   getPrinters() {
-    return api.get('/api/print/printers');
+    return api.get('/api/printers');
   },
 
   getDefaultPrinter() {
@@ -15,6 +15,18 @@ export const printApi = {
 
   printLabel(data) {
     return api.post('/api/print/label', data);
+  },
+
+  listLabels() {
+    return api.get('/api/print/list_labels');
+  },
+
+  printSingleLabel(data) {
+    return api.post('/api/print/single_label', data);
+  },
+
+  printByFilename(filename) {
+    return api.post(`/api/print/${encodeURIComponent(filename)}`, {});
   },
 
   validatePrinters() {

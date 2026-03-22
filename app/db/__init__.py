@@ -1,17 +1,17 @@
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.engine import Engine
-from app.db.base import Base
-import sys
-import os
+import logging
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from db import get_db_path
+from sqlalchemy import create_engine, event, pool
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import scoped_session, sessionmaker
+
+from app.db.base import Base
+from app.db.init_db import get_db_path
+
+logger = logging.getLogger(__name__)
 
 
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
-    """设置 SQLite 调优参数"""
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
@@ -21,11 +21,15 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 
 def get_engine(db_path: str = None):
-    path = db_path or get_db_path()
+    path = db_path or get_db_path("products.db")
     return create_engine(
         f"sqlite:///{path}",
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False, "timeout": 30},
         pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=3600,
+        pool_timeout=30,
         echo=False,
     )
 
@@ -40,3 +44,8 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def close_old_connections():
+    engine.dispose()
+    logger.info("数据库连接池已刷新")

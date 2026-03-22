@@ -24,12 +24,18 @@
         <div v-else-if="error" class="error">{{ error }}</div>
         <div v-else-if="filteredTools.length === 0" class="empty">没有找到工具</div>
         <div v-else>
-          <div v-for="tool in filteredTools" :key="getToolId(tool)" class="tool-card" :data-tool-id="getToolId(tool)" @click="showToolDetail(getToolId(tool))">
+          <div
+            v-for="tool in filteredTools"
+            :key="getToolId(tool)"
+            class="tool-card"
+            :data-tool-id="getToolId(tool)"
+            @click="showToolDetail(getToolId(tool))"
+          >
             <span class="tool-category" :class="getCategoryKey(tool)">{{ getCategoryName(tool) }}</span>
             <div class="tool-name">{{ tool.name }}</div>
             <div class="tool-description">{{ tool.description }}</div>
             <div class="tool-actions">
-              <button class="tool-action-btn query" @click.stop="showToolDetail(getToolId(tool))">查看</button>
+              <button class="tool-action-btn query" data-action="open-tool" :data-tool-id="getToolId(tool)" @click.stop="showToolDetail(getToolId(tool))">查看</button>
             </div>
           </div>
         </div>
@@ -40,7 +46,7 @@
       <div class="modal-content" style="max-width: 500px;">
         <div class="modal-header">
           <span>{{ selectedTool?.name }}</span>
-          <span class="close" @click="closeToolModal">×</span>
+          <span class="close" data-action="close-tool-modal" @click="closeToolModal">×</span>
         </div>
         <div class="modal-body" v-if="selectedTool">
           <p><strong>分类：</strong>{{ getCategoryName(selectedTool) }}</p>

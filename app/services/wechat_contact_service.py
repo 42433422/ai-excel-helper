@@ -4,19 +4,21 @@
 提供微信联系人管理、业务逻辑处理。
 """
 
-import os
-import sys
+import difflib
 import json
 import logging
+import os
+import re
+import sys
 import threading
 import time
-import re
-import difflib
-from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
 from sqlalchemy import or_
-from app.db.session import get_db
+
 from app.db.models import WechatContact, WechatContactContext
+from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -70,8 +72,8 @@ class WechatContactService:
                 
                 query = query.order_by(WechatContact.contact_name).limit(limit)
                 contacts = query.all()
-                
-                return [
+
+                results = [
                     {
                         "id": c.id,
                         "contact_name": c.contact_name,
@@ -86,8 +88,207 @@ class WechatContactService:
                     for c in contacts
                 ]
 
+                # 如果带关键词且本地表没有结果，回退到微信数据库中“挖”联系人（类似旧 AI 助手逻辑）
+                if keyword and not results:
+                    try:
+                        extra = self._search_contacts_from_wechat_db(keyword=keyword, limit=limit)
+                        results.extend(extra)
+                    except Exception as e:
+                        logger.warning("从微信数据库搜索联系人失败：%s", e)
+
+                return results
+
         except Exception as e:
             logger.exception(f"获取联系人列表失败：{e}")
+            return []
+
+    def _search_contacts_from_wechat_db(self, keyword: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        从微信解密数据库中搜索联系人（仅用于补充搜索结果，不写入主表）。
+
+        - 数据来源：resources/wechat-decrypt/decrypted/message/message_0.db
+        - 工具模块：wechat_db_read.get_recent_messages（来自 resources/wechat_cv）
+        """
+        keyword = (keyword or "").strip()
+        if not keyword:
+            return []
+
+        try:
+            import os
+            import sqlite3
+            import sys
+
+            from app.utils.path_utils import get_base_dir, get_resource_path
+
+            # 1) 优先使用 XCAGI/resources 下的解密库
+            wechat_decrypt_dir = get_resource_path("wechat-decrypt", "decrypted", "message")
+            candidate_db_paths = [os.path.join(wechat_decrypt_dir, "message_0.db")]
+
+            # 2) 兼容：使用 XCAGI/AI助手 下原有的解密库位置（如果存在）
+            base_dir = get_base_dir()
+            legacy_ai_dir = os.path.join(base_dir, "AI助手")
+            candidate_db_paths.append(os.path.join(legacy_ai_dir, "wechat-decrypt", "decrypted", "message", "message_0.db"))
+
+            msg_db_path = os.environ.get("WECHAT_MSG_DB_PATH", "")
+            if msg_db_path and os.path.exists(msg_db_path):
+                db_path = msg_db_path
+            else:
+                db_path = next((p for p in candidate_db_paths if os.path.exists(p)), "")
+
+            if not db_path:
+                return []
+
+            # 先尝试从 contact.db 直接匹配联系人（通常“昵称/备注/微信号”都在这里）
+            try:
+                wechat_decrypt_base = os.path.dirname(wechat_decrypt_dir)  # .../decrypted
+                contact_db_path = os.path.join(wechat_decrypt_base, "contact", "contact.db")
+                logger.info("[contact-fallback] path=%s exists=%s keyword=%s", contact_db_path, os.path.exists(contact_db_path), keyword)
+                if os.path.exists(contact_db_path):
+                    with sqlite3.connect(contact_db_path) as cconn:
+                        cur = cconn.cursor()
+                        like = f"%{keyword}%"
+                        sql = (
+                            "SELECT username, nick_name, remark, is_in_chat_room "
+                            "FROM contact "
+                            "WHERE delete_flag = 0 AND (nick_name LIKE ? OR remark LIKE ? OR username LIKE ?) "
+                            "LIMIT ?"
+                        )
+                        rows = cur.execute(sql, (like, like, like, limit)).fetchall()
+                        logger.info("contact.db matched rows=%s for keyword=%s", len(rows), keyword)
+                        contacts = []
+                        for username, nick_name, remark, is_in_chat_room in rows:
+                            username = (username or "").strip()
+                            nick_name = (nick_name or "").strip()
+                            remark = (remark or "").strip()
+                            contact_type = "group" if (str(is_in_chat_room) == "1" or "@chatroom" in username) else "contact"
+                            contacts.append(
+                                {
+                                    "id": None,
+                                    "contact_name": nick_name or username,
+                                    "remark": remark,
+                                    "wechat_id": username,
+                                    "contact_type": contact_type,
+                                    "is_active": 1,
+                                    "is_starred": 0,
+                                    "created_at": None,
+                                    "updated_at": None,
+                                }
+                            )
+                        if contacts:
+                            return contacts
+            except Exception as e:
+                # contact.db 不可用时继续走 message db 回退
+                logger.warning("contact.db 搜索联系人失败：%s", e)
+
+            # 3) wechat_db_read 所在目录：先看 resources/wechat_cv，再回退 AI助手/wechat_cv
+            wechat_cv_candidates = [
+                get_resource_path("wechat_cv"),
+                os.path.join(legacy_ai_dir, "wechat_cv"),
+            ]
+            wechat_cv_path = next((p for p in wechat_cv_candidates if os.path.isdir(p)), "")
+            if wechat_cv_path and wechat_cv_path not in sys.path:
+                sys.path.insert(0, wechat_cv_path)
+
+            try:
+                from wechat_db_read import get_recent_messages  # type: ignore
+            except Exception as e:
+                logger.warning("导入 wechat_db_read 失败，无法从微信 DB 搜索联系人：%s", e)
+                return []
+
+            # 这份 message_0.db 可能是不同版本/不同导出方式，表名常见有两类：
+            # - 旧版：MSG/Message，字段有 talker/displayName
+            # - 新版：Msg_<hash>，字段多为 message_content 等
+            # 为了稳定，这里先用 sqlite3 直接拉取“最可能的消息表”，再做兼容解析。
+            rows: List[Dict[str, Any]] = []
+            try:
+                conn = sqlite3.connect(db_path)
+                cur = conn.cursor()
+                tbls = cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+                table_names = [t[0] for t in tbls if t and t[0]]
+                msg_table = (
+                    "MSG"
+                    if "MSG" in table_names
+                    else ("Message" if "Message" in table_names else next((t for t in table_names if str(t).startswith("Msg_")), ""))
+                )
+                if msg_table:
+                    raw = cur.execute(f"SELECT * FROM {msg_table} LIMIT ?", (limit * 5,)).fetchall()
+                    colnames = [d[0] for d in (cur.description or [])]
+                    rows = [dict(zip(colnames, r)) for r in raw]
+                conn.close()
+            except Exception:
+                # 退化：走原本 wechat_db_read 的逻辑（可能会失败，但不影响主流程）
+                out = get_recent_messages(
+                    db_path,
+                    limit=limit * 5,  # 多取一些，再按联系人去重
+                    table_name="MSG",
+                    config_path=os.environ.get("WECHAT_DB_KEY_CONFIG") or None,
+                )
+                rows = out.get("rows") or []
+
+            if not rows:
+                return []
+
+            keyword_lower = keyword.lower()
+            contacts_map: Dict[str, Dict[str, Any]] = {}
+            for row in rows:
+                username = (row.get("talker") or "").strip()
+                display_name = (row.get("displayName") or "").strip()
+                if username or display_name:
+                    # 旧版字段路径
+                    text = f"{username} {display_name}".lower()
+                    if keyword_lower not in text:
+                        continue
+
+                    key = username or display_name
+                    if key in contacts_map:
+                        continue
+
+                    contacts_map[key] = {
+                        "id": None,
+                        "contact_name": display_name or username,
+                        "remark": "",
+                        "wechat_id": username or "",
+                        "contact_type": "group" if "@chatroom" in (username or "") else "contact",
+                        "is_active": 1,
+                        "is_starred": 0,
+                        "created_at": None,
+                        "updated_at": None,
+                    }
+                else:
+                    # 新版字段路径：从 message_content 里抽取 wxid_xxx: 作为“对方标识”
+                    mc = row.get("message_content") or ""
+                    if isinstance(mc, (bytes, bytearray)):
+                        mc = mc.decode("utf-8", errors="ignore")
+                    mc_str = str(mc)
+                    if keyword_lower not in mc_str.lower():
+                        continue
+
+                    m = re.search(r"(wxid_[0-9a-zA-Z]+)\\s*:", mc_str)
+                    wechat_id = m.group(1) if m else ""
+                    if not wechat_id:
+                        continue
+
+                    if wechat_id in contacts_map:
+                        continue
+
+                    contacts_map[wechat_id] = {
+                        "id": None,
+                        "contact_name": wechat_id,
+                        "remark": "",
+                        "wechat_id": wechat_id,
+                        "contact_type": "contact",
+                        "is_active": 1,
+                        "is_starred": 0,
+                        "created_at": None,
+                        "updated_at": None,
+                    }
+
+                if len(contacts_map) >= limit:
+                    break
+
+            return list(contacts_map.values())
+        except Exception as e:
+            logger.exception("从微信 DB 搜索联系人时异常：%s", e)
             return []
 
     def get_contact_by_id(self, contact_id: int) -> Optional[Dict[str, Any]]:
@@ -422,8 +623,9 @@ class WechatContactService:
                     }
                 
                 base = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-                project_root = os.path.dirname(base)
-                wechat_decrypt_dir = os.path.join(project_root, "wechat-decrypt", "decrypted", "message")
+                from app.utils.path_utils import get_resource_path
+
+                wechat_decrypt_dir = get_resource_path("wechat-decrypt", "decrypted", "message")
                 default_msg_db_path = os.path.join(wechat_decrypt_dir, "message_0.db")
                 msg_db_path = os.environ.get("WECHAT_MSG_DB_PATH", default_msg_db_path)
                 
@@ -435,10 +637,14 @@ class WechatContactService:
                     }
                 
                 try:
-                    wechat_cv_path = os.path.join(project_root, "wechat_cv")
+                    wechat_cv_path = get_resource_path("wechat_cv")
                     if os.path.isdir(wechat_cv_path) and wechat_cv_path not in sys.path:
                         sys.path.insert(0, wechat_cv_path)
-                    from wechat_db_read import get_messages_for_contact, get_wechat_contact_db_path, get_contact_display_name
+                    from wechat_db_read import (
+                        get_contact_display_name,
+                        get_messages_for_contact,
+                        get_wechat_contact_db_path,
+                    )
                 except Exception as e:
                     logger.warning("导入 wechat_db_read 失败：%s", e)
                     return {

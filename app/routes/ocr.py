@@ -5,21 +5,24 @@ OCR路由模块
 提供图像文字识别、结构化数据提取等 HTTP 接口。
 """
 
-import os
 import logging
-from flask import Blueprint, request, jsonify
+import os
+from functools import lru_cache
+from typing import Any, Dict
+
 from flasgger import swag_from
+from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
-from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
 ocr_bp = Blueprint("ocr", __name__, url_prefix="/api/ocr")
 
 
+@lru_cache(maxsize=1)
 def get_ocr_service():
-    from app.services.ocr_service import OCRService
-    return OCRService()
+    from app.services import get_ocr_service as _get
+    return _get()
 
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp', 'tiff', 'webp'}
@@ -80,7 +83,9 @@ def ocr_recognize():
 
         if image_file:
             filename = secure_filename(image_file.filename)
-            upload_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "ocr")
+            from app.utils.path_utils import get_upload_dir
+
+            upload_dir = os.path.join(get_upload_dir(), "ocr")
             os.makedirs(upload_dir, exist_ok=True)
             file_path = os.path.join(upload_dir, filename)
             image_file.save(file_path)
@@ -294,7 +299,9 @@ def ocr_recognize_and_extract():
 
         if image_file:
             filename = secure_filename(image_file.filename)
-            upload_dir = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "ocr")
+            from app.utils.path_utils import get_upload_dir
+
+            upload_dir = os.path.join(get_upload_dir(), "ocr")
             os.makedirs(upload_dir, exist_ok=True)
             file_path = os.path.join(upload_dir, filename)
             image_file.save(file_path)

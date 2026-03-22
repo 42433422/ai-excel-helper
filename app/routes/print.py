@@ -10,11 +10,12 @@
 - /api/print/validate: 验证打印机分离
 """
 
-import os
 import logging
-from flask import Blueprint, request, jsonify
+import os
+from typing import Any, Dict
+
 from flasgger import swag_from
-from typing import Dict, Any
+from flask import Blueprint, jsonify, request
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,8 @@ print_bp = Blueprint("print", __name__, url_prefix="/api/print")
 
 
 def get_printer_service():
-    from app.services.printer_service import printer_service
-    return printer_service
+    from app.services import get_printer_service as _get
+    return _get()
 
 
 @print_bp.route("/printers", methods=["GET"])
@@ -533,3 +534,122 @@ def test():
         "success": True,
         "message": "打印服务运行正常",
     })
+
+
+@print_bp.route("/list_labels", methods=["GET"])
+@swag_from({
+    'summary': '获取标签列表',
+    'description': '获取商标导出目录下的标签文件列表',
+    'responses': {
+        '200': {
+            'description': '成功响应',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'success': {'type': 'boolean'},
+                    'labels': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {
+                                'filename': {'type': 'string'},
+                                'order_number': {'type': 'string'},
+                                'label_number': {'type': 'string'}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+})
+def list_labels():
+    """
+    获取标签列表
+
+    请求参数：
+    - limit: 返回数量限制，默认 2（只显示最新 2 个）
+
+    响应：
+    {
+        "success": True,
+        "labels": [
+            {"filename": "xxx.png", "order_number": "26-0300001A", "label_number": "1"}
+        ]
+    }
+    """
+    try:
+        import re
+
+        from app.utils.path_utils import get_resource_path
+
+        labels_dir = get_resource_path("ai_assistant", "商标导出")
+        if not os.path.isdir(labels_dir):
+            return jsonify({
+                "success": True,
+                "labels": [],
+                "message": "商标导出目录不存在"
+            })
+
+        limit = request.args.get('limit', 2, type=int)
+        limit = max(1, min(limit, 20))
+
+        image_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif'}
+        labels = []
+
+        for filename in os.listdir(labels_dir):
+            ext = os.path.splitext(filename.lower())[1]
+            if ext not in image_extensions:
+                continue
+
+            file_path = os.path.join(labels_dir, filename)
+            if not os.path.isfile(file_path):
+                continue
+
+            match = re.match(r"(.+?)_?第？?(\d+)?项？\.png", filename, re.IGNORECASE)
+            order_number = match.group(1) if match else os.path.splitext(filename)[0]
+            label_number = match.group(2) if match and match.group(2) else "1"
+
+            labels.append({
+                "filename": filename,
+                "order_number": order_number.strip() if order_number else "",
+                "label_number": label_number.strip() if label_number else "1"
+            })
+
+        labels.sort(key=lambda x: x.get("filename", ""), reverse=True)
+        labels = labels[:limit]
+
+        return jsonify({
+            "success": True,
+            "labels": labels
+        })
+
+    except Exception as e:
+        logger.error(f"获取标签列表失败: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "labels": [],
+            "message": str(e)
+        }), 500
+
+
+@print_bp.route("/label/<filename>", methods=["GET"])
+def serve_label_image(filename):
+    """提供标签图片文件"""
+    try:
+        from flask import send_from_directory
+
+        from app.utils.path_utils import get_resource_path
+
+        labels_dir = get_resource_path("ai_assistant", "商标导出")
+        safe_filename = os.path.basename(filename)
+        file_path = os.path.join(labels_dir, safe_filename)
+
+        if not os.path.exists(file_path):
+            logger.warning(f"标签文件不存在: {file_path}")
+            return jsonify({"success": False, "message": "文件不存在"}), 404
+
+        return send_from_directory(labels_dir, safe_filename, mimetype='image/png')
+    except Exception as e:
+        logger.error(f"获取标签图片失败: {e}", exc_info=True)
+        return jsonify({"success": False, "message": str(e)}), 500

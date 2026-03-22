@@ -102,7 +102,8 @@ function bindUiEvents() {
     bind('exportCustomersExcelBtn', 'click', () => {
         const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
         const link = document.createElement('a');
-        link.href = `${apiBase}/api/customers/export.xlsx`;
+        // 后端客户导出接口是 `/api/customers/export`
+        link.href = `${apiBase}/api/customers/export`;
         link.download = '购买单位列表.xlsx';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -256,7 +257,10 @@ function switchView(view) {
         'settings': '系统设置',
         'tools': '工具表'
     };
-    document.getElementById('pageTitle').textContent = titles[view] || '';
+    const pageTitleEl = document.getElementById('pageTitle');
+    if (pageTitleEl) {
+        pageTitleEl.textContent = titles[view] || '';
+    }
 
     document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-' + view).classList.add('active');

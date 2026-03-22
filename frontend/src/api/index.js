@@ -14,12 +14,14 @@ class ApiError extends Error {
 
 async function request(url, options = {}) {
   const fullUrl = API_BASE + url;
+  const { skipDefaultJsonHeader = false, ...requestOptions } = options;
   const config = {
-    headers: {
-      ...defaultHeaders,
-      ...options.headers
-    },
-    ...options
+    ...requestOptions
+  };
+  const baseHeaders = skipDefaultJsonHeader ? {} : defaultHeaders;
+  config.headers = {
+    ...baseHeaders,
+    ...(requestOptions.headers || {})
   };
 
   try {
@@ -74,17 +76,37 @@ export const api = {
   },
 
   post(url, data = {}, options = {}) {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    const headers = { ...(options.headers || {}) };
     return request(url, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
+      headers,
+      skipDefaultJsonHeader: isFormData,
       ...options
     });
   },
 
   put(url, data = {}, options = {}) {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    const headers = { ...(options.headers || {}) };
     return request(url, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
+      headers,
+      skipDefaultJsonHeader: isFormData,
+      ...options
+    });
+  },
+
+  patch(url, data = {}, options = {}) {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    const headers = { ...(options.headers || {}) };
+    return request(url, {
+      method: 'PATCH',
+      body: isFormData ? data : JSON.stringify(data),
+      headers,
+      skipDefaultJsonHeader: isFormData,
       ...options
     });
   },

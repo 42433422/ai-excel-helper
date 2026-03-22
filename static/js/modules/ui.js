@@ -3,6 +3,11 @@ function bindUiEvents() {
     if (uiEventsBound) return;
     uiEventsBound = true;
 
+    // Vue shell owns view navigation and most UI events.
+    if (window.__VUE_APP_ACTIVE__) {
+        return;
+    }
+
     document.querySelectorAll('.menu-item').forEach(item => {
         if (item.classList.contains('menu-item-link')) return;
         item.addEventListener('click', function() {
@@ -30,6 +35,7 @@ function bindUiEvents() {
     bind('openCameraBtn', 'click', () => callIfExists('openCamera'));
     bind('capturePhotoBtn', 'click', () => callIfExists('capturePhoto'));
     bind('proExitBtn', 'click', () => callIfExists('toggleProMode'));
+    bind('proBackBtn', 'click', () => callIfExists('stepBackProMode'));
     bind('modeSwitch', 'click', () => callIfExists('toggleProMode'));
     bind('logoutWechatBtn', 'click', () => callIfExists('logoutWechat'));
     bind('clearWechatMessagesBtn', 'click', () => callIfExists('clearWechatMessages'));
@@ -102,7 +108,8 @@ function bindUiEvents() {
     bind('exportCustomersExcelBtn', 'click', () => {
         const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
         const link = document.createElement('a');
-        link.href = `${apiBase}/api/customers/export.xlsx`;
+        // 后端客户导出接口是 `/api/customers/export`
+        link.href = `${apiBase}/api/customers/export`;
         link.download = '购买单位列表.xlsx';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -110,6 +117,40 @@ function bindUiEvents() {
         setTimeout(() => link.remove(), 0);
     });
     bind('toggleAllCustomersCheckbox', 'change', e => callIfExists('toggleAllCustomers', e.target));
+
+    bind('importProductsExcelBtn', 'click', () => {
+        const input = document.getElementById('importProductsExcelInput');
+        if (input) input.click();
+    });
+    bind('importProductsExcelInput', 'change', function() {
+        const input = this;
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
+        const form = new FormData();
+        form.append('file', file);
+        fetch(apiBase + '/api/products/import', { method: 'POST', body: form })
+            .then(function (r) {
+                return r.text().then(function (text) {
+                    try {
+                        return { ok: r.ok, status: r.status, data: JSON.parse(text) };
+                    } catch (_) {
+                        return { ok: false, status: r.status, data: { success: false, message: text || '服务器返回异常（' + r.status + '）' } };
+                    }
+                });
+            })
+            .then(function (_r) {
+                var data = _r.data;
+                if (data.success) {
+                    alert(data.message || '导入成功');
+                    if (typeof loadProducts === 'function') loadProducts();
+                } else {
+                    alert('导入失败：' + (data.message || '未知错误') + (_r.status === 500 ? '（服务器错误，请查看控制台或后端日志）' : ''));
+                }
+            })
+            .catch(function (err) { return alert('导入失败：' + (err.message || '网络错误')); })
+            .finally(() => { input.value = ''; });
+    });
 
     bind('printProductSelect', 'change', () => callIfExists('previewLabel'));
     bind('printLabelBtn', 'click', () => callIfExists('printLabel'));

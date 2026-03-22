@@ -10,46 +10,64 @@
         </div>
       </div>
       <div class="search-box" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
-        <label style="white-space:nowrap;">购买单位：</label>
-        <select v-model="selectedUnit" style="min-width:180px;">
-          <option value="">请选择购买单位</option>
+        <label style="white-space:nowrap;">产品单位：</label>
+        <select v-model="selectedUnit" style="min-width:180px;" @change="loadProducts">
+          <option value="">请选择产品单位</option>
+          <option v-for="u in units" :key="u" :value="u">{{ u }}</option>
         </select>
         <input v-model="searchQuery" type="text" placeholder="搜索产品型号或名称..." @input="loadProducts">
       </div>
       <div class="card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" v-model="selectAll" @change="toggleSelectAll"></th>
-              <th>型号</th>
-              <th>名称</th>
-              <th>规格</th>
-              <th>价格</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="6" class="empty-state">加载中...</td>
-            </tr>
-            <tr v-else-if="products.length === 0">
-              <td colspan="6" class="empty-state">暂无产品数据</td>
-            </tr>
-            <tr v-for="product in products" :key="product.id">
-              <td><input type="checkbox" :value="product.id" v-model="selectedIds"></td>
-              <td>{{ product.model_number || '-' }}</td>
-              <td>{{ product.name || '-' }}</td>
-              <td>{{ product.spec || '-' }}</td>
-              <td>{{ product.price ? '¥' + product.price.toFixed(2) : '-' }}</td>
-              <td>
-                <button class="btn btn-sm btn-secondary" @click="editProduct(product)">编辑</button>
-                <button class="btn btn-sm btn-danger" @click="deleteProduct(product)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <DataTable
+          :columns="columns"
+          :data="products"
+          :loading="loading"
+          :selectable="true"
+          :selected-ids="selectedIds"
+          :has-more="hasMore"
+          :height="'500px'"
+          row-key="id"
+          empty-text="暂无产品数据"
+          @update:selected-ids="selectedIds = $event"
+          @load-more="loadMoreProducts"
+        >
+          <template #cell-model_number="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #cell-name="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #cell-spec="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #cell-price="{ value }">
+            {{ value ? '¥' + value.toFixed(2) : '-' }}
+          </template>
+          <template #actions="{ row }">
+            <button class="btn btn-sm btn-secondary" @click="editProduct(row)">编辑</button>
+            <button class="btn btn-sm btn-danger" @click="handleDelete(row)">删除</button>
+          </template>
+        </DataTable>
       </div>
     </div>
+
+    <ConfirmDialog
+      v-model="showDeleteConfirm"
+      title="确认删除"
+      :message="`确定要删除该产品吗？`"
+      confirm-text="删除"
+      confirm-class="btn-danger"
+      @confirm="confirmDelete"
+    />
+
+    <ConfirmDialog
+      v-model="showBatchDeleteConfirm"
+      title="批量删除"
+      :message="`确定要删除选中的 ${selectedIds.length} 个产品吗？`"
+      confirm-text="批量删除"
+      confirm-class="btn-danger"
+      @confirm="confirmBatchDelete"
+    />
 
     <div v-if="showModal" class="modal show">
       <div class="modal-content">
@@ -82,17 +100,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
+import { useProductsStore } from '../stores/products';
+import { storeToRefs } from 'pinia';
+import customersApi from '../api/customers';
 import productsApi from '../api/products';
+import DataTable from '../components/DataTable.vue';
+import ConfirmDialog from '../components/ConfirmDialog.vue';
 
-const products = ref([]);
-const loading = ref(false);
+const store = useProductsStore();
+const { products, loading } = storeToRefs(store);
+
+const units = ref([]);
 const showModal = ref(false);
 const isEdit = ref(false);
 const selectedIds = ref([]);
 const selectAll = ref(false);
 const searchQuery = ref('');
 const selectedUnit = ref('');
+const currentPage = ref(1);
+const perPage = ref(1000);
+const hasMore = ref(false);
 const formData = ref({
   id: null,
   model_number: '',
@@ -100,23 +128,64 @@ const formData = ref({
   spec: '',
   price: 0
 });
+const showDeleteConfirm = ref(false);
+const showBatchDeleteConfirm = ref(false);
+const itemToDelete = ref(null);
 
-const loadProducts = async () => {
-  loading.value = true;
-  try {
-    const params = {};
-    if (searchQuery.value) params.search = searchQuery.value;
-    if (selectedUnit.value) params.unit = selectedUnit.value;
-    const data = await productsApi.getProducts(params);
-    if (data.success) {
-      products.value = data.data || [];
+const columns = [
+  { key: 'model_number', label: '型号' },
+  { key: 'name', label: '名称' },
+  { key: 'spec', label: '规格' },
+  { key: 'price', label: '价格' }
+];
+
+const currentRequestId = ref(0);
+
+const loadProducts = async (reset = true) => {
+  const requestId = ++currentRequestId.value;
+  if (reset) {
+    currentPage.value = 1;
+    hasMore.value = false;
+  }
+  const params = { page: currentPage.value, per_page: perPage.value };
+  if (searchQuery.value) params.keyword = searchQuery.value;
+  if (selectedUnit.value) params.unit = selectedUnit.value;
+  const result = await store.fetchProducts(params);
+  if (requestId !== currentRequestId.value) return;
+  if (result && result.data) {
+    if (reset) {
+      products.value = result.data;
+    } else {
+      products.value = [...products.value, ...result.data];
     }
-  } catch (e) {
-    console.error('加载产品失败:', e);
-  } finally {
-    loading.value = false;
+    hasMore.value = false;
+    currentPage.value++;
   }
 };
+
+let isLoadingMore = false;
+
+const loadMoreProducts = async () => {
+  if (loading.value || !hasMore.value || isLoadingMore) return;
+  isLoadingMore = true;
+  try {
+    await loadProducts(false);
+  } finally {
+    isLoadingMore = false;
+  }
+};
+
+async function loadUnits() {
+  try {
+    const resp = await customersApi.getCustomers({ page: 1, per_page: 1000 });
+    if (!resp?.success) throw new Error(resp?.message || '加载客户/购买单位失败');
+    const list = resp?.data || [];
+    units.value = Array.isArray(list) ? list.map(c => c.unit_name || c.customer_name).filter(Boolean) : [];
+  } catch (e) {
+    console.error('加载产品单位失败:', e);
+    units.value = [];
+  }
+}
 
 const showAddModal = () => {
   isEdit.value = false;
@@ -137,49 +206,44 @@ const editProduct = (product) => {
 };
 
 const saveProduct = async () => {
-  try {
-    if (isEdit.value && formData.value.id) {
-      await productsApi.updateProduct(formData.value.id, formData.value);
-    } else {
-      await productsApi.createProduct(formData.value);
-    }
+  const result = isEdit.value && formData.value.id
+    ? await store.updateProduct(formData.value.id, formData.value)
+    : await store.createProduct(formData.value);
+
+  if (result.success) {
     showModal.value = false;
     loadProducts();
-  } catch (e) {
-    console.error('保存产品失败:', e);
-    alert('保存失败: ' + (e.message || '未知错误'));
-  }
-};
-
-const deleteProduct = async (product) => {
-  if (!confirm('确定要删除该产品吗？')) return;
-  try {
-    await productsApi.deleteProduct(product.id);
-    loadProducts();
-  } catch (e) {
-    console.error('删除产品失败:', e);
-    alert('删除失败: ' + (e.message || '未知错误'));
-  }
-};
-
-const toggleSelectAll = () => {
-  if (selectAll.value) {
-    selectedIds.value = products.value.map(p => p.id);
   } else {
-    selectedIds.value = [];
+    alert('保存失败: ' + (result.message || '未知错误'));
   }
 };
 
-const batchDelete = async () => {
-  if (!confirm(`确定要删除选中的 ${selectedIds.value.length} 个产品吗？`)) return;
-  try {
-    await productsApi.batchDeleteProducts(selectedIds.value);
+const handleDelete = (product) => {
+  itemToDelete.value = product;
+  showDeleteConfirm.value = true;
+};
+
+const confirmDelete = async () => {
+  if (!itemToDelete.value) return;
+  const result = await store.deleteProduct(itemToDelete.value.id);
+  if (!result.success) {
+    alert('删除失败: ' + (result.message || '未知错误'));
+  }
+  itemToDelete.value = null;
+};
+
+const batchDelete = () => {
+  showBatchDeleteConfirm.value = true;
+};
+
+const confirmBatchDelete = async () => {
+  const result = await store.batchDelete(selectedIds.value);
+  if (result.success) {
     selectedIds.value = [];
     selectAll.value = false;
     loadProducts();
-  } catch (e) {
-    console.error('批量删除失败:', e);
-    alert('批量删除失败: ' + (e.message || '未知错误'));
+  } else {
+    alert('批量删除失败: ' + (result.message || '未知错误'));
   }
 };
 
@@ -202,6 +266,6 @@ const exportPriceList = async () => {
 };
 
 onMounted(() => {
-  loadProducts();
+  loadUnits().then(() => loadProducts());
 });
 </script>

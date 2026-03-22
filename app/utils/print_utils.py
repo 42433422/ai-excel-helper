@@ -1,10 +1,11 @@
+import logging
 import os
 import time
-import win32print
-import win32api
+from typing import Dict, List, Optional
+
 import pythoncom
-import logging
-from typing import List, Dict, Optional
+import win32api
+import win32print
 
 logging.basicConfig(level=logging.INFO, encoding='utf-8')
 logger = logging.getLogger(__name__)

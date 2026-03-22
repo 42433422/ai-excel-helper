@@ -17,7 +17,23 @@ def get_base_dir() -> str:
     """
     if hasattr(sys, '_MEIPASS'):
         return sys._MEIPASS
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # path_utils.py 位于 XCAGI/app/utils/，回到 XCAGI 根目录需要向上 3 级
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def get_resources_dir() -> str:
+    """
+    获取项目资源目录（用于放置模板/配置/外部工具数据等，避免依赖项目外路径）。
+
+    Returns:
+        resources 目录路径
+    """
+    return os.path.join(get_base_dir(), "resources")
+
+
+def get_resource_path(*parts: str) -> str:
+    """拼接 resources 下的路径。"""
+    return os.path.join(get_resources_dir(), *parts)
 
 
 def get_app_data_dir() -> str:

@@ -1,11 +1,12 @@
+import logging
+import subprocess
 import time
+from typing import Dict, List, Optional, Tuple
+
 import win32api
 import win32con
 import win32gui
 import win32print
-import subprocess
-from typing import Dict, Optional, Tuple, List
-import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

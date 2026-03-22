@@ -4,8 +4,8 @@
 包含微信消息处理、任务扫描等异步任务。
 """
 
-from typing import List, Dict, Any
 import logging
+from typing import Any, Dict, List
 
 from app.extensions import celery_app
 
@@ -33,8 +33,8 @@ def process_wechat_message(self, message_data: Dict[str, Any]) -> bool:
         logger.info(f"开始处理微信消息：{message_data.get('message_id')}")
         
         # 调用服务层处理消息（基于 task_id）
-        from app.services.wechat_task_service import WechatTaskService
-        service = WechatTaskService()
+        from app.services import get_wechat_task_service
+        service = get_wechat_task_service()
         task_id = message_data.get("id")
         result = service.process_message(task_id)
         
@@ -66,9 +66,9 @@ def scan_wechat_messages(self, contact_id: int | None = None, limit: int = 20) -
     try:
         logger.info(f"开始扫描微信消息，联系人 ID: {contact_id}, 限制：{limit}")
 
-        from app.services.wechat_task_service import WechatTaskService
+        from app.services import get_wechat_task_service
 
-        service = WechatTaskService()
+        service = get_wechat_task_service()
         new_tasks = service.scan_messages(contact_id=contact_id, limit=limit)
 
         # 异步处理每条新任务
@@ -106,7 +106,8 @@ def cleanup_old_tasks(days: int = 30) -> int:
         logger.info(f"开始清理 {days} 天前的旧任务")
         
         import sqlite3
-        from db import get_db_path
+
+        from app.db.init_db import get_db_path
         
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)

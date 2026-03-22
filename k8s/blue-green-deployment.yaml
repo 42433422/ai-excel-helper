@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: xcagi-blue-green
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xcagi-blue
+  namespace: xcagi-blue-green
+  labels:
+    app: xcagi
+    version: blue
+    track: stable
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: xcagi
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: xcagi
+        version: blue
+        track: stable
+    spec:
+      containers:
+      - name: xcagi
+        image: xcagi:stable
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xcagi-green
+  namespace: xcagi-blue-green
+  labels:
+    app: xcagi
+    version: green
+    track: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: xcagi
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: xcagi
+        version: green
+        track: canary
+    spec:
+      containers:
+      - name: xcagi
+        image: xcagi:canary
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: xcagi-blue-service
+  namespace: xcagi-blue-green
+spec:
+  selector:
+    track: stable
+  ports:
+  - port: 80
+    targetPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: xcagi-canary-service
+  namespace: xcagi-blue-green
+spec:
+  selector:
+    track: canary
+  ports:
+  - port: 80
+    targetPort: 5000

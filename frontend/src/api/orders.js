@@ -2,38 +2,49 @@ import api from './index';
 
 export const ordersApi = {
   getOrders(params = {}) {
-    return api.get('/api/shipment/list', params);
+    return api.get('/api/orders', params);
   },
 
-  getOrder(id) {
-    return api.get(`/api/shipment/${id}`);
+  getOrder(orderNumber) {
+    return api.get(`/api/orders/${encodeURIComponent(orderNumber)}`);
   },
 
-  createOrder(data) {
-    return api.post('/api/shipment/generate', data);
+  getLatestOrders() {
+    return api.get('/api/orders/latest');
   },
 
-  updateOrder(id, data) {
-    return api.post('/api/shipment/update', { id, ...data });
+  searchOrders(query) {
+    return api.get('/api/orders/search', { q: query || '' });
   },
 
-  deleteOrder(id) {
-    return api.post('/api/shipment/delete', { id });
+  deleteOrder(orderNumber) {
+    // 实际删除接口在出货/Shipment 服务：/api/shipment/orders/<order_number>
+    return api.delete(`/api/shipment/orders/${encodeURIComponent(orderNumber)}`);
   },
 
-  printOrder(data) {
-    return api.post('/api/shipment/print', data);
+  clearAllOrders() {
+    return api.delete('/api/orders/clear-all');
   },
 
-  downloadOrder(filename) {
-    return api.download(`/api/shipment/download/${encodeURIComponent(filename)}`);
+  // New shipment-records APIs (Excel workbook style)
+  getShipmentRecordUnits() {
+    return api.get('/api/shipment/shipment-records/units');
   },
 
-  searchOrders(query, date) {
-    const params = {};
-    if (query) params.keyword = query;
-    if (date) params.date = date;
-    return api.get('/api/shipment/list', params);
+  getShipmentRecords(purchaseUnit) {
+    return api.get('/api/shipment/shipment-records/records', { unit: purchaseUnit });
+  },
+
+  updateShipmentRecord(payload) {
+    return api.patch('/api/shipment/shipment-records/record', payload);
+  },
+
+  deleteShipmentRecord(payload) {
+    return api.delete('/api/shipment/shipment-records/record', payload);
+  },
+
+  exportShipmentRecords(purchaseUnit) {
+    return api.download('/api/shipment/shipment-records/export', { unit: purchaseUnit });
   }
 };
 

@@ -4,11 +4,11 @@
 提供系统配置、开机自启等业务逻辑。
 """
 
-import os
-import sys
 import logging
+import os
 import subprocess
-from typing import Dict, Any, Optional
+import sys
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 

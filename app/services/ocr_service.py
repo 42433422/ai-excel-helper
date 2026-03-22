@@ -4,11 +4,12 @@ OCR服务模块
 提供图像文字识别、结构化数据提取等业务逻辑。
 """
 
+import logging
 import os
 import re
-import logging
-from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 logger = logging.getLogger(__name__)

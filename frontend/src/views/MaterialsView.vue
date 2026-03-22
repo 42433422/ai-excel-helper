@@ -8,10 +8,10 @@
           <button class="btn btn-primary" @click="showAddModal">+ 添加原材料</button>
         </div>
       </div>
-      <div v-if="lowStockMaterials.length > 0" class="warning-card">
+      <div v-if="store.lowStockMaterials.length > 0" class="warning-card">
         <div class="title">⚠️ 库存预警</div>
         <div id="lowStockList">
-          <span v-for="(item, idx) in lowStockMaterials" :key="idx">
+          <span v-for="(item, idx) in store.lowStockMaterials" :key="idx">
             {{ item.name }} (库存: {{ item.quantity }}/{{ item.min_stock || 0 }})
           </span>
         </div>
@@ -20,49 +20,68 @@
         <input v-model="searchQuery" type="text" placeholder="搜索原材料..." @input="loadMaterials">
         <select v-model="selectedCategory">
           <option value="">全部分类</option>
-          <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+          <option v-for="cat in store.categories" :key="cat" :value="cat">{{ cat }}</option>
         </select>
       </div>
       <div class="card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" v-model="selectAll" @change="toggleSelectAll"></th>
-              <th>编码</th>
-              <th>名称</th>
-              <th>分类</th>
-              <th>库存</th>
-              <th>单价</th>
-              <th>供应商</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="8" class="empty-state">加载中...</td>
-            </tr>
-            <tr v-else-if="materials.length === 0">
-              <td colspan="8" class="empty-state">暂无原材料数据</td>
-            </tr>
-            <tr v-for="material in materials" :key="material.id">
-              <td><input type="checkbox" :value="material.id" v-model="selectedIds"></td>
-              <td>{{ material.code || '-' }}</td>
-              <td>{{ material.name || '-' }}</td>
-              <td>{{ material.category || '-' }}</td>
-              <td :class="{ 'text-red': material.quantity < (material.min_stock || 0) }">
-                {{ material.quantity }} {{ material.unit || '' }}
-              </td>
-              <td>{{ material.price ? '¥' + material.price.toFixed(2) : '-' }}</td>
-              <td>{{ material.supplier || '-' }}</td>
-              <td>
-                <button class="btn btn-sm btn-secondary" @click="editMaterial(material)">编辑</button>
-                <button class="btn btn-sm btn-danger" @click="deleteMaterial(material)">删除</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <DataTable
+          :columns="columns"
+          :data="store.materials"
+          :loading="store.loading"
+          :selectable="true"
+          :selected-ids="selectedIds"
+          :has-more="hasMore"
+          :height="'500px'"
+          row-key="id"
+          empty-text="暂无原材料数据"
+          @update:selected-ids="selectedIds = $event"
+          @load-more="loadMoreMaterials"
+        >
+          <template #cell-code="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #cell-name="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #cell-category="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #cell-quantity="{ row }">
+            <span :class="{ 'text-red': row.quantity < (row.min_stock || 0) }">
+              {{ row.quantity }} {{ row.unit || '' }}
+            </span>
+          </template>
+          <template #cell-price="{ value }">
+            {{ value ? '¥' + value.toFixed(2) : '-' }}
+          </template>
+          <template #cell-supplier="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #actions="{ row }">
+            <button class="btn btn-sm btn-secondary" @click="editMaterial(row)">编辑</button>
+            <button class="btn btn-sm btn-danger" @click="handleDelete(row)">删除</button>
+          </template>
+        </DataTable>
       </div>
     </div>
+
+    <ConfirmDialog
+      v-model="showDeleteConfirm"
+      title="确认删除"
+      message="确定要删除该原材料吗？"
+      confirm-text="删除"
+      confirm-class="btn-danger"
+      @confirm="confirmDelete"
+    />
+
+    <ConfirmDialog
+      v-model="showBatchDeleteConfirm"
+      title="批量删除"
+      :message="`确定要删除选中的 ${selectedIds.length} 个原材料吗？`"
+      confirm-text="批量删除"
+      confirm-class="btn-danger"
+      @confirm="confirmBatchDelete"
+    />
 
     <div v-if="showModal" class="modal show">
       <div class="modal-content">
@@ -115,18 +134,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import materialsApi from '../api/materials';
+import { ref, onMounted } from 'vue';
+import { useMaterialsStore } from '../stores/materials';
+import DataTable from '../components/DataTable.vue';
+import ConfirmDialog from '../components/ConfirmDialog.vue';
 
-const materials = ref([]);
-const loading = ref(false);
+const store = useMaterialsStore();
+
+const searchQuery = ref('');
+const selectedCategory = ref('');
 const showModal = ref(false);
 const isEdit = ref(false);
 const selectedIds = ref([]);
-const selectAll = ref(false);
-const searchQuery = ref('');
-const selectedCategory = ref('');
-const lowStockMaterials = ref([]);
+const currentPage = ref(1);
+const perPage = ref(20);
+const hasMore = ref(true);
 const formData = ref({
   id: null,
   code: '',
@@ -139,34 +161,42 @@ const formData = ref({
   supplier: '',
   min_stock: 0
 });
+const showDeleteConfirm = ref(false);
+const showBatchDeleteConfirm = ref(false);
+const itemToDelete = ref(null);
 
-const categories = computed(() => {
-  const cats = new Set(materials.value.map(m => m.category).filter(Boolean));
-  return Array.from(cats);
-});
+const columns = [
+  { key: 'code', label: '编码' },
+  { key: 'name', label: '名称' },
+  { key: 'category', label: '分类' },
+  { key: 'quantity', label: '库存' },
+  { key: 'price', label: '单价' },
+  { key: 'supplier', label: '供应商' }
+];
 
-const loadMaterials = async () => {
-  loading.value = true;
-  try {
-    const params = {};
-    if (searchQuery.value) params.search = searchQuery.value;
-    if (selectedCategory.value) params.category = selectedCategory.value;
-    const data = await materialsApi.getMaterials(params);
-    if (data.success) {
-      materials.value = data.data || [];
-      checkLowStock();
+const loadMaterials = async (reset = true) => {
+  if (reset) {
+    currentPage.value = 1;
+    hasMore.value = true;
+  }
+  const params = { page: currentPage.value, per_page: perPage.value };
+  if (searchQuery.value) params.search = searchQuery.value;
+  if (selectedCategory.value) params.category = selectedCategory.value;
+  const result = await store.fetchMaterials(params);
+  if (result && result.data) {
+    if (reset) {
+      store.materials = result.data;
+    } else {
+      store.materials = [...store.materials, ...result.data];
     }
-  } catch (e) {
-    console.error('加载原材料失败:', e);
-  } finally {
-    loading.value = false;
+    hasMore.value = store.materials.length < (result.total || 0);
+    currentPage.value++;
   }
 };
 
-const checkLowStock = () => {
-  lowStockMaterials.value = materials.value.filter(m => 
-    m.quantity !== null && m.min_stock !== null && m.quantity < m.min_stock
-  );
+const loadMoreMaterials = async () => {
+  if (store.loading || !hasMore.value) return;
+  await loadMaterials(false);
 };
 
 const showAddModal = () => {
@@ -193,49 +223,43 @@ const editMaterial = (material) => {
 };
 
 const saveMaterial = async () => {
-  try {
-    if (isEdit.value && formData.value.id) {
-      await materialsApi.updateMaterial(formData.value.id, formData.value);
-    } else {
-      await materialsApi.createMaterial(formData.value);
-    }
+  const result = isEdit.value && formData.value.id
+    ? await store.updateMaterial(formData.value.id, formData.value)
+    : await store.createMaterial(formData.value);
+
+  if (result.success) {
     showModal.value = false;
     loadMaterials();
-  } catch (e) {
-    console.error('保存原材料失败:', e);
-    alert('保存失败: ' + (e.message || '未知错误'));
-  }
-};
-
-const deleteMaterial = async (material) => {
-  if (!confirm('确定要删除该原材料吗？')) return;
-  try {
-    await materialsApi.deleteMaterial(material.id);
-    loadMaterials();
-  } catch (e) {
-    console.error('删除原材料失败:', e);
-    alert('删除失败: ' + (e.message || '未知错误'));
-  }
-};
-
-const toggleSelectAll = () => {
-  if (selectAll.value) {
-    selectedIds.value = materials.value.map(m => m.id);
   } else {
-    selectedIds.value = [];
+    alert('保存失败: ' + (result.message || '未知错误'));
   }
 };
 
-const batchDelete = async () => {
-  if (!confirm(`确定要删除选中的 ${selectedIds.value.length} 个原材料吗？`)) return;
-  try {
-    await materialsApi.batchDeleteMaterials(selectedIds.value);
+const handleDelete = (material) => {
+  itemToDelete.value = material;
+  showDeleteConfirm.value = true;
+};
+
+const confirmDelete = async () => {
+  if (!itemToDelete.value) return;
+  const result = await store.deleteMaterial(itemToDelete.value.id);
+  if (!result.success) {
+    alert('删除失败: ' + (result.message || '未知错误'));
+  }
+  itemToDelete.value = null;
+};
+
+const batchDelete = () => {
+  showBatchDeleteConfirm.value = true;
+};
+
+const confirmBatchDelete = async () => {
+  const result = await store.batchDelete(selectedIds.value);
+  if (result.success) {
     selectedIds.value = [];
-    selectAll.value = false;
     loadMaterials();
-  } catch (e) {
-    console.error('批量删除失败:', e);
-    alert('批量删除失败: ' + (e.message || '未知错误'));
+  } else {
+    alert('批量删除失败: ' + (result.message || '未知错误'));
   }
 };
 

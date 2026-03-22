@@ -5,10 +5,10 @@
         <h2>客户管理</h2>
         <div class="header-actions">
           <button class="btn btn-icon" @click="triggerImport" title="上传Excel更新购买单位">📥</button>
-          <input 
+          <input
             ref="importFileInput"
-            type="file" 
-            accept=".xlsx" 
+            type="file"
+            accept=".xlsx"
             style="display:none"
             @change="handleImport"
           >
@@ -18,7 +18,7 @@
               <path stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none" d="M7 7l10 10M17 7L7 17"/>
             </svg>
           </button>
-          <button v-if="selectedIds.length > 0" class="btn btn-danger" @click="batchDelete">批量删除 ({{ selectedIds.length }})</button>
+          <button v-if="selectedIds.length > 0" class="btn btn-danger" @click="handleBatchDelete">批量删除 ({{ selectedIds.length }})</button>
         </div>
       </div>
       <div class="stat-cards">
@@ -28,32 +28,94 @@
         </div>
       </div>
       <div class="card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th><input type="checkbox" v-model="selectAll" @change="toggleSelectAll"></th>
-              <th>客户名称</th>
-              <th>联系人</th>
-              <th>电话</th>
-              <th>地址</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="5" class="empty-state">加载中...</td>
-            </tr>
-            <tr v-else-if="customers.length === 0">
-              <td colspan="5" class="empty-state">暂无客户数据</td>
-            </tr>
-            <tr v-for="customer in customers" :key="customer.id">
-              <td><input type="checkbox" :value="customer.id" v-model="selectedIds"></td>
-              <td>{{ customer.unit_name || customer.name || '-' }}</td>
-              <td>{{ customer.contact_person || '-' }}</td>
-              <td>{{ customer.contact_phone || '-' }}</td>
-              <td>{{ customer.address || '-' }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <DataTable
+          :columns="columns"
+          :data="customers"
+          :loading="loading"
+          :selectable="true"
+          :selected-ids="selectedIds"
+          row-key="id"
+          empty-text="暂无客户数据"
+          @update:selected-ids="selectedIds = $event"
+        >
+          <template #cell-customer_name="{ row }">
+            {{ row.customer_name || row.unit_name || row.name || '-' }}
+          </template>
+          <template #cell-contact_person="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #cell-contact_phone="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #cell-address="{ value }">
+            {{ value || '-' }}
+          </template>
+          <template #actions="{ row }">
+            <button
+              class="btn btn-primary"
+              style="padding: 6px 10px; font-size: 12px; margin-right: 5px;"
+              @click="openEditModal(row)"
+            >
+              编辑
+            </button>
+            <button
+              class="btn btn-danger"
+              style="padding: 6px 10px; font-size: 12px;"
+              @click="handleDelete(row)"
+            >
+              删除
+            </button>
+          </template>
+        </DataTable>
+      </div>
+    </div>
+
+    <ConfirmDialog
+      v-model="showDeleteConfirm"
+      title="确认删除"
+      :message="`确定删除客户 &quot;${itemToDelete?.customer_name || itemToDelete?.unit_name || ''}&quot; 吗？`"
+      confirm-text="删除"
+      confirm-class="btn-danger"
+      @confirm="confirmDelete"
+    />
+
+    <ConfirmDialog
+      v-model="showBatchDeleteConfirm"
+      title="批量删除"
+      :message="`确定要删除选中的 ${selectedIds.length} 个客户吗？`"
+      confirm-text="批量删除"
+      confirm-class="btn-danger"
+      @confirm="confirmBatchDelete"
+    />
+
+    <div v-if="showEditModal" class="modal-overlay" @click.self="closeEditModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>编辑客户</h3>
+          <button class="btn btn-icon" @click="closeEditModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>客户名称</label>
+            <input type="text" v-model="editForm.customer_name" placeholder="请输入客户名称" />
+          </div>
+          <div class="form-group">
+            <label>联系人</label>
+            <input type="text" v-model="editForm.contact_person" placeholder="请输入联系人" />
+          </div>
+          <div class="form-group">
+            <label>电话</label>
+            <input type="text" v-model="editForm.contact_phone" placeholder="请输入联系电话" />
+          </div>
+          <div class="form-group">
+            <label>地址</label>
+            <input type="text" v-model="editForm.address" placeholder="请输入地址" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeEditModal">取消</button>
+          <button class="btn btn-primary" @click="saveEdit">保存</button>
+        </div>
       </div>
     </div>
   </div>
@@ -62,12 +124,31 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import customersApi from '../api/customers';
+import DataTable from '../components/DataTable.vue';
+import ConfirmDialog from '../components/ConfirmDialog.vue';
 
 const customers = ref([]);
 const loading = ref(false);
 const selectedIds = ref([]);
-const selectAll = ref(false);
 const importFileInput = ref(null);
+const showEditModal = ref(false);
+const showDeleteConfirm = ref(false);
+const showBatchDeleteConfirm = ref(false);
+const itemToDelete = ref(null);
+const editForm = ref({
+  id: null,
+  customer_name: '',
+  contact_person: '',
+  contact_phone: '',
+  address: ''
+});
+
+const columns = [
+  { key: 'customer_name', label: '客户名称' },
+  { key: 'contact_person', label: '联系人' },
+  { key: 'contact_phone', label: '电话' },
+  { key: 'address', label: '地址' }
+];
 
 const loadCustomers = async () => {
   loading.value = true;
@@ -83,24 +164,72 @@ const loadCustomers = async () => {
   }
 };
 
-const toggleSelectAll = () => {
-  if (selectAll.value) {
-    selectedIds.value = customers.value.map(c => c.id);
-  } else {
-    selectedIds.value = [];
-  }
+const handleDelete = (customer) => {
+  itemToDelete.value = customer;
+  showDeleteConfirm.value = true;
 };
 
-const batchDelete = async () => {
-  if (!confirm(`确定要删除选中的 ${selectedIds.value.length} 个客户吗？`)) return;
+const confirmDelete = async () => {
+  if (!itemToDelete.value?.id) return;
+  try {
+    await customersApi.deleteCustomer(itemToDelete.value.id);
+    loadCustomers();
+  } catch (e) {
+    console.error('删除客户失败:', e);
+    alert('删除失败: ' + (e?.message || '未知错误'));
+  }
+  itemToDelete.value = null;
+};
+
+const handleBatchDelete = () => {
+  showBatchDeleteConfirm.value = true;
+};
+
+const confirmBatchDelete = async () => {
   try {
     await customersApi.batchDeleteCustomers(selectedIds.value);
     selectedIds.value = [];
-    selectAll.value = false;
     loadCustomers();
   } catch (e) {
     console.error('批量删除失败:', e);
     alert('批量删除失败: ' + (e.message || '未知错误'));
+  }
+};
+
+const openEditModal = (customer) => {
+  editForm.value = {
+    id: customer.id,
+    customer_name: customer.customer_name || customer.unit_name || customer.name || '',
+    contact_person: customer.contact_person || '',
+    contact_phone: customer.contact_phone || '',
+    address: customer.address || customer.contact_address || ''
+  };
+  showEditModal.value = true;
+};
+
+const closeEditModal = () => {
+  showEditModal.value = false;
+};
+
+const saveEdit = async () => {
+  if (!editForm.value.id) return;
+  if (!editForm.value.customer_name?.trim()) {
+    alert('客户名称不能为空');
+    return;
+  }
+  try {
+    await customersApi.updateCustomer(editForm.value.id, {
+      customer_name: editForm.value.customer_name,
+      contact_person: editForm.value.contact_person,
+      contact_phone: editForm.value.contact_phone,
+      contact_address: editForm.value.address
+    });
+    alert('保存成功');
+    closeEditModal();
+    loadCustomers();
+  } catch (e) {
+    console.error('保存失败:', e);
+    alert('保存失败: ' + (e?.message || '未知错误'));
   }
 };
 
@@ -127,7 +256,7 @@ const triggerImport = () => {
 const handleImport = async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
-  
+
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -148,3 +277,78 @@ onMounted(() => {
   loadCustomers();
 });
 </script>
+
+<style scoped>
+.modal-overlay {
+  display: flex;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 450px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #4a90d9;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid #e0e0e0;
+}
+</style>

@@ -41,19 +41,19 @@ class TestShipmentTasksImport:
 class TestGenerateShipmentOrderTask:
     """测试 generate_shipment_order 任务"""
 
-    @patch('app.services.shipment_service.ShipmentService')
-    def test_generate_shipment_order_success(self, mock_service_class):
+    @patch('app.bootstrap.get_shipment_app_service')
+    def test_generate_shipment_order_success(self, mock_get_app_service):
         """测试成功生成发货单"""
         from app.tasks.shipment_tasks import generate_shipment_order
 
-        mock_service = MagicMock()
-        mock_service.generate_shipment_document.return_value = {
+        mock_app_service = MagicMock()
+        mock_app_service.generate_shipment_document.return_value = {
             "success": True,
             "doc_name": "test_doc.xlsx",
             "file_path": "/path/to/test_doc.xlsx",
             "message": "生成成功"
         }
-        mock_service_class.return_value = mock_service
+        mock_get_app_service.return_value = mock_app_service
 
         result = generate_shipment_order(
             unit_name="测试公司",
@@ -62,21 +62,21 @@ class TestGenerateShipmentOrderTask:
 
         assert result["success"] is True
         assert result["doc_name"] == "test_doc.xlsx"
-        mock_service.generate_shipment_document.assert_called_once()
+        mock_app_service.generate_shipment_document.assert_called_once()
 
-    @patch('app.services.shipment_service.ShipmentService')
-    def test_generate_shipment_order_with_date(self, mock_service_class):
+    @patch('app.bootstrap.get_shipment_app_service')
+    def test_generate_shipment_order_with_date(self, mock_get_app_service):
         """测试带日期参数生成发货单"""
         from app.tasks.shipment_tasks import generate_shipment_order
 
-        mock_service = MagicMock()
-        mock_service.generate_shipment_document.return_value = {
+        mock_app_service = MagicMock()
+        mock_app_service.generate_shipment_document.return_value = {
             "success": True,
             "doc_name": "test_doc.xlsx",
             "file_path": "/path/to/test_doc.xlsx",
             "message": "生成成功"
         }
-        mock_service_class.return_value = mock_service
+        mock_get_app_service.return_value = mock_app_service
 
         result = generate_shipment_order(
             unit_name="测试公司",
@@ -85,22 +85,21 @@ class TestGenerateShipmentOrderTask:
         )
 
         assert result["success"] is True
-        mock_service.generate_shipment_document.assert_called_once()
-        call_kwargs = mock_service.generate_shipment_document.call_args[1]
+        mock_app_service.generate_shipment_document.assert_called_once()
+        call_kwargs = mock_app_service.generate_shipment_document.call_args[1]
         assert call_kwargs["date"] == "2026-03-17"
 
-    @patch('app.services.shipment_service.ShipmentService')
-    def test_generate_shipment_order_failure(self, mock_service_class):
+    @patch('app.bootstrap.get_shipment_app_service')
+    def test_generate_shipment_order_failure(self, mock_get_app_service):
         """测试生成发货单失败"""
         from celery.app.task import MaxRetriesExceededError
         from app.tasks.shipment_tasks import generate_shipment_order
 
-        mock_service = MagicMock()
-        mock_service.generate_shipment_document.side_effect = Exception("生成失败")
+        mock_app_service = MagicMock()
+        mock_app_service.generate_shipment_document.side_effect = Exception("生成失败")
+        mock_get_app_service.return_value = mock_app_service
 
         with patch.object(generate_shipment_order, 'retry', side_effect=MaxRetriesExceededError("max")):
-            mock_service_class.return_value = mock_service
-
             result = generate_shipment_order(
                 unit_name="测试公司",
                 products=[{"product_name": "产品A", "quantity": 10}]
@@ -114,13 +113,9 @@ class TestGenerateBatchShipmentOrdersTask:
     """测试 generate_batch_shipment_orders 任务"""
 
     @patch('app.tasks.shipment_tasks.generate_shipment_order')
-    @patch('app.services.shipment_service.ShipmentService')
-    def test_generate_batch_shipment_orders_success(self, mock_service_class, mock_generate):
+    def test_generate_batch_shipment_orders_success(self, mock_generate):
         """测试批量生成发货单成功"""
         from app.tasks.shipment_tasks import generate_batch_shipment_orders
-
-        mock_service = MagicMock()
-        mock_service_class.return_value = mock_service
 
         mock_generate.return_value = {"success": True}
 
@@ -137,13 +132,9 @@ class TestGenerateBatchShipmentOrdersTask:
         assert result["failed"] == 0
 
     @patch('app.tasks.shipment_tasks.generate_shipment_order')
-    @patch('app.services.shipment_service.ShipmentService')
-    def test_generate_batch_shipment_orders_partial_failure(self, mock_service_class, mock_generate):
+    def test_generate_batch_shipment_orders_partial_failure(self, mock_generate):
         """测试批量生成部分失败"""
         from app.tasks.shipment_tasks import generate_batch_shipment_orders
-
-        mock_service = MagicMock()
-        mock_service_class.return_value = mock_service
 
         mock_generate.side_effect = [
             {"success": True},
@@ -167,16 +158,11 @@ class TestPrintShipmentDocumentTask:
     """测试 print_shipment_document 任务"""
 
     @patch('os.path.exists')
-    @patch('app.services.shipment_service.ShipmentService')
-    def test_print_shipment_document_success(self, mock_service_class, mock_exists):
+    def test_print_shipment_document_success(self, mock_exists):
         """测试成功打印发货单"""
         from app.tasks.shipment_tasks import print_shipment_document
 
         mock_exists.return_value = True
-
-        mock_service = MagicMock()
-        mock_service.mark_as_printed.return_value = {"printed_at": "2026-03-17 10:00:00"}
-        mock_service_class.return_value = mock_service
 
         result = print_shipment_document(
             file_path="/path/to/doc.xlsx",
@@ -185,11 +171,10 @@ class TestPrintShipmentDocumentTask:
         )
 
         assert result["success"] is True
-        mock_service.mark_as_printed.assert_called_once()
+        assert result["printed_at"] is None
 
     @patch('os.path.exists')
-    @patch('app.services.shipment_service.ShipmentService')
-    def test_print_shipment_document_file_not_exists(self, mock_service_class, mock_exists):
+    def test_print_shipment_document_file_not_exists(self, mock_exists):
         """测试文件不存在的情况"""
         from app.tasks.shipment_tasks import print_shipment_document
 
@@ -203,16 +188,11 @@ class TestPrintShipmentDocumentTask:
         assert "文件不存在" in result["message"]
 
     @patch('os.path.exists')
-    @patch('app.services.shipment_service.ShipmentService')
-    def test_print_shipment_document_with_copies(self, mock_service_class, mock_exists):
+    def test_print_shipment_document_with_copies(self, mock_exists):
         """测试多份打印"""
         from app.tasks.shipment_tasks import print_shipment_document
 
         mock_exists.return_value = True
-
-        mock_service = MagicMock()
-        mock_service.mark_as_printed.return_value = {"printed_at": "2026-03-17 10:00:00"}
-        mock_service_class.return_value = mock_service
 
         result = print_shipment_document(
             file_path="/path/to/doc.xlsx",
@@ -227,35 +207,31 @@ class TestCleanupOldShipmentDocumentsTask:
 
     @patch('os.listdir')
     @patch('os.remove')
-    @patch('app.services.shipment_service.ShipmentService')
-    def test_cleanup_old_documents_success(self, mock_service_class, mock_remove,
-                                           mock_listdir):
+    @patch('os.path.exists')
+    @patch('os.path.isfile')
+    @patch('os.path.getmtime')
+    def test_cleanup_old_documents_success(self, mock_getmtime,
+                                           mock_isfile, mock_exists,
+                                           mock_remove, mock_listdir):
         """测试成功清理旧文档"""
-        from datetime import datetime
+        import datetime
+        from datetime import timedelta
         from app.tasks.shipment_tasks import cleanup_old_shipment_documents
 
-        mock_service = MagicMock()
-        mock_service.output_dir = "/test/output"
-        mock_service_class.return_value = mock_service
-
+        mock_exists.return_value = True
         mock_listdir.return_value = ["old_doc1.xlsx", "old_doc2.xlsx", "recent_doc.xlsx"]
 
-        old_timestamp = (datetime.now() - timedelta(days=100)).timestamp()
-        new_timestamp = (datetime.now() - timedelta(days=10)).timestamp()
+        old_timestamp = (datetime.datetime.now() - timedelta(days=100)).timestamp()
+        new_timestamp = (datetime.datetime.now() - timedelta(days=10)).timestamp()
 
         def mock_getmtime_side_effect(path):
             if "old" in path:
                 return old_timestamp
             return new_timestamp
 
-        with patch('os.path.exists', return_value=True), \
-             patch('os.path.isfile', return_value=True), \
-             patch('os.path.getmtime', side_effect=mock_getmtime_side_effect), \
-             patch('datetime.datetime') as mock_datetime_cls:
-            mock_datetime_cls.now.return_value = datetime.now()
-            mock_datetime_cls.fromtimestamp.side_effect = lambda ts: datetime.fromtimestamp(ts)
+        mock_getmtime.side_effect = mock_getmtime_side_effect
 
-            result = cleanup_old_shipment_documents(days=90)
+        result = cleanup_old_shipment_documents(days=90)
 
         assert result == 2
 

@@ -1,0 +1,105 @@
+{
+  "records": [
+    {
+      "rect": [
+        -4,
+        277,
+        1309,
+        1204
+      ],
+      "positions": {
+        "search_box": [
+          0.1154,
+          0.0432
+        ],
+        "input_box": [
+          0.1467,
+          0.7317
+        ],
+        "chat_history": [
+          0.5,
+          0.5
+        ],
+        "contacts_list": [
+          0.08,
+          0.35
+        ]
+      },
+      "timestamp": "20260315_144727",
+      "source": "ocr_auto",
+      "screenshot": "frame_20260315_144727.png"
+    },
+    {
+      "rect": [
+        -4,
+        277,
+        1309,
+        1204
+      ],
+      "positions": {
+        "search_box": [
+          0.1154,
+          0.0432
+        ],
+        "input_box": [
+          0.1467,
+          0.7317
+        ],
+        "chat_history": [
+          0.5,
+          0.5
+        ],
+        "contacts_list": [
+          0.08,
+          0.35
+        ],
+        "search_result_first": [
+          0.3377,
+          0.1129
+        ]
+      },
+      "timestamp": "20260315_150057",
+      "source": "search_result_record",
+      "screenshot": "frame_20260315_150057.png"
+    },
+    {
+      "rect": [
+        -4,
+        277,
+        1309,
+        1204
+      ],
+      "positions": {
+        "search_box": [
+          0.1154,
+          0.0432
+        ],
+        "input_box": [
+          0.1467,
+          0.7317
+        ],
+        "chat_history": [
+          0.5,
+          0.5
+        ],
+        "contacts_list": [
+          0.08,
+          0.35
+        ],
+        "search_result_first": [
+          0.3377,
+          0.1129
+        ]
+      },
+      "timestamp": "20260315_150046",
+      "source": "search_result_pick",
+      "screenshot": "search_result_白龙马^_^李秋林_20260315_150046.png"
+    }
+  ],
+  "controls": [
+    "search_box",
+    "input_box",
+    "chat_history",
+    "contacts_list"
+  ]
+}

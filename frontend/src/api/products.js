@@ -5,6 +5,18 @@ export const productsApi = {
     return api.get('/api/products/', params);
   },
 
+  async getProductUnits() {
+    // 语义上“产品单位”在该系统里等价于“购买单位/客户”，统一从 customers 取。
+    // 返回形状与旧接口保持一致：{ success, data: string[] }
+    const resp = await api.get('/api/customers/list', { page: 1, per_page: 1000 });
+    const list = resp?.data || [];
+    return {
+      success: true,
+      data: (Array.isArray(list) ? list.map(c => c.customer_name).filter(Boolean) : []),
+      count: Array.isArray(list) ? list.length : 0
+    };
+  },
+
   getProduct(id) {
     return api.get(`/api/products/${id}`);
   },

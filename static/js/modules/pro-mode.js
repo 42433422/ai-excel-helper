@@ -35,7 +35,10 @@
     let isPlaying = false;
     let voiceQueue = [];
     let speechSynth = window.speechSynthesis;
-    let ttsApiUrl = 'http://localhost:8080';
+    // TTS 服务地址：
+    // - 默认跟随当前页面域名，避免部署到局域网/服务器时仍指向本机 localhost
+    // - 可通过全局变量覆盖（例如在 index.html 里提前注入 window.__TTS_API_URL__）
+    let ttsApiUrl = (window.__TTS_API_URL__ || window.TTS_API_URL || window.API_BASE || window.location.origin);
     let digitalRainCtx = null;
     let digitalRainDrops = [];
     let digitalRainCharTypeByColumn = [];
@@ -77,8 +80,14 @@
         const hasShipment = /^发货单|生成发货单|开发货单|发货单生成/.test(t);
         const hasLabel = /标签/.test(t);
         const orderLike = /桶|规格|公斤|kg|白底|面漆|稀释剂|色漆|\d+\s*桶|\d+\s*公斤/i.test(t);
+
+        // 中文数字/数字样 token（用于识别“一桶...规格28”这类语音结果）
+        const hasNumberLike = /\d+|[一二两三四五六七八九十零〇]+/.test(t);
+        const bucketNumberLike = /(\d+|[一二两三四五六七八九十零〇]+)\s*桶|桶\s*(\d+|[一二两三四五六七八九十零〇]+)/.test(t);
+        const kgNumberLike = /(\d+|[一二两三四五六七八九十零〇]+)\s*公斤|公斤\s*(\d+|[一二两三四五六七八九十零〇]+)/i.test(t);
+
         // 纯订单（如「七彩乐园1桶9803规格28」）也进入任务获取：同时有规格和桶/数量
-        const pureOrderLike = orderLike && /规格/.test(t) && (/\d+\s*桶|桶\s*\d+/.test(t) || /\d+\s*公斤|公斤\s*\d+/i.test(t));
+        const pureOrderLike = orderLike && /规格/.test(t) && hasNumberLike && (bucketNumberLike || kgNumberLike);
         return (hasPrint && orderLike) || (hasShipment && orderLike) || (hasLabel && orderLike) || pureOrderLike;
     }
 
@@ -93,7 +102,7 @@
         if (textEl) textEl.textContent = orderText || '';
         if (downloadWrap) downloadWrap.setAttribute('data-hidden', 'true');
         if (overlay && overlay.classList.contains('work-mode')) {
-            createFallingText('加载中WORKMODE0123456789处理任务', 35);
+            createFallingText('加载中WORKMODE处理任务', 35);
         }
     }
 
@@ -474,28 +483,30 @@
         }, 700);
     }
 
-    function initDigitalRain() {
-        const canvas = document.getElementById('digitalRainCanvas');
-        if (!canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        digitalRainCtx = ctx;
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        
-        const fontSize = 16;
-        const columns = Math.floor(canvas.width / fontSize);
-        digitalRainDrops = [];
-        digitalRainCharTypeByColumn = [];
-        
-        for (let i = 0; i < columns; i++) {
-            digitalRainDrops[i] = Math.random() * -150;
-            digitalRainCharTypeByColumn[i] = i % 2 === 0 ? '1' : '0';
-        }
-        
-        digitalRainActive = true;
-        animateDigitalRain();
+    function normalizeDigitalRainText(text) {
+        const raw = (text == null) ? '' : String(text);
+        return raw
+            // drop simple html tags
+            .replace(/<[^>]*>/g, ' ')
+            // markdown link: [text](url) -> text
+            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+            // strip common markdown emphasis / block markers
+            .replace(/[`*_>#]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 5000);
+    }
+
+    function buildDigitalRainCharPool(text) {
+        const normalized = normalizeDigitalRainText(text);
+        const chars = Array.from(normalized).filter(ch => ch && !/\s/.test(ch));
+        // fallback: keep the old behavior if backend provides empty content
+        // 避免空 seed 时退化为数字 0/1 导致“1010 代码雨”观感
+        return chars.length > 0 ? chars : ['A', 'I', 'T', 'O', 'N'];
+    }
+
+    function initDigitalRain(sourceText) {
+        return;
     }
 
     function animateDigitalRain() {
@@ -510,7 +521,7 @@
         digitalRainCtx.fillRect(0, 0, canvas.width, canvas.height);
         
         digitalRainCtx.fillStyle = isWorkModeTaskAcquiring ? 'rgba(255, 80, 80, 0.75)' : 'rgba(0, 100, 0, 0.7)';
-        digitalRainCtx.font = fontSize + 'px "Courier New", monospace';
+        digitalRainCtx.font = fontSize + 'px "Courier New","Microsoft YaHei","SimSun",monospace';
         digitalRainCtx.textAlign = 'center';
         
         const columnCount = digitalRainDrops.length;
@@ -536,9 +547,28 @@
             digitalRainAnimationId = null;
         }
         
+        // 清空列数据，避免内存/状态残留（你看到的 1010 即 columns）
+        digitalRainDrops = [];
+        digitalRainCharTypeByColumn = [];
+        
         const canvas = document.getElementById('digitalRainCanvas');
         if (canvas && digitalRainCtx) {
             digitalRainCtx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    function setDigitalRainText(text) {
+        const charPool = buildDigitalRainCharPool(text);
+
+        // If we haven't initialized yet (unexpected order), initialize first.
+        if (!digitalRainCharTypeByColumn || digitalRainCharTypeByColumn.length === 0) {
+            initDigitalRain(text);
+            return;
+        }
+
+        const shift = Math.floor(Math.random() * charPool.length);
+        for (let i = 0; i < digitalRainCharTypeByColumn.length; i++) {
+            digitalRainCharTypeByColumn[i] = charPool[(i + shift) % charPool.length];
         }
     }
 
@@ -570,7 +600,7 @@
     }
 
     function runFallingTextEnter() {
-        const techChars = 'PRO MODE初始化系统加载中AITONYSTARK0123456789';
+        const techChars = 'PRO MODE初始化系统加载中AITONYSTARK';
         createFallingText(techChars, 30);
     }
 
@@ -580,7 +610,7 @@
         
         container.innerHTML = '';
         
-        const techChars = 'PRO MODE退出系统关闭中AI0123456789';
+        const techChars = 'PRO MODE退出系统关闭中AI';
         const chars = techChars.split('');
         const containerWidth = window.innerWidth;
         
@@ -1175,8 +1205,11 @@
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
-            recognition.continuous = false;
+            // 连续识别可减少用户按住说话时被“提前结束”截断的问题
+            recognition.continuous = true;
             recognition.interimResults = true;
+            // 允许取更多候选转写，后续我们会基于业务关键字做轻量评分选择最优
+            recognition.maxAlternatives = 5;
             recognition.lang = 'zh-CN';
 
             recognition.onstart = function() {
@@ -1186,15 +1219,55 @@
             };
 
             recognition.onresult = function(event) {
-                let finalTranscript = '';
-                let interimTranscript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
+                // 根据候选转写做轻量评分，避免只取 [0] 导致的“桶/规格/型号”关键字误差
+                function scoreTranscript(t) {
+                    t = (t || '').trim();
+                    let score = 0;
+                    if (/发货单|送货单|出货单|开单|打单|生成发货单|生成出货单|打印/.test(t)) score += 8;
+                    if (/桶|箱|件|公斤|kg|规格/.test(t)) score += 6;
+                    if (/\d+/.test(t)) score += 4;
+                    if (/[一二三四五六七八九十零〇两]/.test(t)) score += 2;
+                    return score;
                 }
+
+                function pickBestAlt(result) {
+                    // result 是 SpeechRecognitionResult（array-like: alternatives at [0], [1] ...）
+                    function confToScore(c) {
+                        if (typeof c !== 'number' || !isFinite(c)) return 0;
+                        // Edge 的 confidence 可能在 0..1 或 0..100，统一到 0..1 再做小幅加成
+                        const n = c > 1 ? Math.min(c / 100, 1) : Math.max(0, Math.min(c, 1));
+                        return n * 8;
+                    }
+
+                    let bestAlt = result && result[0] ? result[0] : null;
+                    let best = bestAlt ? (bestAlt.transcript || '') : '';
+                    let bestScore = scoreTranscript(best) + confToScore(bestAlt && bestAlt.confidence);
+                    if (!result || typeof result.length !== 'number') return best;
+
+                    for (let j = 1; j < result.length; j++) {
+                        const altObj = result[j];
+                        const alt = altObj ? (altObj.transcript || '') : '';
+                        const s = scoreTranscript(alt) + confToScore(altObj && altObj.confidence);
+                        if (s > bestScore) {
+                            best = alt;
+                            bestScore = s;
+                        }
+                    }
+                    return best;
+                }
+
+                let finalParts = [];
+                let interimParts = [];
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const r = event.results[i];
+                    const bestText = pickBestAlt(r);
+                    if (r.isFinal) finalParts.push(bestText);
+                    else interimParts.push(bestText);
+                }
+
+                const finalTranscript = finalParts.join('');
+                const interimTranscript = interimParts.join('');
+
                 if (finalTranscript) {
                     jarvisSendMessage(finalTranscript.trim());
                 }
@@ -1207,7 +1280,32 @@
             recognition.onerror = function(event) {
                 console.error('Speech recognition error:', event.error);
                 stopVoiceInput();
-                updateJarvisStatus('ERROR: ' + event.error);
+
+                const err = event && event.error ? event.error : 'unknown';
+
+                // Web Speech API often relies on external/cloud speech services
+                // and/or microphone permissions. Fall back to manual input on known errors.
+                if (err === 'network') {
+                    if (!isInputMode) toggleInputMode();
+                    updateJarvisStatus('语音服务网络不可用（已切换到输入模式）');
+                    setTimeout(function() {
+                        const voiceInput = document.getElementById('voiceInput');
+                        if (voiceInput) voiceInput.focus();
+                    }, 50);
+                    return;
+                }
+
+                if (err === 'not-allowed' || err === 'service-not-allowed') {
+                    if (!isInputMode) toggleInputMode();
+                    updateJarvisStatus('麦克风/语音服务未授权（已切换到输入模式）');
+                    setTimeout(function() {
+                        const voiceInput = document.getElementById('voiceInput');
+                        if (voiceInput) voiceInput.focus();
+                    }, 50);
+                    return;
+                }
+
+                updateJarvisStatus('ERROR: ' + err);
                 setTimeout(() => updateJarvisStatus('READY'), 2000);
             };
 
@@ -1245,21 +1343,31 @@
         if (isRecording) return;
         
         if (recognition) {
-            isRecording = true;
-            const voiceBtn = document.getElementById('jarvisVoiceBtn');
-            if (voiceBtn) {
-                voiceBtn.classList.add('recording');
-                setVoiceButtonLoadingText('正在聆听...');
-            }
-            updateJarvisStatus('正在聆听...');
             try {
+                if (recognition.state === 'running') {
+                    return;
+                }
+                isRecording = true;
+                const voiceBtn = document.getElementById('jarvisVoiceBtn');
+                if (voiceBtn) {
+                    voiceBtn.classList.add('recording');
+                    setVoiceButtonLoadingText('正在聆听...');
+                }
+                updateJarvisStatus('正在聆听...');
                 recognition.start();
             } catch(e) {
                 console.error('Recognition start error:', e);
                 isRecording = false;
+                const voiceBtn = document.getElementById('jarvisVoiceBtn');
                 if (voiceBtn) {
                     voiceBtn.classList.remove('recording');
                     setVoiceButtonLoadingText('');
+                }
+                if (e.name === 'InvalidStateError') {
+                    recognition = null;
+                    setTimeout(function() {
+                        initJarvisChat();
+                    }, 100);
                 }
             }
         }
@@ -1293,6 +1401,53 @@
 
     function jarvisSendMessage(message) {
         if (!message || !message.trim()) return;
+        message = message.trim();
+
+        // 工作模式/专业模式：支持用户只说“5桶/改成5桶”更新当前订单草稿
+        // 前提：当前已在任务获取态，且浮层里已有 unit/model/spec 上下文。
+        (function normalizeBucketOnlyMessage() {
+            if (!proTaskAcquisitionActive) return;
+            const qtyMatch = message.match(/^(?:改成|改为)?\s*(\d+|[一二三四五六七八九十零〇两]+)\s*桶\s*$/);
+            if (!qtyMatch) return;
+
+            function parseZhNumber(token) {
+                const t = (token || '').trim();
+                if (!t) return null;
+                if (/^\d+$/.test(t)) return parseInt(t, 10);
+                const map = { 零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+                if (t === '十') return 10;
+                if (/^[一二两三四五六七八九]十$/.test(t)) return map[t[0]] * 10;
+                if (/^十[一二三四五六七八九]$/.test(t)) return 10 + map[t[1]];
+                if (/^[一二两三四五六七八九]十[一二三四五六七八九]$/.test(t)) return map[t[0]] * 10 + map[t[2]];
+                if (t.length === 1 && map[t] !== undefined) return map[t];
+                return null;
+            }
+
+            const bucketQty = parseZhNumber(qtyMatch[1]);
+            if (!bucketQty || bucketQty <= 0) return;
+
+            const contextText = (document.getElementById('proOrderFloatText') || {}).textContent || '';
+            if (!contextText) return;
+
+            // 从上一次订单文本中提取 unit/model/spec
+            const specMatch = contextText.match(/规格\s*(\d+(?:\.\d+)?)/);
+            const modelMatch = contextText.match(/(\d+)\s*(?:的)?\s*规格/);
+            if (!specMatch || !modelMatch) return;
+
+            const modelNumber = modelMatch[1];
+            const tinSpec = specMatch[1];
+
+            const unitRaw = contextText.replace(/[\s\S]*?(发货单|送货单|出货单)/, '').trim() || contextText;
+            const beforeModel = unitRaw.split(modelNumber)[0] || unitRaw;
+            let unitName = beforeModel
+                .replace(/^(帮我|给我)?打印(一下)?/, '')
+                .replace(/^(改成|改为)/, '')
+                .replace(/的$/, '')
+                .trim();
+            if (!unitName) return;
+
+            message = `${unitName}${bucketQty} 桶 ${modelNumber} 规格 ${tinSpec}`;
+        })();
 
         // 只有非订单流程第二步、且非任务获取类消息时才让球复位；商标导出是同流程第二步，球不回来
         if (!isProTaskAcquisitionMessage(message) && !isLabelsExportStepMessage(message)) {
@@ -1313,10 +1468,7 @@
         updateJarvisStatus('处理中...');
 
         callUnifiedChat({
-            message: message,
-            source: 'pro',
-            output_format: 'markdown',
-            runtime_context: buildRuntimeContextSnapshot()
+            message: message
         })
         .then(data => {
             if (data.success) {
@@ -1354,20 +1506,11 @@
 
     function callUnifiedChat(payload) {
         const headers = {'Content-Type': 'application/json'};
-        return fetch(API_BASE + '/api/ai/chat-unified', {
+        return fetch(API_BASE + '/api/ai/unified_chat', {
             method: 'POST',
             headers,
             body: JSON.stringify(payload || {})
-        }).then(async (r) => {
-            if (r.status === 404) {
-                return fetch(API_BASE + '/api/ai/chat', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify(payload || {})
-                }).then(rr => rr.json());
-            }
-            return r.json();
-        });
+        }).then(r => r.json());
     }
 
     function executeProToolCall(toolCall, originalMessage) {
@@ -1406,8 +1549,30 @@
                 if (docName) {
                     msg += `\n生成文件：${docName}`;
                 }
+                setDigitalRainText(msg);
                 jarvisAddMessage(msg, 'ai');
                 finishRuntimeProgress('完成');
+                // 工具执行完成但未退出 pro mode 时，也需要停止数字雨，避免“任务结束雨滴未退出”
+                stopDigitalRain();
+                // 专业版兜底：部分部署下 tools/execute 不会返回 autoAction，
+                // 导致“客户列表”科技感浮窗不出现；这里根据 tool_id 直接拉起 UI。
+                const toolId = String(
+                    payload.tool_id ||
+                    (toolCall && (toolCall.tool_id || toolCall.tool_key || toolCall.id)) ||
+                    ''
+                ).toLowerCase();
+                if (toolId.includes('customer')) {
+                    try {
+                        if (window.proFeatureWidget && typeof window.proFeatureWidget.showFeature === 'function') {
+                            console.log('[pro-mode] customers tool -> showFeature(user_list)');
+                            window.proFeatureWidget.showFeature('user_list', { query: (originalMessage || '').trim() });
+                        } else if (typeof window.showProFeature === 'function') {
+                            window.showProFeature('user_list', { query: (originalMessage || '').trim() });
+                        }
+                    } catch (_) {
+                        // best-effort only
+                    }
+                }
                 updateTaskContextState({
                     status: 'done',
                     current_task: payload.action || '执行工具',
@@ -1428,8 +1593,11 @@
                         .finally(() => { updateJarvisStatus('READY'); });
                 }
             } else {
-                jarvisAddMessage('工具执行失败: ' + (execResult.message || '未知错误'), 'ai');
+                const failMsg = '工具执行失败: ' + (execResult.message || '未知错误');
+                setDigitalRainText(failMsg);
+                jarvisAddMessage(failMsg, 'ai');
                 finishRuntimeProgress('失败');
+                stopDigitalRain();
                 updateTaskContextState({
                     status: 'failed',
                     current_task: payload.action || '执行工具',
@@ -1442,17 +1610,24 @@
                     window.showShipmentDownloadEntry(docName);
                 }
                 // 专业版：发货单生成成功且生成了标签时，自动打开商标导出面板便于下载
-                if (payload.tool_id === 'shipment_generate' && execResult.data && execResult.data.labels && execResult.data.labels.length > 0) {
-                    if (typeof window.handleAutoAction === 'function') {
-                        window.handleAutoAction({ type: 'show_labels_export' });
+                // 注意：后端返回格式中 labels 在根级别，不在 data 里
+                var labels = execResult.labels || (execResult.data && execResult.data.labels);
+                if (payload.tool_id === 'shipment_generate' && labels && labels.length > 0) {
+                    if (typeof window.showLabelsExportPanelWithLabels === 'function') {
+                        window.showLabelsExportPanelWithLabels(labels);
+                    } else if (typeof window.handleAutoAction === 'function') {
+                        window.handleAutoAction({ type: 'show_labels_export', labels: labels });
                     }
                 }
             }
             updateJarvisStatus('READY');
         })
         .catch(err => {
-            jarvisAddMessage('工具执行失败: ' + err.message, 'ai');
+            const errMsg = '工具执行失败: ' + (err && err.message ? err.message : '未知错误');
+            setDigitalRainText(errMsg);
+            jarvisAddMessage(errMsg, 'ai');
             finishRuntimeProgress('异常');
+            stopDigitalRain();
             updateTaskContextState({
                 status: 'error',
                 current_task: payload.action || '执行工具',
@@ -1496,7 +1671,8 @@
         window.currentJarvisTask = task;
         updateJarvisStatus('等待确认...');
         
-        initDigitalRain();
+        const rainSeedText = [task && task.title, task && task.description].filter(Boolean).join(' ');
+        initDigitalRain(rainSeedText || '');
     }
 
     function jarvisConfirmTask() {
@@ -1516,6 +1692,10 @@
             runtime_context: buildRuntimeContextSnapshot()
         })
         .then(data => {
+            const finalRainText = data && data.success
+                ? (data.response || '任务执行完成')
+                : ('执行失败: ' + ((data && data.message) || '未知错误'));
+
             if (data.success) {
                 jarvisAddMessage(data.response || '任务执行完成', 'ai');
                 finishRuntimeProgress('任务完成');
@@ -1527,12 +1707,14 @@
             window.currentJarvisTask = null;
             const taskPanel = document.getElementById('jarvisTaskPanel');
             if (taskPanel) taskPanel.remove();
+            setDigitalRainText(finalRainText);
             stopDigitalRain();
         })
         .catch(e => {
             jarvisAddMessage('执行失败: ' + e.message, 'ai');
             updateJarvisStatus('READY');
             window.currentJarvisTask = null;
+            setDigitalRainText((e && e.message) ? e.message : '执行异常');
             stopDigitalRain();
             finishRuntimeProgress('执行异常');
         });
@@ -1550,11 +1732,12 @@
 
     function playJarvisVoice(text) {
         if (!text) return;
-        
+
         if (isPlaying) {
-            stopJarvisVoice();
+            voiceQueue.push(text);
+            return;
         }
-        
+
         voiceQueue = [text];
         playNextInQueue();
     }
@@ -1948,7 +2131,8 @@
                 action: () => {
                     const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
                     const link = document.createElement('a');
-                    link.href = `${apiBase}/api/customers/export.xlsx`;
+                    // 后端客户导出接口是 `/api/customers/export`
+                    link.href = `${apiBase}/api/customers/export`;
                     link.download = '购买单位列表.xlsx';
                     link.style.display = 'none';
                     document.body.appendChild(link);
@@ -2256,6 +2440,19 @@
             ...(nextState || {}),
             updated_at: now
         };
+        // Keep Vue UI in sync: broadcast pro-mode runtime status to listeners.
+        try {
+            window.dispatchEvent(new CustomEvent('xcagi:pro-task-status', {
+                detail: {
+                    current_task: proTaskContext.current_task,
+                    current_tool: proTaskContext.current_tool,
+                    status: proTaskContext.status,
+                    updated_at: proTaskContext.updated_at,
+                }
+            }));
+        } catch (_) {
+            // best-effort; do not break runtime execution
+        }
         const hasTask = proTaskContext.current_task || proTaskContext.current_tool;
         if (hasTask) {
             const record = {
@@ -2317,6 +2514,7 @@
         // 非工具执行场景：按实际响应立即结束（仅保留短动画展示）
         runtimeFinishTimer = setTimeout(() => {
             finishRuntimeProgress('完成');
+            stopDigitalRain();
         }, 300);
     }
 
@@ -2339,8 +2537,40 @@
     }
 
     window.setProProductQueryStage = setProProductQueryStage;
+    window.__legacyToggleProMode = toggleProMode;
     window.toggleProMode = toggleProMode;
+    // Vue 版在检测到 legacy 运行时会 stop 自己的数字雨，避免“双启动”。
+    // 但 legacy 数字雨原本只会在任务触发时通过 setDigitalRainText() 初始化，
+    // 导致刚进入专业模式时看起来“卡住/不动”。
+    // 这里暴露一个全局入口，让 Vue 在接管时可以立刻启动一次数字雨。
+    window.__legacyStartDigitalRain = function (seedText) {
+        return;
+    };
+    window.__legacyStopDigitalRain = function () {
+        try {
+            stopDigitalRain();
+        } catch (e) {
+            // ignore
+        }
+    };
     window.jarvisAddMessageExternal = jarvisAddMessage;
     window.isProTaskAcquisitionMessage = isProTaskAcquisitionMessage;
     window.jarvisSendMessage = jarvisSendMessage;
+
+    window.stepBackProMode = function() {
+        if (!isProMode) return;
+        if (isWorkMode) {
+            setWorkModeFromChat(false);
+            return;
+        }
+        if (proTaskAcquisitionActive) {
+            exitProTaskAcquisitionState();
+            jarvisAddMessage('[已取消当前任务]', 'user');
+            createFallingText('取消任务', 18);
+            return;
+        }
+        resetAllProTransientState();
+        jarvisAddMessage('[已返回上一步]', 'user');
+        createFallingText('返回上一步', 20);
+    };
 })();

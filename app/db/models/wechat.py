@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.db.base import Base
 
 
@@ -8,7 +10,7 @@ class WechatTask(Base):
     __table_args__ = {"sqlite_autoincrement": True}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    contact_id = Column(Integer)
+    contact_id = Column(Integer, ForeignKey('wechat_contacts.id', ondelete='CASCADE'))
     username = Column(String)
     display_name = Column(String)
     message_id = Column(String)
@@ -19,6 +21,9 @@ class WechatTask(Base):
     last_status_at = Column(DateTime, server_default=func.current_timestamp())
     created_at = Column(DateTime, server_default=func.current_timestamp())
     updated_at = Column(DateTime, server_default=func.current_timestamp())
+    
+    # Relationship mappings
+    contact = relationship("WechatContact", back_populates="tasks")
 
 
 class WechatContact(Base):
@@ -34,6 +39,10 @@ class WechatContact(Base):
     is_starred = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.current_timestamp())
     updated_at = Column(DateTime, server_default=func.current_timestamp())
+    
+    # Relationship mappings
+    tasks = relationship("WechatTask", back_populates="contact", cascade="all, delete-orphan")
+    contexts = relationship("WechatContactContext", back_populates="contact", cascade="all, delete-orphan")
 
 
 class WechatContactContext(Base):
@@ -41,8 +50,11 @@ class WechatContactContext(Base):
     __table_args__ = {"sqlite_autoincrement": True}
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    contact_id = Column(Integer, nullable=False)
+    contact_id = Column(Integer, ForeignKey('wechat_contacts.id', ondelete='CASCADE'), nullable=False)
     wechat_id = Column(String)
     context_json = Column(Text)
     message_count = Column(Integer, default=0)
     updated_at = Column(DateTime, server_default=func.current_timestamp())
+    
+    # Relationship mappings
+    contact = relationship("WechatContact", back_populates="contexts")

@@ -1,6 +1,7 @@
-import os
 import logging
+import os
 from typing import Dict, List, Optional
+
 from app.utils.print_utils import PrinterUtils
 from app.utils.printer_automation import EnhancedPrinterUtils
 

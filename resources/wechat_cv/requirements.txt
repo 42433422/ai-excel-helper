@@ -1,0 +1,12 @@
+# 纯 CV 模式依赖（在项目 venv 或 全局 安装）
+pywin32>=300
+pyautogui>=0.9.50
+Pillow>=9.0
+numpy>=1.20
+# OpenCV：图像处理与模板匹配 / YOLO 输入
+opencv-python>=4.5
+# YOLO 界面元素检测（可选，需自备 wechat_ui.pt 或设 WECHAT_YOLO_MODEL）
+ultralytics>=8.0
+# 中文 OCR（可选，不装则用启发式点击）
+easyocr>=1.6.0
+# easyocr 会拉取 torch，若只想轻量可先不装 easyocr，脚本会退化为按窗口区域点击

@@ -1,5 +1,5 @@
 <template>
-  <div class="pro-mode-overlay" :class="{ active: isActive }" id="proModeOverlay">
+  <div class="pro-mode-overlay" :class="overlayClasses" id="proModeOverlay">
     <div class="center-expand-box layer-2"></div>
     <div class="center-expand-box layer-3"></div>
     <div class="center-expand-box layer-4"></div>
@@ -15,9 +15,7 @@
     <div class="corner-flash tr"></div>
     <div class="corner-flash bl"></div>
     <div class="corner-flash br"></div>
-    
-    <canvas class="digital-rain-canvas" id="digitalRainCanvas" ref="digitalRainCanvas"></canvas>
-    
+
     <div class="falling-text-container" id="fallingTextContainer"></div>
     
     <div class="stark-grid"></div>
@@ -42,7 +40,10 @@
 
     <div class="pro-title">STARK INDUSTRIES</div>
 
-    <button class="pro-exit-btn" @click="exitProMode">EXIT PRO MODE</button>
+    <div class="pro-buttons" style="position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; gap: 12px; align-items: center;">
+      <button class="pro-exit-btn" @click="exitProMode" style="display: block; min-width: 220px;">EXIT PRO MODE</button>
+      <button class="pro-exit-btn" @click="stepBack" style="display: block; min-width: 220px;" title="返回上一步">撤回</button>
+    </div>
 
     <div class="jarvis-container">
       <div class="bloom-effect"></div>
@@ -173,7 +174,7 @@
     </div>
 
     <div class="wechat-messages-panel" id="wechatMessagesPanel" style="display: none;">
-      <button class="close-messages" id="closeWechatMessagesBtn">&times;</button>
+      <button class="close-messages" id="closeWechatMessagesBtn" data-close-action="closeWechatMessages">&times;</button>
       <div class="messages-title">
         <span>💬 微信消息</span>
         <div class="messages-actions">
@@ -209,7 +210,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { computed, ref, onBeforeUnmount, onMounted, watch } from 'vue'
+import { useProMode } from '@/composables/useProMode'
 
 const props = defineProps({
   modelValue: {
@@ -220,68 +222,159 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
+const { stepBack: stepBackPro } = useProMode()
+
 const isActive = ref(props.modelValue);
-const digitalRainCanvas = ref(null);
+const isExiting = ref(false);
+const isLegacyRuntime = ref(false)
+let legacyObserver = null
+let workModeObserver = null
+let enterTimer = null
+let exitTimer = null
+
+const overlayClasses = computed(() => ({
+  active: !isLegacyRuntime.value && isActive.value,
+  exiting: !isLegacyRuntime.value && isExiting.value
+}))
+
+const detectLegacyRuntime = () => {
+  const legacyToggle = window.__legacyToggleProMode || window.toggleProMode;
+  return typeof legacyToggle === 'function'
+}
+
+isLegacyRuntime.value = detectLegacyRuntime()
+
+const syncFromLegacyDom = () => {
+  const overlay = document.getElementById('proModeOverlay');
+  const active = document.body.classList.contains('pro-mode-active')
+    || !!overlay?.classList.contains('active');
+  isActive.value = active;
+  emit('update:modelValue', active);
+}
+
+let legacyDetectionTimer = null
+
+const enableLegacyBridge = () => {
+  isLegacyRuntime.value = true
+
+  const overlay = document.getElementById('proModeOverlay')
+  legacyObserver = new MutationObserver(() => {
+    syncFromLegacyDom()
+  })
+
+  legacyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+  if (overlay) {
+    legacyObserver.observe(overlay, { attributes: true, attributeFilter: ['class', 'style'] })
+  }
+  syncFromLegacyDom()
+}
 
 watch(() => props.modelValue, (newVal) => {
+  if (!isLegacyRuntime.value && newVal && detectLegacyRuntime()) {
+    enableLegacyBridge()
+    syncFromLegacyDom()
+    return
+  }
+
+  if (isLegacyRuntime.value) {
+    syncFromLegacyDom();
+    return;
+  }
+
   isActive.value = newVal;
   if (newVal) {
     document.body.classList.add('pro-mode-active');
-    nextTick(() => {
-      initDigitalRain();
-    });
+    isExiting.value = false;
+    if (exitTimer) {
+      clearTimeout(exitTimer)
+      exitTimer = null
+    }
   } else {
     document.body.classList.remove('pro-mode-active');
+    if (enterTimer) {
+      clearTimeout(enterTimer)
+      enterTimer = null
+    }
+    isExiting.value = true
+    if (exitTimer) clearTimeout(exitTimer)
+    exitTimer = window.setTimeout(() => {
+      isExiting.value = false
+    }, 400)
   }
 });
 
 const exitProMode = () => {
-  emit('update:modelValue', false);
-};
+  const legacyToggle = window.__legacyToggleProMode || window.toggleProMode
+  if (typeof legacyToggle === 'function') {
+    legacyToggle()
+    return
+  }
+  emit('update:modelValue', false)
+}
 
-const initDigitalRain = () => {
-  if (!digitalRainCanvas.value) return;
-  
-  const canvas = digitalRainCanvas.value;
-  const ctx = canvas.getContext('2d');
-  
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  
-  const columns = Math.floor(canvas.width / 20);
-  const drops = Array(columns).fill(1);
-  const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
-  
-  const draw = () => {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.fillStyle = '#00ff41';
-    ctx.font = '15px monospace';
-    
-    for (let i = 0; i < drops.length; i++) {
-      const char = chars[Math.floor(Math.random() * chars.length)];
-      ctx.fillText(char, i * 20, drops[i] * 20);
-      
-      if (drops[i] * 20 > canvas.height && Math.random() > 0.975) {
-        drops[i] = 0;
+const stepBack = () => {
+  const legacyStepBack = window.stepBackProMode
+  if (typeof legacyStepBack === 'function') {
+    legacyStepBack()
+    return
+  }
+  const workModeToggle = window.toggleWorkMode
+  if (typeof workModeToggle === 'function' && document.getElementById('proModeOverlay')?.classList.contains('work-mode')) {
+    workModeToggle()
+    return
+  }
+  emit('update:modelValue', false)
+}
+
+onMounted(() => {
+  isLegacyRuntime.value = detectLegacyRuntime()
+
+  window.stepBackProMode = stepBackPro
+
+  if (isLegacyRuntime.value) {
+    enableLegacyBridge()
+    return;
+  }
+
+  if (props.modelValue && detectLegacyRuntime()) {
+    enableLegacyBridge()
+    return
+  }
+
+  isActive.value = props.modelValue;
+  if (props.modelValue) {
+    document.body.classList.add('pro-mode-active');
+  }
+
+  legacyDetectionTimer = window.setInterval(() => {
+    if (detectLegacyRuntime()) {
+      if (legacyDetectionTimer) {
+        clearInterval(legacyDetectionTimer)
+        legacyDetectionTimer = null
       }
-      drops[i]++;
+      enableLegacyBridge()
     }
-  };
-  
-  const interval = setInterval(draw, 50);
-  
-  const handleResize = () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  };
-  
-  window.addEventListener('resize', handleResize);
-  
-  return () => {
-    clearInterval(interval);
-    window.removeEventListener('resize', handleResize);
-  };
-};
+  }, 300)
+});
+
+onBeforeUnmount(() => {
+  if (legacyObserver) {
+    legacyObserver.disconnect();
+    legacyObserver = null;
+  }
+  if (legacyDetectionTimer) {
+    clearInterval(legacyDetectionTimer)
+    legacyDetectionTimer = null
+  }
+  if (enterTimer) clearTimeout(enterTimer)
+  if (exitTimer) clearTimeout(exitTimer)
+  enterTimer = null
+  exitTimer = null
+  isExiting.value = false
+
+  // Clean up global function
+  if (window.stepBackProMode === stepBackPro) {
+    delete window.stepBackProMode
+  }
+});
 </script>

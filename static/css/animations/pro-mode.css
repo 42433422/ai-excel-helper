@@ -465,7 +465,8 @@
 .pro-mode-overlay.exiting .jarvis-chat-panel,
 .pro-mode-overlay.exiting .jarvis-voice-btn,
 .pro-mode-overlay.exiting .pro-status,
-.pro-mode-overlay.exiting .pro-exit-btn {
+.pro-mode-overlay.exiting .pro-exit-btn,
+.pro-mode-overlay.exiting .pro-back-btn {
     opacity: 0;
     transform: translateY(20px);
     transition: opacity 0.3s ease, transform 0.3s ease;
@@ -683,7 +684,8 @@
 .pro-mode-overlay .jarvis-chat-panel,
 .pro-mode-overlay .jarvis-voice-btn,
 .pro-mode-overlay .pro-status,
-.pro-mode-overlay .pro-exit-btn {
+.pro-mode-overlay .pro-exit-btn,
+.pro-mode-overlay .pro-back-btn {
     opacity: 0;
     transform: translateY(20px);
     transition: opacity 0.4s ease, transform 0.4s ease;
@@ -692,7 +694,8 @@
 .pro-mode-overlay.active .jarvis-chat-panel,
 .pro-mode-overlay.active .jarvis-voice-btn,
 .pro-mode-overlay.active .pro-status,
-.pro-mode-overlay.active .pro-exit-btn {
+.pro-mode-overlay.active .pro-exit-btn,
+.pro-mode-overlay.active .pro-back-btn {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
@@ -1578,6 +1581,50 @@
     border-color: rgba(0, 255, 255, 0.8);
     box-shadow: 0 0 25px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.2);
     transform: scale(1.05);
+}
+
+.pro-back-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: rgba(0, 20, 40, 0.6);
+    border: 1px solid rgba(0, 255, 255, 0.5);
+    color: rgba(0, 255, 255, 0.9);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 44px;
+    text-align: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.2), inset 0 0 15px rgba(0, 255, 255, 0.1);
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+}
+
+.pro-back-btn.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    visibility: visible;
+}
+
+.pro-mode-overlay.active .pro-back-btn {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    visibility: visible;
+}
+
+.pro-back-btn:hover {
+    background: rgba(0, 255, 255, 0.15);
+    border-color: rgba(0, 255, 255, 0.8);
+    box-shadow: 0 0 25px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.2);
+    transform: scale(1.1);
 }
 
 .pro-status {
@@ -3175,6 +3222,17 @@ body.pro-mode-active.pro-product-stage-product .pro-product-orbit-layer { transf
     box-shadow: 0 0 15px rgba(255, 80, 80, 0.25), inset 0 0 15px rgba(255, 60, 60, 0.1);
 }
 .pro-mode-overlay.work-mode .pro-exit-btn:hover {
+    background: rgba(255, 80, 80, 0.2);
+    border-color: rgba(255, 100, 100, 0.85);
+    box-shadow: 0 0 25px rgba(255, 80, 80, 0.45), inset 0 0 20px rgba(255, 60, 60, 0.15);
+}
+.pro-mode-overlay.work-mode .pro-back-btn {
+    background: rgba(30, 15, 20, 0.7);
+    border-color: rgba(255, 80, 80, 0.55);
+    color: rgba(255, 130, 130, 0.95);
+    box-shadow: 0 0 15px rgba(255, 80, 80, 0.25), inset 0 0 15px rgba(255, 60, 60, 0.1);
+}
+.pro-mode-overlay.work-mode .pro-back-btn:hover {
     background: rgba(255, 80, 80, 0.2);
     border-color: rgba(255, 100, 100, 0.85);
     box-shadow: 0 0 25px rgba(255, 80, 80, 0.45), inset 0 0 20px rgba(255, 60, 60, 0.15);

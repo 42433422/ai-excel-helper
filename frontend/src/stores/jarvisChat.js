@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { useProModeStore } from './proMode'
 
 export const useJarvisChatStore = defineStore('jarvisChat', {
   state: () => ({
@@ -37,6 +38,15 @@ export const useJarvisChatStore = defineStore('jarvisChat', {
     },
 
     sendMessage(message) {
+      const lowerMessage = message.toLowerCase()
+      if (lowerMessage.includes('监控模式')) {
+        const proModeStore = useProModeStore()
+        proModeStore.enterMonitorMode()
+        this.addMessage(message, 'user')
+        this.addMessage('正在切换到监控模式...', 'ai')
+        return Promise.resolve('正在切换到监控模式...')
+      }
+
       this.addMessage(message, 'user')
       
       return new Promise((resolve) => {

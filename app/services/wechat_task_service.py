@@ -4,16 +4,18 @@
 提供微信消息扫描、处理、任务管理等业务逻辑。
 """
 
+import logging
 import os
+import re
 import sys
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
-import logging
-import re
+from typing import Any, Dict, List, Optional, Tuple
+
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
-from app.db.session import get_db
+
 from app.db.models import WechatTask
+from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +93,10 @@ class WechatTaskService:
 
             # 引入 wechat_db_read 读取解密后的微信消息库
             base = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))  # XCAGI 根目录
-            project_root = os.path.dirname(base)  # FHD 根目录，与 AI助手 同级
-            wechat_decrypt_dir = os.path.join(project_root, "wechat-decrypt", "decrypted", "message")
+            # 默认只在 XCAGI/resources 下寻找外部数据与工具，避免依赖项目外目录
+            from app.utils.path_utils import get_resource_path
+
+            wechat_decrypt_dir = get_resource_path("wechat-decrypt", "decrypted", "message")
             default_msg_db_path = os.path.join(wechat_decrypt_dir, "message_0.db")
             msg_db_path = os.environ.get("WECHAT_MSG_DB_PATH", default_msg_db_path)
 
@@ -101,8 +105,7 @@ class WechatTaskService:
                 return []
 
             try:
-                # wechat_cv 目录与 AI助手 同级
-                wechat_cv_path = os.path.join(project_root, "wechat_cv")
+                wechat_cv_path = get_resource_path("wechat_cv")
                 if os.path.isdir(wechat_cv_path) and wechat_cv_path not in sys.path:
                     sys.path.insert(0, wechat_cv_path)
                 from wechat_db_read import get_recent_messages

@@ -14,7 +14,11 @@ export function useDigitalRain(canvasRef, options = {}) {
     if (!canvasRef.value) return
     
     const canvas = canvasRef.value
-    ctx.value = canvas.getContext('2d')
+    const context = canvas.getContext('2d')
+    // If the browser refuses 2d context (rare, but can happen during init/race),
+    // do not mark the animation as running.
+    if (!context) return
+    ctx.value = context
     
     canvas.width = options.width || window.innerWidth
     canvas.height = options.height || window.innerHeight
@@ -57,17 +61,23 @@ export function useDigitalRain(canvasRef, options = {}) {
     if (isRunning.value) return
     
     init()
+    if (!ctx.value) return
+    
     isRunning.value = true
     draw()
   }
   
   const stop = () => {
-    if (!isRunning.value) return
-    
     isRunning.value = false
     if (animationId.value) {
       cancelAnimationFrame(animationId.value)
       animationId.value = null
+    }
+    if (ctx.value && canvasRef.value) {
+      const canvas = canvasRef.value
+      ctx.value.fillStyle = 'rgba(0, 0, 0, 1)'
+      ctx.value.fillRect(0, 0, canvas.width, canvas.height)
+      ctx.value.clearRect(0, 0, canvas.width, canvas.height)
     }
   }
   
