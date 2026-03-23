@@ -48,6 +48,8 @@ coverage/
 *.db.backup
 *.sqlite
 *.sqlite3
+*.db-shm
+*.db-wal
 
 # Logs
 *.log
@@ -96,3 +98,73 @@ custom_mode_test.html
 output/
 temp/
 uploads/
+
+# Large files and directories to exclude from tracking
+resources/ai_assistant/*.png
+resources/ai_assistant/*.jpg
+resources/ai_assistant/*.jpeg
+frontend/node_modules/
+frontend/.vite/
+templates/vue-dist/assets/
+*.db-shm
+*.db-wal
+
+# Model checkpoints (exceeds GitHub 100MB limit)
+distillation/checkpoints/*.pt
+distillation/checkpoints/**/*.pt
+distillation/checkpoints/*.safetensors
+distillation/checkpoints/**/*.safetensors
+checkpoints/
+*.pt
+*.safetensors
+
+# Database files (runtime data)
+customers.db*
+products.db*
+shipment_records.db*
+
+# Test files
+test_*.py
+test_*.js
+test_*.vue
+*_test.py
+tests/
+pytest.ini
+.smoke_test.py
+quick_*.py
+verify_*.py
+inspect_*.py
+check_*.py
+analyze_*.py
+debug*.py
+debug/
+test*/
+*.test.json
+test_basic.json
+
+# Product data files
+浜у搧鏂囦欢澶?
+鍑鸿揣璁板綍/
+
+# Labels generated files
+labels/*.png
+labels/*.jpg
+
+# Resources ai_assistant exported files
+resources/ai_assistant/鍟嗘爣瀵煎嚭/
+resources/ai_assistant/閸熷棙鐖ｇ€电厧鍤?
+
+# Vue dist files
+templates/vue-dist/
+vue-dist/
+
+# Frontend node modules and build
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+
+# Documentation
+.trae/
+_backup_icon_system/
+ENTERPRISE_GUIDE.md
+docs/
