@@ -1,0 +1,7 @@
+*
+!.gitignore
+!index.html
+!styles.css
+!main.js
+!assets/
+!assets/logo.jpg

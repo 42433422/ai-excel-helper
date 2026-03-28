@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>修茈科技 - AI 智能助手平台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+
+  <header class="ai-header">
+    <div class="container ai-header-inner">
+      <div class="ai-logo">
+        <img src="assets/logo.jpg" alt="修茈科技" class="ai-logo-img">
+        <span class="ai-logo-text">修茈科技</span>
+      </div>
+      <nav class="ai-nav">
+        <a href="#" class="ai-nav-link active">首页</a>
+        <a href="#products" class="ai-nav-link">产品服务</a>
+        <a href="#solutions" class="ai-nav-link">解决方案</a>
+        <a href="#about" class="ai-nav-link">关于我们</a>
+      </nav>
+      <a href="http://xiu-ci.com:8080/index.html" class="back-old-btn" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span>返回旧版</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="hero-content">
+          <div class="hero-badge">AI 驱动 · 智能未来</div>
+          <h1 class="hero-title">
+            您的 <span class="gradient-text">AI 员工</span> 团队
+          </h1>
+          <p class="hero-subtitle">
+            不知疲倦、永不离线、可无限复制的智能员工团队。<br>
+            让 AI 承担重复性工作，您专注创造性价值。
+          </p>
+          <div class="hero-actions">
+            <a href="#" class="btn btn-primary">
+              <span>进入系统</span>
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </a>
+            <a href="#" class="btn btn-outline">了解更多</a>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="orb">
+            <div class="orb-inner"></div>
+            <div class="orb-ring orb-ring-1"></div>
+            <div class="orb-ring orb-ring-2"></div>
+            <div class="orb-ring orb-ring-3"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">AI 员工核心能力</h2>
+          <p class="section-desc">基于 DeepSeek AI 和 OCR 技术的智能处理系统</p>
+        </div>
+        <div class="feature-grid">
+          <div class="feature-card" data-animate="fade-in-up">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 12h6M12 9v6M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">智能识别</h3>
+            <p class="feature-desc">AI 快速识别 Excel 出货单、收货单等单据，自动提取关键信息，准确率高</p>
+          </div>
+          <div class="feature-card" data-animate="fade-in-up" data-delay="100">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M4 4v5h5M20 20v-5h-5"/>
+                <path d="M20.49 9A9 9 0 005.64 5.64L4 9m16 6l-1.64 3.36A9 9 0 014 15"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">自动化处理</h3>
+            <p class="feature-desc">自动填充数据、生成标签、同步信息，减少人工操作环节</p>
+          </div>
+          <div class="feature-card" data-animate="fade-in-up" data-delay="200">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v6l4 2"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">7×24 工作</h3>
+            <p class="feature-desc">不知疲倦的 AI 员工，随时响应，无需休息，不离职不请假</p>
+          </div>
+          <div class="feature-card" data-animate="fade-in-up" data-delay="300">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <h3 class="feature-title">多场景适配</h3>
+            <p class="feature-desc">支持制造业、贸易、物流等多种行业场景，灵活定制</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="showcase">
+      <div class="container">
+        <div class="showcase-content">
+          <div class="showcase-text">
+            <h2 class="showcase-title">智能单据处理</h2>
+            <p class="showcase-desc">
+              告别繁琐的手工录入，AI 员工帮您自动识别 Excel 单据，<br>
+              智能提取客户名、产品信息、数量、单价等关键数据，<br>
+              一键生成标签并打印，全流程自动化处理。
+            </p>
+            <div class="showcase-stats">
+              <div class="stat">
+                <span class="stat-number">95%+</span>
+                <span class="stat-label">识别准确率</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">80%</span>
+                <span class="stat-label">效率提升</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">24/7</span>
+                <span class="stat-label">不间断服务</span>
+              </div>
+            </div>
+          </div>
+          <div class="showcase-visual">
+            <div class="code-window">
+              <div class="code-header-bar">
+                <span class="dot dot-red"></span>
+                <span class="dot dot-yellow"></span>
+                <span class="dot dot-green"></span>
+              </div>
+              <div class="code-content">
+                <div class="code-line"><span class="code-keyword">客户</span>: 修茈科技</div>
+                <div class="code-line"><span class="code-keyword">产品</span>: PE白底漆 9000F</div>
+                <div class="code-line"><span class="code-keyword">数量</span>: 50桶 + 30桶</div>
+                <div class="code-line"><span class="code-keyword">标签</span>: <span class="code-success">已生成 ✓</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="products" class="products">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">产品服务</h2>
+          <p class="section-desc">四大核心功能，覆盖单据处理全流程</p>
+        </div>
+        <div class="product-grid">
+          <div class="product-card" data-animate="fade-in-up">
+            <div class="product-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 17H7A5 5 0 017 7h2M15 7h2a5 5 0 010 10h-2M8 12h8"/>
+              </svg>
+            </div>
+            <h3>Excel 单据识别</h3>
+            <p>AI 快速识别各种格式的 Excel 出货单、收货单，支持批量处理</p>
+          </div>
+          <div class="product-card" data-animate="fade-in-up" data-delay="100">
+            <div class="product-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M6 9l6 6 6-6M6 4h12M12 4v5"/>
+              </svg>
+            </div>
+            <h3>标签自动生成</h3>
+            <p>根据单据数据自动生成产品标签，支持多种打印机型号</p>
+          </div>
+          <div class="product-card" data-animate="fade-in-up" data-delay="200">
+            <div class="product-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+              </svg>
+            </div>
+            <h3>出货单管理</h3>
+            <p>自动记录出货信息，多客户数据隔离，支持查询统计</p>
+          </div>
+          <div class="product-card" data-animate="fade-in-up" data-delay="300">
+            <div class="product-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
+              </svg>
+            </div>
+            <h3>微信集成</h3>
+            <p>对接微信消息，发送打印指令，实时接收处理结果通知</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="solutions" class="solutions">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">行业解决方案</h2>
+          <p class="section-desc">针对不同行业场景，提供专业解决方案</p>
+        </div>
+        <div class="solution-grid">
+          <div class="solution-card" data-animate="fade-in-up">
+            <div class="solution-number">01</div>
+            <h3>制造业数字化</h3>
+            <p>帮助制造企业实现生产、库存、供应链的信息化管理，降低运营成本</p>
+          </div>
+          <div class="solution-card" data-animate="fade-in-up" data-delay="100">
+            <div class="solution-number">02</div>
+            <h3>贸易公司</h3>
+            <p>快速处理订单单据，自动生成标签，提升发货效率和准确性</p>
+          </div>
+          <div class="solution-card" data-animate="fade-in-up" data-delay="200">
+            <div class="solution-number">03</div>
+            <h3>物流仓储</h3>
+            <p>智能识别入库单据，自动打印标签，实现仓储管理数字化</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="about">
+      <div class="container">
+        <div class="about-content">
+          <div class="about-text">
+            <h2>关于我们</h2>
+            <p>成都修茈科技有限公司专注于企业级软件开发与数字化解决方案。我们相信 AI 技术能够为中小企业带来前所未有的效率提升。</p>
+            <p>我们的 AI 员工系统基于 DeepSeek AI 和 OCR 技术，能够自动识别和处理各种商业单据，让您的团队从繁琐的重复工作中解放出来。</p>
+          </div>
+          <div class="about-contact">
+            <h3>联系我们</h3>
+            <ul>
+              <li><strong>邮箱</strong>：970882904@qq.com</li>
+              <li><strong>地址</strong>：成都市</li>
+              <li><strong>网址</strong>：xiu-ci.com</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="container">
+        <div class="cta-content">
+          <h2 class="cta-title">准备好迎接您的 AI 员工了吗？</h2>
+          <p class="cta-desc">立即体验，让 AI 为您工作</p>
+          <a href="#" class="btn btn-primary btn-large">
+            <span>开始使用</span>
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="ai-footer">
+    <div class="container ai-footer-inner">
+      <div class="footer-brand">
+        <img src="assets/logo.jpg" alt="修茈科技" class="ai-logo-img">
+        <span>修茈科技</span>
+      </div>
+      <p class="footer-copy">&copy; 2026 成都修茈科技有限公司 · AI 智能处理系统</p>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
