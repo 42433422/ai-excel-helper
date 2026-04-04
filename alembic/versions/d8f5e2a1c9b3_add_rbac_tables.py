@@ -10,7 +10,7 @@ from datetime import datetime
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -74,51 +74,107 @@ DEFAULT_ROLES = [
 
 
 def _table_exists(conn, table_name: str) -> bool:
-    result = conn.execute(text(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=:table_name"
-    ), {"table_name": table_name})
-    return result.fetchone() is not None
+    return table_name in inspect(conn).get_table_names()
 
 
 def _index_exists(conn, index_name: str) -> bool:
-    result = conn.execute(text(
-        "SELECT name FROM sqlite_master WHERE type='index' AND name=:index_name"
-    ), {"index_name": index_name})
-    return result.fetchone() is not None
+    inspector = inspect(conn)
+    all_indexes = []
+    for table_name in inspector.get_table_names():
+        all_indexes.extend([idx.get("name") for idx in inspector.get_indexes(table_name)])
+    return index_name in all_indexes
 
 
 def _column_exists(conn, table_name: str, column_name: str) -> bool:
-    result = conn.execute(text(f"PRAGMA table_info({table_name})"))
-    columns = [row[1] for row in result.fetchall()]
-    return column_name in columns
+    if not _table_exists(conn, table_name):
+        return False
+    columns = inspect(conn).get_columns(table_name)
+    return column_name in {c.get("name") for c in columns}
 
 
 def upgrade() -> None:
     conn = op.get_bind()
+    is_pg = conn.dialect.name == "postgresql"
+
+    if not _table_exists(conn, 'users'):
+        if is_pg:
+            conn.execute(text("""
+                CREATE TABLE users (
+                    id BIGSERIAL PRIMARY KEY,
+                    username VARCHAR NOT NULL UNIQUE,
+                    password VARCHAR NOT NULL,
+                    display_name VARCHAR DEFAULT '',
+                    email VARCHAR DEFAULT '',
+                    role VARCHAR DEFAULT 'user',
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_by INTEGER REFERENCES users(id),
+                    created_at TIMESTAMP,
+                    last_login TIMESTAMP
+                )
+            """))
+        else:
+            conn.execute(text("""
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username VARCHAR NOT NULL UNIQUE,
+                    password VARCHAR NOT NULL,
+                    display_name VARCHAR DEFAULT '',
+                    email VARCHAR DEFAULT '',
+                    role VARCHAR DEFAULT 'user',
+                    is_active BOOLEAN DEFAULT 1,
+                    created_by INTEGER REFERENCES users(id),
+                    created_at TIMESTAMP,
+                    last_login TIMESTAMP
+                )
+            """))
 
     if not _table_exists(conn, 'roles'):
-        conn.execute(text("""
-            CREATE TABLE roles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name VARCHAR NOT NULL UNIQUE,
-                description VARCHAR DEFAULT '',
-                is_system BOOLEAN DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """))
+        if is_pg:
+            conn.execute(text("""
+                CREATE TABLE roles (
+                    id BIGSERIAL PRIMARY KEY,
+                    name VARCHAR NOT NULL UNIQUE,
+                    description VARCHAR DEFAULT '',
+                    is_system BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+        else:
+            conn.execute(text("""
+                CREATE TABLE roles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR NOT NULL UNIQUE,
+                    description VARCHAR DEFAULT '',
+                    is_system BOOLEAN DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
 
     if not _table_exists(conn, 'permissions'):
-        conn.execute(text("""
-            CREATE TABLE permissions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name VARCHAR NOT NULL,
-                code VARCHAR NOT NULL UNIQUE,
-                description VARCHAR DEFAULT '',
-                module VARCHAR DEFAULT '',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """))
+        if is_pg:
+            conn.execute(text("""
+                CREATE TABLE permissions (
+                    id BIGSERIAL PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    code VARCHAR NOT NULL UNIQUE,
+                    description VARCHAR DEFAULT '',
+                    module VARCHAR DEFAULT '',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+        else:
+            conn.execute(text("""
+                CREATE TABLE permissions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR NOT NULL,
+                    code VARCHAR NOT NULL UNIQUE,
+                    description VARCHAR DEFAULT '',
+                    module VARCHAR DEFAULT '',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
 
     if not _table_exists(conn, 'role_permissions'):
         conn.execute(text("""
@@ -145,6 +201,7 @@ def upgrade() -> None:
 
 
 def _seed_data(conn):
+    is_pg = conn.dialect.name == "postgresql"
     perm_map = {}
     for perm_data in DEFAULT_PERMISSIONS:
         result = conn.execute(text(
@@ -154,10 +211,16 @@ def _seed_data(conn):
         if row:
             perm_map[perm_data["code"]] = row[0]
         else:
-            result = conn.execute(text(
-                "INSERT INTO permissions (name, code, description, module) VALUES (:name, :code, :description, :module)"
-            ), {"name": perm_data["name"], "code": perm_data["code"], "description": perm_data.get("description", ""), "module": perm_data["module"]})
-            perm_map[perm_data["code"]] = result.lastrowid
+            if is_pg:
+                result = conn.execute(text(
+                    "INSERT INTO permissions (name, code, description, module) VALUES (:name, :code, :description, :module) RETURNING id"
+                ), {"name": perm_data["name"], "code": perm_data["code"], "description": perm_data.get("description", ""), "module": perm_data["module"]})
+                perm_map[perm_data["code"]] = result.fetchone()[0]
+            else:
+                result = conn.execute(text(
+                    "INSERT INTO permissions (name, code, description, module) VALUES (:name, :code, :description, :module)"
+                ), {"name": perm_data["name"], "code": perm_data["code"], "description": perm_data.get("description", ""), "module": perm_data["module"]})
+                perm_map[perm_data["code"]] = result.lastrowid
 
     for role_data in DEFAULT_ROLES:
         result = conn.execute(text(
@@ -167,24 +230,41 @@ def _seed_data(conn):
         if row:
             role_id = row[0]
         else:
-            result = conn.execute(text(
-                "INSERT INTO roles (name, description, is_system) VALUES (:name, :description, 1)"
-            ), {"name": role_data["name"], "description": role_data["description"]})
-            role_id = result.lastrowid
+            if is_pg:
+                result = conn.execute(text(
+                    "INSERT INTO roles (name, description, is_system) VALUES (:name, :description, TRUE) RETURNING id"
+                ), {"name": role_data["name"], "description": role_data["description"]})
+                role_id = result.fetchone()[0]
+            else:
+                result = conn.execute(text(
+                    "INSERT INTO roles (name, description, is_system) VALUES (:name, :description, 1)"
+                ), {"name": role_data["name"], "description": role_data["description"]})
+                role_id = result.lastrowid
 
         conn.execute(text("DELETE FROM role_permissions WHERE role_id = :role_id"), {"role_id": role_id})
         for perm_code in role_data["permissions"]:
             if perm_code in perm_map:
-                conn.execute(text(
-                    "INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (:role_id, :perm_id)"
-                ), {"role_id": role_id, "perm_id": perm_map[perm_code]})
+                if is_pg:
+                    conn.execute(text(
+                        "INSERT INTO role_permissions (role_id, permission_id) VALUES (:role_id, :perm_id) ON CONFLICT DO NOTHING"
+                    ), {"role_id": role_id, "perm_id": perm_map[perm_code]})
+                else:
+                    conn.execute(text(
+                        "INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (:role_id, :perm_id)"
+                    ), {"role_id": role_id, "perm_id": perm_map[perm_code]})
 
     result = conn.execute(text("SELECT id FROM users WHERE username = 'admin'"))
     if not result.fetchone():
-        conn.execute(text("""
-            INSERT INTO users (username, password, display_name, email, role, is_active, created_at)
-            VALUES ('admin', :password, '管理员', 'admin@local', 'admin', 1, :now)
-        """), {"password": generate_password_hash("admin123"), "now": datetime.utcnow()})
+        if is_pg:
+            conn.execute(text("""
+                INSERT INTO users (username, password, display_name, email, role, is_active, created_at)
+                VALUES ('admin', :password, '管理员', 'admin@local', 'admin', TRUE, :now)
+            """), {"password": generate_password_hash("admin123"), "now": datetime.utcnow()})
+        else:
+            conn.execute(text("""
+                INSERT INTO users (username, password, display_name, email, role, is_active, created_at)
+                VALUES ('admin', :password, '管理员', 'admin@local', 'admin', 1, :now)
+            """), {"password": generate_password_hash("admin123"), "now": datetime.utcnow()})
 
 
 def downgrade() -> None:

@@ -539,7 +539,7 @@ def import_products():
             return jsonify({'success': False, 'message': '缺少数据'}), 400
         
         # 创建日志记录
-        log_service = get_extract_log_service()
+        log_service = get_extract_log_app_service()
         log_id = log_service.create_log(
             file_name=data.get('file_name', 'products_import'),
             data_type='products',
@@ -682,7 +682,7 @@ def import_customers():
             return jsonify({'success': False, 'message': '缺少数据'}), 400
         
         # 创建日志记录
-        log_service = get_extract_log_service()
+        log_service = get_extract_log_app_service()
         log_id = log_service.create_log(
             file_name=data.get('file_name', 'customers_import'),
             data_type='customers',
@@ -776,7 +776,7 @@ def get_extract_logs():
         limit = int(request.args.get('limit', 50))
         offset = int(request.args.get('offset', 0))
         
-        log_service = get_extract_log_service()
+        log_service = get_extract_log_app_service()
         logs = log_service.get_logs(
             data_type=data_type,
             status=status,

@@ -5,6 +5,7 @@
 """
 
 from contextlib import contextmanager
+import os
 from typing import Optional
 
 from sqlalchemy import create_engine
@@ -28,7 +29,10 @@ class DatabaseManager:
         pool_size: int = 5,
         max_overflow: int = 10
     ):
-        self._database_url = database_url or "sqlite:///xcagi.db"
+        self._database_url = database_url or os.environ.get(
+            "DATABASE_URL",
+            "postgresql+psycopg://xcagi:xcagi@localhost:5432/xcagi",
+        )
         self._pool_size = pool_size
         self._max_overflow = max_overflow
         self._engine = None

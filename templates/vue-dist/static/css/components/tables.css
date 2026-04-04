@@ -159,27 +159,22 @@
 }
 
 .tools-container {
-    display: grid;
-    /* 多列网格：避免在中等宽度下退化成“单列从上到下” */
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 15px;
-}
-
-/* Vue tools 页里 `.tools-container` 只有一个 wrapper 子元素（v-else 的 div），外层 grid 会把 wrapper 限到第一列宽度；
-   改为 block 让 wrapper 占满整行，再由内部 wrapper 的 grid 做多列排版。 */
-#view-tools .tools-container {
-    display: block !important;
+    display: grid !important;
+    /* 多列网格：避免在中等宽度下退化成"单列从上到下" */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+    gap: 15px !important;
 }
 
 /*
   让 v-else 分支生成的中间 wrapper 不参与网格，
   这样真正的 `.tool-card` 才会成为 `.tools-container` 的直接子元素，从而正确多列排版。
 */
+#toolsContainer,
 #toolsContainer > div:not([data-tool-id]):not(.loading):not(.error):not(.empty) {
-    /* 用 wrapper 自身做 grid，避免 “tool-card 不是 tools-container 直接子元素” 导致单列排版 */
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 15px;
+    /* 用 wrapper 自身做 grid，避免 "tool-card 不是 tools-container 直接子元素" 导致单列排版 */
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+    gap: 15px !important;
 }
 
 /* 工具表：窄屏时避免“单列从上往下” */
@@ -188,14 +183,11 @@
         padding: 14px;
     }
 
-    #view-tools .tools-container {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 12px;
-    }
-
+    .tools-container,
+    #toolsContainer,
     #toolsContainer > div:not([data-tool-id]):not(.loading):not(.error):not(.empty) {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+        gap: 12px !important;
     }
 
     #view-tools .tool-card {

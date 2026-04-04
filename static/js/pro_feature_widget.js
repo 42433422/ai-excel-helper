@@ -2714,6 +2714,9 @@ window.addEventListener('auto-action', (evt) => {
             : '';
 
         if (!action || !action.type) return;
+        // 普通版不应拉起专业浮窗（避免污染普通版交互）
+        const isProModeActive = !!(document.body && document.body.classList.contains('pro-mode-active'));
+        if (!isProModeActive) return;
         if (!window.proFeatureWidget || typeof window.proFeatureWidget.showFeature !== 'function') {
             // 极端时序下 proFeatureWidget 可能还没初始化；尝试在本模块内补初始化
             if (typeof initProFeatureWidget === 'function') initProFeatureWidget();

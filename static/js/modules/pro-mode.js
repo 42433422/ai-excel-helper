@@ -60,7 +60,9 @@
     };
     let proTaskAcquisitionActive = false;
     let isWorkMode = false;
+    let isMonitorMode = false;
     let workModeIntervalId = null;
+    let monitorModeIntervalId = null;
     let lastMessageSourceSize = undefined;
 
     /** 订单流程第二步：商标/商标导出，同流程未结束，不触发球的复位 */
@@ -91,6 +93,21 @@
         return (hasPrint && orderLike) || (hasShipment && orderLike) || (hasLabel && orderLike) || pureOrderLike;
     }
 
+    const OVERLAY_NOISE_TOKEN_RE = /\b(products?|customers?|orders?|shipment|print|material|database|system|excel_de|excel_an)\b/gi;
+    const OVERLAY_TEXT_KEEP_CHAR_RE = /[\u4e00-\u9fa5A-Za-z0-9\s.,:;!?()\-\u3002\uff0c\uff1a\uff1b\uff01\uff1f]/g;
+
+    function sanitizeOverlayRuntimeText(input, maxLen) {
+        const limit = Number.isFinite(maxLen) ? Math.max(20, maxLen) : 140;
+        const raw = input == null ? '' : String(input);
+        const stripped = raw
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+            .replace(/[`*_>#]/g, ' ')
+            .replace(OVERLAY_NOISE_TOKEN_RE, ' ');
+        const kept = (stripped.match(OVERLAY_TEXT_KEEP_CHAR_RE) || []).join('');
+        return kept.replace(/\s+/g, ' ').trim().slice(0, limit);
+    }
+
     function enterProTaskAcquisitionState(orderText) {
         proTaskAcquisitionActive = true;
         const overlay = document.getElementById('proModeOverlay');
@@ -99,7 +116,7 @@
         const downloadWrap = document.getElementById('proOrderFloatDownload');
         if (overlay) overlay.classList.add('task-acquiring');
         if (panel) panel.setAttribute('aria-hidden', 'false');
-        if (textEl) textEl.textContent = orderText || '';
+        if (textEl) textEl.textContent = sanitizeOverlayRuntimeText(orderText, 120);
         if (downloadWrap) downloadWrap.setAttribute('data-hidden', 'true');
         if (overlay && overlay.classList.contains('work-mode')) {
             createFallingText('加载中WORKMODE处理任务', 35);
@@ -163,6 +180,105 @@
         lastMessageSourceSize = undefined;
     }
 
+    function stopMonitorModePolling() {
+        if (monitorModeIntervalId) {
+            clearInterval(monitorModeIntervalId);
+            monitorModeIntervalId = null;
+        }
+    }
+
+    function parseActiveRequests(metricsText) {
+        if (!metricsText || typeof metricsText !== 'string') return 0;
+        var match = metricsText.match(/active_requests\s+(\d+)/);
+        if (!match) return 0;
+        var parsed = parseInt(match[1], 10);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function renderSystemMonitorPanel(snapshot) {
+        var overlay = document.getElementById('proModeOverlay');
+        if (!overlay || !overlay.classList.contains('monitor-mode')) return;
+        var wrap = document.getElementById('jarvisMonitorListWrap');
+        var list = document.getElementById('jarvisMonitorList');
+        var floatWrap = document.getElementById('jarvisMonitorFloatWrap');
+        if (!wrap || !list) return;
+
+        if (floatWrap) {
+            floatWrap.innerHTML = '';
+            floatWrap.style.display = 'none';
+            floatWrap.setAttribute('aria-hidden', 'true');
+        }
+
+        var cpu = snapshot.cpu;
+        var memory = snapshot.memory;
+        var disk = snapshot.disk;
+        var activeRequests = snapshot.activeRequests;
+        var services = snapshot.services;
+
+        var serviceHtml = services.map(function(svc) {
+            var status = svc.status || 'unknown';
+            return '<div class="jarvis-monitor-msg msg-other">[' + escapeHtml(svc.name) + '] ' + escapeHtml(status) + '</div>';
+        }).join('');
+
+        if (!serviceHtml) {
+            serviceHtml = '<div class="jarvis-monitor-empty">暂无服务状态数据</div>';
+        }
+
+        list.innerHTML =
+            '<div class="jarvis-monitor-contact">' +
+                '<div class="jarvis-monitor-contact-name">系统性能监控（黄色）</div>' +
+                '<div class="jarvis-monitor-msg msg-self">CPU: ' + cpu + '% | 内存: ' + memory + '% | 磁盘: ' + disk + '%</div>' +
+                '<div class="jarvis-monitor-msg msg-self">活跃请求: ' + activeRequests + ' | 刷新: ' + escapeHtml(snapshot.updatedAt) + '</div>' +
+            '</div>' +
+            '<div class="jarvis-monitor-contact">' +
+                '<div class="jarvis-monitor-contact-name">服务状态</div>' +
+                serviceHtml +
+            '</div>';
+    }
+
+    function fetchSystemMonitorSnapshot() {
+        var apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
+        var detailsReq = fetch(apiBase + '/health/details')
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .catch(function() { return null; });
+        var metricsReq = fetch(apiBase + '/metrics')
+            .then(function(r) { return r.ok ? r.text() : ''; })
+            .catch(function() { return ''; });
+
+        return Promise.all([detailsReq, metricsReq]).then(function(results) {
+            var details = results[0] || {};
+            var metricsText = results[1] || '';
+            var system = details.system || {};
+            var checks = details.checks || {};
+            var services = Object.keys(checks).map(function(key) {
+                var item = checks[key] || {};
+                return {
+                    name: key,
+                    status: item.status || 'unknown'
+                };
+            });
+            return {
+                cpu: Math.round(system.cpu_percent || 0),
+                memory: Math.round(system.memory_percent || 0),
+                disk: Math.round(system.disk_percent || 0),
+                activeRequests: parseActiveRequests(metricsText),
+                services: services,
+                updatedAt: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            };
+        });
+    }
+
+    function startMonitorModePolling() {
+        if (monitorModeIntervalId) return;
+        function tick() {
+            fetchSystemMonitorSnapshot()
+                .then(renderSystemMonitorPanel)
+                .catch(function() {});
+        }
+        tick();
+        monitorModeIntervalId = setInterval(tick, WORK_MODE_INTERVAL_MS);
+    }
+
     function escapeHtml(s) {
         if (s == null || s === undefined) return '';
         var div = document.createElement('div');
@@ -177,9 +293,13 @@
             .then(function(data) {
                 if (data && data.success && Array.isArray(data.feed)) {
                     renderMonitorList(data.feed);
+                } else {
+                    renderMonitorList([]);
                 }
             })
-            .catch(function() {});
+            .catch(function() {
+                renderMonitorList([]);
+            });
     }
 
     function renderMonitorList(feed) {
@@ -263,18 +383,66 @@
         });
     }
 
+    function setMonitorPanelsVisible(visible) {
+        var monitorWrap = document.getElementById('jarvisMonitorListWrap');
+        var floatWrap = document.getElementById('jarvisMonitorFloatWrap');
+        if (monitorWrap) monitorWrap.style.display = visible ? 'block' : 'none';
+        if (floatWrap) {
+            floatWrap.style.display = visible ? 'block' : 'none';
+            floatWrap.setAttribute('aria-hidden', visible ? 'false' : 'true');
+            if (!visible) floatWrap.innerHTML = '';
+        }
+        if (!visible) {
+            var list = document.getElementById('jarvisMonitorList');
+            if (list) list.innerHTML = '';
+        }
+    }
+
+    function clearMonitorRuntimeState(ov) {
+        stopWorkModePolling();
+        stopMonitorModePolling();
+        setMonitorPanelsVisible(false);
+        if (ov) {
+            ov.classList.remove('work-mode-entering');
+            ov.classList.remove('work-mode-exiting');
+            ov.classList.remove('work-mode');
+            ov.classList.remove('monitor-mode');
+        }
+        isWorkMode = false;
+        isMonitorMode = false;
+    }
+
     window.setWorkModeFromChat = function(enabled) {
         if (!isProMode) return;
         var ov = document.getElementById('proModeOverlay');
-        var monitorWrap = document.getElementById('jarvisMonitorListWrap');
-        var floatWrap = document.getElementById('jarvisMonitorFloatWrap');
         if (!ov) return;
-        isWorkMode = !!enabled;
+        var shouldEnable = !!enabled;
+        if (!shouldEnable) {
+            ov.classList.remove('work-mode-entering');
+            ov.classList.add('work-mode-exiting');
+            if (typeof createFallingText === 'function') {
+                createFallingText(isMonitorMode ? '退出监控模式' : '退出工作模式', 22);
+            }
+            clearMonitorRuntimeState(ov);
+            window.setTimeout(function() {
+                ov.classList.remove('work-mode-exiting');
+            }, 1600);
+            return;
+        }
+
+        isWorkMode = true;
+        isMonitorMode = false;
+        stopMonitorModePolling();
+        ov.classList.remove('monitor-mode');
+        ov.classList.remove('work-mode-exiting');
+        var list = document.getElementById('jarvisMonitorList');
+        if (list) {
+            list.innerHTML = '<div class="jarvis-monitor-empty">工作模式已开启，正在等待星标联系人消息...</div>';
+        }
         if (isWorkMode) {
             ov.classList.add('work-mode');
             ov.classList.add('work-mode-entering');
-            if (monitorWrap) monitorWrap.style.display = 'block';
-            if (floatWrap) { floatWrap.style.display = 'block'; floatWrap.setAttribute('aria-hidden', 'false'); }
+            setMonitorPanelsVisible(true);
             if (typeof createFallingText === 'function') {
                 createFallingText('工作模式WORKMODE', 28);
             }
@@ -319,26 +487,44 @@
             window.setTimeout(function() {
                 ov.classList.remove('work-mode-entering');
             }, 2000);
-        } else {
-            ov.classList.remove('work-mode-entering');
-            ov.classList.add('work-mode-exiting');
-            if (typeof createFallingText === 'function') {
-                createFallingText('退出工作模式', 22);
-            }
-            stopWorkModePolling();
-            if (monitorWrap) monitorWrap.style.display = 'none';
-            if (floatWrap) { floatWrap.style.display = 'none'; floatWrap.setAttribute('aria-hidden', 'true'); floatWrap.innerHTML = ''; }
-            var list = document.getElementById('jarvisMonitorList');
-            if (list) list.innerHTML = '';
-            window.setTimeout(function() {
-                ov.classList.remove('work-mode-exiting');
-                ov.classList.remove('work-mode');
-            }, 1600);
+        }
+    };
+
+    window.setMonitorModeFromChat = function(enabled) {
+        if (!isProMode) return;
+        var ov = document.getElementById('proModeOverlay');
+        if (!ov) return;
+        var shouldEnable = !!enabled;
+        if (!shouldEnable) {
+            clearMonitorRuntimeState(ov);
+            return;
+        }
+
+        isMonitorMode = true;
+        isWorkMode = false;
+        stopWorkModePolling();
+        ov.classList.remove('work-mode-entering');
+        ov.classList.remove('work-mode-exiting');
+        ov.classList.remove('work-mode');
+        ov.classList.add('monitor-mode');
+        setMonitorPanelsVisible(true);
+        if (typeof createFallingText === 'function') {
+            createFallingText('监控模式MONITOR', 26);
+        }
+        startMonitorModePolling();
+        if (typeof jarvisAddMessage === 'function') {
+            jarvisAddMessage('已进入监控模式（黄色）：正在监控 CPU、内存、磁盘、活跃请求与服务状态。', 'ai');
         }
     };
 
     window.refreshWorkModeMonitorList = function() {
-        if (isWorkMode) fetchWorkModeFeed();
+        if (isWorkMode) {
+            fetchWorkModeFeed();
+            return;
+        }
+        if (isMonitorMode) {
+            fetchSystemMonitorSnapshot().then(renderSystemMonitorPanel).catch(function() {});
+        }
     };
 
     function showProPanelDownload(filename) {
@@ -484,17 +670,7 @@
     }
 
     function normalizeDigitalRainText(text) {
-        const raw = (text == null) ? '' : String(text);
-        return raw
-            // drop simple html tags
-            .replace(/<[^>]*>/g, ' ')
-            // markdown link: [text](url) -> text
-            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
-            // strip common markdown emphasis / block markers
-            .replace(/[`*_>#]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 5000);
+        return sanitizeOverlayRuntimeText(text, 240);
     }
 
     function buildDigitalRainCharPool(text) {
@@ -994,8 +1170,12 @@
             hotspot.addEventListener('click', (evt) => {
                 evt.preventDefault();
                 evt.stopPropagation();
-                if (isWorkMode) {
-                    setWorkModeFromChat(false);
+                if (isWorkMode || isMonitorMode) {
+                    if (isMonitorMode && typeof window.setMonitorModeFromChat === 'function') {
+                        window.setMonitorModeFromChat(false);
+                    } else {
+                        setWorkModeFromChat(false);
+                    }
                     return;
                 }
                 resetAllProTransientState();
@@ -1054,10 +1234,9 @@
             setTimeout(() => {
                 overlay.style.display = 'none';
                 overlay.classList.remove('exiting');
-                overlay.classList.remove('work-mode');
+                setMonitorPanelsVisible(false);
+                clearMonitorRuntimeState(overlay);
                 isProMode = false;
-                isWorkMode = false;
-                stopWorkModePolling();
                 isProModeTransitioning = false;
                 document.body.classList.remove('pro-mode-active');
                 setProProductQueryStage('idle', {});
@@ -1429,9 +1608,9 @@
             const contextText = (document.getElementById('proOrderFloatText') || {}).textContent || '';
             if (!contextText) return;
 
-            // 从上一次订单文本中提取 unit/model/spec
+            // 从上一次订单文本中提取 unit/model/spec（型号可为 9806A 等字母尾缀）
             const specMatch = contextText.match(/规格\s*(\d+(?:\.\d+)?)/);
-            const modelMatch = contextText.match(/(\d+)\s*(?:的)?\s*规格/);
+            const modelMatch = contextText.match(/([0-9A-Za-z-]{2,20})\s*(?:的)?\s*规格/);
             if (!specMatch || !modelMatch) return;
 
             const modelNumber = modelMatch[1];
@@ -1467,7 +1646,7 @@
         jarvisAddMessage(message, 'user');
         updateJarvisStatus('处理中...');
 
-        callUnifiedChat({
+        callProChat({
             message: message
         })
         .then(data => {
@@ -1504,12 +1683,32 @@
         });
     }
 
-    function callUnifiedChat(payload) {
+    function getProModeScopedUserId() {
+        try {
+            const key = 'xcagi_pro_chat_sid';
+            let sid = localStorage.getItem(key);
+            if (!sid) {
+                sid = Date.now().toString(36) + Math.random().toString(36).slice(2);
+                localStorage.setItem(key, sid);
+            }
+            return 'legacy_pro_' + sid;
+        } catch (_) {
+            return 'legacy_pro_default';
+        }
+    }
+
+    function callProChat(payload) {
+        const reqBody = {
+            ...(payload || {}),
+            source: (payload && payload.source) || 'pro',
+            mode: (payload && payload.mode) || 'professional',
+            user_id: (payload && payload.user_id) || getProModeScopedUserId()
+        };
         const headers = {'Content-Type': 'application/json'};
-        return fetch(API_BASE + '/api/ai/unified_chat', {
+        return fetch(API_BASE + '/api/ai/chat', {
             method: 'POST',
             headers,
-            body: JSON.stringify(payload || {})
+            body: JSON.stringify(reqBody)
         }).then(r => r.json());
     }
 
@@ -1683,7 +1882,7 @@
         updateJarvisStatus('执行中...');
         startToolRuntimeFromTask(task);
         
-        callUnifiedChat({
+        callProChat({
             message: '执行任务',
             task_confirm: true,
             task: task,

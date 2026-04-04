@@ -17,6 +17,7 @@ import ChatView from './ChatView.vue'
 describe('ChatView pro-mode runtime task status', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    window.__XCAGI_IS_PRO_MODE = true
     // Ensure localStorage exists in jsdom.
     if (!window.localStorage) {
       Object.defineProperty(window, 'localStorage', { value: new Map() })
@@ -26,6 +27,7 @@ describe('ChatView pro-mode runtime task status', () => {
   afterEach(() => {
     vi.clearAllTimers()
     vi.useRealTimers()
+    delete window.__XCAGI_IS_PRO_MODE
   })
 
   it('renders running/done status from xcagi:pro-task-status event', async () => {

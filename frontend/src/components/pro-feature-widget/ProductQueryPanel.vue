@@ -55,7 +55,7 @@
       </div>
       
       <div v-if="filteredProducts.length === 0" class="empty-state">
-        <div class="empty-icon">📦</div>
+        <div class="empty-icon"><i class="fa fa-cubes" aria-hidden="true"></i></div>
         <div class="empty-text">暂无产品数据</div>
       </div>
     </div>

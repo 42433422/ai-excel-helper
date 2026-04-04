@@ -5,7 +5,13 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher, get_close_matches
 from typing import Dict, List, Optional, Tuple
 
-from pypinyin import Style, pinyin
+try:
+    from pypinyin import Style, pinyin
+    _HAS_PYPINYIN = True
+except Exception:
+    Style = None  # type: ignore[assignment]
+    pinyin = None  # type: ignore[assignment]
+    _HAS_PYPINYIN = False
 
 from app.db.models import PurchaseUnit
 
@@ -22,6 +28,8 @@ class ResolvedPurchaseUnit:
 def _to_pinyin(name: str) -> str:
     if not name:
         return ""
+    if not _HAS_PYPINYIN:
+        return str(name).lower()
     try:
         pinyins = pinyin(name, style=Style.NORMAL)
         return "".join(p[0] if p and p[0] else "" for p in pinyins)
@@ -32,6 +40,8 @@ def _to_pinyin(name: str) -> str:
 def _to_first_letters(name: str) -> str:
     if not name:
         return ""
+    if not _HAS_PYPINYIN:
+        return "".join(ch for ch in str(name).lower() if ch.isalpha())
     try:
         pinyins = pinyin(name, style=Style.FIRST_LETTER)
         return "".join(p[0] if p and p[0] else "" for p in pinyins)
@@ -42,6 +52,9 @@ def _to_first_letters(name: str) -> str:
 def _get_pinyin_parts(name: str) -> List[str]:
     if not name:
         return []
+    if not _HAS_PYPINYIN:
+        letters = "".join(ch for ch in str(name).lower() if ch.isalpha())
+        return [letters] if letters else []
     try:
         pinyins = pinyin(name, style=Style.NORMAL)
         return [p[0] if p and p[0] else "" for p in pinyins if p and p[0]]
@@ -73,14 +86,13 @@ def _first_letter_match(input_fl: str, target_fl: str) -> bool:
 
 
 def resolve_purchase_unit(input_unit: str) -> Optional[ResolvedPurchaseUnit]:
-    from app.application.customer_app_service import get_customers_session
+    from app.db.session import get_db
 
     name = (input_unit or "").strip()
     if not name:
         return None
 
-    db = get_customers_session()
-    try:
+    with get_db() as db:
         customers = db.query(PurchaseUnit).all()
         customer_names = [c.unit_name for c in customers if getattr(c, "unit_name", None)]
 
@@ -165,8 +177,5 @@ def resolve_purchase_unit(input_unit: str) -> Optional[ResolvedPurchaseUnit]:
                     contact_phone=c.contact_phone or "",
                     address=c.address or "",
                 )
-
-    finally:
-        db.close()
 
     return None

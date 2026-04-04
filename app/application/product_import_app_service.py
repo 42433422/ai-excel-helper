@@ -6,7 +6,8 @@
 
 from typing import Any, Dict, List, Optional
 
-from app.services import ProductImportService, get_product_import_service
+from app.services.product_import_service import ProductImportService
+# get_product_import_service is in services/__init__.py - use direct import to avoid circular deps during init
 
 
 class ProductImportApplicationService:
@@ -16,7 +17,7 @@ class ProductImportApplicationService:
         self,
         product_import_service: Optional[ProductImportService] = None,
     ):
-        self._product_import_service = product_import_service or get_product_import_service()
+        self._product_import_service = product_import_service or get_product_import_service()  # type: ignore
 
     def import_from_file(self, file_path: str, unit_name: str) -> Dict[str, Any]:
         """

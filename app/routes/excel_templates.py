@@ -74,6 +74,18 @@ def _get_template_list():
     return get_template_app_service().get_templates().get('templates', [])
 
 
+def _is_unreadable_workbook_error(error_message: str) -> bool:
+    """判断是否为 Excel 文件损坏/不可读导致的已知错误。"""
+    text = str(error_message or "").lower()
+    markers = [
+        "unable to read workbook",
+        "could not read worksheets",
+        "invalid xml",
+        "badzipfile",
+    ]
+    return any(m in text for m in markers)
+
+
 @excel_templates_bp.route('/templates', methods=['GET'])
 @swag_from({
     'summary': '获取模板列表',
@@ -207,6 +219,12 @@ def _decompose_template(file_path, sheet_name=None, sample_rows=5):
 
     except Exception as e:
         logger.error(f"分解 Excel 模板失败: {e}")
+        if _is_unreadable_workbook_error(str(e)):
+            return {
+                "success": False,
+                "message": "模板文件损坏或格式异常，无法读取。请重新导出或另存为 .xlsx 后重试。",
+                "error_code": "UNREADABLE_WORKBOOK",
+            }, 200
         return {"success": False, "message": str(e)}, 500
 
 

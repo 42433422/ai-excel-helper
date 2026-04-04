@@ -10,6 +10,7 @@ from flasgger import swag_from
 from flask import Blueprint, jsonify, request, send_file
 
 from app.application import get_product_app_service
+from app.utils.json_safe import json_safe
 
 products_bp = Blueprint("products", __name__)
 
@@ -97,19 +98,21 @@ def products_list():
     try:
         unit_name = request.args.get("unit")
         keyword = request.args.get("keyword")
+        model_number = request.args.get("model_number")
         page = int(request.args.get("page", 1))
         per_page = int(request.args.get("per_page", 20))
         
         service = get_products_service()
         result = service.get_products(
             unit_name=unit_name,
+            model_number=model_number,
             keyword=keyword,
             page=page,
             per_page=per_page
         )
         
-        return jsonify(result), 200
-        
+        return jsonify(json_safe(result)), 200
+
     except Exception as e:
         return jsonify({
             "success": False,
@@ -487,7 +490,7 @@ def products_delete():
                 "message": "产品 ID 不能为空"
             }), 400
         
-        service = ProductsService()
+        service = get_products_service()
         result = service.delete_product(product_id)
         
         status_code = 200 if result.get("success") else 400
@@ -520,7 +523,7 @@ def delete_product_by_id(product_id):
         data = request.get_json(silent=True) or {}
         purchase_unit = data.get("purchase_unit")
         
-        service = ProductsService()
+        service = get_products_service()
         
         # 如果提供了单位名称，可以添加验证逻辑
         if purchase_unit:
@@ -536,6 +539,31 @@ def delete_product_by_id(product_id):
         return jsonify({
             "success": False,
             "message": f"删除失败：{str(e)}"
+        }), 500
+
+
+@products_bp.route("/<int:product_id>", methods=["PUT", "PATCH", "POST"])
+def update_product_by_id(product_id):
+    """
+    更新单个产品（RESTful 兼容路由）
+
+    Path Parameters:
+        - product_id: 产品 ID
+
+    Request Body:
+        - 可包含任意可更新字段，如 name/product_name、price、model_number、specification 等
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        service = get_products_service()
+        result = service.update_product(product_id, data)
+
+        status_code = 200 if result.get("success") else 400
+        return jsonify(result), status_code
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"更新失败：{str(e)}"
         }), 500
 
 
@@ -602,9 +630,10 @@ def export_products():
     try:
         unit_name = request.args.get("unit")
         keyword = request.args.get("keyword")
+        template_id = request.args.get("template_id")
         
-        service = ProductsService()
-        result = service.export_to_excel(unit_name=unit_name, keyword=keyword)
+        service = get_products_service()
+        result = service.export_to_excel(unit_name=unit_name, keyword=keyword, template_id=template_id)
         
         if not result.get("success"):
             return jsonify(result), 400
@@ -671,7 +700,7 @@ def get_product_names():
         - count: 数量
     """
     try:
-        service = ProductsService()
+        service = get_products_service()
         result = service.get_product_names()
         return jsonify(result)
     except Exception as e:
@@ -730,7 +759,7 @@ def search_product_names():
     """
     try:
         keyword = request.args.get('keyword', '')
-        service = ProductsService()
+        service = get_products_service()
         result = service.get_product_names(keyword=keyword)
         return jsonify(result)
     except Exception as e:
@@ -905,7 +934,7 @@ def batch_add_products():
                 "message": "产品列表不能为空"
             }), 400
         
-        service = ProductsService()
+        service = get_products_service()
         result = service.batch_add_products(products)
         
         status_code = 200 if result.get("success") else 400

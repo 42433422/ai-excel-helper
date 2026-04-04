@@ -184,6 +184,14 @@ class MaterialApplicationService:
             }
         }
 
+    def export_to_excel(
+        self,
+        search: Optional[str] = None,
+        category: Optional[str] = None,
+        template_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self._repository.export_to_excel(search=search, category=category, template_id=template_id)
+
     def _log_action(self, action: str, **kwargs):
         pass
 

@@ -30,6 +30,8 @@ export interface ProductUpdateDTO extends Partial<ProductCreateDTO> {}
 
 export interface ProductQueryParams {
   page?: number;
+  per_page?: number;
+  keyword?: string;
   limit?: number;
   search?: string;
   sort?: string;

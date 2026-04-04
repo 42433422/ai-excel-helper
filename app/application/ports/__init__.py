@@ -6,6 +6,7 @@
 """
 
 from app.application.ports.extract_log_store import ExtractLogStorePort
+from app.application.ports.embedder import EmbedderPort
 from app.application.ports.file_analysis import FileAnalysisPort
 from app.application.ports.material_repository import MaterialRepository
 from app.application.ports.product_repository import ProductRepository
@@ -16,6 +17,7 @@ from app.application.ports.shipment_record_query import ShipmentRecordQueryPort
 from app.application.ports.shipment_record_store import ShipmentRecordStorePort
 from app.application.ports.shipment_repository import ShipmentRepository
 from app.application.ports.template_store import TemplateStorePort
+from app.application.ports.vector_store import VectorStorePort
 from app.application.ports.wechat_contact_store import WechatContactStorePort
 
 __all__ = [
@@ -31,4 +33,6 @@ __all__ = [
     "WechatContactStorePort",
     "ExtractLogStorePort",
     "FileAnalysisPort",
+    "EmbedderPort",
+    "VectorStorePort",
 ]

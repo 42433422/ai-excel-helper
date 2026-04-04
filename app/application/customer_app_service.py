@@ -1,11 +1,11 @@
 import logging
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db.init_db import get_db_path
 from app.domain.customer.entities import PurchaseUnit
 
 logger = logging.getLogger(__name__)
@@ -17,9 +17,16 @@ _CustomersSessionLocal = None
 def _get_customers_engine():
     global _customers_engine, _CustomersSessionLocal
     if _customers_engine is None:
+        # 统一使用 products.db（已合并 purchase_units 表）
+        from app.db.init_db import get_db_path
+
+        database_url = (
+            os.environ.get("CUSTOMERS_DATABASE_URL")
+            or os.environ.get("CUSTOMERS_DB_URL")
+            or f"sqlite:///{get_db_path('products.db')}"
+        )
         _customers_engine = create_engine(
-            f"sqlite:///{get_db_path('customers.db')}",
-            connect_args={"check_same_thread": False, "timeout": 30},
+            database_url,
             pool_pre_ping=True,
             echo=False,
         )
@@ -36,7 +43,7 @@ def get_customers_session():
 class CustomerApplicationService:
     """客户应用服务 - 用例编排
 
-    统一管理客户和购买单位数据，使用 customers.db 数据库。
+    统一管理客户和购买单位数据，使用 products.db 数据库（已合并 purchase_units 表）。
     """
 
     def __init__(self):
@@ -223,8 +230,68 @@ class CustomerApplicationService:
             logger.exception(f"更新客户失败: {e}")
             return {"success": False, "message": str(e)}
 
-    def delete(self, customer_id: int) -> Dict[str, Any]:
-        """删除购买单位"""
+    def _check_shipment_associations(self, unit_name: str) -> Dict[str, Any]:
+        """检查购买单位是否有关联的发货记录
+
+        Returns:
+            {
+                "has_associations": bool,
+                "shipment_count": int,
+                "sample_records": list - 最近3条发货记录示例
+            }
+        """
+        try:
+            from app.db.session import get_db
+            from app.db.models.shipment import ShipmentRecord
+
+            with get_db() as db:
+                records = (
+                    db.query(ShipmentRecord)
+                    .filter(ShipmentRecord.purchase_unit == unit_name)
+                    .order_by(ShipmentRecord.created_at.desc())
+                    .limit(3)
+                    .all()
+                )
+
+                total_count = (
+                    db.query(ShipmentRecord)
+                    .filter(ShipmentRecord.purchase_unit == unit_name)
+                    .count()
+                )
+
+                sample_records = []
+                for r in records:
+                    sample_records.append({
+                        "id": r.id,
+                        "product_name": r.product_name,
+                        "quantity_kg": r.quantity_kg,
+                        "created_at": r.created_at.isoformat() if r.created_at else None
+                    })
+
+                return {
+                    "has_associations": total_count > 0,
+                    "shipment_count": total_count,
+                    "sample_records": sample_records
+                }
+        except Exception as e:
+            logger.warning(f"检查发货记录关联失败: {e}")
+            return {
+                "has_associations": False,
+                "shipment_count": 0,
+                "sample_records": [],
+                "error": str(e)
+            }
+
+    def delete(self, customer_id: int, force: bool = False) -> Dict[str, Any]:
+        """删除购买单位
+
+        Args:
+            customer_id: 客户ID
+            force: 是否强制删除（忽略关联检查）
+
+        Returns:
+            删除结果，包含关联检查信息
+        """
         try:
             session = self._get_session()
             try:
@@ -235,10 +302,32 @@ class CustomerApplicationService:
                 if not unit:
                     return {"success": False, "message": "客户不存在", "deleted_count": 0}
 
+                unit_name = unit.unit_name
+
+                association_check = self._check_shipment_associations(unit_name)
+
+                if association_check.get("has_associations") and not force:
+                    return {
+                        "success": False,
+                        "message": f"无法删除客户「{unit_name}」，存在 {association_check['shipment_count']} 条关联发货记录",
+                        "deleted_count": 0,
+                        "has_associations": True,
+                        "association_details": {
+                            "shipment_count": association_check["shipment_count"],
+                            "sample_records": association_check["sample_records"]
+                        },
+                        "suggestion": "请先删除关联的发货记录，或使用 force=True 强制删除"
+                    }
+
                 session.delete(unit)
                 session.commit()
 
-                return {"success": True, "message": "客户删除成功", "deleted_count": 1}
+                return {
+                    "success": True,
+                    "message": "客户删除成功",
+                    "deleted_count": 1,
+                    "has_associations": False
+                }
             finally:
                 session.close()
 
@@ -246,8 +335,16 @@ class CustomerApplicationService:
             logger.exception(f"删除客户失败: {e}")
             return {"success": False, "message": str(e), "deleted_count": 0}
 
-    def batch_delete(self, ids: List[int]) -> Dict[str, Any]:
-        """批量删除购买单位"""
+    def batch_delete(self, ids: List[int], force: bool = False) -> Dict[str, Any]:
+        """批量删除购买单位
+
+        Args:
+            ids: 客户ID列表
+            force: 是否强制删除（忽略关联检查）
+
+        Returns:
+            删除结果，包含关联检查信息
+        """
         try:
             session = self._get_session()
             try:
@@ -257,6 +354,28 @@ class CustomerApplicationService:
 
                 if not units:
                     return {"success": False, "message": "未找到要删除的客户", "deleted_count": 0}
+
+                if not force:
+                    affected_units = []
+                    for unit in units:
+                        check = self._check_shipment_associations(unit.unit_name)
+                        if check.get("has_associations"):
+                            affected_units.append({
+                                "id": unit.id,
+                                "unit_name": unit.unit_name,
+                                "shipment_count": check["shipment_count"],
+                                "sample_records": check["sample_records"]
+                            })
+
+                    if affected_units:
+                        return {
+                            "success": False,
+                            "message": f"存在 {len(affected_units)} 个客户关联发货记录，无法批量删除",
+                            "deleted_count": 0,
+                            "has_associations": True,
+                            "affected_units": affected_units,
+                            "suggestion": "请先删除关联的发货记录，或使用 force=True 强制删除"
+                        }
 
                 for unit in units:
                     session.delete(unit)
@@ -432,7 +551,7 @@ class CustomerApplicationService:
             logger.exception(f"导入失败: {e}")
             return {"success": False, "message": str(e), "updated": 0, "inserted": 0, "skipped": 0}
 
-    def export_to_excel(self, keyword: Optional[str] = None) -> Dict[str, Any]:
+    def export_to_excel(self, keyword: Optional[str] = None, template_id: Optional[str] = None) -> Dict[str, Any]:
         """导出购买单位到 Excel"""
         try:
             import os
@@ -440,6 +559,7 @@ class CustomerApplicationService:
             from openpyxl import Workbook
 
             from app.utils.path_utils import get_data_dir
+            from app.utils.template_export_utils import fill_workbook_from_template
 
             session = self._get_session()
             try:
@@ -453,21 +573,16 @@ class CustomerApplicationService:
 
                 units = query.order_by(PurchaseUnitModel.unit_name).all()
 
-                wb = Workbook()
-                ws = wb.active
-                ws.title = "客户列表"
-
-                headers = ["ID", "客户名称", "联系人", "电话", "地址"]
-                ws.append(headers)
-
-                for unit in units:
-                    ws.append([
-                        unit.id,
-                        unit.unit_name or "",
-                        unit.contact_person or "",
-                        unit.contact_phone or "",
-                        unit.address or ""
-                    ])
+                records = [
+                    {
+                        "id": unit.id,
+                        "customer_name": unit.unit_name or "",
+                        "contact_person": unit.contact_person or "",
+                        "contact_phone": unit.contact_phone or "",
+                        "address": unit.address or "",
+                    }
+                    for unit in units
+                ]
 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"customers_{timestamp}.xlsx"
@@ -475,6 +590,48 @@ class CustomerApplicationService:
                 export_dir = os.path.join(get_data_dir(), "exports")
                 os.makedirs(export_dir, exist_ok=True)
                 file_path = os.path.join(export_dir, filename)
+
+                template_path = None
+                if template_id:
+                    try:
+                        from app.application import get_template_app_service
+
+                        templates = (get_template_app_service().get_templates() or {}).get("templates") or []
+                        target = next((t for t in templates if str(t.get("id")) == str(template_id)), None)
+                        if target:
+                            candidate_path = str(target.get("path") or target.get("file_path") or "").strip()
+                            if candidate_path and os.path.exists(candidate_path):
+                                template_path = candidate_path
+                    except Exception:
+                        template_path = None
+
+                if template_path:
+                    header_alias = {
+                        "id": ["ID", "编号"],
+                        "customer_name": ["客户名称", "购买单位", "单位名称"],
+                        "contact_person": ["联系人", "联系人姓名"],
+                        "contact_phone": ["电话", "联系电话", "手机号"],
+                        "address": ["地址", "联系地址"],
+                    }
+                    wb = fill_workbook_from_template(
+                        template_path=template_path,
+                        records=records,
+                        field_alias_map=header_alias,
+                        sheet_name="客户列表",
+                    )
+                else:
+                    wb = Workbook()
+                    ws = wb.active
+                    ws.title = "客户列表"
+                    ws.append(["ID", "客户名称", "联系人", "电话", "地址"])
+                    for row in records:
+                        ws.append([
+                            row["id"],
+                            row["customer_name"],
+                            row["contact_person"],
+                            row["contact_phone"],
+                            row["address"],
+                        ])
 
                 wb.save(file_path)
 
@@ -526,12 +683,17 @@ class CustomerApplicationService:
     def match_purchase_unit(self, input_name: str) -> Optional[PurchaseUnit]:
         """智能匹配购买单位（模糊匹配）"""
         try:
+            name = str(input_name or "").strip()
+            if not name:
+                # 空串在 Python 中属于任意字符串的子串，若参与子串匹配会误命中第一条记录
+                return None
+
             session = self._get_session()
             try:
                 from app.db.models.purchase_unit import PurchaseUnit as PurchaseUnitModel
 
                 exact = session.query(PurchaseUnitModel).filter(
-                    PurchaseUnitModel.unit_name == input_name,
+                    PurchaseUnitModel.unit_name == name,
                     PurchaseUnitModel.is_active == True
                 ).first()
 
@@ -548,15 +710,18 @@ class CustomerApplicationService:
                     PurchaseUnitModel.is_active == True
                 ).all()
 
-                for unit in all_units:
-                    if input_name in unit.unit_name or unit.unit_name in input_name:
-                        return PurchaseUnit(
-                            id=unit.id,
-                            unit_name=unit.unit_name,
-                            contact_person=unit.contact_person or "",
-                            contact_phone=unit.contact_phone or "",
-                            address=unit.address or "",
-                        )
+                # 子串匹配仅用于较长名称，避免单字/短串误命中多个客户
+                if len(name) >= 2:
+                    for unit in all_units:
+                        un = unit.unit_name or ""
+                        if name in un or un in name:
+                            return PurchaseUnit(
+                                id=unit.id,
+                                unit_name=unit.unit_name,
+                                contact_person=unit.contact_person or "",
+                                contact_phone=unit.contact_phone or "",
+                                address=unit.address or "",
+                            )
 
                 return None
             finally:

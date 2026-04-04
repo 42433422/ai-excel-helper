@@ -1,0 +1,58 @@
+{
+  "id": "sz-qsm-pro",
+  "name": "深圳奇士美PRO",
+  "version": "1.0.0",
+  "author": "深圳奇士美",
+  "description": "深圳奇士美定制专业版功能增强",
+  "primary": true,
+  "dependencies": {
+    "xcagi": ">=1.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes",
+    "menu": [
+      {
+        "id": "qsm-pro-dashboard",
+        "label": "奇士美 PRO 仪表盘",
+        "icon": "fa-dashboard",
+        "path": "/qsm-pro"
+      },
+      {
+        "id": "qsm-pro-advanced",
+        "label": "高级功能",
+        "icon": "fa-cogs",
+        "path": "/qsm-pro/advanced"
+      }
+    ]
+  },
+  "config": {
+    "industry_overrides": "config/industry_overrides.yaml"
+  },
+  "hooks": {
+    "shipment.created": "services.on_shipment_created",
+    "product.imported": "services.on_product_imported"
+  },
+  "comms": {
+    "exports": ["mod_info"]
+  },
+  "workflow_employees": [
+    {
+      "id": "wechat_phone",
+      "label": "微信电话对接业务员",
+      "panel_title": "工作流 · 微信电话对接业务员",
+      "panel_summary": "副窗启用后调用本 Mod 后端 phone-agent：Win32 监控微信来电窗口 → 自动点击接听 → 采集音频 → ASR → 意图 → 问答生成 → TTS，经 VB-Cable 回灌。下方步骤与电话业务员状态轮询同步。",
+      "phone_agent_base_path": "phone-agent"
+    },
+    {
+      "id": "real_phone",
+      "label": "真实电话业务员",
+      "panel_title": "工作流 · 真实电话业务员",
+      "panel_summary": "副窗启用后走 ADB 真实电话链路：设备连通检查 → 来电检测与自动接听 → 音频采集与 ASR → 意图回复与 TTS 播报 → 摘要回写与状态同步。流程粒度与「微信电话对接业务员」保持一致。",
+      "phone_agent_base_path": "phone-agent"
+    }
+  ]
+}

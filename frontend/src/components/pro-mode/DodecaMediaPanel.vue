@@ -40,7 +40,9 @@
         ></video>
         
         <div v-else class="empty-media">
-          <div class="empty-icon">{{ mediaType === 'image' ? '🖼' : '🎬' }}</div>
+          <div class="empty-icon">
+            <i class="fa" :class="mediaType === 'image' ? 'fa-file-image-o' : 'fa-film'" aria-hidden="true"></i>
+          </div>
           <div class="empty-text">暂无{{ mediaType === 'image' ? '图片' : '视频' }}</div>
         </div>
       </div>
@@ -52,7 +54,7 @@
         :disabled="currentIndex === 0"
         @click="handlePrev"
       >
-        ←
+        <i class="fa fa-chevron-left" aria-hidden="true"></i>
       </button>
       
       <div class="thumbnail-strip">
@@ -65,7 +67,7 @@
         >
           <img v-if="item.thumbnail" :src="item.thumbnail" :alt="item.alt" />
           <div v-else class="thumbnail-placeholder">
-            {{ mediaType === 'image' ? '🖼' : '🎬' }}
+            <i class="fa" :class="mediaType === 'image' ? 'fa-file-image-o' : 'fa-film'" aria-hidden="true"></i>
           </div>
         </div>
       </div>
@@ -75,7 +77,7 @@
         :disabled="currentIndex === items.length - 1"
         @click="handleNext"
       >
-        →
+        <i class="fa fa-chevron-right" aria-hidden="true"></i>
       </button>
     </div>
   </div>

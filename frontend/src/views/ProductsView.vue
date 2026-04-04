@@ -15,6 +15,10 @@
           <option value="">请选择产品单位</option>
           <option v-for="u in units" :key="u" :value="u">{{ u }}</option>
         </select>
+        <select v-model="selectedTemplateId" style="min-width:220px;">
+          <option value="">系统默认导出模板</option>
+          <option v-for="tpl in templateOptions" :key="tpl.id" :value="tpl.id">{{ tpl.name }}</option>
+        </select>
         <input v-model="searchQuery" type="text" placeholder="搜索产品型号或名称..." @input="loadProducts">
       </div>
       <div class="card">
@@ -37,15 +41,15 @@
           <template #cell-name="{ value }">
             {{ value || '-' }}
           </template>
-          <template #cell-spec="{ value }">
+          <template #cell-specification="{ value }">
             {{ value || '-' }}
           </template>
           <template #cell-price="{ value }">
             {{ value ? '¥' + value.toFixed(2) : '-' }}
           </template>
           <template #actions="{ row }">
-            <button class="btn btn-sm btn-secondary" @click="editProduct(row)">编辑</button>
-            <button class="btn btn-sm btn-danger" @click="handleDelete(row)">删除</button>
+            <button type="button" class="btn btn-sm btn-secondary" @click.stop="editProduct(row)">编辑</button>
+            <button type="button" class="btn btn-sm btn-danger" @click.stop="handleDelete(row)">删除</button>
           </template>
         </DataTable>
       </div>
@@ -69,7 +73,7 @@
       @confirm="confirmBatchDelete"
     />
 
-    <div v-if="showModal" class="modal show">
+    <div v-if="showModal" class="modal active">
       <div class="modal-content">
         <div class="modal-header">{{ isEdit ? '编辑产品' : '添加产品' }}</div>
         <div class="modal-body">
@@ -83,7 +87,7 @@
           </div>
           <div class="form-group">
             <label>规格</label>
-            <input v-model="formData.spec" type="text" placeholder="规格描述">
+            <input v-model="formData.specification" type="text" placeholder="规格描述">
           </div>
           <div class="form-group">
             <label>价格</label>
@@ -105,6 +109,7 @@ import { useProductsStore } from '../stores/products';
 import { storeToRefs } from 'pinia';
 import customersApi from '../api/customers';
 import productsApi from '../api/products';
+import templatePreviewApi from '../api/templatePreview';
 import DataTable from '../components/DataTable.vue';
 import ConfirmDialog from '../components/ConfirmDialog.vue';
 
@@ -121,11 +126,13 @@ const selectedUnit = ref('');
 const currentPage = ref(1);
 const perPage = ref(1000);
 const hasMore = ref(false);
+const selectedTemplateId = ref('');
+const templateOptions = ref([]);
 const formData = ref({
   id: null,
   model_number: '',
   name: '',
-  spec: '',
+  specification: '',
   price: 0
 });
 const showDeleteConfirm = ref(false);
@@ -135,7 +142,7 @@ const itemToDelete = ref(null);
 const columns = [
   { key: 'model_number', label: '型号' },
   { key: 'name', label: '名称' },
-  { key: 'spec', label: '规格' },
+  { key: 'specification', label: '规格' },
   { key: 'price', label: '价格' }
 ];
 
@@ -193,7 +200,7 @@ const showAddModal = () => {
     id: null,
     model_number: '',
     name: '',
-    spec: '',
+    specification: '',
     price: 0
   };
   showModal.value = true;
@@ -251,12 +258,27 @@ const exportPriceList = async () => {
   try {
     const params = {};
     if (selectedUnit.value) params.unit = selectedUnit.value;
+    if (searchQuery.value) params.keyword = searchQuery.value;
+    if (selectedTemplateId.value) params.template_id = selectedTemplateId.value;
     const response = await productsApi.exportUnitProductsXlsx(params);
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = '产品价格表.xlsx';
+    const contentDisposition = response.headers?.get('content-disposition') || '';
+    let filename = '产品价格表.xlsx';
+    const utf8NameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+    const plainNameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+    if (utf8NameMatch?.[1]) {
+      try {
+        filename = decodeURIComponent(utf8NameMatch[1]);
+      } catch (_) {
+        filename = utf8NameMatch[1];
+      }
+    } else if (plainNameMatch?.[1]) {
+      filename = plainNameMatch[1];
+    }
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   } catch (e) {
@@ -265,7 +287,34 @@ const exportPriceList = async () => {
   }
 };
 
+const loadTemplateOptions = async () => {
+  try {
+    const res = await templatePreviewApi.listTemplates();
+    if (!res?.success) return;
+    const templates = Array.isArray(res.templates) ? res.templates : [];
+    templateOptions.value = templates
+      .filter((tpl) => tpl?.category === 'excel' && !tpl?.virtual)
+      .filter((tpl) => {
+        const scope = String(tpl?.business_scope || '').trim();
+        const type = String(tpl?.template_type || '').trim();
+        return scope === 'products' || type === '产品';
+      })
+      .map((tpl) => ({
+        id: String(tpl.id),
+        name: `${tpl.name || '未命名模板'}（${tpl.template_type || '产品'}）`,
+      }));
+    // 默认走系统导出结构，避免误用历史模板带出额外列。
+    if (!templateOptions.value.find((tpl) => String(tpl.id) === String(selectedTemplateId.value))) {
+      selectedTemplateId.value = '';
+    }
+  } catch (e) {
+    console.error('加载产品导出模板失败:', e);
+  }
+};
+
 onMounted(() => {
   loadUnits().then(() => loadProducts());
+  loadTemplateOptions();
 });
 </script>
+

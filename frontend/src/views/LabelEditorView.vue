@@ -1,12 +1,14 @@
 <template>
   <div class="label-editor-page">
     <div class="editor-header">
-      <h2>🏷️ 标签模板编辑器</h2>
+      <h2><i class="fa fa-tag" aria-hidden="true"></i> 标签模板编辑器</h2>
       <div class="header-actions">
-        <button class="btn btn-secondary" @click="goBack">← 返回</button>
-        <button class="btn btn-primary" @click="saveTemplate">💾 保存模板</button>
+        <button class="btn btn-info" @click="triggerFileInput"><i class="fa fa-upload" aria-hidden="true"></i> 上传识别</button>
+        <button class="btn btn-secondary" @click="goBack"><i class="fa fa-arrow-left" aria-hidden="true"></i> 返回</button>
+        <button class="btn btn-primary" @click="saveTemplate"><i class="fa fa-save" aria-hidden="true"></i> 保存模板</button>
       </div>
     </div>
+    <input type="file" ref="fileInput" accept="image/*" @change="onFileSelected" hidden />
 
     <div class="editor-toolbar">
       <div class="toolbar-group">
@@ -16,11 +18,30 @@
       </div>
       <div class="toolbar-group">
         <button class="btn btn-sm" :class="showGrid ? 'btn-primary' : 'btn-secondary'" @click="showGrid = !showGrid">
-          📏 网格线
+          <i class="fa fa-th" aria-hidden="true"></i> 网格线
         </button>
         <button class="btn btn-sm" :class="showMerge ? 'btn-primary' : 'btn-secondary'" @click="showMerge = !showMerge">
-          🔗 合并单元格
+          <i class="fa fa-link" aria-hidden="true"></i> 合并单元格
         </button>
+      </div>
+    </div>
+    <div
+      v-if="isAnalyzing || analyzeError || analyzeStage"
+      class="analyze-status-bar"
+      :class="{
+        'is-loading': isAnalyzing,
+        'is-error': !!analyzeError,
+        'is-success': !isAnalyzing && !analyzeError && analyzeStage === '识别完成'
+      }"
+    >
+      <div class="analyze-status-text">
+        <i v-if="isAnalyzing" class="fa fa-spinner analyze-spinning" aria-hidden="true"></i>
+        <i v-else-if="analyzeError" class="fa fa-exclamation-triangle" aria-hidden="true"></i>
+        <i v-else-if="analyzeStage === '识别完成'" class="fa fa-check-circle" aria-hidden="true"></i>
+        <span>{{ analyzeError || analyzeStage }}</span>
+      </div>
+      <div v-if="isAnalyzing" class="analyze-progress-track">
+        <div class="analyze-progress-fill"></div>
       </div>
     </div>
 
@@ -40,8 +61,8 @@
 
       <div class="fields-panel">
         <div class="panel-header">
-          <h3>📋 字段列表</h3>
-          <button class="btn btn-sm btn-primary" @click="addField">➕ 添加字段</button>
+          <h3><i class="fa fa-list-alt" aria-hidden="true"></i> 字段列表</h3>
+          <button class="btn btn-sm btn-primary" @click="addField"><i class="fa fa-plus" aria-hidden="true"></i> 添加字段</button>
         </div>
 
         <div class="fields-list">
@@ -57,7 +78,9 @@
               <span class="field-type" :class="field.type">{{ field.type === 'fixed' ? '固定' : '可变' }}</span>
             </div>
             <div class="field-actions">
-              <button class="btn-icon" @click.stop="deleteField(index)" title="删除">🗑️</button>
+              <button class="btn-icon" @click.stop="deleteField(index)" title="删除">
+                <i class="fa fa-trash-o" aria-hidden="true"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -68,7 +91,7 @@
         </div>
 
         <div class="panel-section" v-if="selectedField">
-          <h4>⚙️ 选中字段属性</h4>
+          <h4><i class="fa fa-cog" aria-hidden="true"></i> 选中字段属性</h4>
 
           <div class="property-form">
             <div class="form-group">
@@ -104,25 +127,6 @@
       </div>
     </div>
 
-    <div v-if="showUploadModal" class="modal-overlay" @click.self="showUploadModal = false">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>📤 上传标签图片</h3>
-          <button class="modal-close" @click="showUploadModal = false">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="upload-area" @click="triggerFileInput">
-            <input type="file" ref="fileInput" accept="image/*" @change="onFileSelected" hidden />
-            <div class="upload-icon">📁</div>
-            <p>点击选择图片或拖拽到此处</p>
-            <p class="hint">支持 PNG、JPG 格式</p>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showUploadModal = false">取消</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -146,8 +150,11 @@ export default {
       ctx: null,
       showGrid: true,
       showMerge: true,
-      showUploadModal: false,
-      uploadedImage: null
+      uploadedImage: null,
+      isAnalyzing: false,
+      analyzeError: '',
+      analyzeStage: '',
+      templateName: '标签模板'
     }
   },
   mounted() {
@@ -177,6 +184,13 @@ export default {
 
     if (imageData) {
       this.uploadedImage = imageData
+    }
+
+    const autoUpload = this.$route.query.autoUpload === '1'
+    if (autoUpload) {
+      this.$nextTick(() => {
+        this.triggerFileInput()
+      })
     }
 
     this.drawCanvas()
@@ -457,37 +471,134 @@ export default {
     },
 
     triggerFileInput() {
-      this.$refs.fileInput.click()
+      const input = this.$refs.fileInput
+      if (!input) {
+        console.warn('fileInput 未就绪，无法打开文件选择器')
+        return
+      }
+      this.analyzeError = ''
+      this.analyzeStage = ''
+      // 允许重复选择同一文件时也触发 change 事件
+      input.value = ''
+      input.click()
     },
 
-    onFileSelected(e) {
-      const file = e.target.files[0]
-      if (file) {
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          this.uploadedImage = event.target.result
-          this.showUploadModal = false
+    async onFileSelected(e) {
+      const input = e?.target
+      const file = input?.files?.[0]
+      if (!file) return
+
+      this.analyzeError = ''
+      this.analyzeStage = '正在读取图片...'
+
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        this.uploadedImage = event.target.result
+        this.drawCanvas()
+
+        // 进入独立页面后，直接调用后端识别流程（OCR + 网格）
+        this.isAnalyzing = true
+        this.analyzeStage = '正在上传并识别...'
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('template_name', this.templateName || '标签模板')
+          const response = await fetch('/api/templates/analyze', {
+            method: 'POST',
+            body: formData
+          })
+          this.analyzeStage = '正在解析识别结果...'
+          const res = await response.json()
+
+          if (res?.success) {
+            const incomingFields = Array.isArray(res.fields) ? res.fields : []
+            this.fields = incomingFields.map((field, idx) => ({
+              id: field.id || idx + 1,
+              label: field.label || `字段${idx + 1}`,
+              value: field.value || '',
+              type: field.type || 'dynamic',
+              position: {
+                left: Number(field?.position?.left ?? 20),
+                top: Number(field?.position?.top ?? 20 + idx * 36),
+                width: Number(field?.position?.width ?? 180),
+                height: Number(field?.position?.height ?? 30)
+              }
+            }))
+            this.grid = res?.preview_data?.grid || null
+
+            if (res?.preview_data?.image_size) {
+              const width = Number(res.preview_data.image_size.width || this.canvasWidth)
+              const height = Number(res.preview_data.image_size.height || this.canvasHeight)
+              this.canvasWidth = Math.max(300, Math.min(width, 1600))
+              this.canvasHeight = Math.max(200, Math.min(height, 1200))
+            }
+
+            if (!this.fields.length) {
+              this.fields = this.getDefaultFields()
+            }
+            this.drawCanvas()
+            this.analyzeStage = '识别完成'
+          } else {
+            this.analyzeError = res?.message || '识别失败，已保留原图，可手动标注字段'
+            this.analyzeStage = '识别失败'
+            this.fields = this.getDefaultFields()
+            this.drawCanvas()
+          }
+        } catch (err) {
+          this.analyzeError = `识别失败：${err?.message || '未知错误'}`
+          this.analyzeStage = '识别失败'
+          this.fields = this.getDefaultFields()
           this.drawCanvas()
+        } finally {
+          this.isAnalyzing = false
         }
-        reader.readAsDataURL(file)
+      }
+      reader.readAsDataURL(file)
+      // 允许下一次继续选择同一文件
+      if (input) {
+        input.value = ''
       }
     },
 
-    saveTemplate() {
+    normalizeFieldsForSave() {
+      return (this.fields || []).map((field, idx) => ({
+        id: field.id || idx + 1,
+        label: field.label || `字段${idx + 1}`,
+        value: field.value || '',
+        type: field.type || 'dynamic',
+        position: field.position || { left: 0, top: 0, width: 150, height: 30 }
+      }))
+    },
+
+    async saveTemplate() {
       const templateData = {
-        fields: this.fields,
-        grid: this.grid,
-        imageSize: this.imageSize
+        name: this.templateName || '标签模板',
+        category: 'label',
+        template_type: '标签',
+        fields: this.normalizeFieldsForSave(),
+        source: 'generated'
       }
 
-      console.log('保存模板数据:', templateData)
-
-      this.$emit('save', templateData)
-      alert('模板保存成功！')
+      try {
+        const response = await fetch('/api/templates/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(templateData)
+        })
+        const res = await response.json()
+        if (!res?.success) {
+          throw new Error(res?.message || '保存失败')
+        }
+        alert('模板保存成功！')
+      } catch (err) {
+        alert(`模板保存失败：${err?.message || '未知错误'}`)
+      }
     },
 
     goBack() {
-      this.$router.push('/template-preview')
+      this.$router.push({ path: '/template-preview', query: { scope: 'orders' } })
     }
   }
 }
@@ -547,6 +658,73 @@ export default {
   display: flex;
   flex: 1;
   overflow: hidden;
+}
+
+.analyze-status-bar {
+  margin: 10px 24px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #dbe3ee;
+  background: #eef4fb;
+}
+
+.analyze-status-bar.is-loading {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.analyze-status-bar.is-error {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.analyze-status-bar.is-success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.analyze-status-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.analyze-percent {
+  margin-left: auto;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.analyze-progress-track {
+  margin-top: 8px;
+  height: 8px;
+  background: #dbeafe;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.analyze-progress-fill {
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, #60a5fa, #2563eb, #60a5fa);
+  border-radius: 999px;
+  animation: analyze-loading-bar 1.2s ease-in-out infinite;
+}
+
+.analyze-spinning {
+  animation: spin-analyze 0.9s linear infinite;
+}
+
+@keyframes spin-analyze {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes analyze-loading-bar {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(260%); }
 }
 
 .canvas-wrapper {
@@ -848,6 +1026,15 @@ export default {
 
 .btn-primary:hover {
   background: #0056b3;
+}
+
+.btn-info {
+  background: #17a2b8;
+  color: white;
+}
+
+.btn-info:hover {
+  background: #138496;
 }
 
 .btn-secondary {

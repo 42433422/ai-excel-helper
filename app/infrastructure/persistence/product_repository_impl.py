@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, func, or_
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.application.ports.product_repository import ProductRepository
@@ -70,13 +71,55 @@ class SQLAlchemyProductRepository(ProductRepository):
                     query = query.filter(Product.unit == unit_name)
 
                 if model_number:
-                    query = query.filter(Product.model_number == model_number)
+                    model_token = str(model_number).strip().upper().replace("-", "").replace(" ", "")
+                    if model_token:
+                        normalized_db_model = func.upper(
+                            func.replace(func.replace(func.ifnull(Product.model_number, ""), "-", ""), " ", "")
+                        )
+                        query = query.filter(normalized_db_model == model_token)
 
                 if keyword:
-                    query = query.filter(
-                        (Product.name.like(f"%{keyword}%")) |
-                        (Product.description.like(f"%{keyword}%"))
+                    keyword_text = str(keyword).strip()
+                    normalized_db_model = func.upper(
+                        func.replace(func.replace(func.ifnull(Product.model_number, ""), "-", ""), " ", "")
                     )
+                    # 单位/客户字段 + 名称+型号+规格；「七彩乐园」常在 unit，型号「9803」在 model，整串连续子串对不上
+                    u = func.coalesce(Product.unit, "")
+                    n = func.coalesce(Product.name, "")
+                    m = func.coalesce(Product.model_number, "")
+                    s = func.coalesce(Product.specification, "")
+                    concat_blob = u.op("||")(n).op("||")(m).op("||")(s)
+
+                    def _one_keyword_or(kw: str) -> Any:
+                        k = str(kw).strip()
+                        if not k:
+                            return None
+                        tok = k.upper().replace("-", "").replace(" ", "")
+                        return or_(
+                            Product.unit.like(f"%{k}%"),
+                            Product.name.like(f"%{k}%"),
+                            Product.description.like(f"%{k}%"),
+                            Product.specification.like(f"%{k}%"),
+                            Product.model_number.like(f"%{k}%"),
+                            normalized_db_model.like(f"%{tok}%"),
+                            concat_blob.like(f"%{k}%"),
+                        )
+
+                    segments = re.findall(
+                        r"[\u4e00-\u9fff]+|[0-9]+|[A-Za-z]+", keyword_text
+                    )
+                    segments = [p for p in segments if p.strip()]
+
+                    if len(segments) > 1:
+                        for seg in segments:
+                            filt = _one_keyword_or(seg)
+                            if filt is not None:
+                                query = query.filter(filt)
+                    else:
+                        kw_use = segments[0] if segments else keyword_text
+                        filt = _one_keyword_or(kw_use if kw_use else keyword_text)
+                        if filt is not None:
+                            query = query.filter(filt)
 
                 if is_mock_session and not unit_name and not model_number and not keyword:
                     query = query.filter(True)
@@ -419,12 +462,14 @@ class SQLAlchemyProductRepository(ProductRepository):
     def export_to_excel(
         self,
         unit_name: Optional[str] = None,
-        keyword: Optional[str] = None
+        keyword: Optional[str] = None,
+        template_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         try:
             import os
 
             from openpyxl import Workbook
+            from app.utils.template_export_utils import fill_workbook_from_template
 
             with get_db() as db:
                 inspector = inspect(db.bind)
@@ -449,30 +494,6 @@ class SQLAlchemyProductRepository(ProductRepository):
 
                 products = query.order_by(Product.id.desc()).all()
 
-                wb = Workbook()
-                ws = wb.active
-                ws.title = "产品列表"
-
-                headers = ["ID", "产品编码", "产品名称", "规格型号", "价格", "数量", "单位", "类别", "品牌", "描述", "状态", "创建时间", "更新时间"]
-                ws.append(headers)
-
-                for product in products:
-                    ws.append([
-                        product.id,
-                        product.model_number or "",
-                        product.name or "",
-                        product.specification or "",
-                        product.price or 0.0,
-                        product.quantity or 0,
-                        product.unit or "个",
-                        product.category or "",
-                        product.brand or "",
-                        product.description or "",
-                        "启用" if product.is_active else "停用",
-                        product.created_at.strftime("%Y-%m-%d %H:%M:%S") if product.created_at else "",
-                        product.updated_at.strftime("%Y-%m-%d %H:%M:%S") if product.updated_at else ""
-                    ])
-
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"{unit_name or '产品'}_价格表_{timestamp}.xlsx"
 
@@ -480,6 +501,57 @@ class SQLAlchemyProductRepository(ProductRepository):
                 export_dir = os.path.join(get_data_dir(), "exports")
                 os.makedirs(export_dir, exist_ok=True)
                 file_path = os.path.join(export_dir, filename)
+
+                template_path = None
+                if template_id:
+                    try:
+                        from app.application import get_template_app_service
+
+                        templates = (get_template_app_service().get_templates() or {}).get("templates") or []
+                        target = next((t for t in templates if str(t.get("id")) == str(template_id)), None)
+                        if target:
+                            candidate_path = str(target.get("path") or target.get("file_path") or "").strip()
+                            if candidate_path and os.path.exists(candidate_path):
+                                template_path = candidate_path
+                    except Exception:
+                        template_path = None
+
+                records = [
+                    {
+                        "product_code": product.model_number or "",
+                        "product_name": product.name or "",
+                        "price": product.price or 0.0,
+                    }
+                    for product in products
+                ]
+
+                if template_path:
+                    header_alias = {
+                        "product_code": ["产品编码", "型号", "产品型号"],
+                        "product_name": ["产品名称", "品名"],
+                        "price": ["价格", "单价"],
+                    }
+                    wb = fill_workbook_from_template(
+                        template_path=template_path,
+                        records=records,
+                        field_alias_map=header_alias,
+                        sheet_name="产品列表",
+                        append_missing_field_columns=True,
+                    )
+                else:
+                    wb = Workbook()
+                    ws = wb.active
+                    ws.title = "产品列表"
+
+                    headers = ["产品编码", "产品名称", "价格"]
+                    ws.append(headers)
+
+                    for row in records:
+                        ws.append([
+                            row["product_code"],
+                            row["product_name"],
+                            row["price"],
+                        ])
 
                 wb.save(file_path)
 

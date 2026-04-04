@@ -36,6 +36,10 @@ export const materialsApi = {
     if (query) params.search = query;
     if (category) params.category = category;
     return api.get<ApiResponse<Material[]>>('/api/materials', params);
+  },
+
+  exportMaterialsXlsx(params: Record<string, any> = {}): Promise<Response> {
+    return api.download('/api/materials/export', params);
   }
 };
 

@@ -3,8 +3,9 @@ import type { ApiResponse } from '@/types/api';
 import type { Product, ProductCreateDTO, ProductUpdateDTO, ProductQueryParams } from '@/types/product';
 
 export const productsApi = {
+  /** 使用 /list 与根路径等价，避免部分环境下 /api/products/ 重定向丢参或 404 */
   getProducts(params: ProductQueryParams = {}): Promise<ApiResponse<Product[]>> {
-    return api.get<ApiResponse<Product[]>>('/api/products/', params);
+    return api.get<ApiResponse<Product[]>>('/api/products/list', params);
   },
 
   async getProductUnits(): Promise<{ success: boolean; data: string[]; count: number }> {
@@ -43,11 +44,13 @@ export const productsApi = {
     return api.download('/api/products/export.xlsx', params);
   },
 
-  searchProducts(query: string, unit: string): Promise<ApiResponse<Product[]>> {
-    const params: Record<string, any> = {};
-    if (query) params.keyword = query;
+  /** 与产品列表页一致：GET /api/products/list，避免 /search 与根路径斜杠问题 */
+  searchProducts(query: string, unit?: string): Promise<ApiResponse<Product[]>> {
+    const params: Record<string, any> = { page: 1, per_page: 20 };
+    const q = String(query || '').trim();
+    if (q) params.keyword = q;
     if (unit) params.unit = unit;
-    return api.get<ApiResponse<Product[]>>('/api/products/search', params);
+    return api.get<ApiResponse<Product[]>>('/api/products/list', params);
   },
 
   getProductNames(params: Record<string, any> = {}): Promise<ApiResponse<any[]>> {

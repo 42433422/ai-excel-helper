@@ -10,6 +10,7 @@ from flasgger import swag_from
 from flask import Blueprint, jsonify, request, send_file
 
 from app.application import CustomerApplicationService, get_customer_app_service
+from app.utils.json_safe import json_safe
 
 customers_bp = Blueprint("customers", __name__)
 
@@ -20,6 +21,7 @@ def get_customer_service():
 
 
 @customers_bp.route("", methods=["GET"])
+@customers_bp.route("/", methods=["GET"])
 def customers_index():
     """
     客户列表接口（根路径）
@@ -120,8 +122,9 @@ def customers_export():
     """
     try:
         keyword = request.args.get("keyword")
+        template_id = request.args.get("template_id")
         
-        success, result, status = export_customers_to_excel(keyword=keyword)
+        success, result, status = export_customers_to_excel(keyword=keyword, template_id=template_id)
         
         if not success:
             return jsonify(result), status
@@ -148,6 +151,7 @@ def customers_export():
 
 
 @customers_bp.route("", methods=["POST"])
+@customers_bp.route("/", methods=["POST"])
 @swag_from({
     'summary': '创建单个客户',
     'description': '创建一个新的客户记录',
@@ -467,24 +471,31 @@ def customers_update(customer_id):
 def customers_delete(customer_id):
     """
     删除单个客户接口
-    
+
     Path Parameters:
         - customer_id: 客户 ID
-        
+
+    Query Parameters:
+        - force: 是否强制删除（可选，忽略关联检查）
+
     Response:
         - success: 是否成功
         - message: 删除结果消息
         - deleted_count: 删除的记录数
+        - has_associations: 是否有关联记录（仅在有关联时返回）
+        - association_details: 关联详情（仅在有关联时返回）
     """
     try:
         service = get_customer_app_service()
-        result = service.delete(customer_id)
-        
+        force = request.args.get("force", "false").lower() in ("true", "1", "yes")
+        result = service.delete(customer_id, force=force)
+
         if result["success"]:
             return jsonify(result), 200
         else:
-            return jsonify(result), 404
-            
+            status_code = 409 if result.get("has_associations") else 404
+            return jsonify(result), status_code
+
     except Exception as e:
         return jsonify({
             "success": False,
@@ -496,43 +507,44 @@ def customers_delete(customer_id):
 def customers_batch_delete():
     """
     批量删除客户接口
-    
+
     Request Body (JSON):
         - ids: 客户 ID 数组，例如 [1, 2, 3]
-        
+        - force: 是否强制删除（可选，忽略关联检查）
+
     Response:
         - success: 是否成功
         - message: 删除结果消息
         - deleted_count: 删除的记录数
+        - has_associations: 是否有关联记录（仅在有关联时返回）
+        - affected_units: 关联详情（仅在有关联时返回）
     """
     try:
         # 支持 POST 和 DELETE 方法
         if request.method == "DELETE":
-            # DELETE 方法从查询参数获取 IDs
             ids_str = request.args.get("ids", "")
             ids = [int(id.strip()) for id in ids_str.split(",") if id.strip()]
+            force = request.args.get("force", "false").lower() in ("true", "1", "yes")
         else:
-            # POST 方法从 JSON body 获取 IDs
-            data = request.get_json()
-            if not data or "ids" not in data:
-                return jsonify({
-                    "success": False,
-                    "message": "请求体中必须包含 ids 字段"
-                }), 400
-            ids = data["ids"]
-        
+            data = request.get_json() or {}
+            ids = data.get("ids", [])
+            force = data.get("force", False)
+
         if not ids:
             return jsonify({
                 "success": False,
                 "message": "ID 列表不能为空"
             }), 400
-        
-        # 调用服务层删除
+
         service = get_customer_app_service()
-        result = service.batch_delete(ids)
-        
-        return jsonify(result), 200
-        
+        result = service.batch_delete(ids, force=force)
+
+        if result["success"]:
+            return jsonify(result), 200
+        else:
+            status_code = 409 if result.get("has_associations") else 400
+            return jsonify(result), status_code
+
     except ValueError as e:
         return jsonify({
             "success": False,
@@ -568,9 +580,9 @@ def customers_list():
         per_page = int(request.args.get("per_page", 20))
         
         result = get_all_customers(keyword=keyword, page=page, per_page=per_page)
-        
-        return jsonify(result), 200
-        
+
+        return jsonify(json_safe(result)), 200
+
     except Exception as e:
         return jsonify({
             "success": False,
@@ -592,11 +604,11 @@ def import_customers_from_excel(file):
         return False, {"success": False, "message": str(e)}, 500
 
 
-def export_customers_to_excel(keyword=None):
+def export_customers_to_excel(keyword=None, template_id=None):
     """导出客户到 Excel"""
     try:
         service = get_customer_app_service()
-        result = service.export_to_excel(keyword=keyword)
+        result = service.export_to_excel(keyword=keyword, template_id=template_id)
         return True, result, 200
     except Exception as e:
         return False, {"success": False, "message": str(e)}, 500

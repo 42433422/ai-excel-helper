@@ -9,6 +9,8 @@
 - 热更新配置
 """
 
+from __future__ import annotations
+
 import hashlib
 import logging
 import re

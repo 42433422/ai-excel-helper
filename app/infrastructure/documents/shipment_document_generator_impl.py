@@ -6,7 +6,16 @@ import sqlite3
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from PIL import Image, ImageDraw, ImageFont
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    _PIL_AVAILABLE = True
+    _PIL_IMPORT_ERROR = ""
+except Exception as _pil_import_error:
+    Image = None  # type: ignore[assignment]
+    ImageDraw = None  # type: ignore[assignment]
+    ImageFont = None  # type: ignore[assignment]
+    _PIL_AVAILABLE = False
+    _PIL_IMPORT_ERROR = str(_pil_import_error)
 
 from app.application.ports.shipment_document_generator import ShipmentDocumentGeneratorPort
 from app.db.models import Product, PurchaseUnit
@@ -36,6 +45,8 @@ class SimpleLabelGenerator:
         self.text_color = (0, 0, 0)
 
     def _get_font(self, size: int):
+        if not _PIL_AVAILABLE:
+            return None
         font_paths = [
             "msyhbd.ttf",
             "simhei.ttf",
@@ -66,6 +77,9 @@ class SimpleLabelGenerator:
         return ImageFont.load_default()
 
     def generate_label(self, product_data: Dict[str, Any], order_number: str, label_index: int = 1) -> Optional[str]:
+        if not _PIL_AVAILABLE:
+            logger.warning(f"PIL 不可用，跳过标签生成：{_PIL_IMPORT_ERROR}")
+            return None
         try:
             image = Image.new('RGB', (self.width, self.height), self.bg_color)
             draw = ImageDraw.Draw(image)
@@ -191,10 +205,12 @@ class SimpleLabelGenerator:
         for i, product in enumerate(products, 1):
             filename = self.generate_label(product, order_number, i)
             if filename:
+                file_path = os.path.join(self.output_dir, filename)
                 labels.append({
                     "filename": filename,
+                    "file_path": file_path,
                     "order_number": order_number,
-                    "label_number": str(i)
+                    "label_number": str(i),
                 })
         return labels
 
@@ -244,6 +260,7 @@ class LegacyShipmentDocumentGenerator(ShipmentDocumentGeneratorPort):
         products: List[Dict[str, Any]],
         date: Optional[str] = None,
         template_name: Optional[str] = None,
+        order_number: Optional[str] = None,
     ) -> Dict[str, Any]:
         # 1) 统一单位名来源：purchase_units 主库
         resolved = resolve_purchase_unit(unit_name)
@@ -295,6 +312,7 @@ class LegacyShipmentDocumentGenerator(ShipmentDocumentGeneratorPort):
             parsed_data=parsed_data,
             purchase_unit=purchase_unit_info,
             template_name=template_name,
+            custom_order_number=order_number,
         )
 
         if hasattr(doc, "to_dict"):

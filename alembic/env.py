@@ -8,10 +8,17 @@ from sqlalchemy import pool
 from alembic import context
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
+_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, _ROOT)
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(os.path.join(_ROOT, ".env"))
+except ImportError:
+    pass
 
 from app.db.base import Base
-from db import get_db_path
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -35,6 +42,13 @@ from app.db.models import *
 # ... etc.
 
 
+def _database_url() -> str:
+    return os.environ.get(
+        "DATABASE_URL",
+        "postgresql+psycopg://xcagi:xcagi@localhost:5432/xcagi",
+    )
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -47,8 +61,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    db_path = get_db_path()
-    url = f"sqlite:///{db_path}"
+    url = _database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -67,8 +80,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    db_path = get_db_path()
-    config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path}")
+    config.set_main_option("sqlalchemy.url", _database_url())
     
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),

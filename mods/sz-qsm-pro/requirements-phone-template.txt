@@ -1,0 +1,19 @@
+# Windows 微信电话通道：来电窗口监控 / 自动接听（与 Edge-TTS、VB-Cable 无关；未装则 status 仍显示窗口监控不可用）
+pywin32>=306; sys_platform == "win32"
+# 可选：用于 image.png 全屏模板匹配接听（未安装则仅走 Win32 窗口逻辑）
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+# 可选：按「微信占用声音会话」门控后再做屏幕模板（与 window_monitor._screen_template_loop 配合）
+pycaw>=20240210
+comtypes>=1.2.0
+# 可选：VB-Cable 播放前将 Edge-TTS 的 MP3 转为 PCM（无 ffmpeg 时也可装 pydub，但 MP3 仍依赖系统 ffmpeg）
+pydub>=0.25.1
+# 可选：自带 ffmpeg 可执行文件，无需在 Windows 上单独安装 ffmpeg（phone_agent 解码 MP3 时会自动回退）
+imageio-ffmpeg>=0.4.0
+# 可选：无 ffmpeg 时仍可将 Edge-TTS 的 MP3 解码为 PCM（dr_mp3，推荐与电话业务员同环境安装）
+miniaudio>=1.59
+# 可选：Windows 上 WASAPI 扬声器回环采集对方语音（不依赖立体声混音）；需 numpy
+soundcard>=0.4.3
+# 电话 ASR：faster-whisper（推荐）；未装则仍可用 openai-whisper
+faster-whisper>=1.0.0

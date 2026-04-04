@@ -3,9 +3,18 @@ import os
 import time
 from typing import Dict, List, Optional
 
-import pythoncom
-import win32api
-import win32print
+try:
+    import pythoncom
+    import win32api
+    import win32print
+    _PRINT_BACKEND_AVAILABLE = True
+    _PRINT_BACKEND_ERROR = ""
+except Exception as _print_import_error:
+    pythoncom = None  # type: ignore[assignment]
+    win32api = None  # type: ignore[assignment]
+    win32print = None  # type: ignore[assignment]
+    _PRINT_BACKEND_AVAILABLE = False
+    _PRINT_BACKEND_ERROR = str(_print_import_error)
 
 logging.basicConfig(level=logging.INFO, encoding='utf-8')
 logger = logging.getLogger(__name__)
@@ -15,7 +24,17 @@ class PrinterUtils:
     def __init__(self):
         self._com_initialized = False
 
+    @staticmethod
+    def _is_print_backend_available() -> bool:
+        return _PRINT_BACKEND_AVAILABLE
+
+    def _build_unavailable_result(self) -> Dict:
+        message = f"当前环境不支持打印功能（缺少 Windows 打印依赖）：{_PRINT_BACKEND_ERROR or 'unknown'}"
+        return {"success": False, "message": message}
+
     def _ensure_com_initialized(self):
+        if not self._is_print_backend_available():
+            return
         if not self._com_initialized:
             try:
                 pythoncom.CoInitialize()
@@ -24,6 +43,9 @@ class PrinterUtils:
                 logger.warning(f"COM初始化警告: {e}")
 
     def get_available_printers(self) -> List[Dict[str, str]]:
+        if not self._is_print_backend_available():
+            logger.warning(self._build_unavailable_result()["message"])
+            return []
         try:
             self._ensure_com_initialized()
             printers = []
@@ -74,6 +96,8 @@ class PrinterUtils:
             return []
 
     def _get_printer_status(self, status_code: int) -> str:
+        if not self._is_print_backend_available():
+            return "不可用"
         status_map = {
             win32print.PRINTER_STATUS_PAUSED: "已暂停",
             win32print.PRINTER_STATUS_ERROR: "错误",
@@ -101,6 +125,9 @@ class PrinterUtils:
         return status_map.get(status_code, "就绪")
 
     def monitor_print_job(self, printer_name: str, timeout: int = 60) -> bool:
+        if not self._is_print_backend_available():
+            logger.warning(self._build_unavailable_result()["message"])
+            return False
         try:
             logger.info(f"开始监控打印机 {printer_name} 的打印任务...")
 
@@ -136,6 +163,8 @@ class PrinterUtils:
             return False
 
     def print_file(self, file_path: str, printer_name: Optional[str] = None, use_default_printer: bool = False) -> Dict:
+        if not self._is_print_backend_available():
+            return self._build_unavailable_result()
         try:
             if not os.path.exists(file_path):
                 return {
@@ -233,6 +262,8 @@ class PrinterUtils:
             }
 
     def _print_excel(self, file_path: str, printer_name: str) -> Dict:
+        if not self._is_print_backend_available():
+            return self._build_unavailable_result()
         try:
             logger.info(f"开始打印Excel文件: {file_path}")
             logger.info(f"使用打印机: {printer_name}")
@@ -298,6 +329,8 @@ class PrinterUtils:
             }
 
     def _print_pdf(self, file_path: str, printer_name: str) -> Dict:
+        if not self._is_print_backend_available():
+            return self._build_unavailable_result()
         try:
             logger.info(f"尝试使用win32print直接打印PDF到 {printer_name}")
 
@@ -372,6 +405,8 @@ class PrinterUtils:
             }
 
     def _print_default(self, file_path: str, printer_name: str, show_app: bool = False) -> Dict:
+        if not self._is_print_backend_available():
+            return self._build_unavailable_result()
         try:
             show_cmd = 1 if show_app else 0
 
@@ -402,6 +437,9 @@ class PrinterUtils:
             }
 
     def get_default_printer(self) -> Optional[str]:
+        if not self._is_print_backend_available():
+            logger.warning(self._build_unavailable_result()["message"])
+            return None
         try:
             return win32print.GetDefaultPrinter()
         except Exception as e:
@@ -409,6 +447,8 @@ class PrinterUtils:
             return None
 
     def test_printer(self, printer_name: str) -> Dict:
+        if not self._is_print_backend_available():
+            return self._build_unavailable_result()
         try:
             hprinter = win32print.OpenPrinter(printer_name)
 
@@ -436,6 +476,9 @@ class PrinterUtils:
 
     def get_document_printer(self) -> Optional[str]:
         """获取发货单打印机"""
+        if not self._is_print_backend_available():
+            logger.warning(self._build_unavailable_result()["message"])
+            return None
         try:
             printers = self.get_available_printers()
             if not printers:
@@ -456,6 +499,9 @@ class PrinterUtils:
 
     def get_label_printer(self) -> Optional[str]:
         """获取标签打印机"""
+        if not self._is_print_backend_available():
+            logger.warning(self._build_unavailable_result()["message"])
+            return None
         try:
             printers = self.get_available_printers()
             if not printers:

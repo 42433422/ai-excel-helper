@@ -16,6 +16,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from werkzeug.utils import secure_filename
 
+from app.utils.external_sqlite import sqlite_conn
 from app.utils.path_utils import get_upload_dir
 
 logger = logging.getLogger(__name__)
@@ -100,70 +101,63 @@ class FileAnalysisService:
         filename: str
     ) -> Dict[str, Any]:
         """分析 SQLite 数据库文件"""
-        conn = None
         try:
-            conn = sqlite3.connect(saved_path)
-            cur = conn.cursor()
+            with sqlite_conn(saved_path) as conn:
+                cur = conn.cursor()
 
-            tables = cur.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-            ).fetchall()
-            table_names = [t[0] for t in tables if t and t[0]]
+                tables = cur.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                ).fetchall()
+                table_names = [t[0] for t in tables if t and t[0]]
 
-            focus_tables = table_names[:10]
-            table_columns = {}
-            for t in focus_tables:
-                try:
-                    cols = cur.execute(f"PRAGMA table_info('{t}')").fetchall()
-                    table_columns[t] = [c[1] for c in cols if c and len(c) >= 2]
-                except Exception:
-                    table_columns[t] = []
+                focus_tables = table_names[:10]
+                table_columns = {}
+                for t in focus_tables:
+                    try:
+                        cols = cur.execute(f"PRAGMA table_info('{t}')").fetchall()
+                        table_columns[t] = [c[1] for c in cols if c and len(c) >= 2]
+                    except Exception:
+                        table_columns[t] = []
 
-            suggested_use = self._determine_suggested_use(table_names, table_columns)
-            main_tables = focus_tables[:6] if focus_tables else []
-            main_tables_text = "、".join(main_tables) if main_tables else "-"
+                suggested_use = self._determine_suggested_use(table_names, table_columns)
+                main_tables = focus_tables[:6] if focus_tables else []
+                main_tables_text = "、".join(main_tables) if main_tables else "-"
 
-            unit_name_guess = self._extract_unit_name_guess(raw_filename, filename)
+                unit_name_guess = self._extract_unit_name_guess(raw_filename, filename)
 
-            unit_candidates = []
-            if suggested_use == "unit_products_db":
-                unit_candidates = self._extract_unit_candidates(cur, table_names)
+                unit_candidates = []
+                if suggested_use == "unit_products_db":
+                    unit_candidates = self._extract_unit_candidates(cur, table_names)
 
-            ai_summary = (
-                f"已识别 SQLite 数据库（.db）。库内表数：{len(table_names)}；"
-                f"主要表：{main_tables_text}。\n"
-                f"建议下一步用途：{suggested_use}。"
-            )
+                ai_summary = (
+                    f"已识别 SQLite 数据库（.db）。库内表数：{len(table_names)}；"
+                    f"主要表：{main_tables_text}。\n"
+                    f"建议下一步用途：{suggested_use}。"
+                )
 
-            return {
-                "success": True,
-                "parser_used": "sqlite_db",
-                "extension": ".db",
-                "text_preview": "",
-                "ai_summary": ai_summary,
-                "analyzed": True,
-                "suggested_use": suggested_use,
-                "saved_name": saved_name,
-                "unit_name_guess": unit_name_guess,
-                "unit_candidates": unit_candidates,
-                "db_meta": {
-                    "table_count": len(table_names),
-                    "tables": focus_tables,
-                    "table_columns": table_columns
+                return {
+                    "success": True,
+                    "parser_used": "sqlite_db",
+                    "extension": ".db",
+                    "text_preview": "",
+                    "ai_summary": ai_summary,
+                    "analyzed": True,
+                    "suggested_use": suggested_use,
+                    "saved_name": saved_name,
+                    "unit_name_guess": unit_name_guess,
+                    "unit_candidates": unit_candidates,
+                    "db_meta": {
+                        "table_count": len(table_names),
+                        "tables": focus_tables,
+                        "table_columns": table_columns
+                    }
                 }
-            }
         except Exception as e:
             logger.exception(f"SQLite 数据库分析失败：{e}")
             return {
                 "success": False,
                 "message": f"文件分析失败：{str(e)}"
             }
-        finally:
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
 
     def _determine_suggested_use(
         self,

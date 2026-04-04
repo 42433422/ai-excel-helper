@@ -357,7 +357,13 @@ def ocr_recognize_and_extract():
 })
 def ocr_test():
     """测试接口"""
+    try:
+        svc = get_ocr_service()
+        backend = svc.get_active_ocr_backend()
+    except Exception:
+        backend = "unknown"
     return jsonify({
         "success": True,
-        "message": "OCR服务运行正常"
+        "message": "OCR服务运行正常",
+        "active_backend": backend,
     }), 200

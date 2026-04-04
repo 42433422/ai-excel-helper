@@ -1,5 +1,6 @@
+import re
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from app.db.models import Product as ProductModel
 from app.db.session import get_db
@@ -77,16 +78,66 @@ class SQLAlchemyProductRepository(ProductRepository):
             if unit_name:
                 query = query.filter(ProductModel.unit == unit_name)
 
+            model_number = kwargs.get('model_number')
+            if model_number:
+                model_token = str(model_number).strip()
+                if model_token:
+                    from sqlalchemy import or_
+                    pattern = f"%{model_token}%"
+                    # 优先通过型号字段匹配；兼容历史数据中型号写在名称里的情况。
+                    query = query.filter(
+                        or_(
+                            ProductModel.model_number.like(pattern),
+                            ProductModel.name.like(pattern),
+                        )
+                    )
+
             keyword = kwargs.get('keyword')
             if keyword:
-                keyword_pattern = f"%{keyword}%"
-                from sqlalchemy import or_
-                query = query.filter(
-                    or_(
-                        ProductModel.name.like(keyword_pattern),
-                        ProductModel.model_number.like(keyword_pattern)
+                from sqlalchemy import func, or_
+                keyword_text = str(keyword).strip()
+                u = func.coalesce(ProductModel.unit, "")
+                n = func.coalesce(ProductModel.name, "")
+                m = func.coalesce(ProductModel.model_number, "")
+                s = func.coalesce(ProductModel.specification, "")
+                concat_blob = u.op("||")(n).op("||")(m).op("||")(s)
+
+                def _one_kw(kw: str) -> Any:
+                    k = str(kw).strip()
+                    if not k:
+                        return None
+                    tok = k.upper().replace("-", "").replace(" ", "")
+                    nm = func.upper(
+                        func.replace(
+                            func.replace(func.ifnull(ProductModel.model_number, ""), "-", ""),
+                            " ",
+                            "",
+                        )
                     )
+                    return or_(
+                        ProductModel.unit.like(f"%{k}%"),
+                        ProductModel.name.like(f"%{k}%"),
+                        ProductModel.model_number.like(f"%{k}%"),
+                        ProductModel.specification.like(f"%{k}%"),
+                        nm.like(f"%{tok}%"),
+                        concat_blob.like(f"%{k}%"),
+                    )
+
+                segments = re.findall(
+                    r"[\u4e00-\u9fff]+|[0-9]+|[A-Za-z]+", keyword_text
                 )
+                segments = [p for p in segments if p.strip()]
+
+                if len(segments) > 1:
+                    for seg in segments:
+                        filt = _one_kw(seg)
+                        if filt is not None:
+                            query = query.filter(filt)
+                else:
+                    kw_use = segments[0] if segments else keyword_text
+                    filt = _one_kw(kw_use if kw_use else keyword_text)
+                    if filt is not None:
+                        query = query.filter(filt)
 
             total = query.count()
             models = query.order_by(

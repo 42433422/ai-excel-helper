@@ -20,7 +20,7 @@
       </div>
       
       <div v-if="status === 'MATCHED'" class="matched-info">
-        <div class="matched-icon">✓</div>
+        <div class="matched-icon"><i class="fa fa-check" aria-hidden="true"></i></div>
         <div class="matched-text">工具已匹配</div>
       </div>
       
@@ -30,7 +30,7 @@
       </div>
       
       <div v-if="status === 'DONE'" class="done-info">
-        <div class="done-icon">✓</div>
+        <div class="done-icon"><i class="fa fa-check" aria-hidden="true"></i></div>
         <div class="done-text">执行完成</div>
       </div>
     </div>

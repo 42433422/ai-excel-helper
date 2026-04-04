@@ -1,3 +1,37 @@
+[project]
+name = "xcagi"
+version = "3.0.0"
+description = "XCAGI - 出货单智能助手系统"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "frontend",
+    "build",
+    "dist",
+    "migrations",
+    "alembic/versions",
+    "*.ipynb"
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "C4", "UP", "SIM", "PLC"]
+ignore = ["E501", "E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# 兼容旧配置
 [tool.black]
 line-length = 100
 target-version = ['py311']
@@ -45,7 +79,7 @@ exclude = [
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --cov=app --cov-report=term-missing"
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]

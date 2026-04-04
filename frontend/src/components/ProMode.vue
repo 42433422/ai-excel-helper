@@ -160,12 +160,12 @@
 
     <div class="pro-status">
       <div class="status-dot-anim"></div>
-      <span>修茈 SYSTEM ONLINE</span>
+      <span>{{ `${assistantName} SYSTEM ONLINE` }}</span>
       <span style="opacity: 0.5; margin-left: 20px;" id="jarvisStatusText">READY</span>
     </div>
 
     <div class="jarvis-chat-panel">
-      <div class="jarvis-chat-header">修茈 ASSISTANT</div>
+      <div class="jarvis-chat-header">{{ `${assistantName} ASSISTANT` }}</div>
       <div class="jarvis-chat-messages" id="jarvisChatMessages"></div>
       <div class="jarvis-monitor-list-wrap" id="jarvisMonitorListWrap" style="display: none;">
         <div class="jarvis-monitor-list-header">监控列表</div>
@@ -176,10 +176,10 @@
     <div class="wechat-messages-panel" id="wechatMessagesPanel" style="display: none;">
       <button class="close-messages" id="closeWechatMessagesBtn" data-close-action="closeWechatMessages">&times;</button>
       <div class="messages-title">
-        <span>💬 微信消息</span>
+        <span><i class="fa fa-comments-o" aria-hidden="true"></i> 微信消息</span>
         <div class="messages-actions">
-          <button class="msg-action-btn" id="logoutWechatBtn" title="退出登录">🚪</button>
-          <button class="msg-action-btn" id="clearWechatMessagesBtn" title="清空消息">🗑️</button>
+          <button class="msg-action-btn" id="logoutWechatBtn" title="退出登录"><i class="fa fa-sign-out" aria-hidden="true"></i></button>
+          <button class="msg-action-btn" id="clearWechatMessagesBtn" title="清空消息"><i class="fa fa-trash-o" aria-hidden="true"></i></button>
         </div>
       </div>
       <div class="messages-container" id="wechatMessagesList">
@@ -203,7 +203,7 @@
       <div class="pro-order-float-title">订单信息</div>
       <div class="pro-order-float-text" id="proOrderFloatText"></div>
       <div class="pro-order-float-download" id="proOrderFloatDownload" data-hidden="true">
-        <a href="#" id="proOrderFloatDownloadLink" class="pro-order-download-btn">📄 下载发货单</a>
+        <a href="#" id="proOrderFloatDownloadLink" class="pro-order-download-btn"><i class="fa fa-file-text-o" aria-hidden="true"></i> 下载发货单</a>
       </div>
     </div>
   </div>
@@ -212,6 +212,9 @@
 <script setup>
 import { computed, ref, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useProMode } from '@/composables/useProMode'
+
+const ASSISTANT_NAME_KEY = 'assistantName'
+const DEFAULT_ASSISTANT_NAME = '修茈'
 
 const props = defineProps({
   modelValue: {
@@ -222,20 +225,83 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
-const { stepBack: stepBackPro } = useProMode()
+const { stepBack: stepBackPro, currentStage } = useProMode()
 
 const isActive = ref(props.modelValue);
 const isExiting = ref(false);
 const isLegacyRuntime = ref(false)
+const assistantName = ref(DEFAULT_ASSISTANT_NAME)
 let legacyObserver = null
 let workModeObserver = null
 let enterTimer = null
 let exitTimer = null
+let assistantNameListener = null
 
 const overlayClasses = computed(() => ({
   active: !isLegacyRuntime.value && isActive.value,
   exiting: !isLegacyRuntime.value && isExiting.value
 }))
+
+const normalizeAssistantName = (value) => {
+  const normalized = typeof value === 'string' ? value.trim() : ''
+  return normalized || DEFAULT_ASSISTANT_NAME
+}
+
+const loadAssistantName = () => {
+  try {
+    assistantName.value = normalizeAssistantName(window.localStorage.getItem(ASSISTANT_NAME_KEY))
+  } catch (error) {
+    console.warn('读取助手名称失败，使用默认值:', error)
+    assistantName.value = DEFAULT_ASSISTANT_NAME
+  }
+}
+
+const syncAssistantName = (rawValue) => {
+  assistantName.value = normalizeAssistantName(rawValue)
+}
+
+const cleanupProModeResidualUi = () => {
+  // 关闭商标导出窗口
+  const labelsExportWindow = document.getElementById('labelsExportWindow')
+  if (labelsExportWindow) {
+    labelsExportWindow.classList.remove('show')
+  }
+
+  // 清空并隐藏标签漂浮预览
+  const labelFloatPreviews = document.getElementById('labelFloatPreviews')
+  if (labelFloatPreviews) {
+    labelFloatPreviews.innerHTML = ''
+    labelFloatPreviews.classList.add('hidden')
+    labelFloatPreviews.setAttribute('aria-hidden', 'true')
+  }
+
+  // 隐藏发货单下载入口并复位文案
+  const shipmentDownloadEntry = document.getElementById('shipmentDownloadEntry')
+  if (shipmentDownloadEntry) {
+    shipmentDownloadEntry.classList.remove('show')
+    const textEl = shipmentDownloadEntry.querySelector('.entry-text')
+    if (textEl) textEl.textContent = '下载发货单'
+  }
+
+  // 隐藏订单浮层并清空内容/下载按钮状态
+  const orderFloatPanel = document.getElementById('proOrderFloatPanel')
+  if (orderFloatPanel) {
+    orderFloatPanel.classList.remove('show', 'task-acquiring')
+    orderFloatPanel.setAttribute('aria-hidden', 'true')
+  }
+  const orderFloatText = document.getElementById('proOrderFloatText')
+  if (orderFloatText) {
+    orderFloatText.textContent = ''
+  }
+  const orderFloatDownload = document.getElementById('proOrderFloatDownload')
+  if (orderFloatDownload) {
+    orderFloatDownload.setAttribute('data-hidden', 'true')
+  }
+  const orderFloatDownloadLink = document.getElementById('proOrderFloatDownloadLink')
+  if (orderFloatDownloadLink) {
+    orderFloatDownloadLink.setAttribute('href', '#')
+  }
+}
 
 const detectLegacyRuntime = () => {
   const legacyToggle = window.__legacyToggleProMode || window.toggleProMode;
@@ -291,6 +357,7 @@ watch(() => props.modelValue, (newVal) => {
     }
   } else {
     document.body.classList.remove('pro-mode-active');
+    cleanupProModeResidualUi()
     if (enterTimer) {
       clearTimeout(enterTimer)
       enterTimer = null
@@ -304,6 +371,7 @@ watch(() => props.modelValue, (newVal) => {
 });
 
 const exitProMode = () => {
+  cleanupProModeResidualUi()
   const legacyToggle = window.__legacyToggleProMode || window.toggleProMode
   if (typeof legacyToggle === 'function') {
     legacyToggle()
@@ -315,7 +383,21 @@ const exitProMode = () => {
 const stepBack = () => {
   const legacyStepBack = window.stepBackProMode
   if (typeof legacyStepBack === 'function') {
+    const overlay = document.getElementById('proModeOverlay')
+    const isWorkOrMonitorMode = !!overlay?.classList.contains('work-mode') || !!overlay?.classList.contains('monitor-mode')
+    const beforeStage = currentStage?.value
+    const beforeUrl = window.location.pathname + window.location.search + window.location.hash
     legacyStepBack()
+    // 兼容兜底：若仅靠 pro 内部 stepBack 无法回退（stage 与 URL 都未变化），则回退浏览器路由。
+    window.setTimeout(() => {
+      const afterStage = currentStage?.value
+      const afterUrl = window.location.pathname + window.location.search + window.location.hash
+      const stageUnchanged = beforeStage === afterStage
+      const urlUnchanged = beforeUrl === afterUrl
+      if (!isWorkOrMonitorMode && stageUnchanged && urlUnchanged && window.history.length > 1) {
+        window.history.back()
+      }
+    }, 0)
     return
   }
   const workModeToggle = window.toggleWorkMode
@@ -328,6 +410,11 @@ const stepBack = () => {
 
 onMounted(() => {
   isLegacyRuntime.value = detectLegacyRuntime()
+  loadAssistantName()
+  assistantNameListener = (event) => {
+    syncAssistantName(event?.detail?.name)
+  }
+  window.addEventListener('assistant-name-updated', assistantNameListener)
 
   window.stepBackProMode = stepBackPro
 
@@ -375,6 +462,10 @@ onBeforeUnmount(() => {
   // Clean up global function
   if (window.stepBackProMode === stepBackPro) {
     delete window.stepBackProMode
+  }
+  if (assistantNameListener) {
+    window.removeEventListener('assistant-name-updated', assistantNameListener)
+    assistantNameListener = null
   }
 });
 </script>

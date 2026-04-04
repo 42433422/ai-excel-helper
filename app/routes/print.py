@@ -12,6 +12,8 @@
 
 import logging
 import os
+import time
+import uuid
 from typing import Any, Dict
 
 from flasgger import swag_from
@@ -20,6 +22,36 @@ from flask import Blueprint, jsonify, request
 logger = logging.getLogger(__name__)
 
 print_bp = Blueprint("print", __name__, url_prefix="/api/print")
+
+
+_PRINT_CONFIRM_TTL_SECONDS = 300
+_print_confirm_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def _cleanup_print_confirm_cache() -> None:
+    now = time.time()
+    expired = [
+        token
+        for token, payload in _print_confirm_cache.items()
+        if float(payload.get("expires_at", 0.0)) <= now
+    ]
+    for token in expired:
+        _print_confirm_cache.pop(token, None)
+
+
+def _create_print_confirm_token(payload: Dict[str, Any]) -> str:
+    _cleanup_print_confirm_cache()
+    token = uuid.uuid4().hex
+    _print_confirm_cache[token] = {
+        **payload,
+        "expires_at": time.time() + _PRINT_CONFIRM_TTL_SECONDS,
+    }
+    return token
+
+
+def _consume_print_confirm_token(token: str) -> Dict[str, Any]:
+    _cleanup_print_confirm_cache()
+    return _print_confirm_cache.pop(token, {})
 
 
 def get_printer_service():
@@ -67,6 +99,68 @@ def get_printers():
             "success": False,
             "message": f"获取打印机列表失败: {str(e)}",
             "printers": []
+        }), 500
+
+
+@print_bp.route("/printer-selection", methods=["GET"])
+def get_printer_selection():
+    """获取自定义打印机选择配置"""
+    try:
+        service = get_printer_service()
+        selection = service.get_printer_selection()
+        return jsonify({
+            "success": True,
+            "selection": selection
+        })
+    except Exception as e:
+        logger.error(f"获取打印机选择失败: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "message": f"获取打印机选择失败: {str(e)}"
+        }), 500
+
+
+@print_bp.route("/printer-selection", methods=["PUT"])
+def save_printer_selection():
+    """保存自定义打印机选择配置"""
+    try:
+        data = request.json if request.is_json else {}
+        document_printer = data.get("document_printer")
+        label_printer = data.get("label_printer")
+
+        service = get_printer_service()
+        printers_result = service.get_printers()
+        printers = printers_result.get("printers", [])
+        available_names = {(p.get("name") or "").strip() for p in printers if isinstance(p, dict)}
+
+        def is_valid(name: Any) -> bool:
+            if name is None:
+                return True
+            value = str(name).strip()
+            return value == "" or value in available_names
+
+        if not is_valid(document_printer):
+            return jsonify({
+                "success": False,
+                "message": "发货单打印机不在当前可用打印机列表中"
+            }), 400
+        if not is_valid(label_printer):
+            return jsonify({
+                "success": False,
+                "message": "标签打印机不在当前可用打印机列表中"
+            }), 400
+
+        result = service.save_printer_selection(
+            document_printer=str(document_printer).strip() if document_printer is not None else None,
+            label_printer=str(label_printer).strip() if label_printer is not None else None
+        )
+        result.update(service.classify_printers(printers))
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"保存打印机选择失败: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "message": f"保存打印机选择失败: {str(e)}"
         }), 500
 
 
@@ -251,6 +345,14 @@ def print_label():
         file_path = data.get("file_path", "")
         printer_name = data.get("printer_name")
         copies = data.get("copies", 1)
+        require_confirm = bool(data.get("require_confirm", True))
+        confirm_token = str(data.get("confirm_token") or "").strip()
+        confirm_action = str(data.get("confirm_action") or "").strip().lower()
+
+        try:
+            copies = int(copies)
+        except Exception:
+            copies = 0
 
         if not file_path:
             return jsonify({
@@ -271,7 +373,59 @@ def print_label():
             }), 400
 
         service = get_printer_service()
+
+        # 默认策略：先询问再打印，避免误打印。
+        if require_confirm:
+            if confirm_action == "cancel":
+                if confirm_token:
+                    _consume_print_confirm_token(confirm_token)
+                return jsonify({
+                    "success": True,
+                    "status": "print_cancelled",
+                    "message": "已取消打印"
+                }), 200
+
+            if not confirm_token:
+                resolved_printer = printer_name or service.get_label_printer()
+                token = _create_print_confirm_token({
+                    "file_path": file_path,
+                    "printer_name": resolved_printer,
+                    "copies": copies,
+                })
+                return jsonify({
+                    "success": True,
+                    "status": "print_confirm_required",
+                    "require_confirm": True,
+                    "confirm_token": token,
+                    "confirm_prompt": (
+                        f"已准备打印 {copies} 份标签，是否立即打印到【{resolved_printer or '自动选择打印机'}】？"
+                    ),
+                    "preview": {
+                        "file_path": file_path,
+                        "label_count": copies,
+                        "printer": resolved_printer,
+                    },
+                    "message": "已生成标签，等待打印确认"
+                }), 200
+
+            token_payload = _consume_print_confirm_token(confirm_token)
+            if not token_payload:
+                return jsonify({
+                    "success": False,
+                    "status": "print_confirm_required",
+                    "error_code": "print_confirm_required",
+                    "message": "打印确认已过期或无效，请重新发起打印请求"
+                }), 400
+
+            # 使用确认阶段缓存的打印参数，防止二次请求参数漂移。
+            file_path = str(token_payload.get("file_path") or file_path)
+            copies = int(token_payload.get("copies") or copies)
+            printer_name = token_payload.get("printer_name") or printer_name
+
         result = service.print_label(file_path, printer_name, copies)
+        if isinstance(result, dict):
+            result.setdefault("status", "printed")
+            result.setdefault("require_confirm", False)
 
         status_code = 200 if result.get("success") else 400
         return jsonify(result), status_code

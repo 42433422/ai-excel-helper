@@ -62,6 +62,7 @@
     let isWorkMode = false;
     let isMonitorMode = false;
     let workModeIntervalId = null;
+    let monitorModeIntervalId = null;
     let lastMessageSourceSize = undefined;
 
     /** 订单流程第二步：商标/商标导出，同流程未结束，不触发球的复位 */
@@ -92,6 +93,21 @@
         return (hasPrint && orderLike) || (hasShipment && orderLike) || (hasLabel && orderLike) || pureOrderLike;
     }
 
+    const OVERLAY_NOISE_TOKEN_RE = /\b(products?|customers?|orders?|shipment|print|material|database|system|excel_de|excel_an)\b/gi;
+    const OVERLAY_TEXT_KEEP_CHAR_RE = /[\u4e00-\u9fa5A-Za-z0-9\s.,:;!?()\-\u3002\uff0c\uff1a\uff1b\uff01\uff1f]/g;
+
+    function sanitizeOverlayRuntimeText(input, maxLen) {
+        const limit = Number.isFinite(maxLen) ? Math.max(20, maxLen) : 140;
+        const raw = input == null ? '' : String(input);
+        const stripped = raw
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+            .replace(/[`*_>#]/g, ' ')
+            .replace(OVERLAY_NOISE_TOKEN_RE, ' ');
+        const kept = (stripped.match(OVERLAY_TEXT_KEEP_CHAR_RE) || []).join('');
+        return kept.replace(/\s+/g, ' ').trim().slice(0, limit);
+    }
+
     function enterProTaskAcquisitionState(orderText) {
         proTaskAcquisitionActive = true;
         const overlay = document.getElementById('proModeOverlay');
@@ -100,7 +116,7 @@
         const downloadWrap = document.getElementById('proOrderFloatDownload');
         if (overlay) overlay.classList.add('task-acquiring');
         if (panel) panel.setAttribute('aria-hidden', 'false');
-        if (textEl) textEl.textContent = orderText || '';
+        if (textEl) textEl.textContent = sanitizeOverlayRuntimeText(orderText, 120);
         if (downloadWrap) downloadWrap.setAttribute('data-hidden', 'true');
         if (overlay && overlay.classList.contains('work-mode')) {
             createFallingText('加载中WORKMODE处理任务', 35);
@@ -164,6 +180,105 @@
         lastMessageSourceSize = undefined;
     }
 
+    function stopMonitorModePolling() {
+        if (monitorModeIntervalId) {
+            clearInterval(monitorModeIntervalId);
+            monitorModeIntervalId = null;
+        }
+    }
+
+    function parseActiveRequests(metricsText) {
+        if (!metricsText || typeof metricsText !== 'string') return 0;
+        var match = metricsText.match(/active_requests\s+(\d+)/);
+        if (!match) return 0;
+        var parsed = parseInt(match[1], 10);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function renderSystemMonitorPanel(snapshot) {
+        var overlay = document.getElementById('proModeOverlay');
+        if (!overlay || !overlay.classList.contains('monitor-mode')) return;
+        var wrap = document.getElementById('jarvisMonitorListWrap');
+        var list = document.getElementById('jarvisMonitorList');
+        var floatWrap = document.getElementById('jarvisMonitorFloatWrap');
+        if (!wrap || !list) return;
+
+        if (floatWrap) {
+            floatWrap.innerHTML = '';
+            floatWrap.style.display = 'none';
+            floatWrap.setAttribute('aria-hidden', 'true');
+        }
+
+        var cpu = snapshot.cpu;
+        var memory = snapshot.memory;
+        var disk = snapshot.disk;
+        var activeRequests = snapshot.activeRequests;
+        var services = snapshot.services;
+
+        var serviceHtml = services.map(function(svc) {
+            var status = svc.status || 'unknown';
+            return '<div class="jarvis-monitor-msg msg-other">[' + escapeHtml(svc.name) + '] ' + escapeHtml(status) + '</div>';
+        }).join('');
+
+        if (!serviceHtml) {
+            serviceHtml = '<div class="jarvis-monitor-empty">暂无服务状态数据</div>';
+        }
+
+        list.innerHTML =
+            '<div class="jarvis-monitor-contact">' +
+                '<div class="jarvis-monitor-contact-name">系统性能监控（黄色）</div>' +
+                '<div class="jarvis-monitor-msg msg-self">CPU: ' + cpu + '% | 内存: ' + memory + '% | 磁盘: ' + disk + '%</div>' +
+                '<div class="jarvis-monitor-msg msg-self">活跃请求: ' + activeRequests + ' | 刷新: ' + escapeHtml(snapshot.updatedAt) + '</div>' +
+            '</div>' +
+            '<div class="jarvis-monitor-contact">' +
+                '<div class="jarvis-monitor-contact-name">服务状态</div>' +
+                serviceHtml +
+            '</div>';
+    }
+
+    function fetchSystemMonitorSnapshot() {
+        var apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
+        var detailsReq = fetch(apiBase + '/health/details')
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .catch(function() { return null; });
+        var metricsReq = fetch(apiBase + '/metrics')
+            .then(function(r) { return r.ok ? r.text() : ''; })
+            .catch(function() { return ''; });
+
+        return Promise.all([detailsReq, metricsReq]).then(function(results) {
+            var details = results[0] || {};
+            var metricsText = results[1] || '';
+            var system = details.system || {};
+            var checks = details.checks || {};
+            var services = Object.keys(checks).map(function(key) {
+                var item = checks[key] || {};
+                return {
+                    name: key,
+                    status: item.status || 'unknown'
+                };
+            });
+            return {
+                cpu: Math.round(system.cpu_percent || 0),
+                memory: Math.round(system.memory_percent || 0),
+                disk: Math.round(system.disk_percent || 0),
+                activeRequests: parseActiveRequests(metricsText),
+                services: services,
+                updatedAt: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            };
+        });
+    }
+
+    function startMonitorModePolling() {
+        if (monitorModeIntervalId) return;
+        function tick() {
+            fetchSystemMonitorSnapshot()
+                .then(renderSystemMonitorPanel)
+                .catch(function() {});
+        }
+        tick();
+        monitorModeIntervalId = setInterval(tick, WORK_MODE_INTERVAL_MS);
+    }
+
     function escapeHtml(s) {
         if (s == null || s === undefined) return '';
         var div = document.createElement('div');
@@ -178,9 +293,13 @@
             .then(function(data) {
                 if (data && data.success && Array.isArray(data.feed)) {
                     renderMonitorList(data.feed);
+                } else {
+                    renderMonitorList([]);
                 }
             })
-            .catch(function() {});
+            .catch(function() {
+                renderMonitorList([]);
+            });
     }
 
     function renderMonitorList(feed) {
@@ -264,26 +383,66 @@
         });
     }
 
+    function setMonitorPanelsVisible(visible) {
+        var monitorWrap = document.getElementById('jarvisMonitorListWrap');
+        var floatWrap = document.getElementById('jarvisMonitorFloatWrap');
+        if (monitorWrap) monitorWrap.style.display = visible ? 'block' : 'none';
+        if (floatWrap) {
+            floatWrap.style.display = visible ? 'block' : 'none';
+            floatWrap.setAttribute('aria-hidden', visible ? 'false' : 'true');
+            if (!visible) floatWrap.innerHTML = '';
+        }
+        if (!visible) {
+            var list = document.getElementById('jarvisMonitorList');
+            if (list) list.innerHTML = '';
+        }
+    }
+
+    function clearMonitorRuntimeState(ov) {
+        stopWorkModePolling();
+        stopMonitorModePolling();
+        setMonitorPanelsVisible(false);
+        if (ov) {
+            ov.classList.remove('work-mode-entering');
+            ov.classList.remove('work-mode-exiting');
+            ov.classList.remove('work-mode');
+            ov.classList.remove('monitor-mode');
+        }
+        isWorkMode = false;
+        isMonitorMode = false;
+    }
+
     window.setWorkModeFromChat = function(enabled) {
         if (!isProMode) return;
         var ov = document.getElementById('proModeOverlay');
-        var monitorWrap = document.getElementById('jarvisMonitorListWrap');
-        var floatWrap = document.getElementById('jarvisMonitorFloatWrap');
         if (!ov) return;
-
-        if (enabled) {
-            // 状态互斥：如果当前是监控模式，先退出监控模式
-            if (isMonitorMode && typeof window.setMonitorModeFromChat === 'function') {
-                window.setMonitorModeFromChat(false);
+        var shouldEnable = !!enabled;
+        if (!shouldEnable) {
+            ov.classList.remove('work-mode-entering');
+            ov.classList.add('work-mode-exiting');
+            if (typeof createFallingText === 'function') {
+                createFallingText(isMonitorMode ? '退出监控模式' : '退出工作模式', 22);
             }
+            clearMonitorRuntimeState(ov);
+            window.setTimeout(function() {
+                ov.classList.remove('work-mode-exiting');
+            }, 1600);
+            return;
         }
 
-        isWorkMode = !!enabled;
+        isWorkMode = true;
+        isMonitorMode = false;
+        stopMonitorModePolling();
+        ov.classList.remove('monitor-mode');
+        ov.classList.remove('work-mode-exiting');
+        var list = document.getElementById('jarvisMonitorList');
+        if (list) {
+            list.innerHTML = '<div class="jarvis-monitor-empty">工作模式已开启，正在等待星标联系人消息...</div>';
+        }
         if (isWorkMode) {
             ov.classList.add('work-mode');
             ov.classList.add('work-mode-entering');
-            if (monitorWrap) monitorWrap.style.display = 'block';
-            if (floatWrap) { floatWrap.style.display = 'block'; floatWrap.setAttribute('aria-hidden', 'false'); }
+            setMonitorPanelsVisible(true);
             if (typeof createFallingText === 'function') {
                 createFallingText('工作模式WORKMODE', 28);
             }
@@ -328,184 +487,54 @@
             window.setTimeout(function() {
                 ov.classList.remove('work-mode-entering');
             }, 2000);
-        } else {
-            ov.classList.remove('work-mode-entering');
-            ov.classList.add('work-mode-exiting');
-            if (typeof createFallingText === 'function') {
-                createFallingText('退出工作模式', 22);
-            }
-            stopWorkModePolling();
-            if (monitorWrap) monitorWrap.style.display = 'none';
-            if (floatWrap) { floatWrap.style.display = 'none'; floatWrap.setAttribute('aria-hidden', 'true'); floatWrap.innerHTML = ''; }
-            var list = document.getElementById('jarvisMonitorList');
-            if (list) list.innerHTML = '';
-            window.setTimeout(function() {
-                ov.classList.remove('work-mode-exiting');
-                ov.classList.remove('work-mode');
-            }, 1600);
         }
-    };
-
-    window.refreshWorkModeMonitorList = function() {
-        if (isWorkMode) fetchWorkModeFeed();
     };
 
     window.setMonitorModeFromChat = function(enabled) {
         if (!isProMode) return;
         var ov = document.getElementById('proModeOverlay');
-        var floatWrap = document.getElementById('jarvisMonitorFloatWrap');
-        var monitorWrap = document.getElementById('jarvisMonitorWrap');
         if (!ov) return;
+        var shouldEnable = !!enabled;
+        if (!shouldEnable) {
+            clearMonitorRuntimeState(ov);
+            return;
+        }
 
-        if (enabled) {
-            // 状态互斥：如果当前是工作模式，先退出工作模式
-            if (isWorkMode && typeof window.setWorkModeFromChat === 'function') {
-                window.setWorkModeFromChat(false);
-            }
-
-            isMonitorMode = true;
-            ov.classList.add('monitor-mode');
-            ov.classList.add('monitor-mode-entering');
-
-            // 显示监控数据悬浮窗
-            if (floatWrap) {
-                floatWrap.style.display = 'block';
-                floatWrap.setAttribute('aria-hidden', 'false');
-                floatWrap.innerHTML = createMonitorFloatHTML();
-            }
-
-            if (typeof createFallingText === 'function') {
-                createFallingText('监控模式MONITOR', 26);
-            }
-
-            // 刷新监控数据
-            fetchMonitorData();
-
-            window.setTimeout(function() {
-                ov.classList.remove('monitor-mode-entering');
-            }, 2000);
-        } else {
-            isMonitorMode = false;
-            ov.classList.remove('monitor-mode-entering');
-            ov.classList.add('monitor-mode-exiting');
-
-            if (typeof createFallingText === 'function') {
-                createFallingText('退出监控模式', 22);
-            }
-
-            // 隐藏监控悬浮窗
-            if (floatWrap) {
-                floatWrap.style.display = 'none';
-                floatWrap.setAttribute('aria-hidden', 'true');
-                floatWrap.innerHTML = '';
-            }
-
-            window.setTimeout(function() {
-                ov.classList.remove('monitor-mode-exiting');
-                ov.classList.remove('monitor-mode');
-            }, 1600);
+        isMonitorMode = true;
+        isWorkMode = false;
+        stopWorkModePolling();
+        ov.classList.remove('work-mode-entering');
+        ov.classList.remove('work-mode-exiting');
+        ov.classList.remove('work-mode');
+        ov.classList.add('monitor-mode');
+        setMonitorPanelsVisible(true);
+        if (typeof createFallingText === 'function') {
+            createFallingText('监控模式MONITOR', 26);
+        }
+        startMonitorModePolling();
+        if (typeof jarvisAddMessage === 'function') {
+            jarvisAddMessage('已进入监控模式（黄色）：正在监控 CPU、内存、磁盘、活跃请求与服务状态。', 'ai');
         }
     };
 
-    function createMonitorFloatHTML() {
-        return '<div class="jarvis-monitor-list-wrap" style="width: 320px; max-height: 400px; overflow-y: auto;">' +
-            '<div class="jarvis-monitor-list-header" style="padding: 8px 12px; font-size: 13px; font-weight: bold; border-bottom: 1px solid rgba(255, 215, 0, 0.3);">📊 系统监控</div>' +
-            '<div id="monitorFloatContent">' +
-            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
-            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-            '<span class="monitor-data-label">🖥️ CPU 使用率</span>' +
-            '<span class="monitor-data-value" id="mfCpu">--%</span></div>' +
-            '<div class="monitor-bar-fill" id="mfCpuBar" style="height: 3px; background: rgba(255, 215, 0, 0.2); margin-top: 6px; border-radius: 2px;"><div style="height: 100%; width: 0%; background: linear-gradient(90deg, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0.9)); border-radius: 2px;"></div></div></div>' +
-            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
-            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-            '<span class="monitor-data-label">💾 内存使用</span>' +
-            '<span class="monitor-data-value" id="mfMemory">--%</span></div>' +
-            '<div class="monitor-bar-fill" style="height: 3px; background: rgba(255, 215, 0, 0.2); margin-top: 6px; border-radius: 2px;"><div style="height: 100%; width: 0%; background: linear-gradient(90deg, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0.9)); border-radius: 2px;"></div></div></div>' +
-            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
-            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-            '<span class="monitor-data-label">💿 磁盘使用</span>' +
-            '<span class="monitor-data-value" id="mfDisk">--%</span></div>' +
-            '<div style="height: 3px; background: rgba(255, 215, 0, 0.2); margin-top: 6px; border-radius: 2px;"><div style="height: 100%; width: 0%; background: linear-gradient(90deg, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0.9)); border-radius: 2px;"></div></div></div>' +
-            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
-            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-            '<span class="monitor-data-label">🌐 网络IO</span>' +
-            '<span class="monitor-data-value" id="mfNetwork">--</span></div></div>' +
-            '<div class="monitor-data-item" style="padding: 10px 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.2);">' +
-            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-            '<span class="monitor-data-label">📝 活跃请求</span>' +
-            '<span class="monitor-data-value" id="mfRequests">--</span></div></div>' +
-            '<div style="padding: 8px 12px; font-size: 11px; color: rgba(255, 215, 0, 0.5); text-align: center;">每 5 秒自动刷新</div>' +
-            '</div></div>';
-    }
-
-    function fetchMonitorData() {
-        if (!isMonitorMode) return;
-        var apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
-        fetch(apiBase + '/health/details')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.system) {
-                    var cpu = Math.round(data.system.cpu_percent || 0);
-                    var memory = Math.round(data.system.memory_percent || 0);
-                    var disk = Math.round(data.system.disk_percent || 0);
-
-                    var cpuEl = document.getElementById('mfCpu');
-                    var memEl = document.getElementById('mfMemory');
-                    var diskEl = document.getElementById('mfDisk');
-
-                    if (cpuEl) {
-                        cpuEl.textContent = cpu + '%';
-                        cpuEl.className = 'monitor-data-value' + (cpu > 80 ? ' danger' : cpu > 60 ? ' warning' : '');
-                    }
-                    if (memEl) {
-                        memEl.textContent = memory + '%';
-                        memEl.className = 'monitor-data-value' + (memory > 80 ? ' danger' : memory > 60 ? ' warning' : '');
-                    }
-                    if (diskEl) {
-                        diskEl.textContent = disk + '%';
-                        diskEl.className = 'monitor-data-value' + (disk > 90 ? ' danger' : disk > 70 ? ' warning' : '');
-                    }
-
-                    // 更新进度条
-                    var cpuBar = document.querySelector('#mfCpuBar div');
-                    var memBar = document.querySelector('#mfMemory + div div');
-                    var diskBar = document.querySelector('#mfDisk + div div');
-                    if (cpuBar) cpuBar.style.width = cpu + '%';
-                    if (memBar) memBar.style.width = memory + '%';
-                    if (diskBar) diskBar.style.width = disk + '%';
-                }
-
-                // 服务状态
-                if (data.checks) {
-                    var reqEl = document.getElementById('mfRequests');
-                    if (reqEl && data.checks.active_requests !== undefined) {
-                        reqEl.textContent = data.checks.active_requests;
-                    }
-                }
-            })
-            .catch(function() {});
-
-        // 每5秒刷新一次
-        if (isMonitorMode) {
-            setTimeout(fetchMonitorData, 5000);
+    window.refreshWorkModeMonitorList = function() {
+        if (isWorkMode) {
+            fetchWorkModeFeed();
+            return;
         }
-    }
+        if (isMonitorMode) {
+            fetchSystemMonitorSnapshot().then(renderSystemMonitorPanel).catch(function() {});
+        }
+    };
 
     function showProPanelDownload(filename) {
-        console.log('showProPanelDownload 被调用，文件名:', filename);
         const wrap = document.getElementById('proOrderFloatDownload');
         const link = document.getElementById('proOrderFloatDownloadLink');
         const panel = document.getElementById('proOrderFloatPanel');
         const overlay = document.getElementById('proModeOverlay');
-        console.log('wrap 元素:', wrap);
-        console.log('link 元素:', link);
-        console.log('panel 元素:', panel);
-        if (!wrap || !link) {
-            console.error('未找到下载面板元素');
-            return;
-        }
+        if (!wrap || !link) return;
         
-        // 确保面板可见（如果之前被隐藏了）
+        // 确保面板可见
         if (panel) {
             panel.setAttribute('aria-hidden', 'false');
             panel.style.opacity = '1';
@@ -517,7 +546,6 @@
         
         const apiBase = (typeof API_BASE !== 'undefined' ? API_BASE : '');
         const url = apiBase + '/outputs/' + encodeURIComponent(filename);
-        console.log('下载 URL:', url);
         link.setAttribute('href', url);
         link.setAttribute('download', filename);
         link.onclick = function(e) {
@@ -642,49 +670,19 @@
     }
 
     function normalizeDigitalRainText(text) {
-        const raw = (text == null) ? '' : String(text);
-        return raw
-            .replace(/<[^>]*>/g, ' ')
-            .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
-            .replace(/[`*_>#]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 5000);
+        return sanitizeOverlayRuntimeText(text, 240);
     }
 
     function buildDigitalRainCharPool(text) {
         const normalized = normalizeDigitalRainText(text);
         const chars = Array.from(normalized).filter(ch => ch && !/\s/.test(ch));
+        // fallback: keep the old behavior if backend provides empty content
         // 避免空 seed 时退化为数字 0/1 导致“1010 代码雨”观感
         return chars.length > 0 ? chars : ['A', 'I', 'T', 'O', 'N'];
     }
 
     function initDigitalRain(sourceText) {
-        const canvas = document.getElementById('digitalRainCanvas');
-        if (!canvas) return;
-        
-        // 防止重复进入时旧动画/列数据未停止（例如反复启停 pro mode）
-        try { stopDigitalRain(); } catch (_) {}
-        
-        const ctx = canvas.getContext('2d');
-        digitalRainCtx = ctx;
-        
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        
-        const fontSize = 16;
-        const columns = Math.floor(canvas.width / fontSize);
-        digitalRainDrops = [];
-        digitalRainCharTypeByColumn = [];
-        const charPool = buildDigitalRainCharPool(sourceText);
-        
-        for (let i = 0; i < columns; i++) {
-            digitalRainDrops[i] = Math.random() * -150;
-            digitalRainCharTypeByColumn[i] = charPool[i % charPool.length];
-        }
-        
-        digitalRainActive = true;
-        animateDigitalRain();
+        return;
     }
 
     function animateDigitalRain() {
@@ -738,6 +736,7 @@
     function setDigitalRainText(text) {
         const charPool = buildDigitalRainCharPool(text);
 
+        // If we haven't initialized yet (unexpected order), initialize first.
         if (!digitalRainCharTypeByColumn || digitalRainCharTypeByColumn.length === 0) {
             initDigitalRain(text);
             return;
@@ -1171,8 +1170,12 @@
             hotspot.addEventListener('click', (evt) => {
                 evt.preventDefault();
                 evt.stopPropagation();
-                if (isWorkMode) {
-                    setWorkModeFromChat(false);
+                if (isWorkMode || isMonitorMode) {
+                    if (isMonitorMode && typeof window.setMonitorModeFromChat === 'function') {
+                        window.setMonitorModeFromChat(false);
+                    } else {
+                        setWorkModeFromChat(false);
+                    }
                     return;
                 }
                 resetAllProTransientState();
@@ -1231,10 +1234,9 @@
             setTimeout(() => {
                 overlay.style.display = 'none';
                 overlay.classList.remove('exiting');
-                overlay.classList.remove('work-mode');
+                setMonitorPanelsVisible(false);
+                clearMonitorRuntimeState(overlay);
                 isProMode = false;
-                isWorkMode = false;
-                stopWorkModePolling();
                 isProModeTransitioning = false;
                 document.body.classList.remove('pro-mode-active');
                 setProProductQueryStage('idle', {});
@@ -1606,9 +1608,9 @@
             const contextText = (document.getElementById('proOrderFloatText') || {}).textContent || '';
             if (!contextText) return;
 
-            // 从上一次订单文本中提取 unit/model/spec
+            // 从上一次订单文本中提取 unit/model/spec（型号可为 9806A 等字母尾缀）
             const specMatch = contextText.match(/规格\s*(\d+(?:\.\d+)?)/);
-            const modelMatch = contextText.match(/(\d+)\s*(?:的)?\s*规格/);
+            const modelMatch = contextText.match(/([0-9A-Za-z-]{2,20})\s*(?:的)?\s*规格/);
             if (!specMatch || !modelMatch) return;
 
             const modelNumber = modelMatch[1];
@@ -1644,38 +1646,11 @@
         jarvisAddMessage(message, 'user');
         updateJarvisStatus('处理中...');
 
-        callUnifiedChat({
-            message: message,
-            source: 'pro',
-            output_format: 'markdown',
-            runtime_context: buildRuntimeContextSnapshot()
+        callProChat({
+            message: message
         })
         .then(data => {
             if (data.success) {
-                if (data.followup) {
-                    const followupText = (data.response != null && data.response !== '') ? data.response : '请补充必要信息后继续。';
-                    jarvisAddMessage(followupText, 'ai');
-                    const slotLabelMap = {
-                        unit_name: '单位名称',
-                        model_number: '编号/型号',
-                        tin_spec: '规格',
-                        quantity_tins: '桶数',
-                        keyword: '关键词',
-                        customer_name: '客户名称'
-                    };
-                    // followup 阶段保持在同一任务上下文中，避免球体复位导致中断
-                    if (!proTaskAcquisitionActive) {
-                        enterProTaskAcquisitionState(followupText);
-                    } else {
-                        const el = document.getElementById('proOrderFloatText');
-                        if (el && data.followup.missing_slots && data.followup.missing_slots.length) {
-                            const missingZh = data.followup.missing_slots.map(s => slotLabelMap[s] || s);
-                            el.textContent = `${el.textContent || ''}（待补：${missingZh.join('、')}）`;
-                        }
-                    }
-                    updateJarvisStatus('等待补充信息...');
-                    return;
-                }
                 startToolRuntimeFromResponse(message, data);
                 if (data.toolCall && data.toolCall.tool_id) {
                     executeProToolCall(data.toolCall, message);
@@ -1708,22 +1683,33 @@
         });
     }
 
-    function callUnifiedChat(payload) {
+    function getProModeScopedUserId() {
+        try {
+            const key = 'xcagi_pro_chat_sid';
+            let sid = localStorage.getItem(key);
+            if (!sid) {
+                sid = Date.now().toString(36) + Math.random().toString(36).slice(2);
+                localStorage.setItem(key, sid);
+            }
+            return 'legacy_pro_' + sid;
+        } catch (_) {
+            return 'legacy_pro_default';
+        }
+    }
+
+    function callProChat(payload) {
+        const reqBody = {
+            ...(payload || {}),
+            source: (payload && payload.source) || 'pro',
+            mode: (payload && payload.mode) || 'professional',
+            user_id: (payload && payload.user_id) || getProModeScopedUserId()
+        };
         const headers = {'Content-Type': 'application/json'};
-        return fetch(API_BASE + '/api/ai/chat-unified', {
+        return fetch(API_BASE + '/api/ai/chat', {
             method: 'POST',
             headers,
-            body: JSON.stringify(payload || {})
-        }).then(async (r) => {
-            if (r.status === 404) {
-                return fetch(API_BASE + '/api/ai/chat', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify(payload || {})
-                }).then(rr => rr.json());
-            }
-            return r.json();
-        });
+            body: JSON.stringify(reqBody)
+        }).then(r => r.json());
     }
 
     function executeProToolCall(toolCall, originalMessage) {
@@ -1755,11 +1741,10 @@
         })
         .then(execResult => {
             let docName = null;
-            console.log('专业版执行结果:', execResult);
             if (execResult.success) {
                 let msg = execResult.message || '工具执行成功';
-                docName = execResult.doc_name || (execResult.data && execResult.data.doc_name) || (execResult.data && execResult.data.document && execResult.data.document.filename);
-                console.log('提取的 docName:', docName);
+                // 支持两种返回格式：新格式 (doc_name 在根级别) 和旧格式 (data.document.filename)
+                docName = execResult.doc_name || (execResult.data && execResult.data.document && execResult.data.document.filename);
                 if (docName) {
                     msg += `\n生成文件：${docName}`;
                 }
@@ -1782,26 +1767,6 @@
                             window.proFeatureWidget.showFeature('user_list', { query: (originalMessage || '').trim() });
                         } else if (typeof window.showProFeature === 'function') {
                             window.showProFeature('user_list', { query: (originalMessage || '').trim() });
-                        }
-                    } catch (_) {
-                        // best-effort only
-                    }
-                } else if (toolId.includes('product')) {
-                    // 产品查询：打开产品查询界面
-                    try {
-                        const query = (originalMessage || '').trim();
-                        const unitName = (execResult.data && execResult.data.unit_name) || '';
-                        const modelNumber = (execResult.data && execResult.data.model_number) || '';
-                        console.log('[pro-mode] products tool execResult:', execResult);
-                        console.log('[pro-mode] products tool -> showFeature(product_query)', { unitName, modelNumber, query });
-                        if (window.proFeatureWidget && typeof window.proFeatureWidget.showFeature === 'function') {
-                            window.proFeatureWidget.showFeature('product_query', {
-                                query: query || unitName || modelNumber,
-                                unit_name: unitName,
-                                model_number: modelNumber
-                            });
-                        } else if (typeof window.showProFeature === 'function') {
-                            window.showProFeature('product_query', { query: query });
                         }
                     } catch (_) {
                         // best-effort only
@@ -1857,7 +1822,7 @@
             updateJarvisStatus('READY');
         })
         .catch(err => {
-            const errMsg = '工具执行失败: ' + ((err && err.message) ? err.message : '未知错误');
+            const errMsg = '工具执行失败: ' + (err && err.message ? err.message : '未知错误');
             setDigitalRainText(errMsg);
             jarvisAddMessage(errMsg, 'ai');
             finishRuntimeProgress('异常');
@@ -1917,7 +1882,7 @@
         updateJarvisStatus('执行中...');
         startToolRuntimeFromTask(task);
         
-        callUnifiedChat({
+        callProChat({
             message: '执行任务',
             task_confirm: true,
             task: task,
@@ -2674,6 +2639,19 @@
             ...(nextState || {}),
             updated_at: now
         };
+        // Keep Vue UI in sync: broadcast pro-mode runtime status to listeners.
+        try {
+            window.dispatchEvent(new CustomEvent('xcagi:pro-task-status', {
+                detail: {
+                    current_task: proTaskContext.current_task,
+                    current_tool: proTaskContext.current_tool,
+                    status: proTaskContext.status,
+                    updated_at: proTaskContext.updated_at,
+                }
+            }));
+        } catch (_) {
+            // best-effort; do not break runtime execution
+        }
         const hasTask = proTaskContext.current_task || proTaskContext.current_tool;
         if (hasTask) {
             const record = {
@@ -2758,8 +2736,40 @@
     }
 
     window.setProProductQueryStage = setProProductQueryStage;
+    window.__legacyToggleProMode = toggleProMode;
     window.toggleProMode = toggleProMode;
+    // Vue 版在检测到 legacy 运行时会 stop 自己的数字雨，避免“双启动”。
+    // 但 legacy 数字雨原本只会在任务触发时通过 setDigitalRainText() 初始化，
+    // 导致刚进入专业模式时看起来“卡住/不动”。
+    // 这里暴露一个全局入口，让 Vue 在接管时可以立刻启动一次数字雨。
+    window.__legacyStartDigitalRain = function (seedText) {
+        return;
+    };
+    window.__legacyStopDigitalRain = function () {
+        try {
+            stopDigitalRain();
+        } catch (e) {
+            // ignore
+        }
+    };
     window.jarvisAddMessageExternal = jarvisAddMessage;
     window.isProTaskAcquisitionMessage = isProTaskAcquisitionMessage;
     window.jarvisSendMessage = jarvisSendMessage;
+
+    window.stepBackProMode = function() {
+        if (!isProMode) return;
+        if (isWorkMode) {
+            setWorkModeFromChat(false);
+            return;
+        }
+        if (proTaskAcquisitionActive) {
+            exitProTaskAcquisitionState();
+            jarvisAddMessage('[已取消当前任务]', 'user');
+            createFallingText('取消任务', 18);
+            return;
+        }
+        resetAllProTransientState();
+        jarvisAddMessage('[已返回上一步]', 'user');
+        createFallingText('返回上一步', 20);
+    };
 })();

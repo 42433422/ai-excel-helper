@@ -23,7 +23,7 @@
         <div v-if="loading" class="loading">加载中...</div>
         <div v-else-if="error" class="error">{{ error }}</div>
         <div v-else-if="filteredTools.length === 0" class="empty">没有找到工具</div>
-        <div v-else>
+        <template v-else>
           <div
             v-for="tool in filteredTools"
             :key="getToolId(tool)"
@@ -35,10 +35,10 @@
             <div class="tool-name">{{ tool.name }}</div>
             <div class="tool-description">{{ tool.description }}</div>
             <div class="tool-actions">
-              <button class="tool-action-btn query" data-action="open-tool" :data-tool-id="getToolId(tool)" @click.stop="showToolDetail(getToolId(tool))">查看</button>
+              <button class="tool-action-btn query" data-action="open-tool" :data-tool-id="getToolId(tool)" @click.stop="openTool(getToolId(tool))">查看</button>
             </div>
           </div>
-        </div>
+        </template>
       </div>
     </div>
 
@@ -67,8 +67,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
 const API_BASE = '';
+const router = useRouter();
 
 const allTools = ref([]);
 const loading = ref(true);
@@ -152,6 +154,75 @@ function showToolDetail(toolId) {
   selectedTool.value = tool;
   toolParams.value = {};
   showModal.value = true;
+}
+
+function resolveConsoleRedirectToRoute(redirect) {
+  const url = String(redirect || '').trim();
+  if (!url) return '';
+  if (url.startsWith('/orders')) return '/orders';
+  if (url.startsWith('/products')) return '/products';
+  if (url.startsWith('/customers')) return '/customers';
+  if (url.startsWith('/materials')) return '/materials';
+  if (url.startsWith('/print')) return '/print';
+  if (url.startsWith('/template-preview')) return '/template-preview';
+  if (url.startsWith('/ocr')) return '/chat';
+  if (url.startsWith('/wechat-contacts')) return '/wechat-contacts';
+  if (!url.startsWith('/console')) return url;
+
+  const match = url.match(/[?&]view=([^&]+)/);
+  const view = decodeURIComponent(match?.[1] || '').trim();
+  const viewRouteMap = {
+    products: '/products',
+    customers: '/customers',
+    'shipment-orders': '/orders',
+    print: '/print',
+    materials: '/materials',
+    ocr: '/chat',
+    'wechat-contacts': '/wechat-contacts',
+    excel: '/template-preview',
+    'template-preview': '/template-preview',
+    shipment: '/orders'
+  };
+  return viewRouteMap[view] || '';
+}
+
+async function openTool(toolId) {
+  const directRouteMap = {
+    products: '/products',
+    customers: '/customers',
+    orders: '/orders',
+    print: '/print',
+    materials: '/materials',
+    shipment_template: '/template-preview',
+    excel_decompose: '/template-preview',
+    wechat: '/wechat-contacts'
+  };
+
+  const directRoute = directRouteMap[String(toolId || '').trim()];
+  if (directRoute) {
+    router.push(directRoute);
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/tools/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool_id: toolId, action: 'view' })
+    });
+    const data = await response.json();
+    if (data?.success && data?.redirect) {
+      const targetRoute = resolveConsoleRedirectToRoute(data.redirect);
+      if (targetRoute) {
+        router.push(targetRoute);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('打开工具失败，回退详情弹窗:', err);
+  }
+
+  showToolDetail(toolId);
 }
 
 function closeToolModal() {

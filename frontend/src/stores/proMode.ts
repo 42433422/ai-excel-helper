@@ -49,11 +49,14 @@ export const useProModeStore = defineStore('proMode', () => {
   function exitProMode() {
     isTransitioning.value = true
     isActive.value = false
+    isWorkMode.value = false
+    isMonitorMode.value = false
     currentStage.value = 'idle'
     selectedCompany.value = null
     selectedProduct.value = null
     coreScale.value = 1
     orbitLayerScale.value = 1
+    stageHistory.value = []
     
     setTimeout(() => {
       isTransitioning.value = false

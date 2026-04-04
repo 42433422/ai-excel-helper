@@ -205,6 +205,41 @@ function sendChatMessage(message, options = {}) {
         }
     }
 
+    // 专业版模式切换指令本地优先，避免被后端上下文误判为业务意图。
+    try {
+        const isProModeActive = !!(document.body && document.body.classList.contains('pro-mode-active'));
+        const compact = String(message || '').trim().toLowerCase().replace(/\s+/g, '');
+        const wantsWorkMode = compact === '工作模式' || compact === '切换工作模式' || compact === '进入工作模式'
+            || compact === 'workmode' || compact === 'switchtoworkmode' || compact === 'enterworkmode';
+        const wantsMonitorMode = compact === '监控模式' || compact === '切换监控模式' || compact === '进入监控模式'
+            || compact === 'monitormode' || compact === 'switchtomonitormode' || compact === 'entermonitormode';
+        if (isProModeActive && (wantsWorkMode || wantsMonitorMode)) {
+            removeLoading(loadingId);
+            if (wantsMonitorMode) {
+                if (typeof window.setMonitorModeFromChat === 'function') {
+                    window.setMonitorModeFromChat(true);
+                    if (typeof window.refreshWorkModeMonitorList === 'function') window.refreshWorkModeMonitorList();
+                    addMessage('正在切换到监控模式...', 'ai');
+                    saveMessage('ai', '正在切换到监控模式...');
+                } else {
+                    addMessage('监控模式入口不可用，已保持当前模式不变。', 'ai');
+                    saveMessage('ai', '监控模式入口不可用，已保持当前模式不变。');
+                }
+            } else {
+                if (typeof window.setWorkModeFromChat === 'function') {
+                    window.setWorkModeFromChat(true);
+                    if (typeof window.refreshWorkModeMonitorList === 'function') window.refreshWorkModeMonitorList();
+                    addMessage('正在切换到工作模式...', 'ai');
+                    saveMessage('ai', '正在切换到工作模式...');
+                } else {
+                    addMessage('工作模式入口不可用，已保持当前模式不变。', 'ai');
+                    saveMessage('ai', '工作模式入口不可用，已保持当前模式不变。');
+                }
+            }
+            return;
+        }
+    } catch (_) {}
+
     // pending import：当文件上传识别到“购买单位产品列表库”后，用户回复是/否/改成... 将触发导入
     try {
         const storageKey = 'xcagiPendingUnitProductsImport';
@@ -408,6 +443,12 @@ function handleAutoAction(action, userMessage = '') {
     console.log('🔧 执行自动操作:', action);
     console.log('🔧 action.type:', action.type);
     console.log('🔧 proFeatureWidget存在:', !!window.proFeatureWidget);
+    if (action && action.type === 'show_products_float') {
+        window.dispatchEvent(new CustomEvent('xcagi:open-assistant-float', {
+            detail: { feature: 'products', query: action.query || userMessage || '' }
+        }));
+        return;
+    }
     
     if (!window.proFeatureWidget) {
         console.log('⚠️ proFeatureWidget未初始化，尝试初始化');
@@ -452,6 +493,21 @@ function handleAutoAction(action, userMessage = '') {
         case 'set_work_mode':
             if (typeof window.setWorkModeFromChat === 'function') {
                 window.setWorkModeFromChat(!!action.enabled);
+            }
+            break;
+        case 'show_monitor':
+            // 监控模式只走独立入口；缺失时保持当前模式，避免静默串扰。
+            if (typeof window.setMonitorModeFromChat === 'function') {
+                window.setMonitorModeFromChat(true);
+            } else {
+                console.warn('[pro-runtime] monitor mode entry missing; skip fallback to work mode');
+                if (typeof addMessage === 'function') {
+                    addMessage('监控模式入口不可用，已保持当前模式不变。', 'ai');
+                }
+                break;
+            }
+            if (typeof window.refreshWorkModeMonitorList === 'function') {
+                window.refreshWorkModeMonitorList();
             }
             break;
         case 'show_wechat_messages':

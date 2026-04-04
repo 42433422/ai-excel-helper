@@ -1,142 +1,174 @@
 """
-意图识别领域服务
+意图识别领域服务 (Unified)
 
-负责识别用户意图的核心业务逻辑
-这是领域层的核心服务，不依赖任何基础设施层
+这是 DDD 领域层核心服务，提供统一的意图识别接口。
+整合规则引擎、AI 模型 (BERT/DeepSeek/RASA) 和策略模式。
+
+职责:
+- 协调多种识别策略
+- 提供标准化 RecognizerResult
+- 保持纯领域逻辑 (无基础设施依赖)
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple
+
+from .intent.coordinator import IntentRecognitionCoordinator, get_intent_coordinator
+from resources.config.intent_config import get_intent_config
 
 
 class IntentType(Enum):
-    """意图类型枚举"""
-    SHIPMENT = "shipment"
-    PRODUCT = "product"
-    CUSTOMER = "customer"
+    """意图类型枚举 (与 config 映射)"""
+    SHIPMENT = "shipment_generate"
+    PRODUCT = "products"
+    CUSTOMER = "customers"
     SEARCH = "search"
-    IMPORT = "import"
-    EXPORT = "export"
-    PRINT = "print"
+    IMPORT = "upload_file"
+    EXPORT = "customer_export"
+    PRINT = "print_label"
+    WECHAT = "wechat_send"
     UNKNOWN = "unknown"
+    GREETING = "greet"
+    GOODBYE = "goodbye"
+    HELP = "help"
+
+
+@dataclass
+class RecognizerResult:
+    """统一意图识别结果 (与 unified_intent_recognizer.py 兼容)"""
+    primary_intent: str
+    tool_key: str
+    intent_hints: List[str]
+    is_negated: bool = False
+    is_greeting: bool = False
+    is_goodbye: bool = False
+    is_help: bool = False
+    is_confirmation: bool = False
+    is_negation_intent: bool = False
+    is_likely_unclear: bool = False
+    all_matched_tools: List[tuple] = None  # type: ignore
+    slots: Dict[str, Any] = None  # type: ignore
+    confidence: float = 0.0
+    sources_used: List[str] = None  # type: ignore
+    raw_results: Dict[str, Any] = None  # type: ignore
+
+    def __post_init__(self):
+        if self.all_matched_tools is None:
+            self.all_matched_tools = []
+        if self.slots is None:
+            self.slots = {}
+        if self.sources_used is None:
+            self.sources_used = []
+        if self.raw_results is None:
+            self.raw_results = {}
+
+
+class IntentRecognizer(Protocol):
+    """意图识别器协议 (for dependency injection)"""
+    def recognize(self, message: str, context: Optional[Dict[str, Any]] = None) -> RecognizerResult: ...
 
 
 class IntentRecognitionService:
     """
-    意图识别领域服务
+    统一的意图识别领域服务
 
-    核心职责：
-    - 解析用户消息识别意图
-    - 提取实体和参数
-    - 判断意图置信度
+    整合:
+    - IntentRecognitionCoordinator (策略模式: greeting/negation 等)
+    - RuleEngine (关键词/正则)
+    - AI 模型 (via infrastructure adapters)
     """
 
-    def __init__(self):
-        self._intent_keywords = {
-            IntentType.SHIPMENT: [
-                "发货", "发货单", "出货", "订单", "开单", "打单"
-            ],
-            IntentType.PRODUCT: [
-                "产品", "商品", "货物", "型号", "规格"
-            ],
-            IntentType.CUSTOMER: [
-                "客户", "单位", "公司", "联系人"
-            ],
-            IntentType.SEARCH: [
-                "查询", "搜索", "查找", "看看"
-            ],
-            IntentType.IMPORT: [
-                "导入", "批量", "Excel", "表格"
-            ],
-            IntentType.EXPORT: [
-                "导出", "下载", "生成文件"
-            ],
-            IntentType.PRINT: [
-                "打印", "标签", "小票"
-            ]
-        }
+    def __init__(self, coordinator: Optional[IntentRecognitionCoordinator] = None):
+        self.coordinator = coordinator or get_intent_coordinator()
+        self._config = get_intent_config()
+        self._rule_engine = None  # lazy loaded from services if needed (to avoid circular imports)
 
-    def recognize(self, message: str) -> Tuple[IntentType, float, Dict[str, Any]]:
+    def recognize(self, message: str, context: Optional[Dict[str, Any]] = None) -> RecognizerResult:
         """
-        识别用户意图
+        统一意图识别入口 - 核心方法
 
-        Args:
-            message: 用户消息
+        流程:
+        1. 基础检测 (greeting, negation, etc.) via coordinator
+        2. 规则引擎匹配 (优先)
+        3. 返回标准化 RecognizerResult
 
-        Returns:
-            (意图类型, 置信度, 提取的参数)
+        This replaces logic from intent_service.py, rule_engine.py, hybrid_*, unified_*
         """
-        message_lower = message.lower()
+        if not message or not isinstance(message, str):
+            return RecognizerResult(
+                primary_intent="unknown",
+                tool_key="unknown",
+                intent_hints=[],
+                is_likely_unclear=True,
+                confidence=0.0,
+            )
 
-        best_intent = IntentType.UNKNOWN
-        best_score = 0.0
-        params = {}
+        msg = message.strip()
+        coord = self.coordinator.detect_basic_intents(msg)
 
-        for intent_type, keywords in self._intent_keywords.items():
-            score = self._calculate_keyword_score(message_lower, keywords)
-            if score > best_score:
-                best_score = score
-                best_intent = intent_type
-                params = self._extract_parameters(message, intent_type)
+        # Use rule engine for tool intents (delegates to existing rule logic)
+        rule_result = self._get_rule_result(msg)
 
-        if best_score < 0.3:
-            return IntentType.UNKNOWN, 0.0, {}
+        result = RecognizerResult(
+            primary_intent=rule_result.get("primary_intent", "unknown"),
+            tool_key=rule_result.get("tool_key", "unknown"),
+            intent_hints=rule_result.get("intent_hints", []),
+            # is_negated：仅当规则引擎链路判定“需要阻断工具”时为 True
+            is_negated=bool(rule_result.get("is_negated", False)),
+            is_greeting=coord.get("is_greeting", False),
+            is_goodbye=coord.get("is_goodbye", False),
+            is_help=coord.get("is_help", False),
+            is_confirmation=coord.get("is_confirmation", False),
+            is_negation_intent=coord.get("is_negation_intent", False),
+            is_likely_unclear=len(msg) <= 4 or rule_result.get("is_likely_unclear", False),
+            confidence=rule_result.get("confidence", 0.5),
+            sources_used=["coordinator", "rule"],
+            raw_results={"coordinator": coord, "rule": rule_result},
+        )
 
-        return best_intent, best_score, params
+        return result
 
-    def _calculate_keyword_score(self, message: str, keywords: List[str]) -> float:
-        """计算关键词匹配分数"""
-        matches = sum(1 for kw in keywords if kw in message)
-        return matches / len(keywords) if keywords else 0.0
+    def _get_rule_result(self, message: str) -> Dict[str, Any]:
+        """委托给现有规则引擎 (避免重复代码)"""
+        try:
+            # Import inside method to avoid circular imports with services
+            from app.services.intent_service import recognize_intents
+            return recognize_intents(message)
+        except Exception as e:
+            # Fallback to basic keyword match from config
+            config = self._config
+            tool_intents = config.get("tool_intents", [])
+            msg_lower = message.lower()
 
-    def _extract_parameters(self, message: str, intent: IntentType) -> Dict[str, Any]:
-        """提取意图相关的参数"""
-        params = {}
+            for intent in tool_intents:
+                keywords = intent.get("keywords", [])
+                if any(kw.lower() in msg_lower for kw in keywords):
+                    return {
+                        "primary_intent": intent["id"],
+                        "tool_key": intent.get("tool_key", intent["id"]),
+                        "intent_hints": [intent["id"]],
+                        "confidence": 0.7,
+                    }
+            return {
+                "primary_intent": "unknown",
+                "tool_key": None,
+                "intent_hints": [],
+                "confidence": 0.3,
+            }
 
-        if intent == IntentType.SHIPMENT:
-            params = self._extract_shipment_params(message)
-        elif intent == IntentType.PRODUCT:
-            params = self._extract_product_params(message)
-        elif intent == IntentType.CUSTOMER:
-            params = self._extract_customer_params(message)
-
-        return params
-
-    def _extract_shipment_params(self, message: str) -> Dict[str, Any]:
-        """提取发货单相关参数"""
-        params = {}
-        import re
-
-        quantity_pattern = r'(\d+)\s*(桶|箱|个|件|台|套)'
-        quantities = re.findall(quantity_pattern, message)
-        if quantities:
-            params['quantities'] = [(int(q), unit) for q, unit in quantities]
-
-        return params
-
-    def _extract_product_params(self, message: str) -> Dict[str, Any]:
-        """提取产品相关参数"""
-        params = {}
-        return params
-
-    def _extract_customer_params(self, message: str) -> Dict[str, Any]:
-        """提取客户相关参数"""
-        params = {}
-        return params
-
-    def batch_recognize(self, messages: List[str]) -> List[Tuple[IntentType, float, Dict[str, Any]]]:
-        """
-        批量识别意图
-
-        Args:
-            messages: 用户消息列表
-
-        Returns:
-            识别结果列表
-        """
+    def recognize_batch(self, messages: List[str]) -> List[RecognizerResult]:
+        """批量识别 (typed version)"""
         return [self.recognize(msg) for msg in messages]
+
+    def get_intent_hints(self, message: str) -> List[str]:
+        """获取意图提示 (for UI)"""
+        result = self.recognize(message)
+        return result.intent_hints
 
 
 def get_intent_recognition_service() -> IntentRecognitionService:
-    """获取意图识别服务实例"""
+    """获取领域意图识别服务 (Composition Root 友好)"""
     return IntentRecognitionService()

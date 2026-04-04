@@ -7,3 +7,10 @@ from app.utils.metrics import (
     track_request_duration,
 )
 from app.utils.retry import retry_ai_service, retry_network_operation, retry_on_exception
+from app.utils.ai_helpers import (
+    is_pro_source,
+    is_professional_mode,
+    safe_float,
+    format_money,
+    route_normal_mode_message,
+)

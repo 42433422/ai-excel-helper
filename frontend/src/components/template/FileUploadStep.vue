@@ -33,7 +33,7 @@
         />
 
         <div v-if="!localSelectedFile" class="upload-placeholder">
-          <div style="font-size:48px;margin-bottom:10px;">📁</div>
+          <div style="font-size:48px;margin-bottom:10px;"><i class="fa fa-folder-open-o" aria-hidden="true"></i></div>
           <div>点击或拖拽上传文件</div>
           <div class="muted" style="font-size:12px;margin-top:5px;">
             支持 Excel (.xlsx, .xls) 或图片 (.png, .jpg, .jpeg)
@@ -41,7 +41,7 @@
         </div>
 
         <div v-else class="file-info">
-          <div style="font-size:36px;margin-bottom:10px;">{{ getFileIcon() }}</div>
+          <div style="font-size:36px;margin-bottom:10px;"><i class="fa" :class="getFileIconClass()" aria-hidden="true"></i></div>
           <div style="font-weight:500;">{{ localSelectedFile.name }}</div>
           <div class="muted" style="font-size:12px;margin-top:5px;">
             {{ formatFileSize(localSelectedFile.size) }}
@@ -60,7 +60,7 @@
 
     <div v-if="recognizedType" class="recognized-type">
       <span class="badge" :class="recognizedType === 'excel' ? 'badge-success' : 'badge-info'">
-        已识别类型：{{ recognizedType === 'excel' ? '📋 Excel 模板' : '🏷️ 标签模板' }}
+        已识别类型：{{ recognizedType === 'excel' ? 'Excel 模板' : '标签模板' }}
       </span>
       <span v-if="analyzing" class="muted" style="margin-left:10px;">分析中...</span>
     </div>
@@ -168,12 +168,12 @@ export default {
       })
     },
 
-    getFileIcon() {
-      if (!this.localSelectedFile) return '📁'
+    getFileIconClass() {
+      if (!this.localSelectedFile) return 'fa-folder-open-o'
       const ext = this.localSelectedFile.name.split('.').pop().toLowerCase()
-      if (['xlsx', 'xls'].includes(ext)) return '📋'
-      if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext)) return '🖼️'
-      return '📄'
+      if (['xlsx', 'xls'].includes(ext)) return 'fa-file-excel-o'
+      if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext)) return 'fa-file-image-o'
+      return 'fa-file-o'
     },
 
     formatFileSize(bytes) {

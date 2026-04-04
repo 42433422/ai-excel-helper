@@ -1,0 +1,96 @@
+services:
+  backend:
+    image: ${XCAGI_BACKEND_IMAGE:-xcagi/backend}:${XCAGI_IMAGE_TAG:-latest}
+    container_name: xcagi-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DATABASE_PATH=/app/data
+      - UPLOAD_FOLDER=/app/uploads
+      - CACHE_REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - xcagi-data:/app/data
+      - xcagi-uploads:/app/uploads
+      - xcagi-logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - xcagi-network
+
+  celery-worker:
+    image: ${XCAGI_CELERY_IMAGE:-xcagi/celery-worker}:${XCAGI_IMAGE_TAG:-latest}
+    container_name: xcagi-celery-worker
+    restart: unless-stopped
+    command: celery -A celery_app worker --loglevel=info --concurrency=2
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DATABASE_PATH=/app/data
+      - UPLOAD_FOLDER=/app/uploads
+      - CACHE_REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - xcagi-data:/app/data
+      - xcagi-uploads:/app/uploads
+      - xcagi-logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - xcagi-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: xcagi-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - xcagi-network
+
+  frontend:
+    image: ${XCAGI_FRONTEND_IMAGE:-xcagi/frontend}:${XCAGI_IMAGE_TAG:-latest}
+    container_name: xcagi-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - xcagi-network
+
+volumes:
+  xcagi-data:
+    driver: local
+  xcagi-uploads:
+    driver: local
+  xcagi-logs:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  xcagi-network:
+    driver: bridge

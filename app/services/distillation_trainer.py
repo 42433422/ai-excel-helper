@@ -32,11 +32,17 @@ from transformers import (
     BertTokenizer,
     get_linear_schedule_with_warmup,
 )
+from app.utils.distillation_paths import (
+    get_distillation_checkpoints_dir,
+    get_distillation_logs_dir,
+    get_distillation_root_dir,
+    get_distillation_training_data_path,
+)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DISTILL_DIR = os.path.join(BASE_DIR, "distillation")
-CHECKPOINT_DIR = os.path.join(DISTILL_DIR, "checkpoints")
-LOG_DIR = os.path.join(DISTILL_DIR, "logs")
+DISTILL_DIR = get_distillation_root_dir()
+CHECKPOINT_DIR = get_distillation_checkpoints_dir()
+LOG_DIR = get_distillation_logs_dir()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -363,7 +369,7 @@ def main():
 
     data_path = args.data
     if data_path is None:
-        data_path = os.path.join(DISTILL_DIR, "training_data.jsonl")
+        data_path = get_distillation_training_data_path()
 
     if not os.path.exists(data_path):
         logger.error(f"训练数据不存在: {data_path}")

@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "pageTitle": "工作流可视化",
+  "pageSubtitle": "副窗「工作流员工」固定六类（四名内置 AI + 两行固定扩展）的过程与数据流说明。流程全景页正文由前端按当前扩展列表动态生成。",
+  "pipelineBranchLabel": "内置六类（固定）",
+  "overviewNote": "共六条固定行；角标区分内置 AI 与固定扩展。开关写入 xcagi_workflow_ai_employees。",
+  "floatPanelHint": "与侧栏「专业版」开关样式一致：打开即启用对应 AI 员工。固定六类工作流可在侧栏「员工工作流管理」统一查看，并可进入「流程全景」查看图解说明。",
+  "workflowVisualLinkTitle": "查看固定六类工作流执行逻辑与过程",
+  "recommendIntroOneClick": "",
+  "recommendIntroLobster": "",
+  "branches": [
+    {
+      "id": "label_print",
+      "kind": "core",
+      "title": "标签打印 AI 员工",
+      "trigger": "星标微信 → 意图命中「标签/打印」→ 对话执行打印"
+    },
+    {
+      "id": "shipment_mgmt",
+      "kind": "core",
+      "title": "出货管理 AI 员工",
+      "trigger": "对话开单 → 确认执行 → 开始打印 → 出货记录审计建议"
+    },
+    {
+      "id": "receipt_confirm",
+      "kind": "core",
+      "title": "收货确认 AI 员工",
+      "trigger": "星标微信 → 同源意图预处理 → 收货/对账类客户反馈写入进程；对话跟进确认"
+    },
+    {
+      "id": "wechat_msg",
+      "kind": "core",
+      "title": "微信消息处理 AI 员工",
+      "trigger": "星标自动刷新 → 新消息 → 意图 API 或本地规则 → 任务列表"
+    },
+    {
+      "id": "wechat_phone",
+      "kind": "fixed_extension",
+      "title": "微信电话对接业务员",
+      "trigger": "固定行 id=wechat_phone；副窗启用 → POST phone-agent/start → Win32 来电监控 → 接听 / 采集 / ASR / TTS（与 /status 轮询同步）"
+    },
+    {
+      "id": "real_phone",
+      "kind": "fixed_extension",
+      "title": "真实电话业务员",
+      "trigger": "固定行 id=real_phone；副窗启用 → ADB 设备连通检查 → 来电检测/接听 → 语音转写与回复（与状态轮询同步）"
+    }
+  ],
+  "flows": [
+    {
+      "id": "label_print",
+      "kind": "core",
+      "title": "标签打印 AI 员工 · 过程",
+      "lead": "仅接收星标链路中识别到的「标签/打印」意图信号；未命中前任务面板进度为 0，不计为已执行。",
+      "steps": [
+        { "label": "启用员工", "detail": "副窗开关打开。" },
+        {
+          "label": "星标消息 → 意图预处理",
+          "detail": "与微信员工共用同一轮询与意图逻辑；命中后派发 xcagi:workflow-label-print-signal。"
+        },
+        {
+          "label": "对话补充并打印",
+          "detail": "在智能对话发送型号、张数等，结合打印机与模板配置执行打印链路。"
+        }
+      ],
+      "notes": ["仅开标签员工、未开微信员工时仍会跑星标意图用于发信号，但不会写入微信意图列表项。"]
+    },
+    {
+      "id": "shipment_mgmt",
+      "kind": "core",
+      "title": "出货管理 AI 员工 · 过程",
+      "lead": "围绕发货单生成、打印与出货记录核对；打印成功后可自动拉取本单位出货记录做统计与审计建议。",
+      "steps": [
+        { "label": "启用员工", "detail": "副窗开关打开。" },
+        { "label": "对话触发生成发货单", "detail": "预览 → 确认执行 → shipment_generate 写库并生成文档。" },
+        { "label": "开始打印", "detail": "对话或任务卡片触发打印标签/单据。" },
+        {
+          "label": "打印后审计（启用本员工时）",
+          "detail": "请求出货记录列表，汇总条数与今日增量，提示核对、导出 Excel 与推送同事；更新工作流条目与副窗推送。"
+        }
+      ],
+      "notes": ["生成环节已通过 record_store 写入 shipment_records；审计侧重一致性核对与对外同步。"]
+    },
+    {
+      "id": "receipt_confirm",
+      "kind": "core",
+      "title": "收货确认 AI 员工 · 过程",
+      "lead": "与微信消息员工共用星标轮询与意图规则；客户消息命中收货、到货、签收、对账等时，将联系人及业务进程摘要写入本工作流，便于内部在对话中跟进。",
+      "steps": [
+        { "label": "启用员工", "detail": "副窗开关打开。" },
+        {
+          "label": "星标消息 → 意图预处理（同源）",
+          "detail": "与微信员工相同链路；命中 isReceiptConfirmRelatedWechatIntent 后派发 xcagi:workflow-receipt-feedback-signal。"
+        },
+        {
+          "label": "面板展示客户业务进程",
+          "detail": "工作流条目中展示摘要；可结合智能对话继续确认、对账或转交。"
+        }
+      ],
+      "notes": ["仅开收货确认、未开微信员工时仍会跑星标意图用于本链路，但不会写入「微信消息处理」列表项。"]
+    },
+    {
+      "id": "wechat_msg",
+      "kind": "core",
+      "title": "微信消息处理 AI 员工 · 过程",
+      "lead": "依赖「星标聊天自动刷新」轮询 work_mode_feed；新消息签名变化时跑意图，并写入对话页任务列表。",
+      "steps": [
+        { "label": "副窗启用本员工", "detail": "与开关状态持久化 xcagi_workflow_ai_employees。" },
+        { "label": "智能对话勾选星标自动刷新", "detail": "约每分钟拉取星标联系人最新消息。" },
+        { "label": "定时拉取并副窗推送", "detail": "有新消息时助手推送提醒。" },
+        {
+          "label": "意图预处理",
+          "detail": "可开启「专业模式 AI 意图体验」走 /api/ai/intent/test，否则 inferWechatCustomerIntent 本地规则。"
+        },
+        { "label": "结果写入列表", "detail": "派发 xcagi:wechat-ai-task-enqueue，右侧出现「微信消息处理 · 联系人」类条目。" }
+      ],
+      "notes": ["命中发货类话术且同时启用微信或出货管理时，可触发发货单预览任务（xcagi:wechat-shipment-preview-task）。"]
+    },
+    {
+      "id": "wechat_phone",
+      "kind": "fixed_extension",
+      "title": "微信电话对接业务员 · 过程",
+      "lead": "【固定扩展】员工 id 固定为 wechat_phone，由前端写死展示名，不是 manifest 动态追加行。启用后调用当前环境绑定的 phone-agent（示例为奇士美 PRO：/api/mod/sz-qsm-pro/phone-agent）：Win32 监控微信来电、接听、采集、ASR、意图、TTS、VB-Cable；与任务面板「电话业务员状态」轮询同步。与「各 Mod 在 manifest 里声明的另一套工作流员工」并列存在时，以各自 id 区分。",
+      "steps": [
+        { "label": "启用员工", "detail": "副窗开关打开；关闭时 POST …/stop。" },
+        {
+          "label": "启动 phone-agent",
+          "detail": "开启时 POST /api/mod/sz-qsm-pro/phone-agent/start（与 TopAssistantFloat 一致）。"
+        },
+        {
+          "label": "轮询运行状态",
+          "detail": "启用后约每 15s GET /api/mod/sz-qsm-pro/phone-agent/status，将 data 合并进「工作流 · 微信电话对接业务员」条目。"
+        },
+        {
+          "label": "来电侧链路",
+          "detail": "后端 phone-agent 运行后：窗口监控可用 → 来电尝试自动点击接听 → 音频采集 → ASR → 意图 → TTS → VB-Cable（各子能力以 status 中布尔位为准）。"
+        }
+      ],
+      "notes": [
+        "与四名内置 AI 不同：不依赖星标消息 feed；与 manifest 追加的 Mod 员工也不同：本行 id 固定、由产品内置。若 status 异常请检查对应 Mod 服务是否部署。"
+      ]
+    },
+    {
+      "id": "real_phone",
+      "kind": "fixed_extension",
+      "title": "真实电话业务员 · 过程",
+      "lead": "【固定扩展】员工 id 固定为 real_phone，由前端写死。流程对齐「微信电话对接业务员」的执行粒度，差异在于通话入口改为 ADB（安卓真机）链路：设备检测、来电识别、自动接听、音频转写、意图回复与播报；任务面板按阶段展示进度与异常。",
+      "steps": [
+        { "label": "启用员工", "detail": "副窗开关打开；关闭时停止 ADB 电话链路。" },
+        {
+          "label": "ADB 设备连通检查",
+          "detail": "检查 adb 连接状态、目标设备在线与通话权限；异常时提示重连与授权。"
+        },
+        {
+          "label": "来电检测与自动接听",
+          "detail": "监听来电状态（振铃/接通/挂断）；命中规则后执行接听动作，失败重试并记录原因。"
+        },
+        {
+          "label": "通话音频采集与 ASR",
+          "detail": "接通后采集通话音频并实时转写，提取客户诉求、关键信息与上下文。"
+        },
+        {
+          "label": "意图生成与回复播报",
+          "detail": "基于话术与意图结果生成回复，执行 TTS 播报；必要时保留人工接管入口。"
+        },
+        {
+          "label": "结果回写与状态同步",
+          "detail": "将摘要、跟进建议与异常信息写入任务面板，并与工作流状态轮询同步。"
+        }
+      ],
+      "notes": [
+        "若部署的是特定 Mod 的真实线路实现，仍以该 Mod 的 API 约定与能力位为准；本固定行提供统一流程视图与说明。"
+      ]
+    }
+  ]
+}

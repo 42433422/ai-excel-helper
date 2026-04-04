@@ -297,12 +297,16 @@ function executeToolActionFromModal(toolId, actionName) {
     })
     .then(r => r.json())
     .then(data => {
+        console.log('工具执行结果:', data);
         if (data.success) {
             // 检查是否是发货单生成
             if (toolId === 'shipment_generate' && data.doc_name) {
+                console.log('发货单生成成功，文件名:', data.doc_name);
                 // 显示下载按钮
                 if (typeof window.showShipmentDownloadEntry === 'function') {
                     window.showShipmentDownloadEntry(data.doc_name);
+                } else {
+                    console.error('showShipmentDownloadEntry 函数不存在');
                 }
                 alert('发货单生成成功：' + data.doc_name + '\n请点击下方的下载按钮下载文件');
             } else {

@@ -12,9 +12,6 @@ import hashlib
 import logging
 import os
 import re
-import time
-from collections import OrderedDict
-from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -24,45 +21,11 @@ from app.utils.cache_manager import get_intent_deepseek_cache
 logger = logging.getLogger(__name__)
 
 
-class _IntentRecognitionCache:
-    def __init__(self, max_size: int = 500, ttl_seconds: int = 300):
-        self._cache: OrderedDict = OrderedDict()
-        self._timestamps: Dict[str, float] = {}
-        self._max_size = max_size
-        self._ttl = ttl_seconds
-
-    def _make_key(self, message: str) -> str:
-        return hashlib.md5(message.strip().lower().encode()).hexdigest()
-
-    def get(self, message: str) -> Optional[Dict[str, Any]]:
-        key = self._make_key(message)
-        if key not in self._cache:
-            return None
-        if time.time() - self._timestamps.get(key, 0) > self._ttl:
-            del self._cache[key]
-            del self._timestamps[key]
-            return None
-        self._cache.move_to_end(key)
-        return self._cache[key]
-
-    def set(self, message: str, result: Dict[str, Any]) -> None:
-        key = self._make_key(message)
-        if key in self._cache:
-            self._cache.move_to_end(key)
-        else:
-            if len(self._cache) >= self._max_size:
-                oldest_key = next(iter(self._cache))
-                del self._cache[oldest_key]
-                del self._timestamps[oldest_key]
-        self._cache[key] = result
-        self._timestamps[key] = time.time()
-
-    def clear(self) -> None:
-        self._cache.clear()
-        self._timestamps.clear()
-
-
 _intent_recognition_cache = get_intent_deepseek_cache()
+
+
+def _make_intent_cache_key(message: str) -> str:
+    return hashlib.sha256(f"intent_deepseek:v1:{message.strip().lower()}".encode("utf-8")).hexdigest()
 
 INTENT_DESCRIPTIONS = {
     "shipment_generate": "生成发货单、开单、打单、做出货单",
@@ -74,7 +37,17 @@ INTENT_DESCRIPTIONS = {
     "upload_file": "上传文件、导入数据、解析Excel",
     "materials": "原材料库存、材料库查询",
     "shipment_template": "发货单模板、模板设置",
+    "template_extract": "提取模板、导出模板、提取Excel模板结构",
     "excel_decompose": "分解Excel、提取词条、表头提取",
+    "business_docking": "业务对接、上传Excel、模板提取",
+    "template_preview": "模板预览、模板列表、模板管理",
+    "shipment_records": "出货记录、出货记录查询、出货记录导出",
+    "wechat": "微信联系人、联系人列表、联系人缓存",
+    "printer_list": "打印机列表、默认打印机",
+    "settings": "系统设置、系统信息、开机启动",
+    "tools_table": "工具表、工具能力列表",
+    "other_tools": "其他工具",
+    "ai_ecosystem": "AI生态、AI能力页",
     "show_images": "查看图片、产品图片",
     "show_videos": "查看视频",
     "greet": "问候、打招呼",
@@ -128,7 +101,8 @@ class DeepSeekIntentRecognizer:
 
     async def recognize(self, message: str, context: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
         """带槽位提取的意图识别（带缓存）"""
-        cached = _intent_recognition_cache.get(message)
+        cache_key = _make_intent_cache_key(message)
+        cached = _intent_recognition_cache.get(cache_key)
         if cached:
             logger.info(f"[INTENT_CACHE] 命中缓存: {message[:30]}... -> {cached.get('intent')}, slots={cached.get('slots')}")
             return cached
@@ -184,7 +158,7 @@ class DeepSeekIntentRecognizer:
                     if result.get("choices"):
                         content = result["choices"][0]["message"]["content"]
                         parsed = self._parse_response(content, message)
-                        _intent_recognition_cache.set(message, parsed)
+                        _intent_recognition_cache.set(cache_key, parsed)
                         return parsed
             except Exception as e:
                 last_error = e
@@ -195,7 +169,7 @@ class DeepSeekIntentRecognizer:
 
         logger.error(f"DeepSeek 意图识别最终失败: {last_error}")
         fallback = self._fallback_result(message)
-        _intent_recognition_cache.set(message, fallback)
+        _intent_recognition_cache.set(cache_key, fallback)
         return fallback
 
     def _parse_response(self, content: str, original_message: str) -> Dict[str, Any]:
@@ -353,7 +327,7 @@ class HybridIntentWithDeepSeek:
                 logger.warning(f"无法加载蒸馏模型: {e}")
                 self.use_distilled = False
 
-        if self.use_deepseek and not self.use_distilled:
+        if self.use_deepseek:
             self.deepseek_recognizer = DeepSeekIntentRecognizer(
                 api_key=deepseek_api_key,
                 confidence_threshold=confidence_threshold
@@ -379,6 +353,36 @@ class HybridIntentWithDeepSeek:
             rule_result["slots"] = self._extract_slots_from_rule(message, rule_result)
             logger.info(f"[HYBRID] 规则已命中，跳过 DeepSeek: {rule_result.get('primary_intent')}")
             return rule_result
+
+        if self.use_distilled and self.distilled_recognizer and self.distilled_recognizer.is_available():
+            try:
+                distilled_result = self.distilled_recognizer.recognize(message)
+                distilled_intent = distilled_result.get("intent")
+                distilled_confidence = float(distilled_result.get("confidence", 0.0) or 0.0)
+                distilled_slots = distilled_result.get("slots", {}) or {}
+
+                rule_result["distilled_intent"] = distilled_intent
+                rule_result["distilled_confidence"] = distilled_confidence
+                rule_result["distilled_slots"] = distilled_slots
+                rule_result["sources_used"].append("distilled")
+
+                if distilled_intent and distilled_intent != "unk" and distilled_confidence >= self.confidence_threshold:
+                    rule_result["final_intent"] = distilled_intent
+                    rule_result["tool_key"] = distilled_intent
+                    rule_result["intent_source"] = "distilled"
+                    rule_result["intent_confidence"] = distilled_confidence
+                    rule_result["slots"] = distilled_slots
+                    return rule_result
+
+                if not self.use_deepseek or not self.deepseek_recognizer:
+                    rule_result["final_intent"] = distilled_intent or rule_result.get("primary_intent")
+                    rule_result["tool_key"] = distilled_intent or rule_result.get("tool_key")
+                    rule_result["intent_source"] = "distilled_low_confidence" if distilled_intent else "rule"
+                    rule_result["intent_confidence"] = distilled_confidence
+                    rule_result["slots"] = distilled_slots or self._extract_slots_from_rule(message, rule_result)
+                    return rule_result
+            except Exception as e:
+                logger.warning(f"蒸馏意图识别失败，降级到 DeepSeek: {e}")
 
         if not self.use_deepseek or not self.deepseek_recognizer:
             rule_result["final_intent"] = rule_result.get("primary_intent")
@@ -600,6 +604,7 @@ def get_hybrid_intent_with_deepseek(
     use_deepseek: bool = True,
     rule_priority: bool = True,
     confidence_threshold: float = 0.6,
+    use_distilled: bool = False,
     reset: bool = False
 ) -> HybridIntentWithDeepSeek:
     global _hybrid_with_deepseek
@@ -607,7 +612,8 @@ def get_hybrid_intent_with_deepseek(
         _hybrid_with_deepseek = HybridIntentWithDeepSeek(
             use_deepseek=use_deepseek,
             rule_priority=rule_priority,
-            confidence_threshold=confidence_threshold
+            confidence_threshold=confidence_threshold,
+            use_distilled=use_distilled,
         )
     return _hybrid_with_deepseek
 

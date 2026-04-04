@@ -44,8 +44,12 @@ export const ordersApi = {
     return api.delete<ApiResponse<any>>('/api/shipment/shipment-records/record', payload);
   },
 
-  exportShipmentRecords(purchaseUnit: string): Promise<Response> {
-    return api.download('/api/shipment/shipment-records/export', { unit: purchaseUnit });
+  exportShipmentRecords(purchaseUnit: string, templateId?: string, statusFilter?: string): Promise<Response> {
+    return api.download('/api/shipment/shipment-records/export', {
+      unit: purchaseUnit,
+      template_id: templateId || '',
+      status: statusFilter || ''
+    });
   }
 };
 

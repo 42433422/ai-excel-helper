@@ -105,10 +105,9 @@ def get_template_application_service() -> TemplateApplicationService:
     """获取模板应用服务单例"""
     global _template_app_service
     if _template_app_service is None:
-        import os
-
+        from app.utils.path_utils import get_base_dir
         from app.infrastructure.templates.template_store_impl import FileSystemTemplateStore
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = get_base_dir()
         _template_app_service = TemplateApplicationService(FileSystemTemplateStore(base_dir=base_dir))
     return _template_app_service
 

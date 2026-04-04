@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional
 from app.db.models.customer import Customer
 from app.db.models.product import Product
 from app.db.session import get_db
+from app.utils.external_sqlite import sqlite_conn
 from app.utils.path_utils import get_upload_dir
 
 logger = logging.getLogger(__name__)
@@ -59,22 +60,21 @@ class UnitProductsImportService:
         if not os.path.exists(source_db_path):
             return {"success": False, "message": "源数据库文件不存在"}
 
-        conn = None
         try:
-            conn = sqlite3.connect(source_db_path)
-            cur = conn.cursor()
+            with sqlite_conn(source_db_path) as conn:
+                cur = conn.cursor()
 
-            products_rows = self._read_source_products(cur, unit_name)
-            if not products_rows:
-                return {
-                    "success": True,
-                    "message": "源 products 表无可导入数据",
-                    "unit_name": unit_name,
-                    "created_unit": False,
-                    "imported": 0,
-                    "skipped_duplicates": 0,
-                    "failed_products": [],
-                }
+                products_rows = self._read_source_products(cur, unit_name)
+                if not products_rows:
+                    return {
+                        "success": True,
+                        "message": "源 products 表无可导入数据",
+                        "unit_name": unit_name,
+                        "created_unit": False,
+                        "imported": 0,
+                        "skipped_duplicates": 0,
+                        "failed_products": [],
+                    }
 
             created_unit = self._ensure_unit_exists(unit_name, create_purchase_unit)
 
@@ -113,12 +113,6 @@ class UnitProductsImportService:
         except Exception as e:
             logger.exception(f"导入购买单位+产品列表失败：{e}")
             return {"success": False, "message": f"导入失败：{str(e)}"}
-        finally:
-            if conn is not None:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
 
     def _validate_params(self, saved_name: str, unit_name: str) -> Optional[Dict[str, Any]]:
         """验证输入参数"""

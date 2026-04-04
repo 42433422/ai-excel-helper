@@ -37,18 +37,18 @@
       
       <div class="panel-actions">
         <button class="action-btn download" @click="handleDownload">
-          <span class="btn-icon">↓</span>
+          <span class="btn-icon"><i class="fa fa-download" aria-hidden="true"></i></span>
           下载订单
         </button>
         <button class="action-btn view" @click="handleView">
-          <span class="btn-icon">👁</span>
+          <span class="btn-icon"><i class="fa fa-eye" aria-hidden="true"></i></span>
           查看详情
         </button>
       </div>
     </div>
     
     <div v-else class="empty-state">
-      <div class="empty-icon">📦</div>
+      <div class="empty-icon"><i class="fa fa-cubes" aria-hidden="true"></i></div>
       <div class="empty-text">暂无订单信息</div>
     </div>
   </div>

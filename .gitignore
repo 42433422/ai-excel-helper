@@ -168,3 +168,43 @@ frontend/dist/
 _backup_icon_system/
 ENTERPRISE_GUIDE.md
 docs/
+
+# PaddleOCR local inference models (use scripts/download_paddleocr_ch_models.py)
+paddleocr_local_models/
+
+# Large backup/bundle files (exceed GitHub 100MB limit)
+git-backup/
+release-bundle/
+archive/
+reports/
+saved_analyses/
+_tmp_*/
+_perf_*.json
+
+# Wechat decrypt binary
+wechat-decrypt
+
+# Misc test/debug/utility scripts
+check_*.py
+find_*.py
+smoke_*.py
+run_*.py
+force_sync*.py
+clear_ctx.py
+do_patch.py
+md_to_pdf.py
+sample_messages.py
+search_all_*.py
+verify_*.py
+final_test.*
+hash研究.py
+_convert_*.py
+_gen_*.py
+_check_*.py
+_tmp_*.*
+
+# Test labels directory
+test_labels/
+
+# AI report (generated)
+AI企业解决方案对比分析报告.*

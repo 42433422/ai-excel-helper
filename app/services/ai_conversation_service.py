@@ -10,60 +10,28 @@ AI 对话引擎服务：处理 AI 对话、DeepSeek API 调用、上下文管理
 """
 
 import hashlib
+import json
 import logging
 import os
 import time
-from collections import OrderedDict
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from app.services.deepseek_intent_service import HybridIntentWithDeepSeek
+from app.services.user_preference_service import get_user_preference_service
 from app.services.user_memory_service import get_user_memory_service
 from app.utils.cache_manager import get_ai_response_cache
 
 logger = logging.getLogger(__name__)
 
 
-class _AIResponseCache:
-    def __init__(self, max_size: int = 500, ttl_seconds: int = 300):
-        self._cache: OrderedDict = OrderedDict()
-        self._timestamps: Dict[str, float] = {}
-        self._max_size = max_size
-        self._ttl = ttl_seconds
-
-    def _make_key(self, message: str, context_hash: str = "") -> str:
-        key_str = f"{context_hash}:{message.strip().lower()}"
-        return hashlib.md5(key_str.encode()).hexdigest()
-
-    def get(self, message: str, context_hash: str = "") -> Optional[str]:
-        key = self._make_key(message, context_hash)
-        if key not in self._cache:
-            return None
-        if time.time() - self._timestamps.get(key, 0) > self._ttl:
-            del self._cache[key]
-            del self._timestamps[key]
-            return None
-        self._cache.move_to_end(key)
-        return self._cache[key]
-
-    def set(self, message: str, response: str, context_hash: str = "") -> None:
-        key = self._make_key(message, context_hash)
-        if key in self._cache:
-            self._cache.move_to_end(key)
-        else:
-            if len(self._cache) >= self._max_size:
-                oldest_key = next(iter(self._cache))
-                del self._cache[oldest_key]
-                del self._timestamps[oldest_key]
-        self._cache[key] = response
-        self._timestamps[key] = time.time()
-
-    def clear(self) -> None:
-        self._cache.clear()
-        self._timestamps.clear()
-
-
 _ai_response_cache = get_ai_response_cache()
+
+
+def _make_ai_response_cache_key(message: str, context_hash: str = "") -> str:
+    return hashlib.sha256(
+        f"ai_response:v1:{context_hash}:{message.strip().lower()}".encode("utf-8")
+    ).hexdigest()
 
 
 @dataclass
@@ -126,21 +94,152 @@ class AIConversationService:
         self.model = "deepseek-chat"
 
         # 导入依赖服务
-        from .deepseek_intent_service import get_hybrid_intent_with_deepseek
         from .intent_confirmation_service import get_confirmation_service
         from .intent_service import recognize_intents
         from .task_agent import get_task_agent
         from .unified_intent_recognizer import get_unified_intent_recognizer
+        use_distilled = os.environ.get("USE_DISTILLED_MODEL", "0") == "1"
+        if use_distilled:
+            logger.info("已启用蒸馏意图识别开关：USE_DISTILLED_MODEL=1")
+
         self.intent_service = recognize_intents
-        self.deepseek_intent_service = get_hybrid_intent_with_deepseek(
+        self.online_intent_service = HybridIntentWithDeepSeek(
             use_deepseek=True,
             rule_priority=True,
-            confidence_threshold=0.6
+            confidence_threshold=0.6,
+            use_distilled=use_distilled,
         )
+        # 离线模式强制禁用 DeepSeek，优先蒸馏模型并在缺失时回退规则。
+        self.offline_intent_service = HybridIntentWithDeepSeek(
+            use_deepseek=False,
+            rule_priority=True,
+            confidence_threshold=0.6,
+            use_distilled=True,
+        )
+        # 兼容现有引用命名
+        self.deepseek_intent_service = self.online_intent_service
         self.unified_recognizer = get_unified_intent_recognizer()
         self.confirmation_service = get_confirmation_service()
         self.task_agent = get_task_agent()
         self.user_memory = get_user_memory_service()
+        self.user_preference_service = get_user_preference_service()
+        # 按 asyncio 事件循环复用 httpx.AsyncClient，减少短时多次请求时的连接风暴与 TLS 失败
+        self._deepseek_async_client: Any = None
+        self._deepseek_async_loop: Any = None
+
+    @staticmethod
+    def _is_pro_source(source: Optional[str]) -> bool:
+        """兼容多种前端 source 写法。"""
+        normalized = str(source or "").strip().lower().replace("-", "_")
+        return normalized in {"pro", "pro_mode", "promode"}
+
+    @staticmethod
+    def _normalize_ai_mode(mode: Optional[str]) -> str:
+        raw = str(mode or "").strip().lower()
+        if raw in {"offline", "local"}:
+            return "offline"
+        return "online"
+
+    def _resolve_ai_mode(self, user_id: str) -> str:
+        """解析用户 AI 模式，兼容旧 aiModel 偏好键。"""
+        try:
+            mode_value = self.user_preference_service.get_preference(user_id, "aiMode")
+            if mode_value:
+                return self._normalize_ai_mode(mode_value)
+            # 兼容旧键：aiModel=deepseek/local
+            legacy_model = self.user_preference_service.get_preference(user_id, "aiModel")
+            if legacy_model:
+                mode = self._normalize_ai_mode(legacy_model)
+                self.user_preference_service.set_preference(user_id, "aiMode", mode)
+                return mode
+        except Exception as e:
+            logger.warning(f"读取 aiMode 偏好失败，回退在线模式: {e}")
+        return "online"
+
+    @staticmethod
+    def _env_skip_intent_llm() -> bool:
+        """设为 1/true 时，非 pro 链路跳过 HybridIntent 内的 DeepSeek 意图识别（仅规则）。"""
+        return os.environ.get("XCAGI_SKIP_INTENT_LLM", "").strip().lower() in {"1", "true", "yes", "on"}
+
+    def _should_use_rule_only_intent(self, request_context: Optional[Dict[str, Any]]) -> bool:
+        if self._env_skip_intent_llm():
+            return True
+        if isinstance(request_context, dict) and request_context.get("skip_intent_llm"):
+            return True
+        return False
+
+    def _intent_rule_only_fast(self, message: str) -> Dict[str, Any]:
+        """仅用规则引擎识别意图，不调用 DeepSeek（与 online_intent_service 输出形状对齐）。"""
+        r = self.intent_service(message)
+        if not isinstance(r, dict):
+            r = {}
+        return {
+            "primary_intent": r.get("primary_intent"),
+            "final_intent": r.get("primary_intent") or r.get("tool_key"),
+            "tool_key": r.get("tool_key"),
+            "intent_hints": list(r.get("intent_hints") or []),
+            "is_negated": bool(r.get("is_negated")),
+            "is_greeting": bool(r.get("is_greeting")),
+            "is_goodbye": bool(r.get("is_goodbye")),
+            "is_help": bool(r.get("is_help")),
+            "is_confirmation": bool(r.get("is_confirmation")),
+            "is_negation_intent": bool(r.get("is_negation_intent")),
+            "is_likely_unclear": bool(r.get("is_likely_unclear")),
+            "slots": {},
+            "all_matched_tools": r.get("all_matched_tools", []),
+            "intent_source": "rule_only_fast",
+        }
+
+    async def _get_deepseek_async_client(self):
+        """同一事件循环内复用 AsyncClient；切换 loop 时关闭旧 client。"""
+        import asyncio
+
+        import httpx
+
+        loop = asyncio.get_running_loop()
+        if self._deepseek_async_loop is not loop:
+            if self._deepseek_async_client is not None:
+                try:
+                    await self._deepseek_async_client.aclose()
+                except Exception:
+                    pass
+                self._deepseek_async_client = None
+            self._deepseek_async_loop = loop
+            self._deepseek_async_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(30.0, connect=10.0),
+                limits=httpx.Limits(max_keepalive_connections=10, max_connections=30),
+            )
+        return self._deepseek_async_client
+
+    async def _call_ai_offline(
+        self,
+        message: str,
+        context: ConversationContext,
+        intent_result: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """离线模式下的本地回复（不调用云端）。"""
+        final_intent = intent_result.get("final_intent") or intent_result.get("primary_intent")
+        if final_intent and final_intent != "unk":
+            reply = (
+                f"当前为离线模式，已识别意图：{final_intent}。"
+                "如需更强的开放问答能力，可在系统设置切换到在线模式。"
+            )
+        else:
+            reply = (
+                "当前为离线模式，我可以继续处理开单、查询、打印等本地可执行流程。"
+                "如果你希望进行复杂问答，请在系统设置切换到在线模式。"
+            )
+
+        self.add_to_history(context.user_id, "user", message)
+        self.add_to_history(context.user_id, "assistant", reply)
+        return {
+            "text": reply,
+            "action": "offline_response",
+            "data": {
+                "intent": intent_result,
+                "mode": "offline",
+            },
+        }
 
     def add_intent_feedback(
         self,
@@ -172,6 +271,23 @@ class AIConversationService:
                 slots=slots or {}
             )
             logger.info(f"[FEEDBACK] user={user_id}, recognized={recognized_intent}, feedback={feedback}")
+
+            # 记忆向量写入：把用户的意图校正/反馈写入向量库，用于后续 RAG 决策。
+            try:
+                from app.application import get_user_memory_vector_ingest_app_service
+
+                ingest = get_user_memory_vector_ingest_app_service()
+                chunk = ingest.build_feedback_chunk(
+                    user_id=user_id,
+                    message=message,
+                    recognized_intent=recognized_intent,
+                    feedback=feedback,
+                    corrected_intent=corrected_intent,
+                    slots=slots or {},
+                )
+                ingest.ingest_chunks(user_id=user_id, chunks=[chunk])
+            except Exception as ve:
+                logger.warning(f"[UserMemoryVector] 写入反馈向量失败: {ve}")
         except Exception as e:
             logger.error(f"添加意图反馈失败: {e}")
 
@@ -205,6 +321,21 @@ class AIConversationService:
                     "favorite_customer",
                     slots["unit_name"]
                 )
+
+            # 记忆向量写入：把用户执行的意图/槽位/消息摘要写入向量库。
+            try:
+                from app.application import get_user_memory_vector_ingest_app_service
+
+                ingest = get_user_memory_vector_ingest_app_service()
+                chunk = ingest.build_action_chunk(
+                    user_id=user_id,
+                    intent=intent,
+                    slots=slots or {},
+                    message=message or "",
+                )
+                ingest.ingest_chunks(user_id=user_id, chunks=[chunk])
+            except Exception as ve:
+                logger.warning(f"[UserMemoryVector] 写入动作向量失败: {ve}")
 
             logger.debug(f"[ACTION] user={user_id}, intent={intent}, slots={slots}")
         except Exception as e:
@@ -442,289 +573,714 @@ class AIConversationService:
         }
         
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    self.api_url,
-                    headers=headers,
-                    json=payload
-                )
-                response.raise_for_status()
-                result = response.json()
-                
-                if result.get("choices") and len(result["choices"]) > 0:
-                    return result
-                else:
-                    logger.warning(f"DeepSeek API 返回空响应：{result}")
-                    return None
-                    
+            client = await self._get_deepseek_async_client()
+            response = await client.post(
+                self.api_url,
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            if result.get("choices") and len(result["choices"]) > 0:
+                return result
+            logger.warning(f"DeepSeek API 返回空响应：{result}")
+            return None
+
         except httpx.HTTPError as e:
             logger.error(f"DeepSeek API 请求失败：{e}")
             return None
         except Exception as e:
             logger.error(f"调用 DeepSeek API 异常：{e}")
             return None
-    
+
+    async def _recognize_intent(
+        self,
+        message: str,
+        source: Optional[str],
+        user_id: str,
+        request_context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        识别用户消息的意图
+
+        Args:
+            message: 用户消息
+            source: 来源标识
+            user_id: 用户 ID
+            request_context: 本次 HTTP 请求的 context（用于混合界面等策略）
+
+        Returns:
+            意图识别结果字典
+        """
+        ai_mode = self._resolve_ai_mode(user_id)
+        is_offline_mode = ai_mode == "offline"
+
+        if is_offline_mode:
+            logger.info("[INTENT] 离线模式：使用本地蒸馏/规则识别")
+            intent_result = await self.offline_intent_service.recognize(message)
+        elif self._is_pro_source(source):
+            logger.info("[INTENT] 使用 unified_recognizer (pro mode)")
+            recognizer_result = self.unified_recognizer.recognize(
+                message,
+                context=None,
+                context_data=request_context,
+            )
+            intent_result = self._convert_recognizer_result(recognizer_result)
+        elif self._should_use_rule_only_intent(request_context):
+            logger.info("[INTENT] rule_only_fast（跳过意图 DeepSeek，仅规则；可设 XCAGI_SKIP_INTENT_LLM=1 或 context.skip_intent_llm）")
+            intent_result = self._intent_rule_only_fast(message)
+        else:
+            logger.info("[INTENT] 使用 deepseek_intent_service (普通模式)")
+            intent_result = await self.online_intent_service.recognize(message)
+
+        intent_result["ai_mode"] = ai_mode
+        return intent_result
+
+    def _convert_recognizer_result(self, recognizer_result) -> Dict[str, Any]:
+        """
+        将 unified_recognizer 的结果转换为标准格式
+
+        Args:
+            recognizer_result: unified_recognizer 的识别结果
+
+        Returns:
+            标准格式的意图结果字典
+        """
+        return {
+            "primary_intent": recognizer_result.primary_intent,
+            "final_intent": recognizer_result.primary_intent,
+            "tool_key": recognizer_result.tool_key,
+            "intent_hints": recognizer_result.intent_hints,
+            "is_negated": recognizer_result.is_negated,
+            "is_greeting": recognizer_result.is_greeting,
+            "is_goodbye": recognizer_result.is_goodbye,
+            "is_help": recognizer_result.is_help,
+            "is_confirmation": recognizer_result.is_confirmation,
+            "is_negation_intent": recognizer_result.is_negation_intent,
+            "is_likely_unclear": recognizer_result.is_likely_unclear,
+            "slots": recognizer_result.slots,
+            "all_matched_tools": recognizer_result.all_matched_tools,
+            "intent_source": "unified_recognizer",
+        }
+
+    def _enhance_intent_slots(
+        self,
+        message: str,
+        intent_result: Dict[str, Any],
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        增强意图槽位信息
+
+        Args:
+            message: 用户消息
+            intent_result: 意图识别结果
+            user_id: 用户 ID
+
+        Returns:
+            增强后的意图结果字典
+        """
+        intent_result = self._enhance_with_task_agent(message, intent_result, user_id)
+        intent_result = self._enhance_with_shipment_parser(message, intent_result)
+        return intent_result
+
+    def _enhance_with_task_agent(
+        self,
+        message: str,
+        intent_result: Dict[str, Any],
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        使用任务代理增强槽位
+
+        Args:
+            message: 用户消息
+            intent_result: 意图识别结果
+            user_id: 用户 ID
+
+        Returns:
+            增强后的意图结果字典
+        """
+        plan = self.task_agent.parse_task(message, {"user_id": user_id})
+        if not plan or not isinstance(plan, dict):
+            return intent_result
+
+        task_type = plan.get("task_type")
+        task_slots = plan.get("slots") or {}
+        task_to_tool = {
+            "shipment_generate": "shipment_generate",
+            "product_query": "products",
+            "customer_query": "customers",
+            "print_config": "system",
+            "customer_supplement": "customers",
+        }
+
+        if task_type not in task_to_tool:
+            return intent_result
+
+        merged_slots = {}
+        merged_slots.update(intent_result.get("slots") or {})
+        merged_slots.update(task_slots)
+        intent_result["slots"] = merged_slots
+
+        if not intent_result.get("tool_key"):
+            intent_result["tool_key"] = task_to_tool[task_type]
+        if not intent_result.get("final_intent"):
+            intent_result["final_intent"] = task_type
+        if not intent_result.get("primary_intent"):
+            intent_result["primary_intent"] = task_type
+
+        return intent_result
+
+    def _enhance_with_shipment_parser(
+        self,
+        message: str,
+        intent_result: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        使用发货单解析器增强槽位
+
+        Args:
+            message: 用户消息
+            intent_result: 意图识别结果
+
+        Returns:
+            增强后的意图结果字典
+        """
+        final_intent_name = intent_result.get("final_intent") or intent_result.get("primary_intent")
+        if final_intent_name != "shipment_generate":
+            return intent_result
+
+        merged_slots = dict(intent_result.get("slots") or {})
+        try:
+            from app.routes.tools import _parse_order_text
+            parsed_order = _parse_order_text(message)
+            if not parsed_order.get("success"):
+                return intent_result
+
+            products = parsed_order.get("products") or []
+            first = products[0] if products else {}
+
+            if products:
+                merged_slots["products"] = products
+            if parsed_order.get("unit_name"):
+                merged_slots["unit_name"] = parsed_order.get("unit_name")
+
+            if not (merged_slots.get("model_number") or merged_slots.get("product_model")) and first.get("model_number"):
+                merged_slots["model_number"] = first.get("model_number")
+            if not merged_slots.get("tin_spec") and first.get("tin_spec"):
+                merged_slots["tin_spec"] = first.get("tin_spec")
+            if not merged_slots.get("quantity_tins") and first.get("quantity_tins"):
+                merged_slots["quantity_tins"] = first.get("quantity_tins")
+
+            intent_result["slots"] = merged_slots
+        except Exception:
+            pass
+
+        return intent_result
+
+    def _update_context_from_intent(
+        self,
+        conv_context: ConversationContext,
+        intent_result: Dict[str, Any]
+    ) -> None:
+        """
+        从意图结果更新对话上下文
+
+        Args:
+            conv_context: 对话上下文
+            intent_result: 意图识别结果
+        """
+        conv_context.current_intent = intent_result.get("final_intent") or intent_result.get("primary_intent")
+        conv_context.current_tool_key = intent_result.get("tool_key")
+        conv_context.intent_hints = intent_result.get("intent_hints", [])
+        conv_context.last_intent_result = intent_result
+
+    def _get_or_create_context(
+        self,
+        user_id: str,
+        context: Optional[Dict[str, Any]]
+    ) -> ConversationContext:
+        """
+        获取或创建对话上下文
+
+        Args:
+            user_id: 用户 ID
+            context: 客户端附加的键值上下文
+
+        Returns:
+            对话上下文对象
+        """
+        conv_context = self.get_context(user_id)
+        if not conv_context:
+            conv_context = self.create_context(user_id)
+        enriched = self._enrich_context_with_kitten_business_snapshot(context)
+        self._apply_request_context(conv_context, enriched)
+        return conv_context
+
+    async def _handle_special_intents(
+        self,
+        message: str,
+        intent_result: Dict[str, Any],
+        conv_context: ConversationContext,
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        处理特殊意图（确认、否定、问候、再见、帮助、硬规则）
+
+        Args:
+            message: 用户消息
+            intent_result: 意图识别结果
+            conv_context: 对话上下文
+            user_id: 用户 ID
+
+        Returns:
+            如果处理了特殊意图返回响应字典，否则返回 None
+        """
+        if result := await self._handle_confirmation_intent(message, intent_result, conv_context, user_id):
+            return result
+
+        if result := await self._handle_negation_intent(message, intent_result, conv_context, user_id):
+            return result
+
+        if intent_result.get("is_greeting"):
+            return await self._handle_greeting(message, conv_context)
+
+        if intent_result.get("is_goodbye"):
+            return await self._handle_goodbye(message, conv_context)
+
+        if intent_result.get("is_help"):
+            return await self._handle_help(message, conv_context)
+
+        hard_rule_result = self._check_hard_rules(message)
+        if hard_rule_result:
+            return hard_rule_result
+
+        return None
+
+    async def _handle_confirmation_intent(
+        self,
+        message: str,
+        intent_result: Dict[str, Any],
+        conv_context: ConversationContext,
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        处理确认意图（用户说"是/好的/确认"）
+
+        Args:
+            message: 用户消息
+            intent_result: 意图识别结果
+            conv_context: 对话上下文
+            user_id: 用户 ID
+
+        Returns:
+            如果处理了确认意图返回响应字典，否则返回 None
+        """
+        if not intent_result.get("is_confirmation"):
+            return None
+
+        confirmation_pending = conv_context.pending_confirmation or self.confirmation_service.get_pending_intent(user_id)
+        if not confirmation_pending:
+            return None
+
+        pending = confirmation_pending
+        action_type = pending.get("type", pending.get("intent", ""))
+        tool_key = pending.get("tool_key", pending.get("intent"))
+        params = pending.get("params", pending.get("slots", {}))
+        conv_context.last_action = f"confirmed_{action_type}"
+
+        self.add_intent_feedback(
+            user_id=user_id,
+            message=message,
+            recognized_intent=pending.get("intent", action_type),
+            feedback="confirmed",
+            slots=params
+        )
+
+        self.record_user_action(
+            user_id=user_id,
+            intent=pending.get("intent", action_type),
+            slots=params,
+            message=message
+        )
+
+        conv_context.pending_confirmation = None
+        self.confirmation_service.clear_pending_intent(user_id)
+
+        if tool_key:
+            return {
+                "text": f"好的，正在执行【{action_type}】...",
+                "action": "tool_call",
+                "data": {
+                    "tool_key": tool_key,
+                    "intent": "confirmation_executed",
+                    "params": params,
+                    "from_pending_confirmation": True,
+                }
+            }
+
+        return None
+
+    async def _handle_negation_intent(
+        self,
+        message: str,
+        intent_result: Dict[str, Any],
+        conv_context: ConversationContext,
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        处理否定意图（用户说"否/不要/取消"）
+
+        Args:
+            message: 用户消息
+            intent_result: 意图识别结果
+            conv_context: 对话上下文
+            user_id: 用户 ID
+
+        Returns:
+            如果处理了否定意图返回响应字典，否则返回 None
+        """
+        if intent_result.get("is_negated") and conv_context.pending_confirmation:
+            pending_intent = conv_context.pending_confirmation.get("intent", "")
+            self.add_intent_feedback(
+                user_id=user_id,
+                message=message,
+                recognized_intent=pending_intent,
+                feedback="negated",
+                slots=conv_context.pending_confirmation.get("slots", {})
+            )
+            conv_context.pending_confirmation = None
+            return None
+
+        if intent_result.get("is_negation_intent") and not conv_context.pending_confirmation and len(message) < 10:
+            conv_context.last_action = "user_negated"
+            self.add_intent_feedback(
+                user_id=user_id,
+                message=message,
+                recognized_intent=conv_context.current_intent or "",
+                feedback="negated",
+                slots=conv_context.last_intent_result.get("slots", {}) if conv_context.last_intent_result else {}
+            )
+            return {
+                "text": "好的，已取消。有其他需要帮助的吗？",
+                "action": "negated",
+                "data": {}
+            }
+
+        return None
+
+    async def _handle_pending_intent(
+        self,
+        message: str,
+        intent_result: Dict[str, Any],
+        conv_context: ConversationContext,
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        处理 pending 意图（多轮对话中的槽位填充）
+
+        Args:
+            message: 用户消息
+            intent_result: 意图识别结果
+            conv_context: 对话上下文
+            user_id: 用户 ID
+
+        Returns:
+            如果处理了 pending 意图返回响应字典，否则返回 None
+        """
+        pending = self.confirmation_service.get_pending_intent(user_id)
+        if not pending:
+            return None
+
+        current_tool_key = intent_result.get("tool_key")
+
+        if pending and (intent_result.get("is_greeting") or intent_result.get("is_goodbye") or intent_result.get("is_help")):
+            logger.info(f"[DEBUG_PENDING] 检测到特殊意图，清除 pending")
+            self.confirmation_service.clear_pending_intent(user_id)
+            return None
+
+        if current_tool_key and current_tool_key != pending.get("intent"):
+            pending_intent = pending.get("intent")
+            if pending_intent not in (current_tool_key, intent_result.get("primary_intent")):
+                logger.info(f"[DEBUG_PENDING] 检测到新意图 {current_tool_key} 与 pending 意图 {pending_intent} 不同，清除 pending")
+                self.confirmation_service.clear_pending_intent(user_id)
+                return None
+
+        return await self._fill_pending_slots(message, pending, user_id)
+
+    async def _fill_pending_slots(
+        self,
+        message: str,
+        pending: Dict[str, Any],
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        填充 pending 意图的槽位
+
+        Args:
+            message: 用户消息
+            pending: 待处理的 pending 意图
+            user_id: 用户 ID
+
+        Returns:
+            响应字典
+        """
+        logger.info("[DEBUG_PENDING] 检测到 pending 意图存在，将使用本地规则提取槽位")
+        local_result = self.intent_service(message)
+        new_slots = local_result.get("slots", {})
+        logger.info(f"[DEBUG_PENDING] 本地提取的 slots: {new_slots}")
+        merged_slots = self.confirmation_service.merge_slots(user_id, new_slots)
+        logger.info(f"[DEBUG_PENDING] 合并后的 slots: {merged_slots}")
+
+        check_result = self.confirmation_service.check_and_build_prompt({
+            "final_intent": pending.get("intent"),
+            "slots": merged_slots,
+        })
+        logger.info(f"[DEBUG_PENDING] check_result status: {check_result.get('status')}, missing: {check_result.get('missing_slots')}")
+
+        if check_result["status"] == "complete":
+            return self._build_pending_complete_response(pending, merged_slots, user_id)
+        else:
+            return self._build_pending_incomplete_response(pending, merged_slots, check_result, user_id)
+
+    def _build_pending_complete_response(
+        self,
+        pending: Dict[str, Any],
+        merged_slots: Dict[str, Any],
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        构建 pending 槽位完整的响应
+
+        Args:
+            pending: 待处理的 pending 意图
+            merged_slots: 合并后的槽位
+            user_id: 用户 ID
+
+        Returns:
+            响应字典
+        """
+        pending_intent = pending.get("intent", "")
+        action_texts = {
+            "shipment_generate": f"正在为 {merged_slots.get('unit_name', '该客户')} 生成发货单",
+            "products": f"正在查询 {merged_slots.get('unit_name', merged_slots.get('keyword', '该产品'))} 的产品信息",
+            "customers": f"正在查询客户信息",
+            "shipments": f"正在查询发货记录",
+            "print_label": f"正在处理标签打印",
+            "wechat_send": f"正在发送微信消息",
+            "upload_file": f"正在上传文件",
+        }
+        action_text = action_texts.get(pending_intent, f"正在处理 {pending_intent}")
+        self.confirmation_service.set_pending_intent(user_id, {
+            "intent": pending.get("intent"),
+            "slots": merged_slots,
+            "missing_slots": [],
+        })
+        return {
+            "text": f"好的，已收到您的信息，{action_text}...",
+            "action": "tool_call",
+            "data": {
+                "tool_key": pending.get("intent"),
+                "intent": pending.get("intent"),
+                "slots": merged_slots,
+            }
+        }
+
+    def _build_pending_incomplete_response(
+        self,
+        pending: Dict[str, Any],
+        merged_slots: Dict[str, Any],
+        check_result: Dict[str, Any],
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        构建 pending 槽位不完整的响应
+
+        Args:
+            pending: 待处理的 pending 意图
+            merged_slots: 合并后的槽位
+            check_result: 槽位检查结果
+            user_id: 用户 ID
+
+        Returns:
+            响应字典
+        """
+        self.confirmation_service.set_pending_intent(user_id, {
+            "intent": pending.get("intent"),
+            "slots": merged_slots,
+            "missing_slots": check_result["missing_slots"],
+        })
+        return {
+            "text": check_result["question"],
+            "action": "slot_fill",
+            "data": {
+                "intent": pending.get("intent"),
+                "slots": merged_slots,
+                "missing_slots": check_result["missing_slots"],
+            }
+        }
+
+    async def _execute_or_generate_response(
+        self,
+        message: str,
+        intent_result: Dict[str, Any],
+        conv_context: ConversationContext,
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        执行工具调用或生成 AI 响应
+
+        Args:
+            message: 用户消息
+            intent_result: 意图识别结果
+            conv_context: 对话上下文
+            user_id: 用户 ID
+
+        Returns:
+            响应字典
+        """
+        final_intent = intent_result.get("final_intent") or intent_result.get("primary_intent")
+        slots = intent_result.get("slots", {})
+
+        pending = self.confirmation_service.get_pending_intent(user_id)
+        if pending:
+            slots = self.confirmation_service.merge_slots(user_id, slots)
+
+        check_result = self.confirmation_service.check_and_build_prompt({
+            "final_intent": final_intent,
+            "slots": slots,
+        })
+
+        if check_result["status"] == "missing_slots":
+            self.confirmation_service.set_pending_intent(user_id, check_result["pending_data"])
+            return {
+                "text": check_result["question"],
+                "action": "slot_fill",
+                "data": {
+                    "intent": final_intent,
+                    "slots": slots,
+                    "missing_slots": check_result["missing_slots"],
+                    "pending_data": check_result["pending_data"],
+                }
+            }
+
+        tool_key = intent_result.get("tool_key")
+        if tool_key:
+            return self._build_tool_call_response(tool_key, slots, intent_result, user_id, check_result)
+
+        if intent_result.get("ai_mode") == "offline":
+            return await self._call_ai_offline(message, conv_context, intent_result)
+
+        return await self._call_ai(message, conv_context, intent_result)
+
+    def _build_tool_call_response(
+        self,
+        tool_key: str,
+        slots: Dict[str, Any],
+        intent_result: Dict[str, Any],
+        user_id: str,
+        check_result: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        构建工具调用响应
+
+        Args:
+            tool_key: 工具键
+            slots: 槽位信息
+            intent_result: 意图识别结果
+            user_id: 用户 ID
+            check_result: 槽位检查结果
+
+        Returns:
+            响应字典
+        """
+        tool_action_texts = {
+            "shipment_generate": f"正在为 {slots.get('unit_name', slots.get('keyword', '该客户'))} 生成发货单",
+            "products": f"正在查询 {slots.get('unit_name', slots.get('keyword', '该产品'))} 的产品信息",
+            "customers": f"正在查询客户信息",
+            "shipments": f"正在查询发货记录",
+            "print_label": f"正在处理标签打印",
+            "wechat_send": f"正在发送微信消息",
+            "upload_file": f"正在上传文件",
+            "materials": f"正在查询原材料库存",
+            "shipment_template": f"正在查询发货单模板",
+            "template_extract": f"正在提取模板结构",
+            "business_docking": f"正在执行业务对接模板提取",
+            "template_preview": f"正在查询模板预览",
+            "shipment_records": f"正在查询出货记录",
+            "wechat": f"正在处理微信联系人能力",
+            "printer_list": f"正在查询打印机配置",
+            "settings": f"正在读取系统设置",
+            "tools_table": f"正在加载工具能力表",
+            "other_tools": f"正在查询其他工具能力",
+            "ai_ecosystem": f"正在查询AI生态能力",
+            "excel_decompose": f"正在分解Excel模板",
+            "excel_analyzer": f"正在分析Excel结构",
+            "show_images": f"正在查看图片",
+            "show_videos": f"正在查看视频",
+        }
+        action_text = tool_action_texts.get(tool_key, f"正在处理工具调用：{tool_key}")
+
+        habit_suggestion = self._check_habit_suggestion(user_id, tool_key, slots)
+        if habit_suggestion:
+            action_text = f"{action_text} {habit_suggestion}"
+
+        self.confirmation_service.set_pending_intent(user_id, {
+            "intent": intent_result.get("final_intent") or intent_result.get("primary_intent"),
+            "slots": slots,
+            "missing_slots": check_result.get("missing_slots", []) if check_result.get("status") == "missing_slots" else [],
+        })
+        return {
+            "text": f"好的，{action_text}...",
+            "action": "tool_call",
+            "data": {
+                "tool_key": tool_key,
+                "intent": intent_result.get("final_intent") or intent_result.get("primary_intent"),
+                "slots": slots,
+                "hints": intent_result.get("intent_hints", []),
+                "habit_suggestion": habit_suggestion
+            }
+        }
+
     async def chat(
         self,
         user_id: str,
         message: str,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        source: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         处理用户聊天消息
-        
+
         Args:
             user_id: 用户 ID
             message: 用户消息
-            context: 额外上下文信息
-            
+            context: 客户端附加的键值上下文（会合并进会话 metadata.request_context，
+                经 _build_context_prompt 写入 system 提示；如 kitten_dataset 表格摘要）
+            source: 来源标识（pro 表示专业模式，使用 unified_recognizer）
+
         Returns:
             对话响应字典
         """
         try:
-            # 获取或创建对话上下文
-            conv_context = self.get_context(user_id)
-            if not conv_context:
-                conv_context = self.create_context(user_id)
+            conv_context = self._get_or_create_context(user_id, context)
 
-            # 意图识别（提前，用于确认检查）
-            intent_result = await self.deepseek_intent_service.recognize(message)
+            intent_result = await self._recognize_intent(message, source, user_id, context)
+            intent_result = self._enhance_intent_slots(message, intent_result, user_id)
+
             logger.info(f"[INTENT_RESULT] final_intent={intent_result.get('final_intent')}, primary_intent={intent_result.get('primary_intent')}, tool_key={intent_result.get('tool_key')}, slots={intent_result.get('slots')}, intent_source={intent_result.get('intent_source')}")
-            conv_context.current_intent = intent_result.get("final_intent") or intent_result.get("primary_intent")
-            conv_context.current_tool_key = intent_result.get("tool_key")
-            conv_context.intent_hints = intent_result.get("intent_hints", [])
-            conv_context.last_intent_result = intent_result
+            self._update_context_from_intent(conv_context, intent_result)
 
-            # 优先处理确认意图（用户说"是/好的/确认"）
-            confirmation_pending = conv_context.pending_confirmation or self.confirmation_service.get_pending_intent(user_id)
-            if intent_result.get("is_confirmation") and confirmation_pending:
-                pending = confirmation_pending
-                action_type = pending.get("type", pending.get("intent", ""))
-                tool_key = pending.get("tool_key", pending.get("intent"))
-                params = pending.get("params", pending.get("slots", {}))
-                conv_context.last_action = f"confirmed_{action_type}"
+            if result := await self._handle_special_intents(message, intent_result, conv_context, user_id):
+                return result
 
-                self.add_intent_feedback(
-                    user_id=user_id,
-                    message=message,
-                    recognized_intent=pending.get("intent", action_type),
-                    feedback="confirmed",
-                    slots=params
-                )
+            if result := await self._handle_pending_intent(message, intent_result, conv_context, user_id):
+                return result
 
-                self.record_user_action(
-                    user_id=user_id,
-                    intent=pending.get("intent", action_type),
-                    slots=params,
-                    message=message
-                )
+            return await self._execute_or_generate_response(message, intent_result, conv_context, user_id)
 
-                conv_context.pending_confirmation = None
-                self.confirmation_service.clear_pending_intent(user_id)
-
-                if tool_key:
-                    return {
-                        "text": f"好的，正在执行【{action_type}】...",
-                        "action": "tool_call",
-                        "data": {
-                            "tool_key": tool_key,
-                            "intent": "confirmation_executed",
-                            "params": params,
-                            "from_pending_confirmation": True,
-                        }
-                    }
-
-            # 清除 pending 意图（当用户说问候/再见/帮助时）
-            pending = self.confirmation_service.get_pending_intent(user_id)
-            current_tool_key = intent_result.get("tool_key")
-
-            if pending and (intent_result.get("is_greeting") or intent_result.get("is_goodbye") or intent_result.get("is_help")):
-                logger.info(f"[DEBUG_PENDING] 检测到特殊意图，清除 pending")
-                self.confirmation_service.clear_pending_intent(user_id)
-                pending = None
-
-            # 关键修复：如果新消息有明确的工具意图，且与 pending 意图不同，清除 pending
-            if pending and current_tool_key and current_tool_key != pending.get("intent"):
-                pending_intent = pending.get("intent")
-                if pending_intent not in (current_tool_key, intent_result.get("primary_intent")):
-                    logger.info(f"[DEBUG_PENDING] 检测到新意图 {current_tool_key} 与 pending 意图 {pending_intent} 不同，清除 pending")
-                    self.confirmation_service.clear_pending_intent(user_id)
-                    pending = None
-
-            if pending:
-                logger.info(f"[DEBUG_PENDING] 检测到 pending 意图存在，将使用本地规则提取槽位")
-                local_result = self.intent_service(message)
-                new_slots = local_result.get("slots", {})
-                logger.info(f"[DEBUG_PENDING] 本地提取的 slots: {new_slots}")
-                merged_slots = self.confirmation_service.merge_slots(user_id, new_slots)
-                logger.info(f"[DEBUG_PENDING] 合并后的 slots: {merged_slots}")
-
-                check_result = self.confirmation_service.check_and_build_prompt({
-                    "final_intent": pending.get("intent"),
-                    "slots": merged_slots,
-                })
-                logger.info(f"[DEBUG_PENDING] check_result status: {check_result.get('status')}, missing: {check_result.get('missing_slots')}")
-
-                if check_result["status"] == "complete":
-                    pending_intent = pending.get("intent", "")
-                    action_texts = {
-                        "shipment_generate": f"正在为 {merged_slots.get('unit_name', '该客户')} 生成发货单",
-                        "products": f"正在查询 {merged_slots.get('unit_name', merged_slots.get('keyword', '该产品'))} 的产品信息",
-                        "customers": f"正在查询客户信息",
-                        "shipments": f"正在查询发货记录",
-                        "print_label": f"正在处理标签打印",
-                        "wechat_send": f"正在发送微信消息",
-                        "upload_file": f"正在上传文件",
-                    }
-                    action_text = action_texts.get(pending_intent, f"正在处理 {pending_intent}")
-                    self.confirmation_service.set_pending_intent(user_id, {
-                        "intent": pending.get("intent"),
-                        "slots": merged_slots,
-                        "missing_slots": [],
-                    })
-                    return {
-                        "text": f"好的，已收到您的信息，{action_text}...",
-                        "action": "tool_call",
-                        "data": {
-                            "tool_key": pending.get("intent"),
-                            "intent": pending.get("intent"),
-                            "slots": merged_slots,
-                        }
-                    }
-                else:
-                    self.confirmation_service.set_pending_intent(user_id, {
-                        "intent": pending.get("intent"),
-                        "slots": merged_slots,
-                        "missing_slots": check_result["missing_slots"],
-                    })
-                    return {
-                        "text": check_result["question"],
-                        "action": "slot_fill",
-                        "data": {
-                            "intent": pending.get("intent"),
-                            "slots": merged_slots,
-                            "missing_slots": check_result["missing_slots"],
-                        }
-                    }
-
-            # 检查是否有待确认的操作
-            if intent_result.get("is_negated") and conv_context.pending_confirmation:
-                pending_intent = conv_context.pending_confirmation.get("intent", "")
-                self.add_intent_feedback(
-                    user_id=user_id,
-                    message=message,
-                    recognized_intent=pending_intent,
-                    feedback="negated",
-                    slots=conv_context.pending_confirmation.get("slots", {})
-                )
-                conv_context.pending_confirmation = None
-
-            # 否定意图识别：当用户说"否/不要/取消"且无待确认时，可能是否定上一轮AI建议
-            if intent_result.get("is_negation_intent") and not conv_context.pending_confirmation and len(message) < 10:
-                conv_context.last_action = "user_negated"
-                self.add_intent_feedback(
-                    user_id=user_id,
-                    message=message,
-                    recognized_intent=conv_context.current_intent or "",
-                    feedback="negated",
-                    slots=conv_context.last_intent_result.get("slots", {}) if conv_context.last_intent_result else {}
-                )
-                return {
-                    "text": "好的，已取消。有其他需要帮助的吗？",
-                    "action": "negated",
-                    "data": {}
-                }
-
-            # 特殊意图处理
-            if intent_result.get("is_greeting"):
-                return await self._handle_greeting(message, conv_context)
-
-            if intent_result.get("is_goodbye"):
-                return await self._handle_goodbye(message, conv_context)
-
-            if intent_result.get("is_help"):
-                return await self._handle_help(message, conv_context)
-
-            hard_rule_result = self._check_hard_rules(message)
-            if hard_rule_result:
-                return hard_rule_result
-
-            # 检查意图槽位是否完整，缺失时反向询问
-            final_intent = intent_result.get("final_intent") or intent_result.get("primary_intent")
-            slots = intent_result.get("slots", {})
-            logger.info(f"[DEBUG_SLOTS] intent_result.keys()={list(intent_result.keys())}, slots={slots}, tool_key={intent_result.get('tool_key')}, deepseek_intent={intent_result.get('deepseek_intent')}")
-
-            # 如果有待确认的意图，尝试合并槽位
-            pending = self.confirmation_service.get_pending_intent(user_id)
-            if pending:
-                slots = self.confirmation_service.merge_slots(user_id, slots)
-
-            check_result = self.confirmation_service.check_and_build_prompt({
-                "final_intent": final_intent,
-                "slots": slots,
-            })
-            logger.info(f"[CHECK_RESULT] final_intent={final_intent}, slots={slots}, check_result={check_result}")
-
-            # 槽位缺失，需要追问
-            if check_result["status"] == "missing_slots":
-                self.confirmation_service.set_pending_intent(user_id, check_result["pending_data"])
-                return {
-                    "text": check_result["question"],
-                    "action": "slot_fill",
-                    "data": {
-                        "intent": final_intent,
-                        "slots": slots,
-                        "missing_slots": check_result["missing_slots"],
-                        "pending_data": check_result["pending_data"],
-                    }
-                }
-
-            # 意图完整，保留待确认状态让用户可补充可选信息
-
-            # 如果有明确的工具意图且未被否定，优先使用工具
-            tool_key = intent_result.get("tool_key")
-            if tool_key:
-                tool_action_texts = {
-                    "shipment_generate": f"正在为 {slots.get('unit_name', slots.get('keyword', '该客户'))} 生成发货单",
-                    "products": f"正在查询 {slots.get('unit_name', slots.get('keyword', '该产品'))} 的产品信息",
-                    "customers": f"正在查询客户信息",
-                    "shipments": f"正在查询发货记录",
-                    "print_label": f"正在处理标签打印",
-                    "wechat_send": f"正在发送微信消息",
-                    "upload_file": f"正在上传文件",
-                    "materials": f"正在查询原材料库存",
-                    "shipment_template": f"正在查询发货单模板",
-                    "excel_decompose": f"正在分解Excel模板",
-                    "excel_analyzer": f"正在分析Excel结构",
-                    "show_images": f"正在查看图片",
-                    "show_videos": f"正在查看视频",
-                }
-                action_text = tool_action_texts.get(tool_key, f"正在处理工具调用：{tool_key}")
-
-                habit_suggestion = self._check_habit_suggestion(user_id, tool_key, slots)
-                if habit_suggestion:
-                    action_text = f"{action_text} {habit_suggestion}"
-
-                self.confirmation_service.set_pending_intent(user_id, {
-                    "intent": intent_result.get("final_intent") or intent_result.get("primary_intent"),
-                    "slots": slots,
-                    "missing_slots": check_result.get("missing_slots", []) if check_result.get("status") == "missing_slots" else [],
-                })
-                return {
-                    "text": f"好的，{action_text}...",
-                    "action": "tool_call",
-                    "data": {
-                        "tool_key": tool_key,
-                        "intent": intent_result.get("final_intent") or intent_result.get("primary_intent"),
-                        "slots": slots,
-                        "hints": intent_result.get("intent_hints", []),
-                        "habit_suggestion": habit_suggestion
-                    }
-                }
-            
-            # 调用 DeepSeek AI 进行回复
-            return await self._call_ai(message, conv_context, intent_result)
-            
         except Exception as e:
             logger.error(f"处理聊天消息失败：{e}")
             return {
@@ -732,7 +1288,7 @@ class AIConversationService:
                 "action": "error",
                 "data": {"error": str(e)}
             }
-    
+
     async def _handle_greeting(
         self,
         message: str,
@@ -818,24 +1374,243 @@ class AIConversationService:
             "data": {}
         }
 
+    def _enrich_context_with_kitten_business_snapshot(
+        self, context: Optional[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        """小猫分析：在请求进入合并逻辑前按需拉取业务库快照（原材料/产品/出货）。"""
+        if not isinstance(context, dict):
+            return context
+        if not context.get("kitten_analyzer"):
+            return context
+        out = dict(context)
+        if out.get("kitten_include_business_db"):
+            try:
+                from app.services.kitten_business_snapshot import (
+                    build_kitten_business_snapshot,
+                )
+
+                out["kitten_business_snapshot"] = build_kitten_business_snapshot()
+            except Exception as exc:
+                logger.warning("kitten business snapshot build failed: %s", exc)
+                out["kitten_business_snapshot"] = {
+                    "success": False,
+                    "text": f"【业务数据库快照】生成失败：{exc}",
+                    "stats": {},
+                }
+        else:
+            out.pop("kitten_business_snapshot", None)
+        return out
+
+    def _apply_request_context(
+        self,
+        conv_context: ConversationContext,
+        ctx: Optional[Dict[str, Any]],
+    ) -> None:
+        """将本次 HTTP 请求中的 context 合并进 metadata.request_context，供 system 提示使用。"""
+        if ctx is None:
+            return
+        if not ctx:
+            return
+        prev = (conv_context.metadata or {}).get("request_context") or {}
+        merged: Dict[str, Any] = {**prev, **ctx}
+        if ctx.get("kitten_analyzer") and ctx.get("has_dataset") is False:
+            merged.pop("kitten_dataset", None)
+        elif "kitten_dataset" in ctx:
+            if ctx["kitten_dataset"]:
+                merged["kitten_dataset"] = self._sanitize_kitten_dataset(ctx["kitten_dataset"])
+            else:
+                merged.pop("kitten_dataset", None)
+        elif prev.get("kitten_dataset"):
+            merged["kitten_dataset"] = prev["kitten_dataset"]
+
+        if ctx.get("kitten_analyzer"):
+            if ctx.get("kitten_include_business_db") and ctx.get("kitten_business_snapshot"):
+                merged["kitten_business_snapshot"] = self._sanitize_kitten_business_snapshot(
+                    ctx["kitten_business_snapshot"]
+                )
+            else:
+                merged.pop("kitten_business_snapshot", None)
+        conv_context.metadata.setdefault("request_context", {})
+        conv_context.metadata["request_context"] = merged
+        conv_context.updated_at = time.time()
+
+    def _sanitize_kitten_dataset(self, kd: Any) -> Dict[str, Any]:
+        """限制字段长度，避免 system 提示过大。"""
+        if not isinstance(kd, dict):
+            return {}
+        out = dict(kd)
+        pt = out.get("preview_text")
+        if isinstance(pt, str) and len(pt) > 12000:
+            out["preview_text"] = pt[:12000] + "\n…（已截断）"
+        fields = out.get("fields") if isinstance(out.get("fields"), list) else out.get("field_names")
+        if isinstance(fields, list) and len(fields) > 200:
+            out["fields"] = [str(x) for x in fields[:200]]
+            out["fields_truncated"] = True
+        elif isinstance(fields, list):
+            out["fields"] = [str(x) for x in fields]
+        return out
+
+    def _sanitize_kitten_business_snapshot(self, snap: Any) -> Dict[str, Any]:
+        if not isinstance(snap, dict):
+            return {}
+        out = dict(snap)
+        pt = out.get("text")
+        if isinstance(pt, str) and len(pt) > 14000:
+            out["text"] = pt[:14000] + "\n…（已截断）"
+        return out
+
+    def _format_kitten_business_snapshot_block(self, snap: Optional[Any]) -> str:
+        if snap is None or (isinstance(snap, dict) and not snap):
+            return ""
+        if not isinstance(snap, dict):
+            return ""
+        preview = snap.get("text")
+        if not isinstance(preview, str) or not preview.strip():
+            return ""
+        head = "【小猫分析 · 业务数据库快照】"
+        ga = snap.get("generated_at")
+        if ga:
+            head += f"（生成时间 {ga}）"
+        return f"{head}\n{preview.strip()}"
+
+    def _format_kitten_dataset_block(self, kd: Optional[Any]) -> str:
+        if kd is None or (isinstance(kd, dict) and not kd):
+            return (
+                "【小猫分析】当前未附带表格数据，请根据通用数据分析知识回答用户问题。"
+            )
+        if not isinstance(kd, dict):
+            return ""
+        lines = ["【小猫分析 · 数据上下文】"]
+        fn = kd.get("file_name") or kd.get("name")
+        if fn:
+            lines.append(f"文件名：{fn}")
+        if kd.get("rows") is not None:
+            lines.append(f"行数：{kd.get('rows')}")
+        if kd.get("columns") is not None:
+            lines.append(f"列数：{kd.get('columns')}")
+        fields = kd.get("fields") or kd.get("field_names")
+        if isinstance(fields, (list, tuple)) and fields:
+            lines.append(f"字段：{', '.join(str(x) for x in fields[:80])}")
+            if len(fields) > 80:
+                lines.append("…（字段列表已省略）")
+        preview = kd.get("preview_text")
+        if isinstance(preview, str) and preview.strip():
+            lines.append("样本行（供理解表格结构）：")
+            lines.append(preview.strip())
+        lines.append("（若字段名为 __EMPTY 等占位，请结合样本行推断含义。）")
+        return "\n".join(lines)
+
+    def _format_request_context_for_system(self, req: Optional[Dict[str, Any]]) -> str:
+        """将 metadata.request_context 格式化为并入 system 的文本块。"""
+        if not req or not isinstance(req, dict):
+            return ""
+        blocks: List[str] = []
+        if req.get("kitten_analyzer"):
+            blocks.append(self._format_kitten_dataset_block(req.get("kitten_dataset")))
+            db_block = self._format_kitten_business_snapshot_block(
+                req.get("kitten_business_snapshot")
+            )
+            if db_block:
+                blocks.append(db_block)
+        excel_vector_ctx = req.get("excel_vector_context")
+        if isinstance(excel_vector_ctx, dict):
+            blocks.append(self._format_excel_vector_block(excel_vector_ctx))
+        extra = {
+            k: v
+            for k, v in req.items()
+            if k not in (
+                "kitten_analyzer",
+                "has_dataset",
+                "kitten_dataset",
+                "kitten_include_business_db",
+                "kitten_business_snapshot",
+                "excel_vector_context",
+            )
+        }
+        if extra:
+            try:
+                dumped = json.dumps(extra, ensure_ascii=False, default=str)
+                if len(dumped) > 4096:
+                    dumped = dumped[:4096] + "…"
+                blocks.append(f"【附加上下文】\n{dumped}")
+            except Exception:
+                pass
+        merged = "\n\n".join(b for b in blocks if b)
+        return merged
+
+    def _format_excel_vector_block(self, payload: Dict[str, Any]) -> str:
+        """格式化 Excel 检索结果，作为回答依据写入 system prompt。"""
+        index_id = str(payload.get("index_id") or "").strip()
+        query = str(payload.get("query") or "").strip()
+        hits = payload.get("hits") if isinstance(payload.get("hits"), list) else []
+        lines = ["【Excel语义检索上下文】"]
+        if index_id:
+            lines.append(f"索引ID：{index_id}")
+        if query:
+            lines.append(f"问题：{query}")
+        if not hits:
+            lines.append("未召回相关内容。")
+            lines.append("若信息不足，请明确告知用户并引导其补充筛选条件。")
+            return "\n".join(lines)
+
+        lines.append("以下是最相关的表格片段（按相关度排序）：")
+        for idx, hit in enumerate(hits[:8], start=1):
+            score = float(hit.get("score", 0.0))
+            metadata = hit.get("metadata") if isinstance(hit.get("metadata"), dict) else {}
+            sheet = str(metadata.get("sheet") or "-")
+            row_index = metadata.get("row_index")
+            content = str(hit.get("content") or "").strip()
+            if len(content) > 600:
+                content = content[:600] + "..."
+            if row_index is not None:
+                lines.append(f"{idx}. sheet={sheet}, row={row_index}, score={score:.4f}")
+            else:
+                lines.append(f"{idx}. sheet={sheet}, score={score:.4f}")
+            lines.append(content)
+        lines.append("回答时优先引用以上片段，不要编造未出现的数据。")
+        return "\n".join(lines)
+
+    def _metadata_cache_hash(self, metadata: Optional[Dict[str, Any]]) -> str:
+        """metadata 可能含嵌套 dict，避免 sorted(items) 因类型不可比较而抛错。"""
+        if not metadata:
+            return ""
+        try:
+            return hashlib.md5(
+                json.dumps(metadata, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")
+            ).hexdigest()
+        except Exception:
+            return str(hash(frozenset(metadata.keys())))
+
     def _build_context_prompt(self, context: ConversationContext) -> str:
-        """构建意图上下文提示"""
-        parts = []
+        """构建意图上下文提示（含 HTTP request_context 并入的 system 块）"""
+        blocks: List[str] = []
+        req = (context.metadata or {}).get("request_context")
+        req_block = self._format_request_context_for_system(req)
+        if req_block:
+            blocks.append(req_block)
+
+        session_parts: List[str] = []
         if context.current_intent:
-            parts.append(f"当前会话意图：{context.current_intent}")
+            session_parts.append(f"当前会话意图：{context.current_intent}")
         if context.current_tool_key:
-            parts.append(f"当前工具：{context.current_tool_key}")
+            session_parts.append(f"当前工具：{context.current_tool_key}")
         if context.intent_hints:
-            parts.append(f"意图线索：{', '.join(context.intent_hints)}")
+            session_parts.append(f"意图线索：{', '.join(context.intent_hints)}")
         if context.pending_confirmation:
             action = context.pending_confirmation.get("action", "")
             desc = context.pending_confirmation.get("description", "")
-            parts.append(f"待确认操作：{action} - {desc}")
+            session_parts.append(f"待确认操作：{action} - {desc}")
         if context.last_action:
-            parts.append(f"最近操作：{context.last_action}")
-        if parts:
-            return "【当前会话上下文】\n" + "\n".join(parts) + "\n【 END上下文 】"
-        return ""
+            session_parts.append(f"最近操作：{context.last_action}")
+        if session_parts:
+            blocks.append(
+                "【当前会话上下文】\n"
+                + "\n".join(session_parts)
+                + "\n【 END会话上下文 】"
+            )
+        if not blocks:
+            return ""
+        return "\n\n".join(blocks)
 
     def _check_habit_suggestion(
         self,
@@ -963,8 +1738,9 @@ class AIConversationService:
         Returns:
             AI 回复
         """
-        context_hash = str(sorted(context.metadata.items())) if context.metadata else ""
-        cached_response = _ai_response_cache.get(message, context_hash)
+        context_hash = self._metadata_cache_hash(context.metadata)
+        cache_key = _make_ai_response_cache_key(message, context_hash)
+        cached_response = _ai_response_cache.get(cache_key)
         if cached_response:
             logger.debug("返回缓存的 AI 响应")
             return {
@@ -1013,7 +1789,7 @@ XCAGI 系统主要功能：
             self.add_to_history(context.user_id, "user", message)
             self.add_to_history(context.user_id, "assistant", ai_reply)
 
-            _ai_response_cache.set(message, ai_reply, context_hash)
+            _ai_response_cache.set(cache_key, ai_reply)
 
             return {
                 "text": ai_reply,

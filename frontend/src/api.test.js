@@ -1,62 +1,62 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 describe('API Module Tests', () => {
-  it('should export all API modules', () => {
-    const apiModules = require('../src/api/index.js')
+  it('should export all API modules', async () => {
+    const apiModules = await import('../src/api/index')
     expect(apiModules).toBeDefined()
   })
 
-  it('should have chat API', () => {
-    const chatApi = require('../src/api/chat.js')
+  it('should have chat API', async () => {
+    const chatApi = await import('../src/api/chat')
     expect(chatApi).toBeDefined()
   })
 
-  it('should have products API', () => {
-    const productsApi = require('../src/api/products.js')
+  it('should have products API', async () => {
+    const productsApi = await import('../src/api/products')
     expect(productsApi).toBeDefined()
   })
 
-  it('should have customers API', () => {
-    const customersApi = require('../src/api/customers.js')
+  it('should have customers API', async () => {
+    const customersApi = await import('../src/api/customers')
     expect(customersApi).toBeDefined()
   })
 
-  it('should have orders API', () => {
-    const ordersApi = require('../src/api/orders.js')
+  it('should have orders API', async () => {
+    const ordersApi = await import('../src/api/orders')
     expect(ordersApi).toBeDefined()
   })
 
-  it('should have print API', () => {
-    const printApi = require('../src/api/print.js')
+  it('should have print API', async () => {
+    const printApi = await import('../src/api/print')
     expect(printApi).toBeDefined()
   })
 
-  it('should have wechat API', () => {
-    const wechatApi = require('../src/api/wechat.js')
+  it('should have wechat API', async () => {
+    const wechatApi = await import('../src/api/wechat')
     expect(wechatApi).toBeDefined()
   })
 
-  it('should have materials API', () => {
-    const materialsApi = require('../src/api/materials.js')
+  it('should have materials API', async () => {
+    const materialsApi = await import('../src/api/materials')
     expect(materialsApi).toBeDefined()
   })
 })
 
 describe('Utils Tests', () => {
-  it('should export utils', () => {
-    const utils = require('../src/utils/index.js')
+  it('should export utils', async () => {
+    const utils = await import('../src/utils/index')
     expect(utils).toBeDefined()
   })
 })
 
 describe('Composables Tests', () => {
-  it('should export useApi', () => {
-    const useApi = require('../src/composables/useApi.js')
+  it('should export useApi', async () => {
+    const useApi = await import('../src/composables/useApi')
     expect(useApi).toBeDefined()
   })
 
-  it('should export useProducts', () => {
-    const useProducts = require('../src/composables/useProducts.js')
+  it('should export useProducts', async () => {
+    const useProducts = await import('../src/composables/useProducts')
     expect(useProducts).toBeDefined()
   })
 })

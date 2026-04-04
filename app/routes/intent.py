@@ -16,7 +16,9 @@ intent_bp = Blueprint("intent", __name__, url_prefix="/api/intent")
 
 def get_classifier():
     """获取 classifier 单例，支持从 app.config 或环境变量获取 model_path"""
-    from app.services import BertIntentClassifier
+    # 须使用 bert_intent_service：含 is_available()、predict(..., return_probs=)。
+    # app.services 包导出的 ai_engines.BertIntentClassifier 为精简版，会导致 /api/intent/health 500。
+    from app.services.bert_intent_service import BertIntentClassifier
 
     model_path = current_app.config.get("INTENT_MODEL_PATH")
     if model_path:

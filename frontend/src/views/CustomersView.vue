@@ -4,7 +4,20 @@
       <div class="page-header">
         <h2>客户管理</h2>
         <div class="header-actions">
-          <button class="btn btn-icon" @click="triggerImport" title="上传Excel更新购买单位">📥</button>
+          <select
+            v-model="selectedTemplateId"
+            class="template-select"
+            :disabled="loadingTemplateOptions || templateOptions.length === 0"
+            title="客户管理导出模板"
+          >
+            <option value="" disabled>{{ loadingTemplateOptions ? '加载模板中...' : '请选择导出模板' }}</option>
+            <option v-for="tpl in templateOptions" :key="tpl.id" :value="tpl.id">
+              {{ tpl.name }}
+            </option>
+          </select>
+          <button class="btn btn-icon" @click="triggerImport" title="上传Excel更新购买单位">
+            <i class="fa fa-upload" aria-hidden="true"></i>
+          </button>
           <input
             ref="importFileInput"
             type="file"
@@ -12,7 +25,12 @@
             style="display:none"
             @change="handleImport"
           >
-          <button class="btn btn-icon" @click="exportCustomers" title="导出购买单位Excel">
+          <button
+            class="btn btn-icon"
+            @click="exportCustomers"
+            title="导出购买单位Excel"
+            :disabled="!selectedTemplateId"
+          >
             <svg class="excel-icon-svg" viewBox="0 0 24 24" width="22" height="22">
               <rect width="24" height="24" rx="3" fill="#217346"/>
               <path stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none" d="M7 7l10 10M17 7L7 17"/>
@@ -23,7 +41,7 @@
       </div>
       <div class="stat-cards">
         <div class="stat-card">
-          <div class="number">{{ customers.length }}</div>
+          <div class="number">{{ totalCustomers }}</div>
           <div class="label">客户总数</div>
         </div>
       </div>
@@ -34,9 +52,11 @@
           :loading="loading"
           :selectable="true"
           :selected-ids="selectedIds"
+          :has-more="hasMore"
           row-key="id"
           empty-text="暂无客户数据"
           @update:selected-ids="selectedIds = $event"
+          @load-more="loadMoreCustomers"
         >
           <template #cell-customer_name="{ row }">
             {{ row.customer_name || row.unit_name || row.name || '-' }}
@@ -124,17 +144,25 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import customersApi from '../api/customers';
+import templatePreviewApi from '../api/templatePreview';
 import DataTable from '../components/DataTable.vue';
 import ConfirmDialog from '../components/ConfirmDialog.vue';
 
 const customers = ref([]);
 const loading = ref(false);
 const selectedIds = ref([]);
+const page = ref(1);
+const perPage = 20;
+const totalCustomers = ref(0);
+const hasMore = ref(false);
 const importFileInput = ref(null);
 const showEditModal = ref(false);
 const showDeleteConfirm = ref(false);
 const showBatchDeleteConfirm = ref(false);
 const itemToDelete = ref(null);
+const templateOptions = ref([]);
+const selectedTemplateId = ref('');
+const loadingTemplateOptions = ref(false);
 const editForm = ref({
   id: null,
   customer_name: '',
@@ -150,18 +178,56 @@ const columns = [
   { key: 'address', label: '地址' }
 ];
 
-const loadCustomers = async () => {
+const mergeCustomers = (existing, incoming) => {
+  const merged = [...existing];
+  const seen = new Set(existing.map((x) => x?.id).filter((id) => id !== undefined && id !== null));
+  for (const row of incoming) {
+    const rowId = row?.id;
+    if (rowId === undefined || rowId === null) {
+      merged.push(row);
+      continue;
+    }
+    if (!seen.has(rowId)) {
+      seen.add(rowId);
+      merged.push(row);
+    }
+  }
+  return merged;
+};
+
+const loadCustomers = async ({ reset = true } = {}) => {
+  if (loading.value) return;
   loading.value = true;
   try {
-    const data = await customersApi.getCustomers();
+    const nextPage = reset ? 1 : page.value;
+    const data = await customersApi.getCustomers({
+      page: nextPage,
+      per_page: perPage
+    });
     if (data.success) {
-      customers.value = data.customers || data.data || [];
+      const incoming = data.customers || data.data || [];
+      const total = Number(data.total ?? incoming.length ?? 0);
+      totalCustomers.value = Number.isFinite(total) ? total : incoming.length;
+
+      if (reset) {
+        customers.value = incoming;
+      } else {
+        customers.value = mergeCustomers(customers.value, incoming);
+      }
+
+      page.value = nextPage + 1;
+      hasMore.value = customers.value.length < totalCustomers.value;
     }
   } catch (e) {
     console.error('加载客户失败:', e);
   } finally {
     loading.value = false;
   }
+};
+
+const loadMoreCustomers = async () => {
+  if (!hasMore.value || loading.value) return;
+  await loadCustomers({ reset: false });
 };
 
 const handleDelete = (customer) => {
@@ -173,7 +239,7 @@ const confirmDelete = async () => {
   if (!itemToDelete.value?.id) return;
   try {
     await customersApi.deleteCustomer(itemToDelete.value.id);
-    loadCustomers();
+    await loadCustomers({ reset: true });
   } catch (e) {
     console.error('删除客户失败:', e);
     alert('删除失败: ' + (e?.message || '未知错误'));
@@ -189,7 +255,7 @@ const confirmBatchDelete = async () => {
   try {
     await customersApi.batchDeleteCustomers(selectedIds.value);
     selectedIds.value = [];
-    loadCustomers();
+    await loadCustomers({ reset: true });
   } catch (e) {
     console.error('批量删除失败:', e);
     alert('批量删除失败: ' + (e.message || '未知错误'));
@@ -226,7 +292,7 @@ const saveEdit = async () => {
     });
     alert('保存成功');
     closeEditModal();
-    loadCustomers();
+    await loadCustomers({ reset: true });
   } catch (e) {
     console.error('保存失败:', e);
     alert('保存失败: ' + (e?.message || '未知错误'));
@@ -234,8 +300,12 @@ const saveEdit = async () => {
 };
 
 const exportCustomers = async () => {
+  if (!selectedTemplateId.value) {
+    alert('请先选择导出模板');
+    return;
+  }
   try {
-    const response = await customersApi.exportCustomersXlsx();
+    const response = await customersApi.exportCustomersXlsx(selectedTemplateId.value);
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -246,6 +316,28 @@ const exportCustomers = async () => {
   } catch (e) {
     console.error('导出失败:', e);
     alert('导出失败: ' + (e.message || '未知错误'));
+  }
+};
+
+const loadTemplateOptions = async () => {
+  loadingTemplateOptions.value = true;
+  try {
+    const res = await templatePreviewApi.listTemplates();
+    if (!res?.success) return;
+    const templates = Array.isArray(res.templates) ? res.templates : [];
+    templateOptions.value = templates.filter((tpl) => {
+      if (!tpl || tpl.virtual || tpl.category !== 'excel') return false;
+      const scope = String(tpl.business_scope || '').trim();
+      const type = String(tpl.template_type || '').trim();
+      return scope === 'customers' || type === '客户';
+    });
+    if (!selectedTemplateId.value && templateOptions.value.length) {
+      selectedTemplateId.value = String(templateOptions.value[0].id);
+    }
+  } catch (e) {
+    console.error('加载客户导出模板失败:', e);
+  } finally {
+    loadingTemplateOptions.value = false;
   }
 };
 
@@ -263,7 +355,7 @@ const handleImport = async (e) => {
     const data = await customersApi.importCustomersExcel(formData);
     if (data.success) {
       alert('导入成功！');
-      loadCustomers();
+      await loadCustomers({ reset: true });
     }
   } catch (e) {
     console.error('导入失败:', e);
@@ -274,7 +366,8 @@ const handleImport = async (e) => {
 };
 
 onMounted(() => {
-  loadCustomers();
+  loadCustomers({ reset: true });
+  loadTemplateOptions();
 });
 </script>
 
@@ -350,5 +443,15 @@ onMounted(() => {
   justify-content: flex-end;
   padding: 16px 20px;
   border-top: 1px solid #e0e0e0;
+}
+
+.template-select {
+  min-width: 180px;
+  height: 32px;
+  border: 1px solid #d6dce5;
+  border-radius: 6px;
+  background: #fff;
+  color: #2f3a45;
+  padding: 0 10px;
 }
 </style>

@@ -27,8 +27,12 @@ export const customersApi = {
     return api.post<ApiResponse<void>>('/api/customers/batch-delete', { ids: customerIds });
   },
 
-  exportCustomersXlsx(): Promise<Response> {
-    return api.download('/api/customers/export');
+  exportCustomersXlsx(templateId?: string): Promise<Response> {
+    const params: Record<string, any> = {};
+    if (templateId) {
+      params.template_id = templateId;
+    }
+    return api.download('/api/customers/export', params);
   },
 
   importCustomersExcel(formData: FormData): Promise<ApiResponse<any>> {

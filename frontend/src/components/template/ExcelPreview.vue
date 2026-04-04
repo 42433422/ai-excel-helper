@@ -2,10 +2,27 @@
   <div class="excel-preview">
     <div class="fake-excel">
       <div class="excel-toolbar">
-        <span class="excel-title">发货单模板预览</span>
+        <span class="excel-title">{{ title }}</span>
       </div>
       <div class="excel-container">
-        <div class="excel-headers">
+        <table v-if="hasGridData" class="real-grid-table">
+          <tbody>
+            <tr v-for="(row, rowIndex) in gridRows" :key="'real-row-' + rowIndex">
+              <td class="real-row-num">{{ rowIndex + 1 }}</td>
+              <td
+                v-for="cell in row"
+                :key="'real-cell-' + rowIndex + '-' + cell.col"
+                class="real-grid-cell"
+                :class="{ 'has-content': cell.text, 'is-merged': cell.rowspan > 1 || cell.colspan > 1 }"
+                :rowspan="cell.rowspan"
+                :colspan="cell.colspan"
+              >
+                <span class="cell-text">{{ cell.text }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="excel-headers" v-show="!hasGridData">
           <div class="row-num-header"></div>
           <div
             v-for="(col, index) in displayColumns"
@@ -15,7 +32,7 @@
             {{ getColumnHeader(index) }}
           </div>
         </div>
-        <div class="excel-body">
+        <div class="excel-body" v-show="!hasGridData">
           <div
             v-for="(row, rowIndex) in displayRows"
             :key="'row-' + rowIndex"
@@ -58,9 +75,24 @@ export default {
     columns: {
       type: Number,
       default: 5
+    },
+    title: {
+      type: String,
+      default: 'Excel 模板预览'
+    },
+    gridData: {
+      type: Object,
+      default: null
     }
   },
   computed: {
+    hasGridData() {
+      return Boolean(this.gridData && Array.isArray(this.gridData.rows) && this.gridData.rows.length > 0)
+    },
+    gridRows() {
+      if (!this.hasGridData) return []
+      return this.gridData.rows
+    },
     displayRows() {
       if (this.sampleRows && this.sampleRows.length > 0) {
         return Math.max(this.rows, this.sampleRows.length)
@@ -107,7 +139,7 @@ export default {
 
       if (rowIndex >= 1 && this.fields && this.fields[colIndex]) {
         const field = this.fields[colIndex]
-        return field.value || field.sample || `示例${colIndex + 1}`
+        return field.value || field.sample || ''
       }
 
       return ''
@@ -144,6 +176,36 @@ export default {
 
 .excel-container {
   overflow-x: auto;
+}
+
+.real-grid-table {
+  border-collapse: collapse;
+  min-width: fit-content;
+}
+
+.real-row-num {
+  width: 40px;
+  min-width: 40px;
+  padding: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  border: 1px solid #d4d4d4;
+  background: #fafafa;
+}
+
+.real-grid-cell {
+  min-width: 92px;
+  height: 30px;
+  padding: 4px 6px;
+  border: 1px solid #d4d4d4;
+  font-size: 12px;
+  color: #333;
+  background: #fff;
+}
+
+.real-grid-cell.is-merged {
+  background: #f7fbff;
 }
 
 .excel-headers {

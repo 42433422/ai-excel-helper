@@ -210,11 +210,11 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                 query = db.query(ShipmentRecord)
 
                 if unit_name:
-                    canonical_unit = unit_name
+                    canonical_unit = str(unit_name or "").strip()
                     try:
-                        resolved = resolve_purchase_unit(unit_name)
+                        resolved = resolve_purchase_unit(canonical_unit)
                         if resolved:
-                            canonical_unit = resolved.unit_name
+                            canonical_unit = str(resolved.unit_name or "").strip()
                     except Exception:
                         pass
 
@@ -228,36 +228,47 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                     if records_exact:
                         records = records_exact
                     else:
-                        # fuzzy fallback：把历史上不一致的 purchase_unit 归一再匹配
-                        memo: dict[str, Optional[str]] = {}
-
-                        def norm(val: str) -> Optional[str]:
-                            if val in memo:
-                                return memo[val]
-                            try:
-                                r = resolve_purchase_unit(val)
-                                memo[val] = r.unit_name if r else None
-                            except Exception:
-                                memo[val] = None
-                            return memo[val]
-
-                        candidates = db.query(ShipmentRecord.purchase_unit).distinct().all()
-                        candidate_values: List[str] = []
-                        for (v,) in candidates:
-                            if not v:
-                                continue
-                            if norm(v) == canonical_unit:
-                                candidate_values.append(v)
-
-                        if candidate_values:
-                            records = (
-                                query.filter(ShipmentRecord.purchase_unit.in_(candidate_values))
-                                .order_by(ShipmentRecord.created_at.desc())
-                                .limit(safe_limit)
-                                .all()
-                            )
+                        # 增加 strip 后精确兜底，兼容历史脏数据（单位首尾空格）
+                        records_strip_exact = (
+                            query.filter(ShipmentRecord.purchase_unit.isnot(None))
+                            .filter(ShipmentRecord.purchase_unit.in_([canonical_unit, f"{canonical_unit} "]))
+                            .order_by(ShipmentRecord.created_at.desc())
+                            .limit(safe_limit)
+                            .all()
+                        )
+                        if records_strip_exact:
+                            records = records_strip_exact
                         else:
-                            records = []
+                            # fuzzy fallback：把历史上不一致的 purchase_unit 归一再匹配
+                            memo: dict[str, Optional[str]] = {}
+
+                            def norm(val: str) -> Optional[str]:
+                                if val in memo:
+                                    return memo[val]
+                                try:
+                                    r = resolve_purchase_unit(str(val or "").strip())
+                                    memo[val] = str(r.unit_name or "").strip() if r else None
+                                except Exception:
+                                    memo[val] = None
+                                return memo[val]
+
+                            candidates = db.query(ShipmentRecord.purchase_unit).distinct().all()
+                            candidate_values: List[str] = []
+                            for (v,) in candidates:
+                                if not v:
+                                    continue
+                                if norm(v) == canonical_unit:
+                                    candidate_values.append(v)
+
+                            if candidate_values:
+                                records = (
+                                    query.filter(ShipmentRecord.purchase_unit.in_(candidate_values))
+                                    .order_by(ShipmentRecord.created_at.desc())
+                                    .limit(safe_limit)
+                                    .all()
+                                )
+                            else:
+                                records = []
                 else:
                     records = (
                         query.order_by(ShipmentRecord.created_at.desc()).limit(safe_limit).all()

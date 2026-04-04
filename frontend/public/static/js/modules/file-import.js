@@ -327,7 +327,7 @@ function resetImportState() {
     const progress = document.getElementById('importProgress');
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
-    const progressPercent = document.getElementById('progressPercent');
+    const progressPercent = document.getElementById('importProgressPercent');
     const status = document.getElementById('importStatus');
     if (progress) progress.classList.remove('show');
     if (progressBar) progressBar.style.width = '0%';
@@ -344,7 +344,7 @@ function handleFileSelect(files) {
     const progress = document.getElementById('importProgress');
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
-    const progressPercent = document.getElementById('progressPercent');
+    const progressPercent = document.getElementById('importProgressPercent');
     const status = document.getElementById('importStatus');
     
     progress.classList.add('show');
@@ -728,9 +728,11 @@ function capturePhoto() {
             });
         };
 
+        // 直接绑定（importFloatWindow 在 App.vue 中通常已渲染）
         bindCloseBtn('importCloseBtn');
         bindCloseBtn('cancelImportBtn');
 
+        // 兜底事件委托
         document.addEventListener('click', (e) => {
             const target = e && e.target && e.target.closest ? e.target.closest('[data-close-action="closeImportWindow"]') : null;
             if (!target) return;

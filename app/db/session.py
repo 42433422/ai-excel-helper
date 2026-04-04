@@ -78,6 +78,11 @@ def get_db():
         query_count[0] += 1
     try:
         yield db
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"数据库事务失败，已回滚: {e}")
+        raise
     finally:
         db.close()
 
@@ -86,5 +91,10 @@ def get_db_dependency():
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"数据库事务失败，已回滚: {e}")
+        raise
     finally:
         db.close()

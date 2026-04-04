@@ -58,14 +58,60 @@ export const useJarvisChatStore = defineStore('jarvisChat', () => {
     updateLastMessage()
   }
 
+  function syncLegacyMonitorMode(): boolean {
+    const monitorToggle = (window as any).setMonitorModeFromChat
+    if (typeof monitorToggle !== 'function') return false
+
+    // Keep legacy runtime as source of truth for overlay mode classes.
+    monitorToggle(true)
+    if (typeof (window as any).refreshWorkModeMonitorList === 'function') {
+      ;(window as any).refreshWorkModeMonitorList()
+    }
+    return true
+  }
+
+  function syncLegacyWorkMode(): boolean {
+    const workToggle = (window as any).setWorkModeFromChat
+    if (typeof workToggle !== 'function') return false
+
+    // Keep legacy runtime as source of truth for overlay mode classes.
+    workToggle(true)
+    if (typeof (window as any).refreshWorkModeMonitorList === 'function') {
+      ;(window as any).refreshWorkModeMonitorList()
+    }
+    return true
+  }
+
   async function sendMessage(message: string): Promise<string> {
     const lowerMessage = message.toLowerCase()
     if (lowerMessage.includes('监控模式')) {
       const proModeStore = useProModeStore()
-      proModeStore.enterMonitorMode()
+      const switchedByLegacy = syncLegacyMonitorMode()
+      if (!switchedByLegacy) {
+        proModeStore.enterMonitorMode()
+      } else {
+        // Mirror store state so Vue-only consumers remain consistent.
+        proModeStore.enterMonitorMode()
+        proModeStore.exitWorkMode()
+      }
       addMessage(message, 'user')
       addMessage('正在切换到监控模式...', 'ai')
       return '正在切换到监控模式...'
+    }
+
+    if (lowerMessage.includes('工作模式') || lowerMessage.includes('work mode')) {
+      const proModeStore = useProModeStore()
+      const switchedByLegacy = syncLegacyWorkMode()
+      if (!switchedByLegacy) {
+        proModeStore.enterWorkMode()
+      } else {
+        // Mirror store state so Vue-only consumers remain consistent.
+        proModeStore.enterWorkMode()
+        proModeStore.exitMonitorMode()
+      }
+      addMessage(message, 'user')
+      addMessage('正在切换到工作模式...', 'ai')
+      return '正在切换到工作模式...'
     }
 
     addMessage(message, 'user')

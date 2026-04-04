@@ -35,13 +35,15 @@
               <span class="wechat-contact-value">{{ item.already_starred ? '已星标' : '未星标' }}</span>
             </div>
             <div class="wechat-contact-row" style="margin-top:6px;">
-              <button v-if="!item.already_starred" class="btn btn-primary btn-sm" @click="addToStar(item)">⭐ 添加星标</button>
+              <button v-if="!item.already_starred" class="btn btn-primary btn-sm" @click="addToStar(item)">
+                <i class="fa fa-star" aria-hidden="true"></i> 添加星标
+              </button>
               <span v-else style="color:#888;">已是星标联系人</span>
             </div>
           </div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" data-tutorial-id="wechat-starred-list">
         <div class="card-header">星标联系人列表</div>
         <div class="form-group" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
           <label style="margin:0;white-space:nowrap;">类型：</label>
@@ -50,7 +52,7 @@
             <option value="contact">联系人</option>
             <option value="group">群聊</option>
           </select>
-          <input type="text" v-model.trim="localFilter" placeholder="🔍 在星标列表中筛选" style="max-width:320px;">
+          <input type="text" v-model.trim="localFilter" placeholder="在星标列表中筛选" style="max-width:320px;">
           <button type="button" class="btn btn-secondary" title="清除所有星标，列表将为空" @click="unstarAll">一键解除全部星标</button>
         </div>
         <div>
@@ -129,7 +131,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import wechatApi from '../api/wechat';
 
 const loading = ref(false);
@@ -138,6 +140,10 @@ const contactType = ref('all');
 const localFilter = ref('');
 const searchKeyword = ref('');
 const searchResults = ref([]);
+const AUTO_REFRESH_STARRED_WECHAT_KEY = 'xcagi_auto_refresh_starred_wechat';
+const AUTO_REFRESH_INTERVAL_MS = 60 * 1000;
+const autoRefreshRunning = ref(false);
+let autoRefreshTimer = null;
 
 const showChatModal = ref(false);
 const chatTitle = ref('聊天记录');
@@ -264,6 +270,47 @@ async function refreshContactMessages(contactId) {
   }
 }
 
+function isAutoRefreshEnabled() {
+  return localStorage.getItem(AUTO_REFRESH_STARRED_WECHAT_KEY) === '1';
+}
+
+async function refreshStarredMessagesSilently() {
+  if (autoRefreshRunning.value || !isAutoRefreshEnabled()) return;
+  const targets = (contacts.value || []).filter(c => c && c.id).slice(0, 30);
+  if (!targets.length) return;
+
+  autoRefreshRunning.value = true;
+  try {
+    await Promise.allSettled(targets.map(c => wechatApi.refreshContactMessages(c.id)));
+  } catch (_) {
+    // 静默失败，不打断页面交互
+  } finally {
+    autoRefreshRunning.value = false;
+  }
+}
+
+function stopAutoRefreshTimer() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+}
+
+function startAutoRefreshTimer() {
+  stopAutoRefreshTimer();
+  if (!isAutoRefreshEnabled()) return;
+  autoRefreshTimer = setInterval(() => {
+    refreshStarredMessagesSilently();
+  }, AUTO_REFRESH_INTERVAL_MS);
+}
+
+function onAutoRefreshWechatChanged() {
+  startAutoRefreshTimer();
+  if (isAutoRefreshEnabled()) {
+    refreshStarredMessagesSilently();
+  }
+}
+
 function startEdit(contact) {
   editId.value = contact.id;
   editForm.value = {
@@ -300,5 +347,12 @@ async function deleteContact(contactId) {
 
 onMounted(() => {
   loadContacts();
+  startAutoRefreshTimer();
+  window.addEventListener('xcagi:auto-refresh-wechat-changed', onAutoRefreshWechatChanged);
+});
+
+onBeforeUnmount(() => {
+  stopAutoRefreshTimer();
+  window.removeEventListener('xcagi:auto-refresh-wechat-changed', onAutoRefreshWechatChanged);
 });
 </script>

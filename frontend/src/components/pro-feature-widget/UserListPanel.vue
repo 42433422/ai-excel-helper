@@ -4,7 +4,7 @@
       <h3 class="panel-title">客户管理</h3>
       <div class="header-actions">
         <button class="action-btn add" @click="handleAdd">
-          + 添加客户
+          <i class="fa fa-plus" aria-hidden="true"></i> 添加客户
         </button>
         <button class="action-btn export" @click="handleExport">
           导出Excel
@@ -38,16 +38,16 @@
         </div>
         <div class="customer-actions">
           <button class="icon-btn edit" @click.stop="handleEdit(customer)">
-            ✎
+            <i class="fa fa-pencil" aria-hidden="true"></i>
           </button>
           <button class="icon-btn delete" @click.stop="handleDelete(customer)">
-            ×
+            <i class="fa fa-times" aria-hidden="true"></i>
           </button>
         </div>
       </div>
       
       <div v-if="filteredCustomers.length === 0" class="empty-state">
-        <div class="empty-icon">📋</div>
+        <div class="empty-icon"><i class="fa fa-list-alt" aria-hidden="true"></i></div>
         <div class="empty-text">暂无客户数据</div>
       </div>
     </div>

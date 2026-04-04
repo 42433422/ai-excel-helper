@@ -5,30 +5,40 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
+    "build": "vite build",
+    "build:strict": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "type-check": "vue-tsc --noEmit",
     "type-check:watch": "vue-tsc --noEmit --watch",
-    "test": "vitest",
-    "test:coverage": "vitest --coverage",
+    "test": "node --require ./vitest.polyfill.cjs ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node --require ./vitest.polyfill.cjs ./node_modules/vitest/vitest.mjs",
+    "test:smoke": "node --require ./vitest.polyfill.cjs ./node_modules/vitest/vitest.mjs run tests/smoke",
+    "test:smoke:watch": "node --require ./vitest.polyfill.cjs ./node_modules/vitest/vitest.mjs tests/smoke",
+    "test:coverage": "node --require ./vitest.polyfill.cjs ./node_modules/vitest/vitest.mjs run --coverage",
     "test:e2e": "playwright test",
     "lint": "eslint src/"
   },
   "dependencies": {
-    "pinia": "^3.0.4",
-    "vue": "^3.3.4",
-    "vue-router": "^4.6.4"
+    "font-awesome": "^4.7.0",
+    "pinia": "^2.2.2",
+    "vue": "^3.4.21",
+    "vue-router": "^4.4.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
-    "@types/node": "^25.5.0",
-    "@vitejs/plugin-vue": "^4.2.3",
+    "@types/node": "^22.5.0",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "@vue/eslint-config-prettier": "^10.0.0",
+    "@vue/eslint-config-typescript": "^14.0.0",
     "@vue/test-utils": "^2.4.0",
-    "eslint": "^8.56.0",
-    "jsdom": "^23.0.0",
-    "typescript": "^5.9.3",
-    "vite": "^4.4.5",
-    "vitest": "^1.0.0",
-    "vue-tsc": "^3.2.6"
+    "eslint": "^9.9.0",
+    "eslint-plugin-vue": "^9.27.0",
+    "jsdom": "^24.1.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.8",
+    "vitest": "^2.0.5",
+    "vue-tsc": "^2.0.29"
   }
 }

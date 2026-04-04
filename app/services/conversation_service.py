@@ -23,6 +23,20 @@ class ConversationService:
         """初始化对话服务"""
         pass
 
+    @staticmethod
+    def _normalize_user_id(user_id: Any) -> Optional[int]:
+        """兼容历史 user_id 字段：非数字值回退为 None。"""
+        if user_id is None:
+            return None
+        if isinstance(user_id, int):
+            return user_id
+        text = str(user_id).strip()
+        if not text:
+            return None
+        if text.isdigit():
+            return int(text)
+        return None
+
     def save_message(
         self,
         session_id: str,
@@ -48,23 +62,12 @@ class ConversationService:
         """
         with get_db() as db:
             try:
-                # 保存消息
-                conversation = AIConversation(
-                    session_id=session_id,
-                    user_id=user_id,
-                    role=role,
-                    content=content,
-                    intent=intent,
-                    conversation_metadata=metadata,
-                    created_at=datetime.now()
-                )
-                db.add(conversation)
-                db.flush()
-
-                # 更新或创建会话
+                # 更新或创建会话（必须先创建会话，因为消息有外键依赖）
                 session = db.query(AIConversationSession).filter(
                     AIConversationSession.session_id == session_id
                 ).first()
+
+                normalized_user_id = self._normalize_user_id(user_id)
 
                 if session:
                     session.message_count += 1
@@ -72,12 +75,25 @@ class ConversationService:
                 else:
                     session = AIConversationSession(
                         session_id=session_id,
-                        user_id=user_id,
+                        user_id=normalized_user_id,
                         message_count=1,
                         last_message_at=datetime.now(),
                         created_at=datetime.now()
                     )
                     db.add(session)
+                db.flush()
+
+                # 保存消息
+                conversation = AIConversation(
+                    session_id=session_id,
+                    user_id=str(user_id) if user_id is not None else None,
+                    role=role,
+                    content=content,
+                    intent=intent,
+                    conversation_metadata=metadata,
+                    created_at=datetime.now()
+                )
+                db.add(conversation)
 
                 db.commit()
                 return conversation.id
@@ -242,7 +258,7 @@ class ConversationService:
                 session_id = str(uuid.uuid4())
                 session = AIConversationSession(
                     session_id=session_id,
-                    user_id=user_id,
+                    user_id=self._normalize_user_id(user_id),
                     title=title,
                     message_count=0,
                     last_message_at=datetime.now(),

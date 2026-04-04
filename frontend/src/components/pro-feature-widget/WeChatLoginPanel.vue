@@ -23,7 +23,7 @@
       </div>
       
       <div v-if="status === 'success'" class="login-success">
-        <div class="success-icon">✓</div>
+        <div class="success-icon"><i class="fa fa-check-circle-o" aria-hidden="true"></i></div>
         <div class="success-text">登录成功</div>
         <div class="user-info">
           <div class="user-avatar">{{ userInfo?.name?.charAt(0) || '?' }}</div>

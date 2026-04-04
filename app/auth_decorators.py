@@ -1,7 +1,7 @@
 from functools import wraps
 from typing import Any, Callable, List, Optional
 
-from flask import g, jsonify, request
+from flask import current_app, g, jsonify, request
 
 from app.db.models import User
 from app.services import get_auth_service, get_session_service
@@ -112,4 +112,5 @@ def _extract_session_id() -> Optional[str]:
     if auth_header.startswith('Bearer '):
         return auth_header[7:]
 
-    return request.cookies.get('session_id')
+    cookie_name = current_app.config.get("SESSION_COOKIE_NAME", "session_id")
+    return request.cookies.get(cookie_name)

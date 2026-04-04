@@ -18,13 +18,31 @@ except ModuleNotFoundError:
     Swagger = None  # type: ignore
 
 # 导入数据库初始化函数（应用内，不依赖根目录 db.py）
-from app.db.init_db import init_wechat_tasks_table, initialize_databases
+from app.db import engine
+from app.db.init_db import (
+    init_distillation_tables,
+    init_template_tables,
+    init_wechat_tasks_table,
+    initialize_databases,
+)
 
 from .config import Config, get_config
 from .extensions import init_extensions
 
 # 获取应用基础目录
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _parse_cors_origins(origins: str | list[str] | tuple[str, ...] | None) -> list[str]:
+    if not origins:
+        return []
+    if isinstance(origins, (list, tuple)):
+        return [str(o).strip() for o in origins if str(o).strip()]
+    return [o.strip() for o in str(origins).split(",") if o.strip()]
+
+
+def _is_sqlite_url(database_url: str | None) -> bool:
+    return str(database_url or "").strip().startswith("sqlite")
 
 
 def create_app(
@@ -51,6 +69,9 @@ def create_app(
     if config_object is None:
         config_object = get_config("default")
     app.config.from_object(config_object)
+    init_fn = getattr(config_object, "init_app", None)
+    if callable(init_fn):
+        init_fn()
     
     # 配置日志
     logging.basicConfig(
@@ -58,12 +79,33 @@ def create_app(
         format=app.config.get("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     )
     logger = logging.getLogger(__name__)
+
+    # 未设置环境变量时，将 mods 根目录绑定到项目根（BASE_DIR）下的 mods/，保证与 run.py 一致且早于任何 ModManager 单例。
+    _mods_off = (os.environ.get("XCAGI_DISABLE_MODS") or "").strip().lower() in {"1", "true", "yes", "on"}
+    if not _mods_off and not (os.environ.get("XCAGI_MODS_ROOT") or os.environ.get("XCAGI_MODS_DIR") or "").strip():
+        _mods_candidate = os.path.join(BASE_DIR, "mods")
+        if os.path.isdir(_mods_candidate):
+            os.environ["XCAGI_MODS_ROOT"] = os.path.abspath(_mods_candidate)
+            logger.info("XCAGI_MODS_ROOT 已设为: %s", os.environ["XCAGI_MODS_ROOT"])
+    elif _mods_off:
+        logger.info("XCAGI_DISABLE_MODS 已启用：不绑定 Mod 目录，跳过插件扩展加载。")
     
     # 初始化数据库
     logger.info("初始化数据库...")
-    initialize_databases()
-    init_wechat_tasks_table()
-    
+    if _is_sqlite_url(app.config.get("DATABASE_URL")):
+        initialize_databases()
+        init_wechat_tasks_table()
+        init_template_tables()
+    init_distillation_tables(engine)
+
+    # 注册模型验证器（确保数据完整性）
+    try:
+        from app.db.validators import register_model_validators
+        register_model_validators()
+        logger.info("模型验证器已注册")
+    except Exception as e:
+        logger.warning("注册模型验证器失败: %s", e)
+
     # 初始化 Swagger 文档（必须在注册蓝图之前）
     logger.info("初始化 Swagger 文档...")
     if Swagger is not None:
@@ -75,13 +117,17 @@ def create_app(
     else:
         logger.warning("未安装 flasgger，Swagger 文档将被跳过。")
     
-    # 配置 CORS，允许前端访问（开发环境允许所有来源）
+    # 配置 CORS，默认仅允许本地开发来源，生产环境请通过 CORS_ORIGINS 显式配置。
+    allowed_origins = _parse_cors_origins(app.config.get("CORS_ORIGINS"))
+    if not allowed_origins:
+        allowed_origins = ["http://localhost:5001", "http://127.0.0.1:5001"]
+    allow_credentials = "*" not in allowed_origins
     CORS(app, resources={
         r"/api/*": {
-            "origins": "*",
+            "origins": allowed_origins,
             "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
-            "supports_credentials": True
+            "supports_credentials": allow_credentials
         }
     })
     
@@ -97,6 +143,11 @@ def create_app(
     # ---------------------------------------------------------------------
     # 全局请求日志（NDJSON + 标准日志）
     # ---------------------------------------------------------------------
+    
+    # 调试：打印所有已注册路由
+    logger.info("已注册的路由列表:")
+    for rule in app.url_map.iter_rules():
+        logger.info(f"  {rule.methods} {rule.rule} -> {rule.endpoint}")
     from app.utils.logging_utils import debug_ndjson
 
     def _truncate(val: str, max_len: int = 2000) -> str:
@@ -181,6 +232,22 @@ def create_app(
     logger.info("初始化 AI 对话服务...")
     from .services.ai_conversation_service import init_ai_conversation_service
     init_ai_conversation_service()
+
+    # 初始化性能优化系统（缓存、监控、异步任务等）
+    logger.info("初始化性能优化系统...")
+    try:
+        from app.utils.performance_initializer import init_performance_optimization
+        optimizer = init_performance_optimization(app)
+
+        if optimizer._initialized:
+            status = optimizer.get_status()
+            components_ok = sum(1 for v in status.get("components", {}).values() if isinstance(v, dict) and v.get("available", True))
+            total_components = len(status.get("components", {}))
+            logger.info(f"✅ 性能优化系统已启用 ({components_ok}/{total_components} 组件就绪)")
+        else:
+            logger.warning("⚠️  性能优化系统未完全初始化")
+    except Exception as e:
+        logger.warning(f"⚠️  性能优化系统初始化失败（使用默认配置）: {e}")
     
     # 注册前端路由（必须在 Swagger 之后）
     @app.route('/')

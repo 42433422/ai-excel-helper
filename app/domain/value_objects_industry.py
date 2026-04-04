@@ -20,15 +20,21 @@ def _load_from_yaml():
     global _industry_units_cache, _industry_fields_cache, _current_industry
 
     try:
-        from resources.config.industry_config import _load_config
+        from resources.config.industry_config import (
+            _load_config,
+            _industries_dict_from_config,
+            _resolve_default_industry,
+        )
         config = _load_config()
-        industries = config.get("industries", {})
-        default_ind = config.get("default_industry", "涂料")
+        industries = _industries_dict_from_config(config)
+        default_ind = _resolve_default_industry(config)
 
         _industry_units_cache = {}
         _industry_fields_cache = {}
 
         for ind_id, ind_data in industries.items():
+            if not isinstance(ind_data, dict):
+                continue
             units = ind_data.get("units", {})
             qty_fields = ind_data.get("quantity_fields", {})
 

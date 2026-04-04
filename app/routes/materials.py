@@ -5,10 +5,11 @@
 """
 
 import logging
+import os
 import uuid
 
 from flasgger import swag_from
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 
 from app.application import MaterialApplicationService, get_material_application_service
 
@@ -436,4 +437,31 @@ def get_low_stock_materials():
         return jsonify(result), 200
     except Exception as e:
         logger.error(f"获取低库存原材料失败：{e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@materials_bp.route("/api/materials/export", methods=["GET"])
+def export_materials():
+    """导出原材料为 Excel（支持模板）"""
+    try:
+        search = request.args.get("search")
+        category = request.args.get("category")
+        template_id = request.args.get("template_id")
+
+        service = get_material_service()
+        result = service.export_to_excel(search=search, category=category, template_id=template_id)
+        if not result.get("success"):
+            return jsonify(result), 400
+
+        file_path = result.get("file_path")
+        if file_path and os.path.exists(file_path):
+            return send_file(
+                file_path,
+                as_attachment=True,
+                download_name=result.get("filename", "原材料导出.xlsx"),
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        return jsonify({"success": False, "message": "导出文件不存在"}), 500
+    except Exception as e:
+        logger.error(f"导出原材料失败：{e}")
         return jsonify({"success": False, "message": str(e)}), 500

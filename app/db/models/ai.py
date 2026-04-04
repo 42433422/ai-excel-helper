@@ -67,7 +67,7 @@ class AIConversationSession(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(String, unique=True, nullable=False)
-    user_id = Column(String, ForeignKey('users.id', ondelete='CASCADE'))
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'))
     title = Column(String)
     summary = Column(String)
     message_count = Column(Integer, default=0)

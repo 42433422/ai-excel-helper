@@ -27,24 +27,6 @@
         </div>
       </div>
 
-      <div class="card">
-        <h3>模式选择</h3>
-        <div class="form-row">
-          <label style="display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" v-model="form.numberMode" style="width: auto;">
-            <span style="color: #3498db; font-weight: 600;">编号模式（通过编号匹配产品）</span>
-          </label>
-          <label style="display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" v-model="form.customMode" style="width: auto;">
-            <span style="color: #e74c3c; font-weight: 600;">自定义模式（允许使用未匹配的产品）</span>
-          </label>
-          <label style="display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" v-model="form.autoPrint" style="width: auto;">
-            <span style="color: #27ae60; font-weight: 600;">生成后自动打印</span>
-          </label>
-        </div>
-      </div>
-
       <div class="card header-section">
         <h3>基础信息</h3>
         <div class="form-row">
@@ -80,9 +62,9 @@
       <div class="card">
         <h3>产品信息</h3>
         <div style="margin-bottom: 15px;">
-          <button class="btn btn-success" @click="addProductRow">+ 添加产品</button>
-          <button class="btn" @click="showProductSelector = true">🔍 选择产品名称</button>
-          <a href="/product-names" class="btn btn-secondary" style="text-decoration: none;">📦 管理产品库</a>
+          <button class="btn btn-success" @click="addProductRow"><i class="fa fa-plus" aria-hidden="true"></i> 添加产品</button>
+          <button class="btn" @click="showProductSelector = true"><i class="fa fa-search" aria-hidden="true"></i> 选择产品名称</button>
+          <a href="/product-names" class="btn btn-secondary" style="text-decoration: none;"><i class="fa fa-cubes" aria-hidden="true"></i> 管理产品库</a>
         </div>
 
         <div v-if="products.length === 0" class="empty-products">
@@ -135,26 +117,26 @@
         <h3>操作</h3>
         <div style="text-align: center;">
           <button class="btn btn-success" @click="generateShipment" style="padding: 15px 40px; font-size: 18px;">
-            🚀 生成发货单
+            <i class="fa fa-rocket" aria-hidden="true"></i> 生成发货单
           </button>
           <button class="btn btn-secondary" @click="resetForm" style="padding: 15px 40px; font-size: 18px;">
-            🔄 重置
+            <i class="fa fa-refresh" aria-hidden="true"></i> 重置
           </button>
-          <button class="btn" @click="$router.push('/template-preview')" style="padding: 15px 40px; font-size: 18px;">
-            📝 模板编辑
+          <button class="btn" @click="$router.push({ path: '/template-preview', query: { scope: 'orders' } })" style="padding: 15px 40px; font-size: 18px;">
+            <i class="fa fa-edit" aria-hidden="true"></i> 模板编辑
           </button>
         </div>
       </div>
 
       <div v-if="result" class="card" style="margin-top: 20px;">
-        <h3>✅ 生成结果</h3>
+        <h3><i class="fa fa-check-circle-o" aria-hidden="true"></i> 生成结果</h3>
         <div style="text-align: center; padding: 20px;">
           <p style="margin-bottom: 15px;">文件名: {{ result.output_filename }}</p>
           <a :href="`/download/${result.output_filename}`" class="btn btn-success" download style="padding: 15px 30px; font-size: 16px;">
-            📥 下载发货单
+            <i class="fa fa-download" aria-hidden="true"></i> 下载发货单
           </a>
           <button class="btn" @click="resetForm" style="padding: 15px 30px; font-size: 16px;">
-            🔄 新建发货单
+            <i class="fa fa-plus-square-o" aria-hidden="true"></i> 新建发货单
           </button>
         </div>
       </div>
@@ -224,12 +206,6 @@ function handleAIFillOrder(data) {
     generateOrderNumber()
   }
 
-  if (data.numberMode !== undefined) {
-    form.numberMode = data.numberMode
-  }
-  if (data.customMode !== undefined) {
-    form.customMode = data.customMode
-  }
   if (data.autoPrint !== undefined) {
     form.autoPrint = data.autoPrint
   }
@@ -305,8 +281,6 @@ const form = reactive({
   contactPerson: '',
   purchaseDate: new Date().toISOString().split('T')[0],
   orderNumber: '',
-  numberMode: false,
-  customMode: false,
   autoPrint: false
 })
 
@@ -540,8 +514,9 @@ async function generateShipment() {
       body: JSON.stringify({
         template_name: form.templateName,
         editable_data: editableData,
-        number_mode: form.numberMode,
-        custom_mode: form.customMode
+        // 统一策略：仅使用编号模式，禁用其他模式分支
+        number_mode: true,
+        custom_mode: false
       })
     })
 
@@ -562,8 +537,6 @@ function resetForm() {
   form.purchaseUnit = ''
   form.contactPerson = ''
   form.orderNumber = ''
-  form.numberMode = false
-  form.customMode = false
   form.autoPrint = false
   products.value = []
   result.value = null

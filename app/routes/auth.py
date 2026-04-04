@@ -1,4 +1,4 @@
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from app.application import get_auth_app_service, get_user_app_service
 from app.auth_decorators import (
@@ -11,6 +11,14 @@ from app.auth_decorators import (
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 users_bp = Blueprint("users", __name__, url_prefix="/api/users")
+
+
+def _extract_session_id() -> str:
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:].strip()
+    cookie_name = current_app.config.get("SESSION_COOKIE_NAME", "session_id")
+    return (request.cookies.get(cookie_name) or "").strip()
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -31,7 +39,19 @@ def login():
     if not result["success"]:
         return jsonify(result), 401
 
-    return jsonify(result)
+    response = jsonify(result)
+    session_id = result.get("session_id")
+    if session_id:
+        response.set_cookie(
+            current_app.config.get("SESSION_COOKIE_NAME", "session_id"),
+            session_id,
+            max_age=current_app.config.get("SESSION_COOKIE_MAX_AGE", 86400),
+            httponly=bool(current_app.config.get("SESSION_COOKIE_HTTPONLY", True)),
+            secure=bool(current_app.config.get("SESSION_COOKIE_SECURE", False)),
+            samesite=current_app.config.get("SESSION_COOKIE_SAMESITE", "Lax"),
+            path="/",
+        )
+    return response
 
 
 @auth_bp.route("/logout", methods=["POST"])
@@ -47,7 +67,12 @@ def logout():
     auth_app_service = get_auth_app_service()
     result = auth_app_service.logout(session_id)
 
-    return jsonify(result)
+    response = jsonify(result)
+    response.delete_cookie(
+        current_app.config.get("SESSION_COOKIE_NAME", "session_id"),
+        path="/",
+    )
+    return response
 
 
 @auth_bp.route("/me", methods=["GET"])
@@ -75,7 +100,7 @@ def get_me():
 
 @auth_bp.route("/session/validate", methods=["GET"])
 def validate_session():
-    session_id = request.cookies.get('session_id') or request.headers.get('Authorization', '').replace('Bearer ', '')
+    session_id = _extract_session_id()
     if not session_id:
         return jsonify({
             "success": False,

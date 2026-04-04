@@ -40,3 +40,12 @@ class MaterialRepository(ABC):
     @abstractmethod
     def find_low_stock(self, threshold: Optional[float] = None) -> List[Dict[str, Any]]:
         raise NotImplementedError
+
+    @abstractmethod
+    def export_to_excel(
+        self,
+        search: Optional[str] = None,
+        category: Optional[str] = None,
+        template_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        raise NotImplementedError

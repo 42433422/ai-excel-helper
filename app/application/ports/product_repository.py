@@ -58,6 +58,7 @@ class ProductRepository(ABC):
     def export_to_excel(
         self,
         unit_name: Optional[str] = None,
-        keyword: Optional[str] = None
+        keyword: Optional[str] = None,
+        template_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         raise NotImplementedError

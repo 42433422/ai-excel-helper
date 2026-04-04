@@ -16,6 +16,8 @@
 - DeepSeek/BERT 提供语义理解能力
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import sys
@@ -106,23 +108,30 @@ class UnifiedIntentRecognizer:
 
         try:
             from app.services.bert_intent_service import BertIntentClassifier
-            distillation_model_path = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-                "distillation",
-                "checkpoints",
-                "best.pt"
-            )
+            # unified_intent_recognizer 位于：XCAGI/app/services/
+            # 模型目录在：XCAGI/distillation/
+            # 因此 base_dir 需要回到 XCAGI 根目录（向上 3 级）。
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            distillation_model_path = os.path.join(base_dir, "distillation", "checkpoints", "best.pt")
+            chinese_bert_path = os.path.join(base_dir, "distillation", "checkpoints", "hfl", "chinese-bert-wwm-ext")
+
             if os.path.exists(distillation_model_path):
                 logger.info(f"发现本地蒸馏模型：{distillation_model_path}")
                 self._bert_recognizer = BertIntentClassifier(
                     model_path=distillation_model_path,
                     local_files_only=True
                 )
+            elif os.path.exists(chinese_bert_path):
+                logger.info(f"发现 chinese-bert-wwm-ext 模型：{chinese_bert_path}")
+                self._bert_recognizer = BertIntentClassifier(
+                    model_path=chinese_bert_path,
+                    local_files_only=True
+                )
             else:
-                logger.info("本地蒸馏模型不存在，尝试加载在线模型")
+                logger.warning("本地模型不存在，使用虚拟模型（规则引擎将作为主要识别器）")
                 self._bert_recognizer = BertIntentClassifier(
                     model_name="chinese-bert-wwm",
-                    local_files_only=False
+                    local_files_only=True
                 )
             if self._bert_recognizer.is_available():
                 logger.info("BERT识别器已加载")
@@ -231,7 +240,18 @@ class UnifiedIntentRecognizer:
                 results["bert"] = bert_result
                 sources_used.append("bert")
 
-        if self._deepseek_recognizer:
+        # 普通界面 + 专业意图（混合）：不再跑 unified 内的同步 DeepSeek 意图（避免多一次 RTT + 嵌套事件循环风险），
+        # 主对话仍会调用一次 DeepSeek 生成回复。
+        skip_unified_deepseek = False
+        if context_data and isinstance(context_data, dict):
+            if (
+                str(context_data.get("tool_execution_profile") or "").strip().lower() == "normal"
+                and str(context_data.get("ui_surface") or "").strip().lower() == "normal"
+            ):
+                skip_unified_deepseek = True
+                logger.info("[INTENT] 混合界面画像：跳过 unified 内 DeepSeek 意图")
+
+        if self._deepseek_recognizer and not skip_unified_deepseek:
             deepseek_result = self._recognize_deepseek(message, context)
             if deepseek_result:
                 results["deepseek"] = deepseek_result

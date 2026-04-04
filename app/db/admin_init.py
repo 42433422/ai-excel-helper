@@ -9,55 +9,20 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-import sqlite3
-from typing import Optional
 
-from app.utils.path_utils import get_app_data_dir
+from sqlalchemy import text
+
+from app.db import SessionLocal
 
 logger = logging.getLogger(__name__)
 
 
-def get_user_db_path() -> str:
-    return os.path.join(get_app_data_dir(), "users.db")
-
-
-def init_user_db() -> str:
-    db_path = get_user_db_path()
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            display_name TEXT DEFAULT '',
-            role TEXT DEFAULT 'user',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_login TIMESTAMP
-        )
-        """
-    )
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT UNIQUE NOT NULL,
-            user_id INTEGER NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            expires_at TIMESTAMP NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-        """
-    )
-
-    conn.commit()
-    conn.close()
-    return db_path
+def init_user_db() -> bool:
+    """用户表由 Alembic 管理，保留兼容入口。"""
+    with SessionLocal() as db:
+        db.execute(text("SELECT 1"))
+        db.commit()
+    return True
 
 
 def create_admin_user(
@@ -67,25 +32,31 @@ def create_admin_user(
     display_name: str = "管理员",
     role: str = "admin",
 ) -> dict:
-    db_path = init_user_db()
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    init_user_db()
+    with SessionLocal() as db:
+        row = db.execute(
+            text("SELECT id FROM users WHERE username = :username LIMIT 1"),
+            {"username": username},
+        ).fetchone()
+        if row:
+            return {"success": True, "message": "管理员已存在"}
 
-    cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
-    if cursor.fetchone():
-        conn.close()
-        return {"success": True, "message": "管理员已存在"}
-
-    hashed_password = hashlib.sha256(password.encode("utf-8")).hexdigest()
-    cursor.execute(
-        """
-        INSERT INTO users (username, password, display_name, role)
-        VALUES (?, ?, ?, ?)
-        """,
-        (username, hashed_password, display_name, role),
-    )
-    conn.commit()
-    conn.close()
+        hashed_password = hashlib.sha256(password.encode("utf-8")).hexdigest()
+        db.execute(
+            text(
+                """
+                INSERT INTO users (username, password, display_name, role, is_active, created_at)
+                VALUES (:username, :password, :display_name, :role, 1, NOW())
+                """
+            ),
+            {
+                "username": username,
+                "password": hashed_password,
+                "display_name": display_name,
+                "role": role,
+            },
+        )
+        db.commit()
     logger.info("管理员账户已创建 (%s)", username)
     return {"success": True, "message": "管理员已创建"}
 

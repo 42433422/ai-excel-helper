@@ -1,4 +1,25 @@
-const API_BASE = '';
+function resolveApiBase(): string {
+  const configured = String(import.meta?.env?.VITE_API_BASE_URL || '').trim();
+  return configured.replace(/\/+$/, '');
+}
+
+function buildApiUrl(url: string): string {
+  const normalizedUrl = String(url || '');
+  if (/^https?:\/\//i.test(normalizedUrl)) {
+    return normalizedUrl;
+  }
+  if (!API_BASE) {
+    return normalizedUrl;
+  }
+  return normalizedUrl.startsWith('/') ? `${API_BASE}${normalizedUrl}` : `${API_BASE}/${normalizedUrl}`;
+}
+
+/** 与 api.post/get 同源；用于 fetch 健康检查等，避免 VITE_API_BASE_URL 已配置时仍请求到错误源。 */
+export function buildFullApiUrl(url: string): string {
+  return buildApiUrl(url);
+}
+
+const API_BASE = resolveApiBase();
 
 const defaultHeaders: Record<string, string> = {
   'Content-Type': 'application/json'
@@ -29,9 +50,10 @@ export interface ApiResponse<T = any> {
 }
 
 async function request(url: string, options: RequestOptions = {}): Promise<any> {
-  const fullUrl = API_BASE + url;
+  const fullUrl = buildApiUrl(url);
   const { skipDefaultJsonHeader = false, ...requestOptions } = options;
   const config: RequestOptions = {
+    credentials: 'include',
     ...requestOptions
   };
   const baseHeaders = skipDefaultJsonHeader ? {} : defaultHeaders;

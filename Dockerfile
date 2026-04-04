@@ -22,8 +22,8 @@ RUN pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels -r requirements
 FROM python:3.11-slim as production
 
 LABEL maintainer="XCAGI Team"
-LABEL version="1.0"
-LABEL description="XCAGI Flask Application"
+LABEL version="4.0"
+LABEL description="XCAGI AI Employee - 基于 AI 的单据智能处理员工"
 
 WORKDIR /app
 

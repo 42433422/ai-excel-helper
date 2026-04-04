@@ -224,6 +224,26 @@ def sample_shipment():
 
 
 @pytest.fixture
+def sample_template():
+    """示例模板数据"""
+    return {
+        "name": "测试发货单模板",
+        "template_type": "发货单",
+        "business_scope": "orders",
+        "fields": [
+            {"label": "产品型号", "name": "model", "type": "text"},
+            {"label": "数量", "name": "quantity", "type": "number"},
+            {"label": "单价", "name": "price", "type": "number"},
+            {"label": "金额", "name": "amount", "type": "number"}
+        ],
+        "preview_data": {
+            "sample_rows": [{"产品型号": "ABC-001", "数量": 5}],
+            "sheet_name": "Sheet1"
+        }
+    }
+
+
+@pytest.fixture
 def assert_response():
     """断言辅助函数"""
     

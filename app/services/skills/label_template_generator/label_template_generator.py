@@ -76,17 +76,13 @@ def extract_text_with_ocr(image_path: str, use_regions: bool = True) -> Dict[str
         use_regions: 是否使用分区域识别（提高准确率）
     """
     try:
-        from paddleocr import PaddleOCR
         from PIL import Image
         import numpy as np
         import cv2
 
         img = Image.open(image_path)
         width, height = img.size
-        
-        # 初始化 PaddleOCR，支持中英文
-        ocr = PaddleOCR(lang='ch')
-        
+
         # 1. 先检测网格布局（表格线）- 直接检测连续的黑色线条
         img_array = np.array(img)
         gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
@@ -185,48 +181,20 @@ def extract_text_with_ocr(image_path: str, use_regions: bool = True) -> Dict[str
         vertical_lines = merge_close_lines(vertical_lines, threshold=50)
         
         logger.info(f"检测到网格：{len(horizontal_lines)}条水平线，{len(vertical_lines)}条垂直线")
-        
-        # 2. OCR 识别
-        result = ocr.predict(img_array)
 
-        # 处理返回结果 - 需要访问 .json 属性
-        if isinstance(result, list) and len(result) > 0:
-            result = result[0]
+        # 2. OCR 识别（与 /api/ocr 共用 OCRService：默认 PaddleOCR，可回退 EasyOCR）
+        from app.services.ocr_service import get_ocr_service
 
-        if hasattr(result, 'json'):
-            json_result = result.json
-        elif isinstance(result, dict):
-            json_result = result
-        else:
-            json_result = {}
+        ocr_svc = get_ocr_service()
+        text_blocks = ocr_svc.recognize_text_blocks(img)
+        if not text_blocks:
+            return {
+                "success": False,
+                "error": "OCR 未识别到文本。请安装 paddlepaddle+paddleocr（推荐）或 easyocr，并检查图片清晰度。",
+                "fallback_fields": _extract_fields_by_pattern(image_path),
+            }
 
-        res_data = json_result.get('res', {}) if isinstance(json_result, dict) else {}
-
-        rec_texts = res_data.get('rec_texts', []) if isinstance(res_data, dict) else []
-        rec_scores = res_data.get('rec_scores', []) if isinstance(res_data, dict) else []
-        rec_polys = res_data.get('rec_polys', []) if isinstance(res_data, dict) else []
-        
-        # 3. 将文本块映射到位置
-        text_blocks = []
-        for i, text in enumerate(rec_texts):
-            if i < len(rec_polys) and len(rec_polys[i]) > 0:
-                bbox = rec_polys[i]
-                center_x = sum([p[0] for p in bbox]) / len(bbox)
-                center_y = sum([p[1] for p in bbox]) / len(bbox)
-                score = rec_scores[i] if i < len(rec_scores) else 0
-                
-                text_blocks.append({
-                    'text': text.strip(),
-                    'left': int(min([p[0] for p in bbox])),
-                    'top': int(min([p[1] for p in bbox])),
-                    'width': int(max([p[0] for p in bbox]) - min([p[0] for p in bbox])),
-                    'height': int(max([p[1] for p in bbox]) - min([p[1] for p in bbox])),
-                    'conf': score * 100,
-                    'center': (center_x, center_y),
-                    'y_center': center_y
-                })
-        
-        logger.info(f"PaddleOCR 识别到 {len(text_blocks)} 个文本块")
+        logger.info("OCR 识别到 %s 个文本块（引擎：%s）", len(text_blocks), ocr_svc.get_active_ocr_backend())
 
         # 构建网格单元格信息
         cells = []
@@ -344,11 +312,11 @@ def extract_text_with_ocr(image_path: str, use_regions: bool = True) -> Dict[str
         }
 
     except ImportError as e:
-        logger.warning(f"PaddleOCR 未安装，使用回退方案：{e}")
+        logger.warning("标签模板 OCR 依赖缺失：%s", e)
         return {
             "success": False,
-            "error": "PaddleOCR 未安装：pip install paddlepaddle paddleocr",
-            "fallback_fields": _extract_fields_by_pattern(image_path)
+            "error": f"缺少图像处理依赖：{e}（需 Pillow、numpy、opencv-python；OCR 需 paddleocr 或 easyocr）",
+            "fallback_fields": _extract_fields_by_pattern(image_path),
         }
     except Exception as e:
         logger.error(f"OCR 提取失败：{e}")

@@ -9,6 +9,14 @@ from app.domain.services.intent_confirmation_service import (
     IntentConfirmationService,
     get_confirmation_service,
 )
+from app.domain.services.intent_recognition_service import (
+    IntentRecognitionService,
+    RecognizerResult,
+    get_intent_recognition_service,
+    IntentType,
+)
+
+# Keep legacy for backward compatibility (will be deprecated)
 from app.domain.services.unified_intent_recognizer import (
     UnifiedIntentRecognizer,
     get_unified_intent_recognizer,
@@ -17,6 +25,11 @@ from app.domain.services.unified_intent_recognizer import (
 __all__ = [
     "IntentConfirmationService",
     "get_confirmation_service",
+    "IntentRecognitionService",
+    "RecognizerResult",
+    "get_intent_recognition_service",
+    "IntentType",
+    # legacy
     "UnifiedIntentRecognizer",
     "get_unified_intent_recognizer",
 ]

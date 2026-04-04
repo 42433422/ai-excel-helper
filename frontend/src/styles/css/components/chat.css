@@ -34,6 +34,133 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
+.context-summary {
+    margin-top: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 12px;
+}
+
+.thinking-panel {
+    margin-top: 8px;
+    border-top: 1px dashed #d1d5db;
+    padding-top: 8px;
+}
+
+.thinking-panel summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: #374151;
+    font-weight: 600;
+}
+
+.thinking-panel pre {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #111827;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.todo-panel {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+.todo-panel .todo-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 6px;
+}
+
+.todo-panel ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.todo-panel li {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #374151;
+}
+
+.trace-panel {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid #dbeafe;
+    background: #eff6ff;
+    border-radius: 6px;
+}
+
+.trace-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e3a8a;
+    margin-bottom: 6px;
+}
+
+.trace-stages {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.trace-chip {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.trace-action {
+    font-size: 12px;
+    color: #1f2937;
+    margin-bottom: 4px;
+}
+
+.trace-list {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.trace-list li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    margin-top: 4px;
+    color: #1f2937;
+}
+
+.trace-status {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 10px;
+}
+
+.trace-status.ok {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.trace-status.fail {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
 .message .time { font-size: 11px; opacity: 0.7; margin-top: 5px; }
 
 .input-area {
@@ -60,6 +187,28 @@
 
 .toolbar-btn:hover {
     background: #e0e0e0;
+}
+
+.intent-pro-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* 文案样式跟原生 :checked 走，避免与 v-model 或外部同步脱节 */
+.intent-pro-toggle .intent-pro-toggle-text {
+    color: #6b7280;
+    font-weight: 400;
+    transition: color 0.15s ease, font-weight 0.15s ease;
+}
+
+.intent-pro-toggle input:checked + .intent-pro-toggle-text {
+    color: #1d4ed8;
+    font-weight: 600;
 }
 
 .input-wrapper { display: flex; gap: 10px; }

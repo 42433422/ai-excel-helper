@@ -9,6 +9,7 @@ from app.domain.services.intent.base_strategy import IntentDetectionStrategy
 from app.domain.services.intent.coordinator import (
     IntentRecognitionCoordinator,
     get_intent_coordinator,
+    reload_intent_coordinator,
 )
 from app.domain.services.intent.goodbye_strategy import GoodbyeStrategy
 from app.domain.services.intent.greeting_strategy import GreetingStrategy
@@ -23,4 +24,5 @@ __all__ = [
     "NegationStrategy",
     "IntentRecognitionCoordinator",
     "get_intent_coordinator",
+    "reload_intent_coordinator",
 ]

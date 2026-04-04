@@ -5,6 +5,12 @@ import logging
 from flasgger import swag_from
 from flask import Blueprint, jsonify, request
 
+from app.application import get_user_preference_app_service
+from app.utils.json_safe import json_safe
+from app.services.conversation_service import (
+    get_conversation_service as get_conversation_app_service,
+)
+
 
 def get_conversation_service():
     return get_conversation_app_service()
@@ -15,6 +21,89 @@ def get_user_preference_service():
 
 logger = logging.getLogger(__name__)
 conversations_bp = Blueprint('conversations', __name__)
+
+
+def _normalize_user_id_for_session(value):
+    """会话表 user_id 是整数外键，兼容历史 default/空字符串。"""
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    return None
+
+
+def _session_to_dict(session: object) -> dict:
+    """兼容 tuple / dict / ORM 对象的会话结构。"""
+    if isinstance(session, dict):
+        return {
+            "session_id": session.get("session_id"),
+            "user_id": session.get("user_id"),
+            "title": session.get("title") or "新会话",
+            "summary": session.get("summary") or "",
+            "message_count": session.get("message_count", 0),
+            "last_message_at": session.get("last_message_at"),
+            "created_at": session.get("created_at"),
+        }
+    if isinstance(session, tuple):
+        return {
+            "session_id": session[1] if len(session) > 1 else None,
+            "user_id": session[2] if len(session) > 2 else None,
+            "title": (session[3] if len(session) > 3 else None) or "新会话",
+            "summary": (session[4] if len(session) > 4 else None) or "",
+            "message_count": session[5] if len(session) > 5 else 0,
+            "last_message_at": session[6] if len(session) > 6 else None,
+            "created_at": session[7] if len(session) > 7 else None,
+        }
+    return {
+        "session_id": getattr(session, "session_id", None),
+        "user_id": getattr(session, "user_id", None),
+        "title": getattr(session, "title", None) or "新会话",
+        "summary": getattr(session, "summary", "") or "",
+        "message_count": getattr(session, "message_count", 0),
+        "last_message_at": getattr(session, "last_message_at", None),
+        "created_at": getattr(session, "created_at", None),
+    }
+
+
+def _message_to_dict(message: object) -> dict:
+    """兼容 tuple / dict / ORM 对象的消息结构。"""
+    if isinstance(message, dict):
+        return {
+            "id": message.get("id"),
+            "session_id": message.get("session_id"),
+            "user_id": message.get("user_id"),
+            "role": message.get("role"),
+            "content": message.get("content"),
+            "intent": message.get("intent") or "",
+            "metadata": message.get("metadata") or message.get("conversation_metadata") or "",
+            "created_at": message.get("created_at"),
+        }
+    if isinstance(message, tuple):
+        return {
+            "id": message[0] if len(message) > 0 else None,
+            "session_id": message[1] if len(message) > 1 else None,
+            "user_id": message[2] if len(message) > 2 else None,
+            "role": message[3] if len(message) > 3 else None,
+            "content": message[4] if len(message) > 4 else None,
+            "intent": (message[5] if len(message) > 5 else "") or "",
+            "metadata": (message[6] if len(message) > 6 else "") or "",
+            "created_at": message[7] if len(message) > 7 else None,
+        }
+    return {
+        "id": getattr(message, "id", None),
+        "session_id": getattr(message, "session_id", None),
+        "user_id": getattr(message, "user_id", None),
+        "role": getattr(message, "role", None),
+        "content": getattr(message, "content", None),
+        "intent": getattr(message, "intent", "") or "",
+        "metadata": getattr(message, "conversation_metadata", "") or "",
+        "created_at": getattr(message, "created_at", None),
+    }
 
 
 @conversations_bp.route('/api/conversations/sessions', methods=['GET'])
@@ -59,16 +148,8 @@ def get_conversation_sessions():
         sessions = service.get_sessions(user_id, limit)
         result = []
         for s in sessions:
-            result.append({
-                "session_id": s[1],
-                "user_id": s[2],
-                "title": s[3] or "新会话",
-                "summary": s[4] or "",
-                "message_count": s[5],
-                "last_message_at": s[6],
-                "created_at": s[7]
-            })
-        return jsonify({"success": True, "sessions": result})
+            result.append(_session_to_dict(s))
+        return jsonify(json_safe({"success": True, "sessions": result}))
     except Exception as e:
         logger.error(f"获取会话列表失败: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
@@ -131,31 +212,17 @@ def get_conversation_messages(session_id):
         sessions = service.get_sessions(user_id=None, limit=1000)
         session_info = None
         for s in sessions:
-            if s[1] == session_id:
-                session_info = {
-                    "session_id": s[1],
-                    "user_id": s[2],
-                    "title": s[3] or "新会话",
-                    "summary": s[4] or "",
-                    "message_count": s[5],
-                    "last_message_at": s[6],
-                    "created_at": s[7]
-                }
+            current = _session_to_dict(s)
+            if current.get("session_id") == session_id:
+                session_info = current
                 break
 
         result = []
         for m in messages:
-            result.append({
-                "id": m[0],
-                "session_id": m[1],
-                "user_id": m[2],
-                "role": m[3],
-                "content": m[4],
-                "intent": m[5] or "",
-                "metadata": m[6] or "",
-                "created_at": m[7]
-            })
-        return jsonify({"success": True, "session": session_info, "messages": result})
+            result.append(_message_to_dict(m))
+        return jsonify(
+            json_safe({"success": True, "session": session_info, "messages": result})
+        )
     except Exception as e:
         logger.error(f"获取会话详情失败：{e}")
         return jsonify({"success": False, "message": str(e)}), 500
@@ -331,7 +398,7 @@ def save_conversation_message():
             }), 400
         
         session_id = data.get('session_id')
-        user_id = data.get('user_id', 'default')
+        user_id = _normalize_user_id_for_session(data.get('user_id', 'default'))
         role = data.get('role')
         content = data.get('content')
         intent = data.get('intent', '')
@@ -418,7 +485,7 @@ def create_new_conversation():
     try:
         service = get_conversation_service()
         data = request.get_json() or {}
-        user_id = data.get('user_id', 'default')
+        user_id = _normalize_user_id_for_session(data.get('user_id', 'default'))
         title = data.get('title')
         session_id = service.create_session(user_id, title)
         return jsonify({"success": True, "session_id": session_id})

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 服务层模块
 
@@ -19,12 +21,19 @@
 此文件保留为统一导出入口。
 """
 
+# 精简版（无 is_available / return_probs）；HTTP 路由请用 app.services.bert_intent_service.BertIntentClassifier
 from app.ai_engines.bert.intent_service import BertIntentClassifier
 from app.ai_engines.deepseek.intent_service import DeepseekIntentClassifier
 from app.ai_engines.rasa.nlu_service import RasaNLUService, get_rasa_nlu_service
 from app.domain.services.intent_confirmation_service import (
     IntentConfirmationService,
     get_confirmation_service,
+)
+# Prefer domain layer for intent recognition (new unified service)
+from app.domain.services.intent_recognition_service import (
+    IntentRecognitionService,
+    RecognizerResult,
+    get_intent_recognition_service,
 )
 from app.domain.services.unified_intent_recognizer import (
     UnifiedIntentRecognizer,
@@ -38,6 +47,8 @@ from app.services.ai_conversation_service import (
 )
 from app.services.auth_service import AuthService, get_auth_service
 from app.services.extract_log_service import ExtractLogService
+# Intent services - prefer domain layer; these are kept for backward compatibility.
+# NOTE: printer_service is imported later to avoid circular import with application/print_app_service
 from app.services.hybrid_intent_service import (
     HybridIntentService,
     get_hybrid_intent_service,
@@ -45,16 +56,8 @@ from app.services.hybrid_intent_service import (
     hybrid_recognize_intents_sync,
 )
 from app.services.intent_service import get_tool_key_with_negation_check, recognize_intents
-from app.services.materials_service import MaterialsService
-from app.services.ocr_service import OCRService, get_ocr_service
-from app.services.printer_service import (
-    PrinterService,
-    get_document_printer,
-    get_label_printer,
-    get_printers,
-)
-from app.services.product_import_service import ProductImportService
-from app.services.products_service import ProductsService
+# Lazy imports for services that cause circular dependencies with application layer
+# These are only imported when their getter functions are called
 from app.services.task_agent import TaskAgent, get_task_agent
 from app.services.user_service import UserService, get_user_service
 from app.services.wechat_task_service import WechatTaskService
@@ -81,15 +84,23 @@ def get_ai_product_parser() -> AIProductParser:
     return AIProductParser()
 
 from app.infrastructure.skills import execute_skill, get_skill_registry
+from app.services.products_service import ProductsService
 
 
 def get_products_service() -> ProductsService:
     """获取产品服务单例"""
-    return ProductsService()
+    from app.infrastructure.persistence.product_repository_impl import (
+        SQLAlchemyProductRepository,
+    )
+
+    service = ProductsService()
+    service.set_repository(SQLAlchemyProductRepository())
+    return service
 
 
-def get_printer_service() -> PrinterService:
-    """获取打印机服务单例"""
+def get_printer_service() -> "PrinterService":
+    """获取打印机服务单例 (lazy to avoid circular imports)"""
+    from .printer_service import PrinterService
     return PrinterService()
 
 
@@ -133,6 +144,9 @@ __all__ = [
     "get_extract_log_service",
     "IntentConfirmationService",
     "get_confirmation_service",
+    "IntentRecognitionService",
+    "RecognizerResult",
+    "get_intent_recognition_service",
     "UnifiedIntentRecognizer",
     "get_unified_intent_recognizer",
     "BertIntentClassifier",
@@ -141,7 +155,7 @@ __all__ = [
     "get_session_manager",
     "ProductsService",
     "get_products_service",
-    "PrinterService",
+    # PrinterService symbols provided by lazy functions below
     "get_printer_service",
     "get_label_printer",
     "get_document_printer",

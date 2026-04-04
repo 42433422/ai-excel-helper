@@ -15,12 +15,14 @@
 本模块现在委托给 domain.services.intent 下的策略类处理具体检测逻辑
 """
 
+from __future__ import annotations
+
 import hashlib
+import logging
 import re
-from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
-from app.domain.services.intent import get_intent_coordinator
+from app.domain.services.intent import get_intent_coordinator, reload_intent_coordinator
 from app.services.rule_engine import get_rule_engine, reload_rule_engine
 from app.utils.cache_manager import get_intent_rule_cache
 from resources.config.intent_config import get_intent_config, reload_intent_config
@@ -29,9 +31,65 @@ _intent_cache = get_intent_rule_cache()
 
 _coordinator = get_intent_coordinator()
 
+logger = logging.getLogger(__name__)
 
-def _make_intent_cache_key(message: str) -> str:
-    return hashlib.md5(message.strip().lower().encode()).hexdigest()
+_quick_command_map: Dict[str, str] = {}
+_quick_intent_patterns: List[tuple[str, str]] = []
+_context_inherit_patterns: List[tuple[str, str]] = []
+_append_keywords: List[str] = []
+_negation_action_keywords: Dict[str, List[str]] = {}
+
+
+def _load_intent_runtime_rules() -> None:
+    """从配置加载快路径/否定动作等运行时规则。"""
+    global _quick_command_map, _quick_intent_patterns, _context_inherit_patterns, _append_keywords, _negation_action_keywords
+
+    config = get_intent_config()
+    quick_rules = config.get("quick_rules", {}) or {}
+
+    # command_map: { "开单": "shipment_generate", ...}
+    _quick_command_map = quick_rules.get("command_map", {}) or {}
+
+    # intent_patterns:
+    # - YAML:  [{pattern: "...", intent: "..."}]
+    # - Python default: [(pattern, intent), ...]
+    _quick_intent_patterns = []
+    for item in (quick_rules.get("intent_patterns", []) or []):
+        if isinstance(item, dict):
+            pattern = item.get("pattern")
+            intent = item.get("intent")
+        elif isinstance(item, (list, tuple)) and len(item) == 2:
+            pattern, intent = item
+        else:
+            continue
+        if pattern and intent:
+            _quick_intent_patterns.append((pattern, intent))
+
+    # context_inherit_patterns: 同上（dict 或 tuple）
+    _context_inherit_patterns = []
+    for item in (quick_rules.get("context_inherit_patterns", []) or []):
+        if isinstance(item, dict):
+            pattern = item.get("pattern")
+            action = item.get("action")
+        elif isinstance(item, (list, tuple)) and len(item) == 2:
+            pattern, action = item
+        else:
+            continue
+        if pattern and action:
+            _context_inherit_patterns.append((pattern, action))
+
+    _append_keywords = quick_rules.get("append_keywords", []) or []
+
+    # negation_action_keywords: { "shipment_generate": [...], ...}
+    _negation_action_keywords = config.get("negation_action_keywords", {}) or {}
+
+
+_load_intent_runtime_rules()
+
+
+def _make_intent_cache_key(message: Any) -> str:
+    normalized = _normalize(message if isinstance(message, str) else str(message or ""))
+    return hashlib.md5(normalized.lower().encode()).hexdigest()
 
 
 def _normalize(msg: Optional[str]) -> str:
@@ -46,7 +104,10 @@ def reload_intent_service() -> None:
     global _intent_cache
     _intent_cache.clear()
     reload_intent_config()
+    global _coordinator
+    _coordinator = reload_intent_coordinator()
     reload_rule_engine()
+    _load_intent_runtime_rules()
 
 
 def is_negation(message: str, action_keywords: Optional[List[str]] = None) -> bool:
@@ -104,6 +165,19 @@ QUICK_COMMAND_MAP = {
     "库存": "materials",
     "分解": "excel_decompose",
     "分解excel": "excel_decompose",
+    "提取模板": "template_extract",
+    "导出模板": "template_extract",
+    "业务对接": "business_docking",
+    "模板预览": "template_preview",
+    "出货记录": "shipment_records",
+    "微信联系人": "wechat",
+    "联系人列表": "wechat",
+    "打印机列表": "printer_list",
+    "系统设置": "settings",
+    "工具表": "tools_table",
+    "其他工具": "other_tools",
+    "ai生态": "ai_ecosystem",
+    "AI生态": "ai_ecosystem",
 }
 
 QUICK_INTENT_PATTERNS = [
@@ -131,6 +205,28 @@ _APPEND_KEYWORDS = [
 
 
 def recognize_intents(message: str) -> Dict[str, Any]:
+    """对外接口：全流程意图识别入口（带异常兜底）"""
+    try:
+        return _recognize_intents_impl(message)
+    except Exception as e:
+        logger.exception("recognize_intents failed: %s", e)
+        return {
+            "primary_intent": None,
+            "tool_key": None,
+            "intent_hints": [],
+            "is_negated": False,
+            "is_greeting": False,
+            "is_goodbye": False,
+            "is_help": False,
+            "is_confirmation": False,
+            "is_negation_intent": False,
+            "is_likely_unclear": True,
+            "all_matched_tools": [],
+            "slots": {},
+        }
+
+
+def _recognize_intents_impl(message: str) -> Dict[str, Any]:
     """
     全流程意图识别入口
 
@@ -224,10 +320,10 @@ def recognize_intents(message: str) -> Dict[str, Any]:
         has_container_and_spec = ("桶" in msg and "规格" in msg)
         has_number_like = re.search(r"(\d+|[一二三四五六七八九十零〇两]+)", msg) is not None
         if has_container_and_spec and has_number_like:
-            negated = is_negation(message, action_keywords=[
-                "生成发货单", "发货单生成", "做发货单", "开发货单",
-                "开单", "打单", "开送货单", "做出货单", "生成出货单",
-            ])
+            negated = is_negation(
+                message,
+                action_keywords=_negation_action_keywords.get("shipment_generate", []),
+            )
             if not negated:
                 result["primary_intent"] = "shipment_generate"
                 result["tool_key"] = "shipment_generate"
@@ -239,10 +335,10 @@ def recognize_intents(message: str) -> Dict[str, Any]:
         has_model_spec = re.search(r"(\d+)\s*规格\s*(\d+(?:\.\d+)?)", msg) is not None or re.search(r"(\d+)\s*的\s*规格\s*(\d+(?:\.\d+)?)", msg) is not None
         has_container_qty = any(k in msg for k in ["桶", "箱", "件", "公斤", "kg"])
         if has_print_kw and has_model_spec and not has_container_qty and not result["is_negated"]:
-            negated = is_negation(message, action_keywords=[
-                "生成发货单", "发货单生成", "做发货单", "开发货单",
-                "开单", "打单", "开送货单", "做出货单", "生成出货单",
-            ])
+            negated = is_negation(
+                message,
+                action_keywords=_negation_action_keywords.get("shipment_generate", []),
+            )
             if not negated:
                 result["primary_intent"] = "shipment_generate"
                 result["tool_key"] = "shipment_generate"
@@ -259,10 +355,10 @@ def recognize_intents(message: str) -> Dict[str, Any]:
         if "桶" in msg and re.search(r"(\d+|[一二三四五六七八九十零〇两]+)\s*桶|桶\s*(\d+|[一二三四五六七八九十零〇两]+)", msg):
             signals += 1
         if has_order_action and signals >= 2 and not result["is_negated"]:
-            if not is_negation(message, action_keywords=[
-                "生成发货单", "发货单生成", "做发货单", "开发货单",
-                "开单", "打单", "开送货单", "做出货单", "生成出货单",
-            ]):
+            if not is_negation(
+                message,
+                action_keywords=_negation_action_keywords.get("shipment_generate", []),
+            ):
                 result["primary_intent"] = "shipment_generate"
                 result["tool_key"] = "shipment_generate"
                 if "shipment_generate" not in result["intent_hints"]:
@@ -357,7 +453,7 @@ def quick_recognize(
         result["elapsed_ms"] = round((time.time() - start_time) * 1000, 2)
         return result
 
-    for cmd, intent in QUICK_COMMAND_MAP.items():
+    for cmd, intent in _quick_command_map.items():
         if msg == cmd or msg_lower == cmd.lower():
             result["primary_intent"] = intent
             result["tool_key"] = intent
@@ -365,7 +461,7 @@ def quick_recognize(
             result["elapsed_ms"] = round((time.time() - start_time) * 1000, 2)
             return result
 
-    for pattern, intent in QUICK_INTENT_PATTERNS:
+    for pattern, intent in _quick_intent_patterns:
         if re.search(pattern, msg):
             result["primary_intent"] = intent
             result["tool_key"] = intent
@@ -374,7 +470,7 @@ def quick_recognize(
             return result
 
     if context:
-        for append_kw in _APPEND_KEYWORDS:
+        for append_kw in _append_keywords:
             if msg.startswith(append_kw) or f"^{append_kw}" in msg:
                 pending = context.get("pending_confirmation")
                 if pending:
@@ -402,7 +498,7 @@ def quick_recognize(
                     result["elapsed_ms"] = round((time.time() - start_time) * 1000, 2)
                     return result
 
-        for pattern, action in _CONTEXT_INHERIT_PATTERNS:
+        for pattern, action in _context_inherit_patterns:
             if re.search(pattern, msg):
                 if action == "repeat_last":
                     last_intent = context.get("current_intent") or context.get("last_intent")

@@ -3,20 +3,9 @@
 Database Query Skill Module
 """
 
-from contextlib import contextmanager
-
-from app.application.customer_app_service import get_customers_session
 from app.db import SessionLocal
+from app.db.session import get_db
 from app.db.models import Material, Product, PurchaseUnit, ShipmentRecord
-
-
-@contextmanager
-def get_customers_db():
-    session = get_customers_session()
-    try:
-        yield session
-    finally:
-        session.close()
 
 
 def query_all_products(limit=20):
@@ -39,12 +28,12 @@ def search_products_by_model(model_number):
 
 
 def query_all_customers(limit=20):
-    with get_customers_db() as db:
+    with get_db() as db:
         return db.query(PurchaseUnit).filter(PurchaseUnit.is_active == True).limit(limit).all()
 
 
 def search_customers(keyword):
-    with get_customers_db() as db:
+    with get_db() as db:
         return db.query(PurchaseUnit).filter(
             PurchaseUnit.unit_name.like(f'%{keyword}%'),
             PurchaseUnit.is_active == True

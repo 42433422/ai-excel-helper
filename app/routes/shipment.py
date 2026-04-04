@@ -5,6 +5,8 @@
 """
 
 import os
+import re
+import logging
 
 from flasgger import swag_from
 from flask import Blueprint, jsonify, request, send_file
@@ -13,6 +15,7 @@ from app.application import ShipmentApplicationService
 from app.bootstrap import get_shipment_app_service
 
 shipment_bp = Blueprint("shipment", __name__)
+logger = logging.getLogger(__name__)
 
 
 def get_shipment_service():
@@ -190,13 +193,17 @@ def shipment_print():
             result = app_service.mark_as_printed(shipment_id, printer_name=printer_name or "")
             if isinstance(result, dict):
                 result["file_path"] = file_path
+                if "updated" not in result:
+                    result["updated"] = bool(result.get("success"))
         else:
             # 兼容旧行为：未提供 order_id 时，只回传成功，不强制更新数据库
             result = {
                 "success": True,
-                "message": "发货单已标记为已打印",
+                "message": "发货单打印请求已完成，但未更新记录（缺少 order_id）",
                 "printed_at": datetime.now().isoformat(),
                 "file_path": file_path,
+                "updated": False,
+                "warning": "缺少 order_id，已跳过数据库状态更新",
             }
         
         status_code = 200 if result.get("success") else 500
@@ -383,20 +390,41 @@ def shipment_download(filename):
 def get_next_order_number():
     """获取下一个订单编号"""
     try:
-        from datetime import datetime
-        suffix = request.args.get('suffix', 'A')
+        from datetime import datetime, timedelta
+        from app.db.models import ShipmentRecord
+        from app.db.session import get_db
+
+        suffix = (request.args.get("suffix") or "").strip().upper()
+        if not (suffix and len(suffix) == 1 and re.fullmatch(r"[A-Z]", suffix)):
+            suffix = "A"
+
         today = datetime.now()
         year = today.strftime("%y")
         month = today.strftime("%m")
+        start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        next_month = (start + timedelta(days=32)).replace(day=1)
+
+        with get_db() as db:
+            count = (
+                db.query(ShipmentRecord)
+                .filter(ShipmentRecord.created_at >= start, ShipmentRecord.created_at < next_month)
+                .count()
+            )
+
+        next_sequence = int(count) + 1
+        order_number = f"{year}-{month}-{next_sequence:05d}{suffix}"
+        year_month = f"{year}-{month}"
+
         return jsonify({
             "success": True,
             "data": {
-                "order_number": f"{year}-{month}-00001{suffix}",
-                "sequence": 1,
-                "year_month": f"{year}-{month}"
+                "order_number": order_number,
+                "sequence": next_sequence,
+                "year_month": year_month
             }
         })
     except Exception as e:
+        logger.error("获取下一个订单编号失败: %s", e, exc_info=True)
         return jsonify({"success": False, "message": str(e)}), 500
 
 
@@ -997,10 +1025,21 @@ def export_shipment_records():
     """导出出货记录"""
     try:
         unit = request.args.get('unit')
+        template_id = request.args.get('template_id')
+        status = request.args.get('status')
         
         app_service = get_shipment_app_service()
-        result = app_service.export_shipment_records(unit_name=unit)
-        
+        result = app_service.export_shipment_records(
+            unit_name=unit,
+            template_id=template_id,
+            status_filter=status,
+        )
+        if result.get("success") and result.get("file_path") and os.path.exists(result["file_path"]):
+            return send_file(
+                result["file_path"],
+                as_attachment=True,
+                download_name=result.get("filename") or os.path.basename(result["file_path"])
+            )
         status_code = 200 if result.get("success") else 500
         return jsonify(result), status_code
     except Exception as e:

@@ -220,3 +220,117 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
 
         except Exception:
             return []
+
+    def export_to_excel(
+        self,
+        search: Optional[str] = None,
+        category: Optional[str] = None,
+        template_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        try:
+            import os
+
+            from openpyxl import Workbook
+
+            from app.utils.path_utils import get_data_dir
+            from app.utils.template_export_utils import fill_workbook_from_template
+
+            with get_db() as db:
+                query = db.query(Material).filter(Material.is_active == 1)
+                if search:
+                    pattern = f"%{search}%"
+                    query = query.filter(
+                        (Material.name.like(pattern))
+                        | (Material.material_code.like(pattern))
+                        | (Material.supplier.like(pattern))
+                    )
+                if category:
+                    query = query.filter(Material.category == category)
+
+                materials = query.order_by(Material.id.desc()).all()
+
+            records = [
+                {
+                    "material_code": m.material_code or "",
+                    "name": m.name or "",
+                    "category": m.category or "",
+                    "specification": m.specification or "",
+                    "unit": m.unit or "",
+                    "stock_quantity": m.quantity if m.quantity is not None else 0,
+                    "unit_price": m.unit_price if m.unit_price is not None else 0,
+                    "supplier": m.supplier or "",
+                }
+                for m in materials
+            ]
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"materials_{timestamp}.xlsx"
+            export_dir = os.path.join(get_data_dir(), "exports")
+            os.makedirs(export_dir, exist_ok=True)
+            file_path = os.path.join(export_dir, filename)
+
+            template_path = None
+            if template_id:
+                try:
+                    from app.application import get_template_app_service
+
+                    templates = (get_template_app_service().get_templates() or {}).get("templates") or []
+                    target = next((t for t in templates if str(t.get("id")) == str(template_id)), None)
+                    if target:
+                        candidate_path = str(target.get("path") or target.get("file_path") or "").strip()
+                        if candidate_path and os.path.exists(candidate_path):
+                            template_path = candidate_path
+                except Exception:
+                    template_path = None
+
+            if template_path:
+                header_alias = {
+                    "material_code": ["原材料编码", "编码"],
+                    "name": ["名称", "原材料名称"],
+                    "category": ["分类"],
+                    "specification": ["规格", "规格型号"],
+                    "unit": ["单位"],
+                    "stock_quantity": ["库存数量", "数量"],
+                    "unit_price": ["单价", "价格"],
+                    "supplier": ["供应商"],
+                }
+                wb = fill_workbook_from_template(
+                    template_path=template_path,
+                    records=records,
+                    field_alias_map=header_alias,
+                    sheet_name="原材料列表",
+                )
+            else:
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "原材料列表"
+                ws.append(["原材料编码", "名称", "分类", "规格", "单位", "库存数量", "单价", "供应商"])
+                for row in records:
+                    ws.append(
+                        [
+                            row["material_code"],
+                            row["name"],
+                            row["category"],
+                            row["specification"],
+                            row["unit"],
+                            row["stock_quantity"],
+                            row["unit_price"],
+                            row["supplier"],
+                        ]
+                    )
+
+            wb.save(file_path)
+            return {
+                "success": True,
+                "file_path": str(file_path),
+                "filename": filename,
+                "count": len(records),
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"导出失败：{str(e)}",
+                "file_path": None,
+                "filename": None,
+                "count": 0,
+            }

@@ -8,39 +8,23 @@
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/main.ts"></script>
     <script>
-      // 兼容旧版 HTML 的全局脚本：在 Vue 挂载后按原顺序加载。
+      // Legacy script loader - only for backward compatibility with old Flask templates
+      // Can be disabled via window.__ENABLE_LEGACY__ = false in production
       window.addEventListener('load', () => {
-        // 全量 legacy 脚本（仅用于调试）
-        const legacyScriptsFull = [
-          '/static/js/core/config.js',
-          '/static/js/core/utils.js',
-          '/static/js/modules/ui.js',
-          '/static/js/modules/chat.js',
-          '/static/js/modules/file-import.js',
-          '/static/js/modules/wechat.js',
-          '/static/js/pro_feature_widget.js',
-          '/static/js/modules/pro-mode.js?v=2'
-        ]
-        // 默认仅保留 Vue 仍未替代的少量 legacy 能力。
-        // 已迁移到 Vue 的模块：products, materials, orders, customers, shipment-records
-        const legacyScriptsMinimal = [
-          '/static/js/core/config.js',
-          '/static/js/core/utils.js',
-          '/static/js/modules/chat.js',
-          '/static/js/modules/file-import.js',
-          '/static/js/modules/wechat.js',
-          '/static/js/pro_feature_widget.js',
-          '/static/js/modules/pro-mode.js?v=2'
-        ]
-        // 开关：
-        // - window.__ENABLE_LEGACY__ = false 彻底关闭 legacy 注入
-        // - window.__USE_FULL_LEGACY__ = true 恢复全量 legacy 注入
         const enableLegacy = window.__ENABLE_LEGACY__ !== false
-        const useFullLegacy = window.__USE_FULL_LEGACY__ === true
-        const legacyScripts = useFullLegacy ? legacyScriptsFull : legacyScriptsMinimal
         if (!enableLegacy) return
+
+        const legacyScripts = [
+          '/static/js/core/config.js',
+          '/static/js/core/utils.js',
+          '/static/js/modules/chat.js',
+          '/static/js/modules/file-import.js',
+          '/static/js/modules/wechat.js',
+          '/static/js/pro_feature_widget.js',
+          '/static/js/modules/pro-mode.js?v=2'
+        ]
 
         const loadSequentially = (index) => {
           if (index >= legacyScripts.length) return
@@ -51,6 +35,7 @@
           document.body.appendChild(script)
         }
 
+        console.log('[XCAGI] Loading legacy static JS for compatibility...')
         loadSequentially(0)
       })
     </script>

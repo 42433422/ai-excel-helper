@@ -15,17 +15,25 @@
 import json
 import logging
 import os
-import sqlite3
 import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import text
+
+from app.db import engine as ENGINE
+from app.utils.distillation_paths import (
+    get_distillation_db_path,
+    get_distillation_logs_dir,
+    get_distillation_root_dir,
+)
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DISTILL_DIR = os.path.join(BASE_DIR, "distillation")
-DB_PATH = os.path.join(DISTILL_DIR, "distillation.db")
-LOG_DIR = os.path.join(DISTILL_DIR, "logs")
+DISTILL_DIR = get_distillation_root_dir()
+DB_PATH = get_distillation_db_path()
+LOG_DIR = get_distillation_logs_dir()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -177,46 +185,13 @@ SAMPLE_QUERIES = {
 
 
 def init_distillation_db():
-    """初始化蒸馏数据库"""
+    """初始化蒸馏数据库（与 Flask app.db 主库一致）"""
+    from app.db.init_db import init_distillation_tables
+
     os.makedirs(DISTILL_DIR, exist_ok=True)
     os.makedirs(LOG_DIR, exist_ok=True)
-
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS distillation_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            query TEXT NOT NULL,
-            intent TEXT NOT NULL,
-            slots TEXT,
-            confidence REAL DEFAULT 1.0,
-            source TEXT DEFAULT 'manual',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            used_for_training INTEGER DEFAULT 0
-        )
-    """)
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS training_stats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            intent TEXT NOT NULL,
-            count INTEGER DEFAULT 0,
-            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_intent ON distillation_log(intent)
-    """)
-
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_used ON distillation_log(used_for_training)
-    """)
-
-    conn.commit()
-    conn.close()
-    logger.info(f"蒸馏数据库初始化完成: {DB_PATH}")
+    init_distillation_tables(ENGINE)
+    logger.info("蒸馏数据库初始化完成")
 
 
 def get_deepseek_api_key() -> str:
@@ -322,16 +297,22 @@ async def call_deepseek_intent(api_key: str, message: str) -> Optional[Dict[str,
 
 def save_distillation_sample(query: str, intent: str, slots: Dict, confidence: float = 1.0, source: str = "manual"):
     """保存蒸馏样本到数据库"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO distillation_log (query, intent, slots, confidence, source)
-        VALUES (?, ?, ?, ?, ?)
-    """, (query, intent, json.dumps(slots, ensure_ascii=False), confidence, source))
-
-    conn.commit()
-    conn.close()
+    with ENGINE.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO distillation_log (query, intent, slots, confidence, source)
+                VALUES (:query, :intent, :slots, :confidence, :source)
+                """
+            ),
+            {
+                "query": query,
+                "intent": intent,
+                "slots": json.dumps(slots, ensure_ascii=False),
+                "confidence": confidence,
+                "source": source,
+            },
+        )
 
 
 def generate_samples_from_queries(queries: Dict[str, List[str]]) -> int:
@@ -412,29 +393,22 @@ async def collect_samples_via_deepseek(api_key: str, target_count: int = 500) ->
 
 def get_sample_count(intent: Optional[str] = None) -> int:
     """获取样本数量"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    if intent:
-        cursor.execute("SELECT COUNT(*) FROM distillation_log WHERE intent = ?", (intent,))
-    else:
-        cursor.execute("SELECT COUNT(*) FROM distillation_log")
-
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
+    with ENGINE.begin() as conn:
+        if intent:
+            result = conn.execute(
+                text("SELECT COUNT(*) FROM distillation_log WHERE intent = :intent"),
+                {"intent": intent},
+            )
+        else:
+            result = conn.execute(text("SELECT COUNT(*) FROM distillation_log"))
+        return int(result.scalar() or 0)
 
 
 def get_sample_stats() -> Dict[str, int]:
     """获取各类别样本统计"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT intent, COUNT(*) FROM distillation_log GROUP BY intent")
-    rows = cursor.fetchall()
-    conn.close()
-
-    return {intent: count for intent, count in rows}
+    with ENGINE.begin() as conn:
+        rows = conn.execute(text("SELECT intent, COUNT(*) FROM distillation_log GROUP BY intent")).fetchall()
+        return {str(intent): int(count) for intent, count in rows}
 
 
 def export_training_data(output_path: Optional[str] = None, format: str = "jsonl") -> str:
@@ -442,18 +416,17 @@ def export_training_data(output_path: Optional[str] = None, format: str = "jsonl
     if output_path is None:
         output_path = os.path.join(DISTILL_DIR, "training_data.jsonl")
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT query, intent, slots FROM distillation_log
-        WHERE used_for_training = 0
-        ORDER BY RANDOM()
-        LIMIT 1000
-    """)
-
-    rows = cursor.fetchall()
-    conn.close()
+    with ENGINE.begin() as conn:
+        rows = conn.execute(
+            text(
+                """
+                SELECT query, intent, slots FROM distillation_log
+                WHERE used_for_training = 0
+                ORDER BY RANDOM()
+                LIMIT 1000
+                """
+            )
+        ).fetchall()
 
     if format == "jsonl":
         with open(output_path, "w", encoding="utf-8") as f:
@@ -479,14 +452,13 @@ def mark_samples_as_used(ids: List[int]):
     if not ids:
         return
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    placeholders = ",".join("?" * len(ids))
-    cursor.execute(f"UPDATE distillation_log SET used_for_training = 1 WHERE id IN ({placeholders})", ids)
-
-    conn.commit()
-    conn.close()
+    bindings = {f"id_{idx}": int(value) for idx, value in enumerate(ids)}
+    placeholders = ", ".join([f":id_{idx}" for idx in range(len(ids))])
+    with ENGINE.begin() as conn:
+        conn.execute(
+            text(f"UPDATE distillation_log SET used_for_training = 1 WHERE id IN ({placeholders})"),
+            bindings,
+        )
 
 
 async def main():

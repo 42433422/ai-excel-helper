@@ -8,7 +8,7 @@
     <div class="monitor-body">
       <div v-if="isTaskAcquisition" class="task-acquisition-panel">
         <div class="acquisition-header">
-          <span class="acquisition-icon">📦</span>
+          <span class="acquisition-icon"><i class="fa fa-cubes" aria-hidden="true"></i></span>
           <span class="acquisition-text">检测到新订单</span>
         </div>
         

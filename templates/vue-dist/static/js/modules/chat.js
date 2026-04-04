@@ -5,10 +5,18 @@ function initConversation() {
 }
 window.initConversation = initConversation;
 
+function isVueChatOwner() {
+    return !!window.__VUE_CHAT_OWNS_INPUT__;
+}
+
 let chatControlsBound = false;
 function bindChatControls() {
     if (chatControlsBound) return;
     chatControlsBound = true;
+
+    if (isVueChatOwner()) {
+        return;
+    }
 
     const newConversationBtn = document.getElementById('newConversationBtn');
     if (newConversationBtn) {
@@ -141,6 +149,34 @@ function sendMessage() {
     const message = input.value.trim();
     if (!message) return;
 
+    // 如果当前处于“购买单位产品列表库”的多轮确认阶段，优先走 sendChatMessage
+    // （避免 __VUE_CHAT_SEND__ 绕过 pending 拦截逻辑）
+    try {
+        const storageKey = 'xcagiPendingUnitProductsImport';
+        let pending = window && window.__xcagiPendingUnitProductsImport;
+
+        // If window state is lost (e.g. refresh), restore from localStorage.
+        if (!pending) {
+            try {
+                const raw = localStorage.getItem(storageKey);
+                if (raw) pending = JSON.parse(raw);
+                if (pending && window) window.__xcagiPendingUnitProductsImport = pending;
+            } catch (_) {}
+        }
+
+        if (pending && pending.saved_name && pending.stage) {
+            sendChatMessage(message);
+            if (input) input.value = '';
+            return;
+        }
+    } catch (_) {}
+
+    if (typeof window.__VUE_CHAT_SEND__ === 'function') {
+        window.__VUE_CHAT_SEND__(message);
+        if (input) input.value = '';
+        return;
+    }
+
     console.log('🔍 sendMessage 收到的消息:', message);
 
     // 专业模式且为任务类消息时，走 Jarvis 流程（进入任务获取态、执行工具、右侧下载）
@@ -168,6 +204,41 @@ function sendChatMessage(message, options = {}) {
             thinkingMsg.remove();
         }
     }
+
+    // 专业版模式切换指令本地优先，避免被后端上下文误判为业务意图。
+    try {
+        const isProModeActive = !!(document.body && document.body.classList.contains('pro-mode-active'));
+        const compact = String(message || '').trim().toLowerCase().replace(/\s+/g, '');
+        const wantsWorkMode = compact === '工作模式' || compact === '切换工作模式' || compact === '进入工作模式'
+            || compact === 'workmode' || compact === 'switchtoworkmode' || compact === 'enterworkmode';
+        const wantsMonitorMode = compact === '监控模式' || compact === '切换监控模式' || compact === '进入监控模式'
+            || compact === 'monitormode' || compact === 'switchtomonitormode' || compact === 'entermonitormode';
+        if (isProModeActive && (wantsWorkMode || wantsMonitorMode)) {
+            removeLoading(loadingId);
+            if (wantsMonitorMode) {
+                if (typeof window.setMonitorModeFromChat === 'function') {
+                    window.setMonitorModeFromChat(true);
+                    if (typeof window.refreshWorkModeMonitorList === 'function') window.refreshWorkModeMonitorList();
+                    addMessage('正在切换到监控模式...', 'ai');
+                    saveMessage('ai', '正在切换到监控模式...');
+                } else {
+                    addMessage('监控模式入口不可用，已保持当前模式不变。', 'ai');
+                    saveMessage('ai', '监控模式入口不可用，已保持当前模式不变。');
+                }
+            } else {
+                if (typeof window.setWorkModeFromChat === 'function') {
+                    window.setWorkModeFromChat(true);
+                    if (typeof window.refreshWorkModeMonitorList === 'function') window.refreshWorkModeMonitorList();
+                    addMessage('正在切换到工作模式...', 'ai');
+                    saveMessage('ai', '正在切换到工作模式...');
+                } else {
+                    addMessage('工作模式入口不可用，已保持当前模式不变。', 'ai');
+                    saveMessage('ai', '工作模式入口不可用，已保持当前模式不变。');
+                }
+            }
+            return;
+        }
+    } catch (_) {}
 
     // pending import：当文件上传识别到“购买单位产品列表库”后，用户回复是/否/改成... 将触发导入
     try {
@@ -372,6 +443,12 @@ function handleAutoAction(action, userMessage = '') {
     console.log('🔧 执行自动操作:', action);
     console.log('🔧 action.type:', action.type);
     console.log('🔧 proFeatureWidget存在:', !!window.proFeatureWidget);
+    if (action && action.type === 'show_products_float') {
+        window.dispatchEvent(new CustomEvent('xcagi:open-assistant-float', {
+            detail: { feature: 'products', query: action.query || userMessage || '' }
+        }));
+        return;
+    }
     
     if (!window.proFeatureWidget) {
         console.log('⚠️ proFeatureWidget未初始化，尝试初始化');
@@ -419,12 +496,18 @@ function handleAutoAction(action, userMessage = '') {
             }
             break;
         case 'show_monitor':
+            // 监控模式只走独立入口；缺失时保持当前模式，避免静默串扰。
             if (typeof window.setMonitorModeFromChat === 'function') {
                 window.setMonitorModeFromChat(true);
-            } else if (typeof window.enterMonitorModeFromChat === 'function') {
-                window.enterMonitorModeFromChat();
-            } else if (window.proFeatureWidget && typeof window.proFeatureWidget.showFeature === 'function') {
-                window.proFeatureWidget.showFeature('monitor');
+            } else {
+                console.warn('[pro-runtime] monitor mode entry missing; skip fallback to work mode');
+                if (typeof addMessage === 'function') {
+                    addMessage('监控模式入口不可用，已保持当前模式不变。', 'ai');
+                }
+                break;
+            }
+            if (typeof window.refreshWorkModeMonitorList === 'function') {
+                window.refreshWorkModeMonitorList();
             }
             break;
         case 'show_wechat_messages':
@@ -438,18 +521,41 @@ function handleAutoAction(action, userMessage = '') {
             break;
         case 'already_logged':
             break;
+        case 'tool_call':
+            console.log('🔧 执行工具调用:', action.tool_key, action.params);
+            if (action.tool_key === 'products') {
+                const query = action.params?.model_number || action.params?.keyword || action.query || '';
+                const unitName = action.params?.unit_name || '';
+                showProductsPanel(query, unitName);
+            } else if (action.tool_key === 'customers') {
+                showCustomersPanel();
+            } else if (action.tool_key === 'shipments') {
+                showOrdersPanel();
+            } else if (action.tool_key === 'print_label') {
+                showPrintPanel();
+            } else if (action.tool_key === 'materials') {
+                showMaterialsPanel();
+            } else if (action.tool_key === 'show_labels_export') {
+                showLabelsExportPanel();
+            }
+            break;
         default:
             console.log('未知操作类型:', action.type);
     }
 }
 
 // 暴露给专业模式（Jarvis）统一复用
-window.handleAutoAction = handleAutoAction;
+window.__legacyHandleAutoAction = handleAutoAction;
+if (!window.__VUE_HANDLE_AUTO_ACTION__) {
+    window.handleAutoAction = handleAutoAction;
+}
 
-function showProductsPanel(query) {
+function showProductsPanel(query, unitName) {
     const isProModeActive = !!(document.body && document.body.classList.contains('pro-mode-active'));
     if (isProModeActive && window.proFeatureWidget && typeof window.proFeatureWidget.showFeature === 'function') {
-        window.proFeatureWidget.showFeature('product_query', { query: query || '' });
+        const config = { query: query || '' };
+        if (unitName) config.unit_name = unitName;
+        window.proFeatureWidget.showFeature('product_query', config);
         return;
     }
 
@@ -1013,6 +1119,24 @@ function renderLabelPanel(labels) {
             floatContainer.appendChild(img);
         }
     }
+}
+
+function closeLabelsPanel() {
+    var win = document.getElementById('labelsExportWindow');
+    if (win) win.classList.remove('show');
+    var c = document.getElementById('labelFloatPreviews');
+    if (c) { c.innerHTML = ''; c.classList.add('hidden'); }
+}
+
+function _bindLabelExportClose() {
+    if (window._labelsExportCloseBound) return;
+    window._labelsExportCloseBound = true;
+    var win = document.getElementById('labelsExportWindow');
+    if (!win) return;
+    ['labelsExportCloseBtn', 'labelsExportCloseBtn2'].forEach(function(id) {
+        var btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', closeLabelsPanel);
+    });
 }
 
 function _bindLabelPreviewModalClose() {

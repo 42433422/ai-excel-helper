@@ -7,6 +7,7 @@
 """
 
 import os
+import copy
 import yaml
 import logging
 from typing import Dict, List, Any, Optional
@@ -20,6 +21,32 @@ CONFIG_FILE = CONFIG_DIR / "industry_config.yaml"
 
 _industry_config: Optional[Dict[str, Any]] = None
 _config_mtime: float = 0
+
+
+def _industries_dict_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    安全取出 industries 映射。
+
+    YAML 中若写 ``industries:`` 或 ``industries: null``，则 ``config.get('industries', {})``
+    会得到 None（键存在时不会用默认值），随后 ``.items()`` 会抛错并导致 /api/system/* 返回 500。
+    """
+    raw = config.get("industries")
+    if isinstance(raw, dict):
+        return raw
+    if raw is not None:
+        logger.warning(
+            "行业配置 industries 无效（期望字典，实为 %s），按空字典处理",
+            type(raw).__name__,
+        )
+    return {}
+
+
+def _resolve_default_industry(config: Dict[str, Any]) -> str:
+    """default_industry 若为 null / 非字符串，回退到「涂料」。"""
+    v = config.get("default_industry")
+    if isinstance(v, str) and v.strip():
+        return v.strip()
+    return "涂料"
 
 
 @dataclass
@@ -99,7 +126,16 @@ def _load_config() -> Dict[str, Any]:
     if _industry_config is None or current_mtime > _config_mtime:
         try:
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-                _industry_config = yaml.safe_load(f)
+                loaded = yaml.safe_load(f)
+            if not isinstance(loaded, dict):
+                logger.error("行业配置 YAML 根节点不是字典，使用内置默认")
+                _industry_config = _get_default_config()
+            else:
+                _industry_config = loaded
+                if not isinstance(_industry_config.get("industries"), dict):
+                    if _industry_config.get("industries") is not None:
+                        logger.warning("行业配置 industries 字段类型无效，已置为空字典")
+                    _industry_config["industries"] = {}
             _config_mtime = current_mtime
             logger.info(f"行业配置已加载: {CONFIG_FILE}")
         except Exception as e:
@@ -258,41 +294,50 @@ def get_industry_config() -> Dict[str, Any]:
 def get_available_industries() -> List[Dict[str, str]]:
     """获取可用行业列表"""
     config = _load_config()
-    industries = config.get("industries", {})
-    return [
-        {"id": industry_id, "name": data.get("name", industry_id)}
-        for industry_id, data in industries.items()
-    ]
+    industries = _industries_dict_from_config(config)
+    out: List[Dict[str, str]] = []
+    for industry_id, data in industries.items():
+        if not isinstance(data, dict):
+            logger.warning("跳过无效行业项 %r（配置不是字典）", industry_id)
+            continue
+        out.append({"id": str(industry_id), "name": data.get("name", str(industry_id))})
+    return out
 
 
 def get_industry_profile(industry_id: Optional[str] = None) -> IndustryProfile:
     """获取指定行业配置"""
     config = _load_config()
-    industries = config.get("industries", {})
+    industries = _industries_dict_from_config(config)
 
     if industry_id is None:
-        industry_id = config.get("default_industry", "涂料")
+        industry_id = _resolve_default_industry(config)
 
     industry_data = industries.get(industry_id)
+    if not isinstance(industry_data, dict):
+        if industry_data is not None:
+            logger.warning("行业 %r 的配置不是字典，回退到涂料", industry_id)
+        industry_data = None
     if industry_data is None:
         logger.warning(f"未找到行业配置: {industry_id}，使用默认涂料配置")
         industry_id = "涂料"
-        industry_data = industries.get(industry_id, {})
+        industry_data = industries.get(industry_id)
+        if not isinstance(industry_data, dict):
+            industry_data = {}
 
-    return IndustryProfile.from_dict(industry_id, industry_data)
+    return IndustryProfile.from_dict(str(industry_id), industry_data)
 
 
 def get_current_industry() -> str:
     """获取当前行业ID"""
     config = _load_config()
-    return config.get("default_industry", "涂料")
+    return _resolve_default_industry(config)
 
 
 def set_current_industry(industry_id: str) -> bool:
     """设置当前行业（仅修改运行时状态，不持久化）"""
     global _industry_config
     config = _load_config()
-    industries = config.get("industries", {})
+    industries = _industries_dict_from_config(config)
 
     if industry_id not in industries:
         logger.error(f"无法设置未知行业: {industry_id}")
@@ -334,7 +379,65 @@ def reload_industry_config() -> Dict[str, Any]:
     return _load_config()
 
 
-_industry_config: Optional[Dict[str, Any]] = None
+def load_mod_config_overrides() -> Dict[str, Any]:
+    """从已加载的 Mod 加载配置覆盖"""
+    try:
+        from app.infrastructure.mods.mod_manager import get_mod_manager
+        mod_manager = get_mod_manager()
+        merged_overrides: Dict[str, Any] = {}
+
+        for mod in mod_manager.list_loaded_mods():
+            if not mod.config_overrides:
+                continue
+
+            config_path = os.path.join(mod.mod_path, mod.config_overrides)
+            if os.path.isfile(config_path):
+                try:
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        overrides = yaml.safe_load(f)
+                    if isinstance(overrides, dict) and overrides:
+                        merged_overrides.update(overrides)
+                        logger.info(f"Loaded config overrides from mod: {mod.id}")
+                except Exception as e:
+                    logger.error(f"Failed to load config override from {mod.id}: {e}")
+
+        return merged_overrides
+    except ImportError:
+        logger.debug("Mod system not yet initialized, skipping mod config overrides")
+        return {}
+
+
+def merge_mod_config(base_config: Dict[str, Any]) -> Dict[str, Any]:
+    """合并 Mod 配置覆盖到基础配置
+
+    配置优先级: Mod配置 > 环境变量 > 默认配置
+    """
+    merged = copy.deepcopy(base_config)
+    mod_overrides = load_mod_config_overrides()
+
+    if not mod_overrides:
+        return merged
+
+    mo_ind = mod_overrides.get("industries")
+    if isinstance(mo_ind, dict) and mo_ind:
+        if not isinstance(merged.get("industries"), dict):
+            merged["industries"] = {}
+        for industry_id, industry_data in mo_ind.items():
+            if industry_id not in merged["industries"]:
+                merged["industries"][industry_id] = {}
+            if isinstance(industry_data, dict):
+                merged["industries"][industry_id].update(industry_data)
+
+    if "default_industry" in mod_overrides:
+        merged["default_industry"] = mod_overrides["default_industry"]
+
+    return merged
+
+
+def get_industry_config_with_mods() -> Dict[str, Any]:
+    """获取包含 Mod 配置覆盖的行业配置"""
+    base_config = _load_config()
+    return merge_mod_config(base_config)
 
 
 def save_industry_config(config: Dict[str, Any]) -> bool:

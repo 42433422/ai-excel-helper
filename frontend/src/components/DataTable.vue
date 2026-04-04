@@ -33,8 +33,10 @@
                 {{ formatCell(row, col) }}
               </slot>
             </td>
-            <td v-if="$slots.actions">
-              <slot name="actions" :row="row" :index="index"></slot>
+            <td v-if="$slots.actions" class="data-table-actions-cell">
+              <div class="data-table-actions-inner">
+                <slot name="actions" :row="row" :index="index"></slot>
+              </div>
             </td>
           </tr>
         </template>
@@ -53,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, useSlots } from 'vue'
 
 const props = defineProps({
   columns: {
@@ -102,6 +104,7 @@ const emit = defineEmits([
 ])
 
 const tableWrapper = ref(null)
+const slots = useSlots()
 
 const handleScroll = () => {
   if (!tableWrapper.value || props.loading || !props.hasMore) return
@@ -124,6 +127,7 @@ let isSyncing = false
 const totalColumns = computed(() => {
   let count = props.columns.length
   if (props.selectable) count++
+  if (slots.actions) count++
   return count
 })
 
@@ -145,11 +149,11 @@ watch(() => props.selectedIds, (newVal) => {
 }, { deep: true })
 
 const getRowId = (row) => {
-  return row.id ?? row[row.key] ?? row
+  return row.id ?? row[props.rowKey] ?? row
 }
 
 const getRowKey = (row, index) => {
-  return row[row.key] ?? row.id ?? index
+  return row[props.rowKey] ?? row.id ?? index
 }
 
 const getCellValue = (row, col) => {
@@ -214,13 +218,31 @@ defineExpose({
   border-bottom: 1px solid #e0e0e0;
 }
 
+/* 不使用 sticky 表头：粘性 th 叠在数据行上会拦截操作列点击（pointer-events 在部分环境下仍不可靠） */
 .data-table th {
   background-color: #f8f9fa;
   font-weight: 600;
   color: #333;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+}
+
+.data-table-actions-cell {
+  position: relative;
+  z-index: 2;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.data-table-actions-inner {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.data-table-actions-inner :deep(.btn) {
+  position: relative;
+  z-index: 3;
 }
 
 .data-table tbody tr:hover {

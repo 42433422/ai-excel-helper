@@ -2,7 +2,7 @@
   <div class="field-editor">
     <div class="editor-layout">
       <div class="preview-section">
-        <h4 style="margin-top:0;">📋 预览</h4>
+        <h4 style="margin-top:0;"><i class="fa fa-file-text-o" aria-hidden="true"></i> 预览</h4>
         <div class="preview-container">
           <ExcelPreview v-if="templateType === 'excel'" :fields="fields" />
           <LabelPreview v-else-if="templateType === 'label'" :fields="fields" />
@@ -10,7 +10,7 @@
       </div>
 
       <div class="fields-section">
-        <h4 style="margin-top:0;">📝 字段列表</h4>
+        <h4 style="margin-top:0;"><i class="fa fa-list-alt" aria-hidden="true"></i> 字段列表</h4>
 
         <div class="fields-list">
           <div
@@ -57,7 +57,7 @@
                 @click.stop="editField(index)"
                 title="编辑"
               >
-                ✏️
+                <i class="fa fa-pencil" aria-hidden="true"></i>
               </button>
               <button
                 type="button"
@@ -65,7 +65,7 @@
                 @click.stop="deleteField(index)"
                 title="删除"
               >
-                🗑️
+                <i class="fa fa-trash-o" aria-hidden="true"></i>
               </button>
             </div>
           </div>
@@ -77,7 +77,7 @@
 
         <div class="add-field-actions">
           <button type="button" class="btn btn-secondary btn-sm" @click="addField">
-            ➕ 添加字段
+            <i class="fa fa-plus" aria-hidden="true"></i> 添加字段
           </button>
         </div>
       </div>

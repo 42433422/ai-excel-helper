@@ -7,16 +7,16 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci --only=production
+RUN npm ci
 
 COPY . .
 
-RUN npm run build
+RUN npx vite build
 
 # Production stage
 FROM nginx:alpine as production
 
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /templates/vue-dist /usr/share/nginx/html
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 

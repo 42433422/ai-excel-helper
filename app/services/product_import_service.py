@@ -223,7 +223,13 @@ class ProductImportService:
                         })
                 
                 db.commit()
-            
+
+            try:
+                from app.infrastructure.mods.hooks import trigger
+                trigger("product.imported", count=result['imported'], products=data)
+            except Exception as hook_err:
+                logger.warning(f"Hook trigger failed: {hook_err}")
+
             logger.info(f"产品导入完成：成功{result['imported']}, "
                        f"跳过{result['skipped']}, 失败{result['failed']}")
             

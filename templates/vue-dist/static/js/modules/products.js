@@ -43,6 +43,7 @@ function loadProductUnits() {
             // 去空 + 去重保序
             list = list.filter(function (x) { return !!x; });
             list = Array.from(new Set(list));
+            if (!Array.isArray(list)) list = [];
             list.forEach(function (u) {
                 var opt = document.createElement('option');
                 opt.value = u;

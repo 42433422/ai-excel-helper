@@ -5,13 +5,15 @@
 组合多种意图检测策略，提供统一的识别接口
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from app.domain.services.intent.base_strategy import IntentDetectionStrategy
+from app.domain.services.intent.confirmation_strategy import ConfirmationStrategy
 from app.domain.services.intent.goodbye_strategy import GoodbyeStrategy
 from app.domain.services.intent.greeting_strategy import GreetingStrategy
 from app.domain.services.intent.help_request_strategy import HelpRequestStrategy
 from app.domain.services.intent.negation_strategy import NegationStrategy
+from app.domain.services.intent.negation_intent_strategy import NegationIntentStrategy
 
 
 class IntentRecognitionCoordinator:
@@ -26,6 +28,8 @@ class IntentRecognitionCoordinator:
         self._strategies["goodbye"] = GoodbyeStrategy()
         self._strategies["help"] = HelpRequestStrategy()
         self._strategies["negation"] = NegationStrategy()
+        self._strategies["confirmation"] = ConfirmationStrategy()
+        self._strategies["negation_intent"] = NegationIntentStrategy()
 
     def detect_greeting(self, message: str) -> bool:
         return self._strategies["greeting"].detect(message)
@@ -41,18 +45,10 @@ class IntentRecognitionCoordinator:
         return self._strategies["negation"].detect(message, context)
 
     def detect_confirmation(self, message: str) -> bool:
-        from resources.config.intent_config import get_intent_config
-        config = get_intent_config()
-        confirmation_keywords = config.get("confirmation_keywords", [])
-        msg = (message or "").strip()
-        return any(kw == msg or msg.startswith(kw) for kw in confirmation_keywords)
+        return self._strategies["confirmation"].detect(message)
 
     def detect_negation_intent(self, message: str) -> bool:
-        from resources.config.intent_config import get_intent_config
-        config = get_intent_config()
-        negation_keywords = config.get("negation_keywords", [])
-        msg = (message or "").strip()
-        return any(kw == msg or msg.startswith(kw) for kw in negation_keywords)
+        return self._strategies["negation_intent"].detect(message)
 
     def detect_basic_intents(self, message: str) -> Dict[str, bool]:
         return {
@@ -72,4 +68,11 @@ def get_intent_coordinator() -> IntentRecognitionCoordinator:
     global _intent_coordinator
     if _intent_coordinator is None:
         _intent_coordinator = IntentRecognitionCoordinator()
+    return _intent_coordinator
+
+
+def reload_intent_coordinator() -> IntentRecognitionCoordinator:
+    """重新加载意图识别协调器（用于热更新配置后的策略刷新）"""
+    global _intent_coordinator
+    _intent_coordinator = IntentRecognitionCoordinator()
     return _intent_coordinator

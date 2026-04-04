@@ -8,7 +8,10 @@
 - BERT 模型: 深度语义理解、高精度意图分类
 """
 
+from __future__ import annotations
+
 import logging
+
 from typing import Any, Dict, Optional
 
 from .intent_service import recognize_intents as rule_recognize_intents
@@ -26,7 +29,17 @@ INTENT_MAPPING = {
     "upload_file": "upload_file",
     "materials": "materials",
     "shipment_template": "shipment_template",
+    "template_extract": "template_extract",
     "excel_decompose": "excel_decompose",
+    "business_docking": "business_docking",
+    "template_preview": "template_preview",
+    "shipment_records": "shipment_records",
+    "wechat": "wechat",
+    "printer_list": "printer_list",
+    "settings": "settings",
+    "tools_table": "tools_table",
+    "other_tools": "other_tools",
+    "ai_ecosystem": "ai_ecosystem",
     "show_images": "show_images",
     "show_videos": "show_videos",
     "greet": "greet",
@@ -48,7 +61,17 @@ BERT_INTENT_MAPPING = {
     "upload_file": "upload_file",
     "materials": "materials",
     "shipment_template": "shipment_template",
+    "template_extract": "template_extract",
     "excel_decompose": "excel_decompose",
+    "business_docking": "business_docking",
+    "template_preview": "template_preview",
+    "shipment_records": "shipment_records",
+    "wechat": "wechat",
+    "printer_list": "printer_list",
+    "settings": "settings",
+    "tools_table": "tools_table",
+    "other_tools": "other_tools",
+    "ai_ecosystem": "ai_ecosystem",
     "show_images": "show_images",
     "show_videos": "show_videos",
     "greet": "greet",
@@ -77,7 +100,7 @@ class HybridIntentService:
         rasa_service: Optional[RasaNLUService] = None,
         rasa_confidence_threshold: float = 0.7,
         rasa_fallback_to_rule: bool = True,
-        use_bert: bool = False,
+        use_bert: bool = True,
         bert_model_path: Optional[str] = None,
         bert_confidence_threshold: float = 0.7,
         bert_fallback_to_rule: bool = True,
@@ -227,7 +250,7 @@ _hybrid_service_instance: Optional[HybridIntentService] = None
 
 def get_hybrid_intent_service(
     use_rasa: bool = False,
-    use_bert: bool = False,
+    use_bert: bool = True,
     bert_model_path: Optional[str] = None,
     bert_confidence_threshold: float = 0.7,
     **kwargs

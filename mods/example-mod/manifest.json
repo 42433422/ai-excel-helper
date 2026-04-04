@@ -1,0 +1,30 @@
+{
+  "id": "example-mod",
+  "name": "Example Mod",
+  "version": "1.0.0",
+  "author": "XCAGI Team",
+  "description": "An example mod demonstrating the mod system",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=1.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes",
+    "menu": [
+      {
+        "id": "example",
+        "label": "PRO级",
+        "icon": "fa-star",
+        "path": "/example"
+      }
+    ]
+  },
+  "hooks": {},
+  "comms": {
+    "exports": ["ping"]
+  }
+}

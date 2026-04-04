@@ -18,7 +18,14 @@ from app.application import ShipmentApplicationService
 from app.bootstrap import get_shipment_app_service
 from app.db.models import Product, PurchaseUnit, ShipmentRecord
 from app.db.session import get_db
-from app.infrastructure.repositories.customer_repository_impl import get_customers_session
+from app.services.unified_query_service import (
+    query_service,
+    get_product_names,
+    get_purchase_units,
+    find_purchase_unit,
+    find_product,
+    check_purchase_unit_exists,
+)
 
 printer_service = None
 
@@ -53,19 +60,19 @@ def _json_fail(message: str, status: int = 400, **kwargs):
 
 
 def _distinct_product_names(keyword: Optional[str] = None) -> List[str]:
-    keyword_norm = (keyword or "").strip()
-    with get_db() as db:
-        q = db.query(Product.name).filter(Product.is_active == 1)
-        if keyword_norm:
-            q = q.filter(Product.name.like(f"%{keyword_norm}%"))
-        rows = q.distinct().order_by(Product.name.asc()).all()
-        return [r[0] for r in rows if r and r[0]]
+    return get_product_names(keyword=keyword)
 
 
 @ai_assistant_compat_bp.route("/health", methods=["GET"])
 def health():
     """兼容 AI助手: GET /health"""
     return _json_success({"status": "ok", "timestamp": datetime.now().isoformat()})
+
+
+@ai_assistant_compat_bp.route("/api/health", methods=["GET"])
+def api_health():
+    """兼容旧前端: GET /api/health"""
+    return health()
 
 
 @ai_assistant_compat_bp.route("/api/generate", methods=["POST"])
@@ -140,12 +147,11 @@ def ai_orders_next_number():
         start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         # 下个月第一天
         next_month = (start + timedelta(days=32)).replace(day=1)
-        with get_db() as db:
-            count = (
-                db.query(ShipmentRecord)
-                .filter(ShipmentRecord.created_at >= start, ShipmentRecord.created_at < next_month)
-                .count()
-            )
+        count = query_service.count(
+            ShipmentRecord,
+            created_at__gte=start,
+            created_at__lt=next_month
+        )
         next_sequence = int(count) + 1
         order_number = f"{year}-{month}-{next_sequence:05d}{suffix}"
 
@@ -272,23 +278,14 @@ def ai_shipment_records_records():
 
 @ai_assistant_compat_bp.route("/api/purchase_units", methods=["GET"])
 def ai_purchase_units_get():
-    session = get_customers_session()
-    try:
-        units = session.query(PurchaseUnit).filter(PurchaseUnit.is_active == True).order_by(PurchaseUnit.unit_name.asc()).all()
-        data = [
-            {
-                "id": u.id,
-                "unit_name": u.unit_name,
-                "contact_person": u.contact_person or "",
-                "contact_phone": u.contact_phone or "",
-                "address": u.address or "",
-                "is_active": 1,
-            }
-            for u in units
-        ]
-        return _json_success(data, count=len(data))
-    finally:
-        session.close()
+    data = get_purchase_units()
+    return _json_success(data, count=len(data))
+
+
+@ai_assistant_compat_bp.route("/api/units", methods=["GET"])
+def ai_units_compat_get():
+    """兼容旧前端: GET /api/units -> /api/purchase_units"""
+    return ai_purchase_units_get()
 
 
 @ai_assistant_compat_bp.route("/api/purchase_units", methods=["POST"])
@@ -298,83 +295,58 @@ def ai_purchase_units_create():
     if not unit_name:
         return _json_fail("单位名称不能为空", 400)
 
-    session = get_customers_session()
-    try:
-        exists = session.query(PurchaseUnit).filter(PurchaseUnit.unit_name == unit_name).first()
-        if exists:
-            return _json_success(
-                {"id": exists.id, "unit_name": exists.unit_name},
-                message="已存在",
-            )
+    exists = find_purchase_unit(unit_name=unit_name)
+    if exists:
+        return _json_success(
+            {"id": exists["id"], "unit_name": exists["unit_name"]},
+            message="已存在",
+        )
 
+    with get_db() as db:
         unit = PurchaseUnit(
             unit_name=unit_name,
             contact_person=data.get("contact_person") or "",
             contact_phone=data.get("contact_phone") or "",
             address=data.get("address") or "",
         )
-        session.add(unit)
-        session.commit()
+        db.add(unit)
+        db.commit()
         return _json_success({"id": unit.id, "unit_name": unit.unit_name}, message="添加成功")
-    finally:
-        session.close()
 
 
 @ai_assistant_compat_bp.route("/api/purchase_units/<int:unit_id>", methods=["PUT"])
 def ai_purchase_units_update(unit_id: int):
     data = request.get_json(silent=True) or {}
-    session = get_customers_session()
-    try:
-        unit = session.query(PurchaseUnit).filter(PurchaseUnit.id == unit_id).first()
-        if not unit:
-            return _json_fail("购买单位不存在", 404)
-        if "unit_name" in data and (data.get("unit_name") or "").strip():
-            unit.unit_name = data["unit_name"].strip()
-        for k in ["contact_person", "contact_phone"]:
-            if k in data:
-                setattr(unit, k, data.get(k))
-        if "address" in data:
-            unit.address = data.get(k)
-        session.commit()
+    unit = query_service.get_first(PurchaseUnit, id=unit_id)
+    if not unit:
+        return _json_fail("购买单位不存在", 404)
+    if "unit_name" in data and (data.get("unit_name") or "").strip():
+        unit.unit_name = data["unit_name"].strip()
+    for k in ["contact_person", "contact_phone"]:
+        if k in data:
+            setattr(unit, k, data.get(k))
+    if "address" in data:
+        unit.address = data.get(k)
+    with get_db() as db:
+        db.commit()
         return _json_success({"id": unit.id, "unit_name": unit.unit_name}, message="更新成功")
-    finally:
-        session.close()
 
 
 @ai_assistant_compat_bp.route("/api/purchase_units/<int:unit_id>", methods=["DELETE"])
 def ai_purchase_units_delete(unit_id: int):
-    session = get_customers_session()
-    try:
-        unit = session.query(PurchaseUnit).filter(PurchaseUnit.id == unit_id).first()
-        if not unit:
-            return _json_fail("购买单位不存在", 404)
-        session.delete(unit)
-        session.commit()
-        return _json_success(message="删除成功")
-    finally:
-        session.close()
+    deleted = query_service.delete(PurchaseUnit, id=unit_id)
+    if deleted == 0:
+        return _json_fail("购买单位不存在", 404)
+    return _json_success(message="删除成功")
 
 
 @ai_assistant_compat_bp.route("/api/purchase_units/by_name/<unit_name>", methods=["GET"])
 def ai_purchase_units_by_name(unit_name: str):
     name = (unit_name or "").strip()
-    session = get_customers_session()
-    try:
-        unit = session.query(PurchaseUnit).filter(PurchaseUnit.unit_name == name).first()
-        if not unit:
-            return _json_fail("购买单位不存在", 404)
-        return _json_success(
-            {
-                "id": unit.id,
-                "unit_name": unit.unit_name,
-                "contact_person": unit.contact_person or "",
-                "contact_phone": unit.contact_phone or "",
-                "address": unit.address or "",
-                "is_active": 1,
-            }
-        )
-    finally:
-        session.close()
+    unit = find_purchase_unit(unit_name=name)
+    if not unit:
+        return _json_fail("购买单位不存在", 404)
+    return _json_success(unit)
 
 
 @ai_assistant_compat_bp.route("/api/product_names", methods=["GET"])
@@ -399,24 +371,13 @@ def ai_product_names_by_unit(unit_id: int):
 
 @ai_assistant_compat_bp.route("/api/product_names/by_unit_and_name", methods=["GET"])
 def ai_product_by_unit_and_name():
-    # AI助手: 通过 unit_id + name 获取产品详情。XCAGI 侧先忽略 unit_id，按名称取第一条。
     name = (request.args.get("name") or "").strip()
     if not name:
         return _json_fail("缺少参数：name", 400)
-    with get_db() as db:
-        p = db.query(Product).filter(Product.name == name).first()
-        if not p:
-            return _json_fail("产品不存在", 404)
-        return _json_success(
-            {
-                "id": p.id,
-                "name": p.name,
-                "model_number": p.model_number or "",
-                "specification": p.specification or "",
-                "price": float(p.price or 0.0),
-                "description": p.description or "",
-            }
-        )
+    product = find_product(name=name)
+    if not product:
+        return _json_fail("产品不存在", 404)
+    return _json_success(product)
 
 
 # -------------------- 打印 API 兼容层 --------------------
@@ -428,49 +389,14 @@ def ai_printers():
     返回 printers + classified + summary 结构（字段名尽量与 app_api.py 对齐）
     """
     base = get_printer_svc().get_printers()
-    printers = base.get("printers") or []
-
-    # 尝试分类：文档打印机优先选非标签关键字；标签打印机选包含关键字
-    exclude_keywords = ["tsc", "ttp", "label", "标签", "thermal", "barcode", "zebra"]
-    label_candidates = []
-    doc_candidates = []
-    for p in printers:
-        name = (p.get("name") if isinstance(p, dict) else str(p)) or ""
-        name_lower = name.lower()
-        if any(k in name_lower for k in exclude_keywords):
-            label_candidates.append(name)
-        else:
-            doc_candidates.append(name)
-
-    document_printer_name = doc_candidates[0] if doc_candidates else None
-    label_printer_name = label_candidates[0] if label_candidates else (printers[0].get("name") if printers and isinstance(printers[0], dict) else None)
-
-    classified = {
-        "document_printer": {
-            "name": document_printer_name,
-            "status": "未知" if document_printer_name else "未连接",
-            "is_connected": bool(document_printer_name),
-        },
-        "label_printer": {
-            "name": label_printer_name,
-            "status": "未知" if label_printer_name else "未连接",
-            "is_connected": bool(label_printer_name),
-        },
-    }
-    summary = {
-        "total_printers": len(printers),
-        "document_printer_ready": bool(document_printer_name),
-        "label_printer_ready": bool(label_printer_name),
-        "all_ready": bool(document_printer_name) and bool(label_printer_name),
-    }
-
     return jsonify(
         {
             "success": base.get("success", True),
-            "printers": printers,
-            "count": len(printers),
-            "classified": classified,
-            "summary": summary,
+            "printers": base.get("printers") or [],
+            "count": base.get("count", 0),
+            "classified": base.get("classified") or {},
+            "summary": base.get("summary") or {},
+            "selection": base.get("selection") or {},
         }
     )
 
@@ -584,6 +510,10 @@ def tts_fallback():
 
     try:
         from app.services import synthesize_to_data_uri
+        from app.services.tts_service import trigger_common_tts_warmup
+
+        # 专业模式下首次调用时触发后台预热，后续请求可直接命中缓存。
+        trigger_common_tts_warmup()
 
         payload = synthesize_to_data_uri(
             text=text,

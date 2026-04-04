@@ -1,6 +1,14 @@
 // 统一导出所有 API 模块
-// 基础 API 类
-export { api, ApiError, API_BASE, default as apiDefault } from './core';
+import api, { ApiError, API_BASE } from './core';
+
+export { ApiError, API_BASE };
+export { api };
+export default api;
+export const apiDefault = api;
+
+/** 与 `api.get` / `api.post` 等价，供 `import { get, post } from '@/api'` 使用 */
+export const get = api.get.bind(api);
+export const post = api.post.bind(api);
 
 // 业务 API 模块
 export { chatApi } from './chat';

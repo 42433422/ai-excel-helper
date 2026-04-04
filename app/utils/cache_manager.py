@@ -15,6 +15,7 @@
 
 import hashlib
 import logging
+import os
 import threading
 import time
 from collections import OrderedDict
@@ -23,6 +24,23 @@ from functools import wraps
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_CACHE_TTL_SECONDS = 300
+DEFAULT_CACHE_MAX_SIZE = 500
+
+
+def _read_env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        if value <= 0:
+            raise ValueError("must be > 0")
+        return value
+    except Exception:
+        logger.warning("无效环境变量 %s=%r，回退默认值 %s", name, raw, default)
+        return default
 
 
 @dataclass
@@ -349,9 +367,22 @@ class CacheManager:
 
     def _create_default_caches(self):
         """创建默认缓存实例"""
+        intent_ttl = _read_env_int("XCAGI_INTENT_CACHE_TTL_SECONDS", DEFAULT_CACHE_TTL_SECONDS)
+        ai_ttl = _read_env_int("XCAGI_AI_RESPONSE_CACHE_TTL_SECONDS", DEFAULT_CACHE_TTL_SECONDS)
+        intent_max_size = _read_env_int("XCAGI_INTENT_CACHE_MAX_SIZE", DEFAULT_CACHE_MAX_SIZE)
+        ai_max_size = _read_env_int("XCAGI_AI_RESPONSE_CACHE_MAX_SIZE", DEFAULT_CACHE_MAX_SIZE)
+
         self._caches["intent_rule"] = LRUCache(max_size=1000, name="intent_rule")
-        self._caches["intent_deepseek"] = LRUTTLCache(max_size=500, ttl_seconds=300, name="intent_deepseek")
-        self._caches["ai_response"] = LRUTTLCache(max_size=500, ttl_seconds=300, name="ai_response")
+        self._caches["intent_deepseek"] = LRUTTLCache(
+            max_size=intent_max_size,
+            ttl_seconds=intent_ttl,
+            name="intent_deepseek",
+        )
+        self._caches["ai_response"] = LRUTTLCache(
+            max_size=ai_max_size,
+            ttl_seconds=ai_ttl,
+            name="ai_response",
+        )
         self._caches["purchase_unit"] = LRUCache(max_size=500, name="purchase_unit")
         self._caches["product"] = LRUCache(max_size=500, name="product")
 

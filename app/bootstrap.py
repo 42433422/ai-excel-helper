@@ -1,7 +1,14 @@
 """
 Composition Root / 装配入口
 
-用于把应用层（Use Case）与基础设施实现绑定起来，避免 application 反向依赖 infrastructure。
+This is the standard place for wiring dependencies (Application Services <-> Infrastructure).
+Uses lightweight @lru_cache(maxsize=1) singletons instead of a full DI container
+(per project preference for simplicity).
+
+See:
+- app/domain/services/intent_recognition_service.py for domain intent logic
+- app/domain/services/ for pure business rules
+- Do not import infrastructure here for domain services.
 """
 
 from __future__ import annotations
@@ -32,6 +39,9 @@ from app.services.extract_log_service import ExtractLogService
 from app.services.materials_service import MaterialsService
 from app.services.product_import_service import ProductImportService
 from app.services.products_service import ProductsService
+
+# Intent recognition is now provided by domain layer - see get_intent_recognition_service()
+# in app/domain/services/intent_recognition_service.py
 
 
 @lru_cache(maxsize=1)
@@ -91,6 +101,7 @@ def get_product_import_service() -> ProductImportService:
 
 @lru_cache(maxsize=1)
 def get_ai_chat_app_service() -> AIChatApplicationService:
+    """AI Chat service - uses domain intent service internally"""
     return AIChatApplicationService()
 
 

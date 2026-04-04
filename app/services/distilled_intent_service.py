@@ -14,15 +14,18 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from app.utils.distillation_paths import get_distillation_checkpoints_dir
+
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CHECKPOINT_DIR = os.path.join(BASE_DIR, "distillation", "checkpoints")
+CHECKPOINT_DIR = get_distillation_checkpoints_dir()
 
 DEFAULT_INTENT_LABELS = [
     "shipment_generate", "customers", "products", "shipments",
     "wechat_send", "print_label", "upload_file", "materials",
-    "shipment_template", "excel_decompose", "show_images", "show_videos",
+    "shipment_template", "template_extract", "business_docking", "template_preview",
+    "shipment_records", "wechat", "printer_list", "settings", "tools_table",
+    "other_tools", "ai_ecosystem", "excel_decompose", "show_images", "show_videos",
     "greet", "goodbye", "help", "negation", "customer_export",
     "customer_edit", "customer_supplement", "unk"
 ]

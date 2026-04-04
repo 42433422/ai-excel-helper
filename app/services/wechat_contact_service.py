@@ -19,6 +19,7 @@ from sqlalchemy import or_
 
 from app.db.models import WechatContact, WechatContactContext
 from app.db.session import get_db
+from app.utils.external_sqlite import sqlite_conn
 
 logger = logging.getLogger(__name__)
 
@@ -118,11 +119,13 @@ class WechatContactService:
             import sqlite3
             import sys
 
-            from app.utils.path_utils import get_base_dir, get_resource_path
+            from app.utils.path_utils import get_base_dir
 
             # 1) 优先使用 XCAGI/resources 下的解密库
-            wechat_decrypt_dir = get_resource_path("wechat-decrypt", "decrypted", "message")
-            candidate_db_paths = [os.path.join(wechat_decrypt_dir, "message_0.db")]
+            from app.infrastructure.plugins.wechat_plugin import get_wechat_plugin
+            plugin = get_wechat_plugin()
+            decrypt_db = plugin.get_decrypted_db_path("message") if plugin.is_available() else None
+            candidate_db_paths = [decrypt_db] if decrypt_db else []
 
             # 2) 兼容：使用 XCAGI/AI助手 下原有的解密库位置（如果存在）
             base_dir = get_base_dir()
@@ -144,7 +147,7 @@ class WechatContactService:
                 contact_db_path = os.path.join(wechat_decrypt_base, "contact", "contact.db")
                 logger.info("[contact-fallback] path=%s exists=%s keyword=%s", contact_db_path, os.path.exists(contact_db_path), keyword)
                 if os.path.exists(contact_db_path):
-                    with sqlite3.connect(contact_db_path) as cconn:
+                    with sqlite_conn(contact_db_path) as cconn:
                         cur = cconn.cursor()
                         like = f"%{keyword}%"
                         sql = (
@@ -180,14 +183,13 @@ class WechatContactService:
                 # contact.db 不可用时继续走 message db 回退
                 logger.warning("contact.db 搜索联系人失败：%s", e)
 
-            # 3) wechat_db_read 所在目录：先看 resources/wechat_cv，再回退 AI助手/wechat_cv
-            wechat_cv_candidates = [
-                get_resource_path("wechat_cv"),
-                os.path.join(legacy_ai_dir, "wechat_cv"),
-            ]
-            wechat_cv_path = next((p for p in wechat_cv_candidates if os.path.isdir(p)), "")
-            if wechat_cv_path and wechat_cv_path not in sys.path:
-                sys.path.insert(0, wechat_cv_path)
+            # 3) Use WeChat plugin for optional cv/decrypt support
+            from app.infrastructure.plugins.wechat_plugin import get_wechat_plugin
+            plugin = get_wechat_plugin()
+            if plugin.is_available():
+                plugin.add_to_sys_path()
+            else:
+                logger.debug("WeChat plugin not available, skipping cv integration")
 
             try:
                 from wechat_db_read import get_recent_messages  # type: ignore
@@ -201,20 +203,19 @@ class WechatContactService:
             # 为了稳定，这里先用 sqlite3 直接拉取“最可能的消息表”，再做兼容解析。
             rows: List[Dict[str, Any]] = []
             try:
-                conn = sqlite3.connect(db_path)
-                cur = conn.cursor()
-                tbls = cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
-                table_names = [t[0] for t in tbls if t and t[0]]
-                msg_table = (
-                    "MSG"
-                    if "MSG" in table_names
-                    else ("Message" if "Message" in table_names else next((t for t in table_names if str(t).startswith("Msg_")), ""))
-                )
-                if msg_table:
-                    raw = cur.execute(f"SELECT * FROM {msg_table} LIMIT ?", (limit * 5,)).fetchall()
-                    colnames = [d[0] for d in (cur.description or [])]
-                    rows = [dict(zip(colnames, r)) for r in raw]
-                conn.close()
+                with sqlite_conn(db_path) as conn:
+                    cur = conn.cursor()
+                    tbls = cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+                    table_names = [t[0] for t in tbls if t and t[0]]
+                    msg_table = (
+                        "MSG"
+                        if "MSG" in table_names
+                        else ("Message" if "Message" in table_names else next((t for t in table_names if str(t).startswith("Msg_")), ""))
+                    )
+                    if msg_table:
+                        raw = cur.execute(f"SELECT * FROM {msg_table} LIMIT ?", (limit * 5,)).fetchall()
+                        colnames = [d[0] for d in (cur.description or [])]
+                        rows = [dict(zip(colnames, r)) for r in raw]
             except Exception:
                 # 退化：走原本 wechat_db_read 的逻辑（可能会失败，但不影响主流程）
                 out = get_recent_messages(

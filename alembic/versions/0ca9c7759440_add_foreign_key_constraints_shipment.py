@@ -9,7 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 
 # revision identifiers, used by Alembic.
@@ -20,11 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def _table_exists(conn, table_name: str) -> bool:
-    """检查表是否存在"""
-    result = conn.execute(text(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=:table_name"
-    ), {"table_name": table_name})
-    return result.fetchone() is not None
+    return table_name in inspect(conn).get_table_names()
 
 
 def upgrade() -> None:

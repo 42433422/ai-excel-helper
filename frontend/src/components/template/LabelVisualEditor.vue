@@ -3,7 +3,7 @@
     <div class="editor-layout">
       <!-- 上：标签预览区 -->
       <div class="preview-section">
-        <h4 class="section-title">📋 标签预览</h4>
+        <h4 class="section-title"><i class="fa fa-file-text-o" aria-hidden="true"></i> 标签预览</h4>
         <div class="canvas-container">
           <canvas
             ref="labelCanvas"
@@ -17,13 +17,13 @@
           ></canvas>
         </div>
         <div class="canvas-instructions">
-          <span>💡 点击字段进行编辑 · 拖拽调整位置</span>
+          <span><i class="fa fa-lightbulb-o" aria-hidden="true"></i> 点击字段进行编辑 · 拖拽调整位置</span>
         </div>
       </div>
 
       <!-- 下：字段属性面板 -->
       <div class="properties-section" v-if="selectedField">
-        <h4 class="section-title">⚙️ 字段属性</h4>
+        <h4 class="section-title"><i class="fa fa-cog" aria-hidden="true"></i> 字段属性</h4>
         
         <div class="property-row">
           <div class="property-group half">
@@ -65,7 +65,7 @@
         <div class="property-row">
           <div class="property-group">
             <button class="btn btn-danger" @click="deleteSelectedField">
-              🗑️ 删除
+              <i class="fa fa-trash-o" aria-hidden="true"></i> 删除
             </button>
           </div>
         </div>
@@ -74,7 +74,7 @@
       <!-- 未选择字段时的提示 -->
       <div class="properties-section empty-state" v-else>
         <div class="empty-message">
-          <span class="empty-icon">👆</span>
+          <span class="empty-icon"><i class="fa fa-hand-o-up" aria-hidden="true"></i></span>
           <p>点击上方标签中的字段进行编辑</p>
         </div>
       </div>

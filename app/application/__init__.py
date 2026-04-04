@@ -9,6 +9,18 @@ from .auth_app_service import AuthApplicationService, get_auth_app_service
 from .conversation_app_service import ConversationApplicationService, get_conversation_app_service
 from .customer_app_service import CustomerApplicationService, get_customer_app_service
 from .extract_log_app_service import ExtractLogApplicationService, get_extract_log_app_service
+from .excel_vector_app_service import (
+    ExcelVectorIngestApplicationService,
+    ExcelVectorSearchApplicationService,
+    get_excel_vector_ingest_app_service,
+    get_excel_vector_search_app_service,
+)
+from .user_memory_vector_app_service import (
+    UserMemoryRagApplicationService,
+    UserMemoryVectorIngestApplicationService,
+    get_user_memory_rag_app_service,
+    get_user_memory_vector_ingest_app_service,
+)
 from .file_analysis_app_service import FileAnalysisService, get_file_analysis_app_service
 from .material_app_service import (
     MaterialApplicationService,
@@ -48,6 +60,10 @@ __all__ = [
     "AuthApplicationService", "get_auth_app_service",
     "ConversationApplicationService", "get_conversation_app_service",
     "CustomerApplicationService", "get_customer_app_service",
+    "ExcelVectorIngestApplicationService", "get_excel_vector_ingest_app_service",
+    "ExcelVectorSearchApplicationService", "get_excel_vector_search_app_service",
+    "UserMemoryVectorIngestApplicationService", "get_user_memory_vector_ingest_app_service",
+    "UserMemoryRagApplicationService", "get_user_memory_rag_app_service",
     "FileAnalysisService", "get_file_analysis_app_service",
     "MaterialApplicationService", "get_material_application_service", "get_material_app_service",
     "OCRApplicationService", "get_ocr_application_service",

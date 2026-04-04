@@ -1,7 +1,7 @@
 <template>
   <div class="industry-selector" :class="{ 'is-expanded': isExpanded }">
     <div class="selector-trigger" @click="toggleExpand">
-      <span class="industry-icon">🏭</span>
+      <span class="industry-icon"><i class="fa fa-industry" aria-hidden="true"></i></span>
       <span class="industry-name">{{ currentIndustryName }}</span>
       <span class="industry-unit">{{ primaryUnit }}</span>
       <span class="expand-icon" :class="{ rotated: isExpanded }">▼</span>
@@ -18,7 +18,7 @@
         >
           <span class="item-name">{{ industry.name }}</span>
           <span class="item-unit">{{ getIndustryUnit(industry.id) }}</span>
-          <span class="item-check" v-if="industry.id === currentIndustryId">✓</span>
+          <span class="item-check" v-if="industry.id === currentIndustryId"><i class="fa fa-check" aria-hidden="true"></i></span>
         </div>
       </div>
     </div>

@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   backend:
     build:
@@ -7,11 +5,14 @@ services:
       target: production
     container_name: xcagi-backend
     restart: unless-stopped
+    user: root
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://xcagi:xcagi@postgres:5432/xcagi}
+      - VECTOR_DB_URL=${VECTOR_DB_URL:-postgresql+psycopg://xcagi:xcagi@postgres:5432/xcagi}
       - DATABASE_PATH=/app/data
       - UPLOAD_FOLDER=/app/uploads
       - CACHE_REDIS_URL=redis://redis:6379/0
@@ -23,6 +24,8 @@ services:
       - xcagi-uploads:/app/uploads
       - xcagi-logs:/app/logs
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -33,6 +36,10 @@ services:
       start_period: 10s
     networks:
       - xcagi-network
+    command: >
+      sh -c "mkdir -p /app/data /app/uploads /app/logs &&
+             chown -R appuser:appuser /app/data /app/uploads /app/logs &&
+             exec gunicorn --config gunicorn_config.py run:app"
 
   celery-worker:
     build:
@@ -40,10 +47,16 @@ services:
       target: production
     container_name: xcagi-celery-worker
     restart: unless-stopped
-    command: celery -A celery_app worker --loglevel=info --concurrency=2
+    user: root
+    command: >
+      sh -c "mkdir -p /app/data /app/uploads /app/logs &&
+             chown -R appuser:appuser /app/data /app/uploads /app/logs &&
+             celery -A celery_app worker --loglevel=info --concurrency=2"
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://xcagi:xcagi@postgres:5432/xcagi}
+      - VECTOR_DB_URL=${VECTOR_DB_URL:-postgresql+psycopg://xcagi:xcagi@postgres:5432/xcagi}
       - DATABASE_PATH=/app/data
       - UPLOAD_FOLDER=/app/uploads
       - CACHE_REDIS_URL=redis://redis:6379/0
@@ -55,6 +68,8 @@ services:
       - xcagi-uploads:/app/uploads
       - xcagi-logs:/app/logs
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -65,7 +80,7 @@ services:
     container_name: xcagi-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -73,6 +88,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - xcagi-network
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: xcagi-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=xcagi
+      - POSTGRES_USER=xcagi
+      - POSTGRES_PASSWORD=xcagi
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xcagi -d xcagi"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     networks:
       - xcagi-network
 
@@ -97,6 +132,8 @@ volumes:
   xcagi-logs:
     driver: local
   redis-data:
+    driver: local
+  postgres-data:
     driver: local
 
 networks:

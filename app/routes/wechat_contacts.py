@@ -6,14 +6,18 @@
 """
 
 import json
+import logging
 import os
 
 from flasgger import swag_from
 from flask import Blueprint, jsonify, request
 
 from app.application import WechatContactApplicationService, get_wechat_contact_app_service
+from app.utils.external_sqlite import sqlite_conn
+from app.utils.json_safe import json_safe
 
 wechat_contacts_bp = Blueprint("wechat_contacts", __name__, url_prefix="/api/wechat_contacts")
+logger = logging.getLogger(__name__)
 
 
 def get_wechat_contact_service():
@@ -97,11 +101,8 @@ def wechat_contacts_list_compat():
 def ensure_contact_cache():
     """确保联系人缓存已初始化"""
     try:
-        # 这个接口只是为了兼容前端，实际逻辑已经在 get_contacts 中处理
-        return jsonify({
-            "success": True,
-            "message": "联系人缓存已就绪"
-        }), 200
+        # 与旧页面行为对齐：进入页面时即尝试从解密库导入一次联系人缓存。
+        return refresh_contact_cache_compat()
     except Exception as e:
         return jsonify({
             "success": False,
@@ -361,20 +362,18 @@ def wechat_contact_refresh_messages_compat(contact_id):
 
         from app.db.models import WechatContact, WechatContactContext
         from app.db.session import get_db
+        from app.services.unified_query_service import query_service
         from app.utils.path_utils import get_resource_path
 
+        contact = query_service.get_first(WechatContact, id=contact_id, is_active=1)
+        if not contact:
+            return jsonify({"success": False, "message": "联系人不存在", "count": 0}), 400
+
+        wechat_id = contact.wechat_id or ""
+        if not wechat_id:
+            return jsonify({"success": False, "message": "联系人无微信号", "count": 0}), 400
+
         with get_db() as db:
-            contact = db.query(WechatContact).filter(
-                WechatContact.id == contact_id,
-                WechatContact.is_active == 1
-            ).first()
-            if not contact:
-                return jsonify({"success": False, "message": "联系人不存在", "count": 0}), 400
-
-            wechat_id = contact.wechat_id or ""
-            if not wechat_id:
-                return jsonify({"success": False, "message": "联系人无微信号", "count": 0}), 400
-
             try:
                 import sys
 
@@ -408,9 +407,7 @@ def wechat_contact_refresh_messages_compat(contact_id):
             if not all_messages:
                 return jsonify({"success": True, "message": "无聊天记录", "count": 0}), 200
 
-            ctx = db.query(WechatContactContext).filter(
-                WechatContactContext.contact_id == contact_id
-            ).first()
+            ctx = query_service.get_first(WechatContactContext, contact_id=contact_id)
             if ctx:
                 ctx.wechat_id = wechat_id
                 ctx.context_json = json.dumps(all_messages, ensure_ascii=False)
@@ -446,38 +443,36 @@ def _query_messages_by_content(msg_db_path, wechat_id, limit=50):
         _decompress_content = None
 
     try:
-        conn = sqlite3.connect(msg_db_path)
-        cur = conn.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Msg_%'")
-        tables = [row[0] for row in cur.fetchall()]
+        with sqlite_conn(msg_db_path) as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Msg_%'")
+            tables = [row[0] for row in cur.fetchall()]
 
-        for table in tables:
-            try:
-                cur.execute(f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] ORDER BY create_time DESC LIMIT 2000")
-                rows = cur.fetchall()
-                for row in rows:
-                    raw_content = row[0]
-                    ct = row[1]
-                    if not raw_content:
-                        continue
-                    content = _decompress_content(raw_content, ct) if _decompress_content else raw_content
-                    if isinstance(content, bytes):
-                        content = content.decode('utf-8', errors='replace') if content else ''
-                    content = (content or "").strip()
-                    if not content:
-                        continue
-                    if wechat_id in content or (content.startswith('<') and wechat_id in content):
-                        all_messages.append({"role": "other", "text": content})
+            for table in tables:
+                try:
+                    cur.execute(f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] ORDER BY create_time DESC LIMIT 2000")
+                    rows = cur.fetchall()
+                    for row in rows:
+                        raw_content = row[0]
+                        ct = row[1]
+                        if not raw_content:
+                            continue
+                        content = _decompress_content(raw_content, ct) if _decompress_content else raw_content
+                        if isinstance(content, bytes):
+                            content = content.decode('utf-8', errors='replace') if content else ''
+                        content = (content or "").strip()
+                        if not content:
+                            continue
+                        if wechat_id in content or (content.startswith('<') and wechat_id in content):
+                            all_messages.append({"role": "other", "text": content})
+                        if len(all_messages) >= limit:
+                            break
                     if len(all_messages) >= limit:
                         break
-                if len(all_messages) >= limit:
-                    break
-            except Exception:
-                continue
-
-        conn.close()
-    except Exception:
-        pass
+                except Exception:
+                    continue
+    except Exception as e:
+        logger.warning(f"查询消息失败: {e}")
 
     if len(all_messages) > limit:
         all_messages = all_messages[:limit]
@@ -491,11 +486,10 @@ def _get_contact_numeric_id(wechat_id):
         contact_db = os.path.join(get_resource_path("wechat-decrypt"), "decrypted", "contact", "contact.db")
         if not os.path.exists(contact_db):
             return None
-        conn = sqlite3.connect(contact_db)
-        cur = conn.cursor()
-        cur.execute("SELECT id FROM contact WHERE username = ?", (wechat_id,))
-        row = cur.fetchone()
-        conn.close()
+        with sqlite_conn(contact_db) as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM contact WHERE username = ?", (wechat_id,))
+            row = cur.fetchone()
         return row[0] if row else None
     except Exception:
         return None
@@ -522,36 +516,34 @@ def _query_messages_by_numeric_id(msg_db_path, numeric_id, wechat_id, limit=50):
         return raw.decode('utf-8', errors='replace') if isinstance(raw, bytes) else raw or ""
 
     try:
-        conn = sqlite3.connect(msg_db_path)
-        cur = conn.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Msg_%'")
-        tables = [row[0] for row in cur.fetchall()]
+        with sqlite_conn(msg_db_path) as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Msg_%'")
+            tables = [row[0] for row in cur.fetchall()]
 
-        if numeric_id:
-            for table in tables:
-                try:
-                    cur.execute(f"PRAGMA table_info([{table}])")
-                    cols = [c[1] for c in cur.fetchall()]
-                    if 'real_sender_id' not in cols:
-                        continue
-
-                    cur.execute(f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] WHERE real_sender_id = ? ORDER BY create_time DESC LIMIT {limit}", [numeric_id])
-                    rows = cur.fetchall()
-                    for row in rows:
-                        content = decompress(row[0], row[1]).strip()
-                        if not content:
+            if numeric_id:
+                for table in tables:
+                    try:
+                        cur.execute(f"PRAGMA table_info([{table}])")
+                        cols = [c[1] for c in cur.fetchall()]
+                        if 'real_sender_id' not in cols:
                             continue
-                        all_messages.append({"role": "other", "text": content})
-                        if len(all_messages) >= limit:
-                            break
-                    if all_messages:
-                        break
-                except Exception:
-                    continue
 
-        conn.close()
-    except Exception:
-        pass
+                        cur.execute(f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] WHERE real_sender_id = ? ORDER BY create_time DESC LIMIT {limit}", [numeric_id])
+                        rows = cur.fetchall()
+                        for row in rows:
+                            content = decompress(row[0], row[1]).strip()
+                            if not content:
+                                continue
+                            all_messages.append({"role": "other", "text": content})
+                            if len(all_messages) >= limit:
+                                break
+                        if all_messages:
+                            break
+                    except Exception:
+                        continue
+    except Exception as e:
+        logger.warning(f"查询哈希表消息失败: {e}")
 
     if len(all_messages) > limit:
         all_messages = all_messages[:limit]
@@ -582,46 +574,46 @@ def _query_messages_from_hash_tables(msg_db_path, talker, limit=50, search_in_co
         table_name = f"Msg_{talker_hash}"
         logger.info(f"[DEBUG] Looking for table: {table_name}")
 
-        conn = sqlite3.connect(msg_db_path)
-        cur = conn.cursor()
+        with sqlite_conn(msg_db_path) as conn:
+            cur = conn.cursor()
 
-        cur.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
-        if not cur.fetchone():
-            logger.warning(f"[DEBUG] Table {table_name} does not exist")
-            conn.close()
-            return []
+            cur.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+            if not cur.fetchone():
+                logger.warning(f"[DEBUG] Table {table_name} does not exist")
+                return []
 
-        cur.execute(f"PRAGMA table_info([{table_name}])")
-        cols = [c[1] for c in cur.fetchall()]
-        content_col = 'content' if 'content' in cols else 'message_content'
-        time_col = 'createTime' if 'createTime' in cols else 'create_time'
-        ct_col = 'WCDB_CT_message_content' if 'WCDB_CT_message_content' in cols else None
-        is_send_col = 'isSend' if 'isSend' in cols else None
+            cur.execute(f"PRAGMA table_info([{table_name}])")
+            cols = [c[1] for c in cur.fetchall()]
+            content_col = 'content' if 'content' in cols else 'message_content'
+            time_col = 'createTime' if 'createTime' in cols else 'create_time'
+            ct_col = 'WCDB_CT_message_content' if 'WCDB_CT_message_content' in cols else None
+            is_send_col = 'isSend' if 'isSend' in cols else None
 
-        sql = f"SELECT {content_col}, {is_send_col or '0'}, {time_col}, {ct_col or 'NULL'} FROM [{table_name}] ORDER BY create_time DESC LIMIT {limit}"
-        logger.info(f"[DEBUG] Executing: {sql}")
-        cur.execute(sql)
-        rows = cur.fetchall()
-        logger.info(f"[DEBUG] Got {len(rows)} rows from {table_name}")
+            # 与 time_col 一致（曾硬编码 create_time，在仅含 createTime 的 WCDB 表上会 SQL 报错）
+            sql = f"SELECT {content_col}, {is_send_col or '0'}, {time_col}, {ct_col or 'NULL'} FROM [{table_name}] ORDER BY [{time_col}] DESC LIMIT {limit}"
+            logger.info(f"[DEBUG] Executing: {sql}")
+            cur.execute(sql)
+            rows = cur.fetchall()
+            logger.info(f"[DEBUG] Got {len(rows)} rows from {table_name}")
 
-        for row in rows:
-            raw_content = row[0]
-            ct = row[3] if len(row) > 3 else None
-            if _decompress_content:
-                content = _decompress_content(raw_content, ct)
-            else:
-                content = raw_content
-            if isinstance(content, bytes):
-                content = content.decode('utf-8', errors='replace') if content else ''
-            content = (content or "").strip()
-            if not content:
-                continue
-            role = "other" if (is_send_col and row[1] == 0) else "self"
-            all_messages.append({"role": role, "text": content})
-            if len(all_messages) >= limit:
-                break
-
-        conn.close()
+            for row in rows:
+                raw_content = row[0]
+                ct = row[3] if len(row) > 3 else None
+                if _decompress_content:
+                    content = _decompress_content(raw_content, ct)
+                else:
+                    content = raw_content
+                if isinstance(content, bytes):
+                    content = content.decode('utf-8', errors='replace') if content else ''
+                elif not isinstance(content, str):
+                    content = str(content) if content is not None else ""
+                content = (content or "").strip()
+                if not content:
+                    continue
+                role = "other" if (is_send_col and row[1] == 0) else "self"
+                all_messages.append({"role": role, "text": content})
+                if len(all_messages) >= limit:
+                    break
     except Exception as e:
         logger.warning(f"[DEBUG] Exception in _query_messages_from_hash_tables: {e}")
 
@@ -669,33 +661,23 @@ def _ensure_decrypted_db():
         if not db_dir or not os.path.isdir(db_dir):
             return {"success": False, "message": f"微信数据目录不存在: {db_dir}"}
 
-        raw_msg_dir = os.path.join(raw_db_dir, "message")
-        decrypted_msg_dir = os.path.join(decrypted_dir, "message")
-
-        need_sync = False
-        if not os.path.exists(raw_msg_dir):
-            need_sync = True
-        else:
-            src_msg = os.path.join(db_dir, "message")
-            if os.path.exists(src_msg):
-                src_files = glob_module.glob(os.path.join(src_msg, "*.db"))
-                dst_files = glob_module.glob(os.path.join(raw_msg_dir, "*.db"))
-                if len(src_files) > len(dst_files):
-                    need_sync = True
-
-        if need_sync:
-            os.makedirs(raw_msg_dir, exist_ok=True)
-            src_msg = os.path.join(db_dir, "message")
-            if os.path.exists(src_msg):
-                for f in glob_module.glob(os.path.join(src_msg, "*.db")):
+        # 同步原始库：message + contact（按 mtime 增量复制，避免“文件数不变但内容已变更”漏同步）
+        source_sections = ("message", "contact")
+        for section in source_sections:
+            raw_section_dir = os.path.join(raw_db_dir, section)
+            src_section_dir = os.path.join(db_dir, section)
+            os.makedirs(raw_section_dir, exist_ok=True)
+            if os.path.exists(src_section_dir):
+                for f in glob_module.glob(os.path.join(src_section_dir, "*.db")):
                     if f.endswith("-wal") or f.endswith("-shm"):
                         continue
-                    rel = os.path.relpath(f, src_msg)
-                    dst = os.path.join(raw_msg_dir, rel)
+                    rel = os.path.relpath(f, src_section_dir)
+                    dst = os.path.join(raw_section_dir, rel)
                     try:
                         if not os.path.exists(dst) or os.path.getmtime(dst) < os.path.getmtime(f):
                             shutil.copy2(f, dst)
-                    except Exception:
+                    except Exception as copy_err:
+                        logger.warning("[WeChat] 复制原始库失败 section=%s file=%s err=%s", section, f, copy_err)
                         continue
 
         if not os.path.exists(keys_file):
@@ -707,36 +689,53 @@ def _ensure_decrypted_db():
         if not keys:
             return {"success": False, "message": "密钥文件为空或无效"}
 
-        os.makedirs(decrypted_msg_dir, exist_ok=True)
+        decrypt_counts = {"message": 0, "contact": 0}
+        for section in source_sections:
+            raw_section_dir = os.path.join(raw_db_dir, section)
+            decrypted_section_dir = os.path.join(decrypted_dir, section)
+            os.makedirs(decrypted_section_dir, exist_ok=True)
 
-        raw_files = glob_module.glob(os.path.join(raw_msg_dir, "*.db"))
-        decrypted_count = 0
-        for raw_path in raw_files:
-            rel = os.path.relpath(raw_path, raw_msg_dir)
-            decrypted_path = os.path.join(decrypted_msg_dir, rel)
+            raw_files = glob_module.glob(os.path.join(raw_section_dir, "*.db"))
+            for raw_path in raw_files:
+                rel = os.path.relpath(raw_path, raw_section_dir)
+                decrypted_path = os.path.join(decrypted_section_dir, rel)
 
-            key_info = get_key_info(keys, os.path.join("message", rel))
-            if not key_info:
-                continue
-
-            need_decrypt = not os.path.exists(decrypted_path)
-            if not need_decrypt:
-                try:
-                    if os.path.getmtime(decrypted_path) < os.path.getmtime(raw_path):
-                        need_decrypt = True
-                except Exception:
-                    need_decrypt = True
-
-            if need_decrypt:
-                try:
-                    enc_key = bytes.fromhex(key_info["enc_key"])
-                    from decrypt_db import decrypt_database
-                    if decrypt_database(raw_path, decrypted_path, enc_key):
-                        decrypted_count += 1
-                except Exception:
+                key_info = get_key_info(keys, os.path.join(section, rel))
+                if not key_info:
                     continue
 
-        return {"success": True, "message": f"已同步并解密 {decrypted_count} 个数据库"}
+                need_decrypt = not os.path.exists(decrypted_path)
+                if not need_decrypt:
+                    try:
+                        if os.path.getmtime(decrypted_path) < os.path.getmtime(raw_path):
+                            need_decrypt = True
+                    except Exception:
+                        need_decrypt = True
+
+                if need_decrypt:
+                    try:
+                        enc_key = bytes.fromhex(key_info["enc_key"])
+                        from decrypt_db import decrypt_database
+                        if decrypt_database(raw_path, decrypted_path, enc_key):
+                            decrypt_counts[section] += 1
+                    except Exception as dec_err:
+                        logger.warning(
+                            "[WeChat] 解密失败 section=%s raw=%s err=%s",
+                            section,
+                            raw_path,
+                            dec_err,
+                        )
+                        continue
+
+        total = decrypt_counts["message"] + decrypt_counts["contact"]
+        return {
+            "success": True,
+            "message": (
+                f"已同步并解密 {total} 个数据库"
+                f"（message: {decrypt_counts['message']}，contact: {decrypt_counts['contact']}）"
+            ),
+            "decrypted": decrypt_counts,
+        }
 
     except Exception as e:
         logger.error(f"[WeChat] _ensure_decrypted_db 错误: {str(e)}\n{traceback.format_exc()}")
@@ -753,15 +752,15 @@ def message_source_size():
         # 以所有 context 的 message_count 近似（保持兼容：这里走原 DB 查询）
         from app.db.models import WechatContactContext
         from app.db.session import get_db
+        from app.services.unified_query_service import query_service
 
-        with get_db() as db:
-            rows = db.query(WechatContactContext.message_count).all()
-            size = 0
-            for r in rows:
-                try:
-                    size += int(r[0] or 0)
-                except Exception:
-                    pass
+        rows = query_service.get_all(WechatContactContext)
+        size = 0
+        for r in rows:
+            try:
+                size += int(r.message_count or 0)
+            except Exception as e:
+                logger.debug(f"计算消息大小跳过一行: {e}")
         return jsonify({"success": True, "size": size}), 200
     except Exception as e:
         return jsonify({"success": False, "message": f"获取失败：{str(e)}", "size": 0}), 500
@@ -770,11 +769,13 @@ def message_source_size():
 @wechat_contacts_bp.route("/refresh_messages_cache", methods=["POST"])
 def refresh_messages_cache():
     """
-    工作模式：刷新消息缓存（最小实现）
-    目前 XCAGI 不维护独立的“消息缓存文件”，这里返回 success=true 作为兼容。
+    工作模式：刷新消息缓存
+    触发一次“复制原库+解密”，确保 message/contact 解密产物是最新。
     """
     try:
-        return jsonify({"success": True, "message": "消息缓存已刷新"}), 200
+        sync_result = _ensure_decrypted_db()
+        status = 200 if sync_result.get("success") else 500
+        return jsonify(sync_result), status
     except Exception as e:
         return jsonify({"success": False, "message": f"刷新失败：{str(e)}"}), 500
 
@@ -784,10 +785,125 @@ def refresh_contact_cache_compat():
     """
     兼容旧前端：刷新联系人缓存
 
-    目前联系人列表直接从数据库实时查询，这里返回 success=true 即可。
+    从微信解密库导入联系人到本地 wechat_contacts 表（保留既有星标状态）。
     """
     try:
-        return jsonify({"success": True, "message": "联系人缓存已刷新"}), 200
+        import sqlite3
+        from datetime import datetime
+
+        from app.db.models import WechatContact
+        from app.db.session import get_db
+        from app.utils.path_utils import get_resource_path
+
+        sync_result = _ensure_decrypted_db()
+        if not sync_result.get("success"):
+            return jsonify({"success": False, "message": sync_result.get("message", "同步解密失败")}), 500
+
+        rows = []
+        source_desc = "contact.db"
+        contact_db_path = os.path.join(get_resource_path("wechat-decrypt"), "decrypted", "contact", "contact.db")
+        if os.path.exists(contact_db_path):
+            with sqlite_conn(contact_db_path) as conn:
+                cur = conn.cursor()
+
+                # 兼容不同版本的 contact.db 字段
+                table_exists = cur.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='contact'"
+                ).fetchone()
+                if table_exists:
+                    col_rows = cur.execute("PRAGMA table_info(contact)").fetchall()
+                    cols = {str(r[1]) for r in col_rows if len(r) >= 2}
+
+                    select_cols = ["username"]
+                    select_cols.append("nick_name" if "nick_name" in cols else "'' AS nick_name")
+                    select_cols.append("remark" if "remark" in cols else "'' AS remark")
+                    select_cols.append("is_in_chat_room" if "is_in_chat_room" in cols else "0 AS is_in_chat_room")
+
+                    where_clause = "WHERE delete_flag = 0" if "delete_flag" in cols else ""
+                    sql = f"SELECT {', '.join(select_cols)} FROM contact {where_clause}"
+                    rows = cur.execute(sql).fetchall()
+
+        # 某些环境只有 message_0.db（没有 decrypted/contact/contact.db），
+        # 这里回退从 Name2Id 导入基础联系人（至少可按微信号搜索/星标）。
+        if not rows:
+            msg_db_path = os.path.join(get_resource_path("wechat-decrypt"), "decrypted", "message", "message_0.db")
+            if os.path.exists(msg_db_path):
+                with sqlite_conn(msg_db_path) as conn:
+                    cur = conn.cursor()
+                    table_exists = cur.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='Name2Id'"
+                    ).fetchone()
+                    if table_exists:
+                        source_desc = "message_0.db/Name2Id"
+                        rows = cur.execute("SELECT user_name, '', '', is_session FROM Name2Id").fetchall()
+
+        if not rows:
+            return jsonify({
+                "success": False,
+                "message": "未找到可导入的联系人源（contact.db 与 Name2Id 均不可用）",
+            }), 404
+
+        imported = 0
+        updated = 0
+        skipped = 0
+        now = datetime.now()
+
+        from app.db.models import WechatContact
+
+        with get_db() as db:
+            existing_contacts = db.query(WechatContact).limit(10000).all()
+            existing_by_wechat_id = {}
+            for c in existing_contacts:
+                key = (c.wechat_id or "").strip()
+                if key:
+                    existing_by_wechat_id[key] = c
+
+            for row in rows:
+                username = (row[0] or "").strip()
+                nick_name = (row[1] or "").strip()
+                remark = (row[2] or "").strip()
+                is_in_chat_room = str(row[3] or "0").strip()
+
+                if not username:
+                    skipped += 1
+                    continue
+
+                contact_type = "group" if (is_in_chat_room == "1" or "@chatroom" in username) else "contact"
+                contact_name = nick_name or remark or username
+
+                existing = existing_by_wechat_id.get(username)
+                if existing:
+                    existing.contact_name = contact_name
+                    existing.remark = remark
+                    existing.contact_type = contact_type
+                    existing.is_active = 1
+                    existing.updated_at = now
+                    updated += 1
+                    continue
+
+                db.add(
+                    WechatContact(
+                        contact_name=contact_name,
+                        remark=remark,
+                        wechat_id=username,
+                        contact_type=contact_type,
+                        is_active=1,
+                        is_starred=0,
+                    )
+                )
+                imported += 1
+
+            db.commit()
+
+        total = imported + updated
+        return jsonify({
+            "success": True,
+            "message": f"联系人缓存已刷新（来源：{source_desc}）：新增 {imported}，更新 {updated}，跳过 {skipped}",
+            "imported": imported,
+            "updated": updated,
+            "skipped": skipped,
+            "total": total,
+        }), 200
     except Exception as e:
         return jsonify({"success": False, "message": f"刷新失败：{str(e)}"}), 500
 
@@ -797,46 +913,121 @@ def work_mode_feed():
     """
     工作模式：轮询 feed
     前端期望：{feed: [{contact_id, contact_name, messages: [{role, text}], ...}], newMessages:[], taskAcquisition:?}
+    未配置微信解密或 DB 异常时仍返回 200 + 空 feed，避免顶部助手轮询刷 500。
     """
+    per_contact = 10
     try:
-        per_contact = request.args.get("per_contact", 10, type=int)
+        per_contact = int(request.args.get("per_contact", 10) or 10)
+    except (TypeError, ValueError):
+        per_contact = 10
 
+    try:
         from app.utils.path_utils import get_resource_path as grp
-        sync_result = _ensure_decrypted_db()
 
-        service = get_wechat_contact_service()
+        try:
+            _ensure_decrypted_db()
+        except Exception as sync_e:
+            logger.debug("work_mode_feed: decrypt sync skipped: %s", sync_e)
 
-        contacts = service.get_contacts(contact_type="all", starred_only=True, limit=100)
+        try:
+            service = get_wechat_contact_service()
+            contacts = service.get_contacts(contact_type="all", starred_only=True, limit=100) or []
+        except Exception as svc_e:
+            logger.warning("work_mode_feed: get_contacts failed: %s", svc_e)
+            contacts = []
+
         feed = []
         for c in contacts:
-            contact_id = c.get("id")
-            contact_name = c.get("contact_name") or c.get("remark") or c.get("wechat_id") or f"ID {contact_id}"
-            wechat_id = c.get("wechat_id")
+            try:
+                contact_id = c.get("id")
+                contact_name = (
+                    c.get("contact_name")
+                    or c.get("remark")
+                    or c.get("wechat_id")
+                    or f"ID {contact_id}"
+                )
+                wechat_id = c.get("wechat_id")
+                messages = []
+                if wechat_id:
+                    msg_db_path = os.path.join(
+                        grp("wechat-decrypt"), "decrypted", "message", "message_0.db"
+                    )
+                    if os.path.exists(msg_db_path):
+                        messages = _query_messages_from_hash_tables(
+                            msg_db_path,
+                            wechat_id,
+                            limit=per_contact,
+                            search_in_content=True,
+                        )
+                feed.append(
+                    {
+                        "contact_id": contact_id,
+                        "contact_name": contact_name,
+                        "messages": messages,
+                    }
+                )
+            except Exception as row_e:
+                logger.warning("work_mode_feed: skip one contact: %s", row_e)
 
-            messages = []
-            if wechat_id:
-                from app.routes.wechat_contacts import _query_messages_from_hash_tables
-                msg_db_path = os.path.join(grp("wechat-decrypt"), "decrypted", "message", "message_0.db")
-                if os.path.exists(msg_db_path):
-                    messages = _query_messages_from_hash_tables(msg_db_path, wechat_id, limit=per_contact, search_in_content=True)
-
-            feed.append({
-                "contact_id": contact_id,
-                "contact_name": contact_name,
-                "messages": messages,
-            })
-
-        return jsonify({
+        payload_ok = {
             "success": True,
             "feed": feed,
             "newMessages": [],
             "taskAcquisition": None,
             "per_contact": per_contact,
-        }), 200
+        }
+        try:
+            return jsonify(json_safe(payload_ok)), 200
+        except Exception as json_e:
+            logger.exception("work_mode_feed: jsonify failed: %s", json_e)
+            # 仅含 JSON 原生类型，避免 json_safe 再失败
+            return (
+                jsonify(
+                    {
+                        "success": True,
+                        "feed": [],
+                        "newMessages": [],
+                        "taskAcquisition": None,
+                        "per_contact": per_contact,
+                        "degraded": True,
+                        "hint": (str(json_e) or "json")[:300],
+                    }
+                ),
+                200,
+            )
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"获取失败：{str(e)}", "feed": [], "newMessages": []}), 500
+        logger.exception("work_mode_feed: degraded empty response: %s", e)
+        try:
+            return (
+                jsonify(
+                    json_safe(
+                        {
+                            "success": True,
+                            "feed": [],
+                            "newMessages": [],
+                            "taskAcquisition": None,
+                            "per_contact": per_contact,
+                            "degraded": True,
+                            "hint": (str(e) or "error")[:300],
+                        }
+                    )
+                ),
+                200,
+            )
+        except Exception:
+            return (
+                jsonify(
+                    {
+                        "success": True,
+                        "feed": [],
+                        "newMessages": [],
+                        "taskAcquisition": None,
+                        "per_contact": per_contact,
+                        "degraded": True,
+                    }
+                ),
+                200,
+            )
 
 
 @wechat_contacts_bp.route("/send_message", methods=["POST"])

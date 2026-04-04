@@ -130,6 +130,10 @@ export const useMaterialsStore = defineStore('materials', () => {
     }
   }
 
+  async function exportMaterials(params: Record<string, any> = {}): Promise<Response> {
+    return materialsApi.exportMaterialsXlsx(params)
+  }
+
   return {
     materials,
     loading,
@@ -141,6 +145,7 @@ export const useMaterialsStore = defineStore('materials', () => {
     createMaterial,
     updateMaterial,
     deleteMaterial,
-    batchDelete
+    batchDelete,
+    exportMaterials
   }
 })

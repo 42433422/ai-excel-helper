@@ -5,6 +5,7 @@ declare global {
     __VUE_CHAT_OWNS_INPUT__: boolean;
     __legacyToggleProMode?: () => void;
     toggleProMode?: () => void;
+    __XCAGI_IS_PRO_MODE?: boolean;
     setProModeEnabled: (enabled: boolean) => void;
     openImportWindow?: () => void;
   }

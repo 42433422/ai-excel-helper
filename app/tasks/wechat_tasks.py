@@ -7,6 +7,9 @@
 import logging
 from typing import Any, Dict, List
 
+from sqlalchemy import text
+
+from app.db import SessionLocal
 from app.extensions import celery_app
 
 logger = logging.getLogger(__name__)
@@ -104,28 +107,19 @@ def cleanup_old_tasks(days: int = 30) -> int:
     """
     try:
         logger.info(f"开始清理 {days} 天前的旧任务")
-        
-        import sqlite3
-
-        from app.db.init_db import get_db_path
-        
-        db_path = get_db_path()
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        
-        # 删除 30 天前的已完成/已忽略任务
-        cursor.execute(
-            """
-            DELETE FROM wechat_tasks 
-            WHERE status IN ('confirmed', 'done', 'ignored')
-            AND created_at < datetime('now', '-' || ? || ' days')
-            """,
-            (days,)
-        )
-        
-        cleaned_count = cursor.rowcount
-        conn.commit()
-        conn.close()
+        with SessionLocal() as db:
+            result = db.execute(
+                text(
+                    """
+                    DELETE FROM wechat_tasks
+                    WHERE status IN ('confirmed', 'done', 'ignored')
+                    AND created_at < (NOW() - (:days * INTERVAL '1 day'))
+                    """
+                ),
+                {"days": int(days)},
+            )
+            db.commit()
+            cleaned_count = int(result.rowcount or 0)
         
         logger.info(f"清理完成，共清理 {cleaned_count} 个任务")
         return cleaned_count

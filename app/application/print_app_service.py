@@ -6,7 +6,9 @@
 
 from typing import Any, Dict, List, Optional
 
-from app.services import PrinterService, get_printer_service
+from app.services.printer_service import PrinterService
+# Avoid importing from services.__init__ to prevent circular imports
+# get_printer_service is defined in services/__init__.py
 
 
 class PrintApplicationService:
@@ -16,7 +18,7 @@ class PrintApplicationService:
         self,
         printer_service: Optional[PrinterService] = None,
     ):
-        self._printer_service = printer_service or get_printer_service()
+        self._printer_service = printer_service or get_printer_service()  # type: ignore
 
     def print_labels(self, label_data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

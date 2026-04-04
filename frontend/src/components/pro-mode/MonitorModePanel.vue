@@ -1,14 +1,14 @@
 <template>
   <div class="monitor-mode-panel" :class="{ 'monitor-mode': isMonitorMode }">
     <div class="monitor-header">
-      <h3 class="monitor-title">⚡ 系统监控面板</h3>
+      <h3 class="monitor-title"><i class="fa fa-bolt" aria-hidden="true"></i> 系统监控面板</h3>
       <button class="close-btn" @click="handleClose">×</button>
     </div>
 
     <div class="monitor-body">
       <div class="metrics-grid">
         <div class="metric-card cpu" @click="refreshData">
-          <div class="metric-icon">🖥️</div>
+          <div class="metric-icon"><i class="fa fa-desktop" aria-hidden="true"></i></div>
           <div class="metric-info">
             <div class="metric-label">CPU 使用率</div>
             <div class="metric-value">{{ metrics.cpu }}%</div>
@@ -19,7 +19,7 @@
         </div>
 
         <div class="metric-card memory">
-          <div class="metric-icon">💾</div>
+          <div class="metric-icon"><i class="fa fa-hdd-o" aria-hidden="true"></i></div>
           <div class="metric-info">
             <div class="metric-label">内存使用</div>
             <div class="metric-value">{{ metrics.memory }}%</div>
@@ -30,7 +30,7 @@
         </div>
 
         <div class="metric-card disk">
-          <div class="metric-icon">💿</div>
+          <div class="metric-icon"><i class="fa fa-database" aria-hidden="true"></i></div>
           <div class="metric-info">
             <div class="metric-label">磁盘使用</div>
             <div class="metric-value">{{ metrics.disk }}%</div>
@@ -41,7 +41,7 @@
         </div>
 
         <div class="metric-card requests">
-          <div class="metric-icon">📊</div>
+          <div class="metric-icon"><i class="fa fa-bar-chart" aria-hidden="true"></i></div>
           <div class="metric-info">
             <div class="metric-label">活跃请求</div>
             <div class="metric-value">{{ metrics.activeRequests }}</div>
@@ -70,12 +70,12 @@
 
       <div class="alerts-section">
         <div class="section-header">
-          <span class="section-title">📢 最近告警</span>
+          <span class="section-title"><i class="fa fa-bullhorn" aria-hidden="true"></i> 最近告警</span>
           <span class="alert-count" v-if="alerts.length > 0">{{ alerts.length }}</span>
         </div>
         <div class="alerts-list">
           <div v-if="alerts.length === 0" class="no-alerts">
-            ✅ 暂无告警
+            <i class="fa fa-check-circle-o" aria-hidden="true"></i> 暂无告警
           </div>
           <div
             v-for="alert in alerts"
@@ -91,7 +91,7 @@
 
       <div class="logs-section">
         <div class="section-header">
-          <span class="section-title">📋 最近日志</span>
+          <span class="section-title"><i class="fa fa-list-alt" aria-hidden="true"></i> 最近日志</span>
         </div>
         <div class="logs-list">
           <div
@@ -109,10 +109,10 @@
 
       <div class="actions-bar">
         <button class="action-btn refresh" @click="refreshData">
-          🔄 刷新数据
+          <i class="fa fa-refresh" aria-hidden="true"></i> 刷新数据
         </button>
         <button class="action-btn history" @click="viewHistory">
-          📈 历史趋势
+          <i class="fa fa-line-chart" aria-hidden="true"></i> 历史趋势
         </button>
       </div>
     </div>

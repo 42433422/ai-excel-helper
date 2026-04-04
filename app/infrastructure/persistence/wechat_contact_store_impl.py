@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import sqlite3
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -11,6 +10,7 @@ from sqlalchemy import or_
 from app.application.ports.wechat_contact_store import WechatContactStorePort
 from app.db.models import WechatContact, WechatContactContext
 from app.db.session import get_db
+from app.utils.external_sqlite import sqlite_conn
 
 
 class SQLAlchemyWechatContactStore(WechatContactStorePort):
@@ -52,12 +52,13 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
                     return []
 
                 try:
-                    from app.utils.path_utils import get_resource_path
+                    from app.infrastructure.plugins.wechat_plugin import get_wechat_plugin
 
-                    contact_db_path = get_resource_path(
-                        "wechat-decrypt", "decrypted", "contact", "contact.db"
-                    )
-                    if os.path.exists(contact_db_path):
+                    plugin = get_wechat_plugin()
+                    contact_db_path = plugin.get_decrypted_db_path("contact")
+                    if not contact_db_path:
+                        return []
+                    if contact_db_path and os.path.exists(contact_db_path):
                         like = f"%{keyword}%"
                         sql = (
                             "SELECT username, nick_name, remark, is_in_chat_room "
@@ -66,7 +67,7 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
                             "LIMIT ?"
                         )
 
-                        with sqlite3.connect(contact_db_path) as cconn:
+                        with sqlite_conn(contact_db_path) as cconn:
                             matches = cconn.execute(sql, (like, like, like, limit)).fetchall()
 
                         fallback: List[Dict[str, Any]] = []

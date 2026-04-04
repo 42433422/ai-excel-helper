@@ -913,22 +913,6 @@ class ProFeatureWidget {
                 }
                 this.loadProductQueryCompanies(config);
                 break;
-            case 'monitor':
-                widget.classList.add('open-layout');
-                title.textContent = '系统监控';
-                icon.textContent = '📊';
-                content.textContent = '';
-                content.appendChild(this.renderMonitorPanel());
-                actionButtons.textContent = '';
-                const refreshMonitorBtn = document.createElement('button');
-                refreshMonitorBtn.className = 'action-btn';
-                refreshMonitorBtn.textContent = '刷新数据';
-                refreshMonitorBtn.addEventListener('click', () => {
-                    const event = new CustomEvent('xcagi:refresh-monitor');
-                    window.dispatchEvent(event);
-                });
-                actionButtons.appendChild(refreshMonitorBtn);
-                break;
             default:
                 title.textContent = '专业功能';
                 icon.textContent = '🔧';
@@ -2099,7 +2083,7 @@ class ProFeatureWidget {
         const options = ['<option value="">请选择要删除的单位</option>'];
         list.forEach((item, idx) => {
             const id = Number(item.id || 0);
-            const name = this._safeText(item.customer_name || item.unit_name || item.name || `单位${idx + 1}`);
+            const name = this._safeText(item.unit_name || item.name || `单位${idx + 1}`);
             if (id > 0) options.push(`<option value="${id}">${name}</option>`);
         });
         selectEl.innerHTML = options.join('');
@@ -2144,111 +2128,6 @@ class ProFeatureWidget {
         return wrapper;
     }
 
-    renderMonitorPanel() {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'monitor-panel';
-
-        wrapper.innerHTML = `
-            <div class="monitor-metrics" id="monitorMetrics">
-                <div class="monitor-metric">
-                    <div class="metric-icon">🖥️</div>
-                    <div class="metric-info">
-                        <div class="metric-label">CPU 使用率</div>
-                        <div class="metric-value" id="monitorCpu">--%</div>
-                        <div class="metric-bar"><div class="metric-bar-fill" id="monitorCpuBar" style="width:0%"></div></div>
-                    </div>
-                </div>
-                <div class="monitor-metric">
-                    <div class="metric-icon">💾</div>
-                    <div class="metric-info">
-                        <div class="metric-label">内存使用</div>
-                        <div class="metric-value" id="monitorMemory">--%</div>
-                        <div class="metric-bar"><div class="metric-bar-fill" id="monitorMemoryBar" style="width:0%"></div></div>
-                    </div>
-                </div>
-                <div class="monitor-metric">
-                    <div class="metric-icon">💿</div>
-                    <div class="metric-info">
-                        <div class="metric-label">磁盘使用</div>
-                        <div class="metric-value" id="monitorDisk">--%</div>
-                        <div class="metric-bar"><div class="metric-bar-fill" id="monitorDiskBar" style="width:0%"></div></div>
-                    </div>
-                </div>
-            </div>
-            <div class="monitor-services">
-                <div class="services-header">服务状态</div>
-                <div class="service-item" id="monitorBackendApi">
-                    <span class="service-status-dot"></span>
-                    <span class="service-name">Backend API</span>
-                    <span class="service-status">检测中...</span>
-                </div>
-                <div class="service-item" id="monitorDatabase">
-                    <span class="service-status-dot"></span>
-                    <span class="service-name">MySQL Database</span>
-                    <span class="service-status">检测中...</span>
-                </div>
-                <div class="service-item" id="monitorRedis">
-                    <span class="service-status-dot"></span>
-                    <span class="service-name">Redis Cache</span>
-                    <span class="service-status">检测中...</span>
-                </div>
-            </div>
-        `;
-
-        setTimeout(() => this.refreshMonitorData(), 100);
-
-        return wrapper;
-    }
-
-    async refreshMonitorData() {
-        try {
-            const response = await fetch('/health/details');
-            if (response.ok) {
-                const data = await response.json();
-                if (data.system) {
-                    const cpu = Math.round(data.system.cpu_percent || 0);
-                    const memory = Math.round(data.system.memory_percent || 0);
-                    const disk = Math.round(data.system.disk_percent || 0);
-
-                    document.getElementById('monitorCpu').textContent = cpu + '%';
-                    document.getElementById('monitorMemory').textContent = memory + '%';
-                    document.getElementById('monitorDisk').textContent = disk + '%';
-
-                    const cpuBar = document.getElementById('monitorCpuBar');
-                    const memBar = document.getElementById('monitorMemoryBar');
-                    const diskBar = document.getElementById('monitorDiskBar');
-
-                    if (cpuBar) cpuBar.style.width = cpu + '%';
-                    if (memBar) memBar.style.width = memory + '%';
-                    if (diskBar) diskBar.style.width = disk + '%';
-                }
-
-                if (data.checks) {
-                    const checks = data.checks;
-                    this.updateServiceStatus('monitorBackendApi', checks.backend_api);
-                    this.updateServiceStatus('monitorDatabase', checks.mysql_database || checks.database);
-                    this.updateServiceStatus('monitorRedis', checks.redis_cache || checks.redis);
-                }
-            }
-        } catch (e) {
-            console.warn('获取监控数据失败:', e);
-        }
-    }
-
-    updateServiceStatus(elementId, status) {
-        const el = document.getElementById(elementId);
-        if (!el) return;
-        const dot = el.querySelector('.service-status-dot');
-        const text = el.querySelector('.service-status');
-        if (status && status.status === 'healthy') {
-            dot.style.background = 'rgba(0, 255, 0, 0.6)';
-            text.textContent = '运行中';
-        } else {
-            dot.style.background = 'rgba(255, 165, 0, 0.8)';
-            text.textContent = status ? '异常' : '检测中';
-        }
-    }
-
     async loadProductQueryCompanies(config = {}) {
         const cloud = document.getElementById('proProductCompanyCloud');
         const companyNameEl = document.getElementById('proProductCompanyName');
@@ -2262,6 +2141,13 @@ class ProFeatureWidget {
         if (cloud) cloud.innerHTML = '<div class="product-query-empty">正在加载单位...</div>';
         if (companyNameEl) companyNameEl.textContent = '请选择购买单位';
         if (productListEl) productListEl.innerHTML = '<div class="product-query-empty">先选择右侧购买单位</div>';
+
+        const passedProducts = config && config.products;
+        const passedUnitName = (config && config.unit_name ? String(config.unit_name) : '').trim();
+
+        if (passedProducts && Array.isArray(passedProducts) && passedProducts.length > 0) {
+            this._passedProducts = passedProducts;
+        }
 
         try {
             const response = await fetch('/api/customers');
@@ -2324,24 +2210,47 @@ class ProFeatureWidget {
             }
 
             const query = (config && config.query ? String(config.query) : '').trim();
-            const unitName = config && config.unit_name ? String(config.unit_name) : '';
-            const modelNumber = config && config.model_number ? String(config.model_number) : '';
-            if (unitName) {
-                const matched = this._productCompanies.find(item => item.name.includes(unitName));
+            const unitName = passedUnitName;
+            const searchTarget = unitName || query;
+
+            if (searchTarget) {
+                const matched = this._productCompanies.find(item => item.name.includes(searchTarget));
                 if (matched) {
                     const row = cloud ? cloud.querySelector(`.customer-row[data-id="${matched.id}"]`) : null;
                     const token = row ? row.querySelector('.floating-unit-token') : null;
-                    this.selectProductCompany(matched, row || null, token || null);
-                    if (modelNumber && row) {
-                        setTimeout(() => this.filterProductByModel(modelNumber), 300);
+
+                    if (passedProducts && Array.isArray(passedProducts) && passedProducts.length > 0) {
+                        this._selectedProductCompany = matched;
+                        this._productAllItems = passedProducts;
+                        this._selectedProductCompanyRow = row || null;
+                        if (cloud) {
+                            const rows = cloud.querySelectorAll('.customer-row');
+                            rows.forEach((r) => {
+                                const t = r.querySelector('.floating-unit-token');
+                                const active = String(matched.id) === r.getAttribute('data-id');
+                                r.classList.toggle('expanded', active);
+                                r.classList.toggle('collapsed', !active);
+                                if (t) t.classList.toggle('active', active);
+                            });
+                        }
+                        if (token && token.classList) token.classList.add('active', 'pinned');
+                        const companyNameEl2 = document.getElementById('proProductCompanyName');
+                        if (companyNameEl2) companyNameEl2.textContent = matched.name || '已选择单位';
+                        const exportBtn2 = document.getElementById('proProductExportExcelBtn');
+                        if (exportBtn2) exportBtn2.style.display = '';
+                        this.renderProductQueryList(passedProducts);
+                        if (typeof window.setProProductQueryStage === 'function') {
+                            window.setProProductQueryStage('company_selected', {
+                                company: matched.name,
+                                products: passedProducts.map((p) => p.name || p.model_number || '产品')
+                            });
+                        }
+                        const iconRing2 = document.getElementById('iconRingContainer');
+                        if (iconRing2) iconRing2.classList.add('visible');
+                        this.updateProductQueryIconRing();
+                    } else {
+                        this.selectProductCompany(matched, row || null, token || null);
                     }
-                }
-            } else if (query) {
-                const matched = this._productCompanies.find(item => item.name.includes(query));
-                if (matched) {
-                    const row = cloud ? cloud.querySelector(`.customer-row[data-id="${matched.id}"]`) : null;
-                    const token = row ? row.querySelector('.floating-unit-token') : null;
-                    this.selectProductCompany(matched, row || null, token || null);
                 }
             }
         } catch (error) {
@@ -2503,16 +2412,6 @@ class ProFeatureWidget {
             return hay.includes(keyword);
         });
         this.renderProductQueryList(filtered);
-    }
-
-    filterProductByModel(modelNumber) {
-        if (!modelNumber) return;
-        const searchInput = document.getElementById('proProductSearch');
-        if (searchInput) {
-            searchInput.value = modelNumber;
-            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        this.filterProductQueryList();
     }
 
     exportProductListExcel() {
@@ -2805,14 +2704,6 @@ window.hideProFeature = () => {
     }
 };
 
-window.enterMonitorModeFromChat = () => {
-    console.log('进入监控模式...');
-    if (window.proFeatureWidget) {
-        window.proFeatureWidget.showFeature('monitor');
-    }
-    window.dispatchEvent(new CustomEvent('xcagi:switch-view', { detail: { view: 'monitor' } }));
-};
-
 // Vue 版会在 autoAction 触发时派发 `auto-action` 事件（不会一定走 legacy handleAutoAction）。
 // 为了保证“专业版客户列表”工具调用后一定出现科技感浮窗，这里补一个兜底监听。
 window.addEventListener('auto-action', (evt) => {
@@ -2823,7 +2714,11 @@ window.addEventListener('auto-action', (evt) => {
             : '';
 
         if (!action || !action.type) return;
+        // 普通版不应拉起专业浮窗（避免污染普通版交互）
+        const isProModeActive = !!(document.body && document.body.classList.contains('pro-mode-active'));
+        if (!isProModeActive) return;
         if (!window.proFeatureWidget || typeof window.proFeatureWidget.showFeature !== 'function') {
+            // 极端时序下 proFeatureWidget 可能还没初始化；尝试在本模块内补初始化
             if (typeof initProFeatureWidget === 'function') initProFeatureWidget();
         }
         if (!window.proFeatureWidget || typeof window.proFeatureWidget.showFeature !== 'function') return;
@@ -2835,104 +2730,8 @@ window.addEventListener('auto-action', (evt) => {
             case 'show_products':
                 window.proFeatureWidget.showFeature('product_query', { query: userMessage || '' });
                 break;
-            case 'show_monitor':
-                window.proFeatureWidget.showFeature('monitor');
-                break;
         }
     } catch (_) {
-        // best-effort
+        // avoid breaking UI; best-effort UI bridge
     }
 });
-
-// 监控面板样式
-const monitorStyles = document.createElement('style');
-monitorStyles.textContent = `
-.monitor-panel {
-    padding: 12px;
-    color: #fff;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-.monitor-metrics {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 16px;
-}
-.monitor-metric {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px;
-    background: rgba(255, 215, 0, 0.05);
-    border-radius: 8px;
-    border: 1px solid rgba(255, 215, 0, 0.2);
-}
-.metric-icon {
-    font-size: 24px;
-}
-.metric-info {
-    flex: 1;
-}
-.metric-label {
-    font-size: 12px;
-    color: rgba(255, 215, 0, 0.7);
-    margin-bottom: 4px;
-}
-.metric-value {
-    font-size: 18px;
-    font-weight: bold;
-    color: #fff;
-    margin-bottom: 6px;
-}
-.metric-bar {
-    height: 4px;
-    background: rgba(255, 215, 0, 0.2);
-    border-radius: 2px;
-    overflow: hidden;
-}
-.metric-bar-fill {
-    height: 100%;
-    background: linear-gradient(90deg, rgba(255, 215, 0, 0.6), rgba(255, 215, 0, 0.9));
-    border-radius: 2px;
-    transition: width 0.5s ease;
-}
-.monitor-services {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    padding: 8px;
-}
-.services-header {
-    font-size: 13px;
-    font-weight: bold;
-    color: rgba(255, 215, 0, 0.9);
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255, 215, 0, 0.1);
-}
-.service-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px;
-    border-radius: 6px;
-}
-.service-item:hover {
-    background: rgba(255, 215, 0, 0.05);
-}
-.service-status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(255, 165, 0, 0.8);
-}
-.service-name {
-    flex: 1;
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.9);
-}
-.service-status {
-    font-size: 12px;
-    color: rgba(255, 215, 0, 0.7);
-}
-`;
-document.head.appendChild(monitorStyles);

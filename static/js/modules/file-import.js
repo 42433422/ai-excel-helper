@@ -327,7 +327,7 @@ function resetImportState() {
     const progress = document.getElementById('importProgress');
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
-    const progressPercent = document.getElementById('progressPercent');
+    const progressPercent = document.getElementById('importProgressPercent');
     const status = document.getElementById('importStatus');
     if (progress) progress.classList.remove('show');
     if (progressBar) progressBar.style.width = '0%';
@@ -344,7 +344,7 @@ function handleFileSelect(files) {
     const progress = document.getElementById('importProgress');
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
-    const progressPercent = document.getElementById('progressPercent');
+    const progressPercent = document.getElementById('importProgressPercent');
     const status = document.getElementById('importStatus');
     
     progress.classList.add('show');

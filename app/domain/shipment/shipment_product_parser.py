@@ -7,43 +7,63 @@ def _normalize_text(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def _normalize_model_token(value: Any) -> str:
+    return _normalize_text(value).replace(" ", "").replace("-", "")
+
+
+def _to_float_or_none(value: Any) -> Optional[float]:
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
 def match_product(
     name: str,
     model_number: str,
+    tin_spec: Any,
     db_products: List[Dict[str, Any]],
 ) -> Optional[Dict[str, Any]]:
     """
     产品匹配规则（纯领域逻辑，无 DB / 无 I/O）。
 
     匹配顺序：
-    1) 型号精确
-    2) 名称精确
-    3) 型号包含
-    4) 名称包含
+    1) 型号精确（忽略空格/中划线）
+    2) 同型号多记录时，按规格消歧
+    3) 无型号时按名称精确
+    4) 兜底名称包含
     """
     if not name and not model_number:
         return None
 
     name_norm = _normalize_text(name)
-    model_norm = _normalize_text(model_number)
+    model_norm = _normalize_model_token(model_number)
+    spec_norm = _to_float_or_none(tin_spec)
 
-    # 1) 型号精确
+    # 1) 型号精确（严格）
     if model_norm:
+        model_exact_matches: List[Dict[str, Any]] = []
         for p in db_products:
-            if _normalize_text(p.get("model_number")) == model_norm:
-                return p
+            if _normalize_model_token(p.get("model_number")) == model_norm:
+                model_exact_matches.append(p)
+        if len(model_exact_matches) == 1:
+            return model_exact_matches[0]
+        if len(model_exact_matches) > 1:
+            # 2) 同型号多规格时按规格消歧
+            if spec_norm is not None:
+                for p in model_exact_matches:
+                    p_spec = _to_float_or_none(p.get("specification"))
+                    if p_spec is not None and p_spec == spec_norm:
+                        return p
+            # 严格模式：无法消歧时保持可预期，返回首个型号命中
+            return model_exact_matches[0]
 
-    # 2) 名称精确
+    # 3) 无型号时按名称精确
     if name_norm:
         for p in db_products:
             if _normalize_text(p.get("name")) == name_norm:
-                return p
-
-    # 3) 型号包含
-    if model_norm:
-        for p in db_products:
-            p_model = _normalize_text(p.get("model_number"))
-            if p_model and model_norm in p_model:
                 return p
 
     # 4) 名称包含
@@ -81,12 +101,14 @@ def prepare_parsed_products(
 
         tin_spec = p.get("tin_spec") or p.get("spec") or 10.0
 
-        matched = match_product(str(name or ""), str(model_number or ""), db_products)
+        matched = match_product(str(name or ""), str(model_number or ""), tin_spec, db_products)
         if matched:
             name = matched.get("name") or name
             model_number = matched.get("model_number") or model_number
 
-        # 必须命中前端产品库或已有明确名称，否则视为无效产品
+        # 不再静默丢行：至少保留可识别型号，避免“槽位正确但整行消失”
+        if not name:
+            name = str(model_number or "").strip()
         if not name:
             continue
 

@@ -18,6 +18,7 @@ class ShipmentDocumentGeneratorPort(ABC):
         products: List[Dict[str, Any]],
         date: Optional[str] = None,
         template_name: Optional[str] = None,
+        order_number: Optional[str] = None,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 

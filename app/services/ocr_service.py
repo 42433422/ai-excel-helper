@@ -2,12 +2,14 @@
 OCR服务模块
 
 提供图像文字识别、结构化数据提取等业务逻辑。
+默认优先 PaddleOCR，与「识别模板」标签图走同一引擎；可通过环境变量切换或回退 EasyOCR/Tesseract。
 """
 
 import logging
 import os
 import re
 from dataclasses import dataclass
+from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -31,30 +33,63 @@ class OCRService:
         self.use_gpu = use_gpu
         self.reader = None
         self.tesseract_available = False
-        self._initialize_reader()
+        self._paddle_enabled = False
+        self._init_engines()
 
-    def _initialize_reader(self):
-        """初始化OCR读取器"""
+    def _init_engines(self) -> None:
+        """
+        初始化识别后端。
+        XCAGI_OCR_BACKEND: auto（默认）| paddle | easyocr | tesseract
+        - auto: Paddle → EasyOCR → Tesseract
+        - paddle: 仅 Paddle（失败则无任何引擎）
+        """
+        backend = os.environ.get("XCAGI_OCR_BACKEND", "auto").lower().strip() or "auto"
+
+        if backend in ("auto", "paddle"):
+            try:
+                from app.services.paddle_ocr_runner import check_paddle_available, get_paddle_ocr_instance
+
+                if check_paddle_available():
+                    get_paddle_ocr_instance()
+                    self._paddle_enabled = True
+                    logger.info("OCR 主引擎：PaddleOCR")
+            except Exception as e:
+                logger.warning("PaddleOCR 初始化失败: %s", e)
+
+        if backend == "paddle" and not self._paddle_enabled:
+            logger.error("XCAGI_OCR_BACKEND=paddle 但 PaddleOCR 不可用，请安装 paddlepaddle paddleocr")
+
+        if backend in ("auto", "easyocr") and not self._paddle_enabled:
+            self._init_easyocr()
+
+        if backend in ("auto", "tesseract") and not self._paddle_enabled and self.reader is None:
+            self._init_tesseract()
+
+        if not self._paddle_enabled and self.reader is None and not self.tesseract_available:
+            self._init_tesseract()
+
+    def _init_easyocr(self) -> None:
         try:
             import easyocr
-            self.reader = easyocr.Reader(['ch_sim', 'en'], gpu=self.use_gpu)
-            logger.info("EasyOCR 初始化成功")
+
+            self.reader = easyocr.Reader(["ch_sim", "en"], gpu=self.use_gpu)
+            logger.info("OCR 回退引擎：EasyOCR")
         except ImportError:
-            logger.warning("EasyOCR 未安装，尝试使用 Tesseract")
-            self._init_tesseract()
+            logger.warning("EasyOCR 未安装")
+            self.reader = None
         except Exception as e:
-            logger.error(f"OCR初始化失败: {e}")
+            logger.error("EasyOCR 初始化失败: %s", e)
             self.reader = None
 
-    def _init_tesseract(self):
+    def _init_tesseract(self) -> None:
         """初始化Tesseract"""
         try:
             import pytesseract
+
             pytesseract.get_tesseract_version()
             self.tesseract_available = True
-            logger.info("Tesseract OCR 初始化成功")
+            logger.info("OCR 回退引擎：Tesseract")
         except (ImportError, Exception):
-            logger.warning("Tesseract 不可用")
             self.tesseract_available = False
 
     def recognize(self, image) -> str:
@@ -67,32 +102,92 @@ class OCRService:
         Returns:
             识别出的文字
         """
-        if self.reader is None and not self.tesseract_available:
+        if not self._paddle_enabled and self.reader is None and not self.tesseract_available:
             logger.error("OCR引擎未初始化")
             return ""
 
         try:
-            if hasattr(image, 'convert'):
-                image_array = np.array(image)
+            if hasattr(image, "convert"):
+                image_array = np.array(image.convert("RGB"))
             else:
                 image_array = image
+                if image_array.ndim == 2:
+                    image_array = np.stack([image_array] * 3, axis=-1)
+
+            if self._paddle_enabled:
+                from app.services.paddle_ocr_runner import predict_to_text_blocks
+
+                blocks = predict_to_text_blocks(image_array)
+                text = self._clean_text("\n".join(b["text"] for b in blocks if b.get("text")))
+                return text
 
             if self.reader is not None:
                 results = self.reader.readtext(image_array, detail=0)
-                text = '\n'.join(results)
+                text = "\n".join(results)
                 return self._clean_text(text)
 
             if self.tesseract_available:
                 from PIL import Image
+
                 pil_image = Image.fromarray(image_array)
                 import pytesseract
-                text = pytesseract.image_to_string(pil_image, lang='chi_sim+eng')
+
+                text = pytesseract.image_to_string(pil_image, lang="chi_sim+eng")
                 return self._clean_text(text)
 
         except Exception as e:
-            logger.error(f"OCR识别失败: {e}")
+            logger.error("OCR识别失败: %s", e)
 
         return ""
+
+    def recognize_text_blocks(self, image) -> List[Dict[str, Any]]:
+        """
+        返回带坐标的文本块（标签模板网格配对等使用）。Paddle 优先，否则 EasyOCR。
+        """
+        if hasattr(image, "convert"):
+            image_array = np.array(image.convert("RGB"))
+        else:
+            image_array = image
+            if image_array.ndim == 2:
+                image_array = np.stack([image_array] * 3, axis=-1)
+
+        if self._paddle_enabled:
+            from app.services.paddle_ocr_runner import predict_to_text_blocks
+
+            return predict_to_text_blocks(image_array)
+
+        if self.reader is not None:
+            return self._easyocr_text_blocks(image_array)
+
+        return []
+
+    def _easyocr_text_blocks(self, image_array: np.ndarray) -> List[Dict[str, Any]]:
+        blocks: List[Dict[str, Any]] = []
+        try:
+            for bbox, text, confidence in self.reader.readtext(image_array, detail=1):
+                text = (text or "").strip()
+                if not text:
+                    continue
+                xs = [float(p[0]) for p in bbox]
+                ys = [float(p[1]) for p in bbox]
+                left, top, right, bottom = int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))
+                cx = sum(xs) / len(xs)
+                cy = sum(ys) / len(ys)
+                blocks.append(
+                    {
+                        "text": text,
+                        "left": left,
+                        "top": top,
+                        "width": right - left,
+                        "height": bottom - top,
+                        "conf": float(confidence) * 100.0,
+                        "center": (cx, cy),
+                        "y_center": cy,
+                    }
+                )
+        except Exception as e:
+            logger.error("EasyOCR 分块识别失败: %s", e)
+        return blocks
 
     def recognize_file(self, file_path: str) -> Dict[str, Any]:
         """
@@ -134,27 +229,87 @@ class OCRService:
 
     def recognize_with_details(self, image: np.ndarray) -> List[OCRResult]:
         """识别图像中的文字，返回详细信息"""
-        results = []
-
-        if self.reader is None:
-            return results
+        results: List[OCRResult] = []
 
         try:
+            if self._paddle_enabled:
+                if image.ndim == 2:
+                    image = np.stack([image] * 3, axis=-1)
+                for b in self.recognize_text_blocks(image):
+                    text = b.get("text") or ""
+                    conf = float(b.get("conf", 0)) / 100.0
+                    box = (b.get("left", 0), b.get("top", 0), b.get("width", 0), b.get("height", 0))
+                    results.append(
+                        OCRResult(
+                            text=text,
+                            confidence=conf,
+                            bounding_box=box,
+                            block_type=self._classify_text(text),
+                        )
+                    )
+                return results
+
+            if self.reader is None:
+                return results
+
             easyocr_results = self.reader.readtext(image, detail=1)
 
             for (bbox, text, confidence) in easyocr_results:
                 ocr_result = OCRResult(
                     text=text,
                     confidence=confidence,
-                    bounding_box=tuple(bbox),
-                    block_type=self._classify_text(text)
+                    bounding_box=tuple(int(x) for x in np.asarray(bbox).flatten()[:4]),
+                    block_type=self._classify_text(text),
                 )
                 results.append(ocr_result)
 
         except Exception as e:
-            logger.error(f"OCR识别失败: {e}")
+            logger.error("OCR识别失败: %s", e)
 
         return results
+
+    def recognize_text(self, image_path: str) -> Dict[str, Any]:
+        """应用层：按路径识别（与 recognize_file 一致，补充 confidence）。"""
+        out = self.recognize_file(image_path)
+        if out.get("success") and "confidence" not in out:
+            out["confidence"] = 0.0
+        return out
+
+    def recognize_text_from_bytes(self, image_bytes: bytes) -> Dict[str, Any]:
+        """应用层：从字节识别。"""
+        try:
+            from PIL import Image
+
+            img = Image.open(BytesIO(image_bytes))
+            if self._paddle_enabled:
+                blocks = self.recognize_text_blocks(img)
+                text = self._clean_text("\n".join(b["text"] for b in blocks if b.get("text")))
+                confs = [float(b.get("conf", 0)) for b in blocks]
+                avg = (sum(confs) / len(confs) / 100.0) if confs else 0.0
+                return {"success": bool(text.strip()), "text": text, "confidence": avg}
+            text = self.recognize(img)
+            return {"success": bool(text.strip()), "text": text, "confidence": 0.0}
+        except Exception as e:
+            logger.exception("从字节 OCR 失败: %s", e)
+            return {"success": False, "message": str(e), "text": "", "confidence": 0.0}
+
+    def recognize_trademark(self, image_path: str) -> Dict[str, Any]:
+        """商标图识别（当前与通用识别相同）。"""
+        return self.recognize_text(image_path)
+
+    def recognize_product(self, image_path: str) -> Dict[str, Any]:
+        """产品信息图识别（当前与通用识别相同）。"""
+        return self.recognize_text(image_path)
+
+    def get_active_ocr_backend(self) -> str:
+        """当前主引擎名称（用于诊断）。"""
+        if self._paddle_enabled:
+            return "paddleocr"
+        if self.reader is not None:
+            return "easyocr"
+        if self.tesseract_available:
+            return "tesseract"
+        return "none"
 
     def extract_structured_data(self, text: str) -> Dict[str, Any]:
         """从OCR文本中提取结构化数据"""

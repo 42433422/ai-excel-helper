@@ -33,6 +33,16 @@ INTENT_LABELS = [
     "upload_file",
     "materials",
     "shipment_template",
+    "template_extract",
+    "business_docking",
+    "template_preview",
+    "shipment_records",
+    "wechat",
+    "printer_list",
+    "settings",
+    "tools_table",
+    "other_tools",
+    "ai_ecosystem",
     "excel_decompose",
     "show_images",
     "show_videos",
@@ -433,7 +443,7 @@ def get_bert_intent_service(
     model_name: str = "bert-base-chinese",
     confidence_threshold: float = 0.7,
     use_fallback: bool = True,
-    local_files_only: bool = False,
+    local_files_only: bool = True,
 ) -> BertIntentService:
     """
     获取 BERT 意图服务单例

@@ -3,11 +3,14 @@
 """
 发货单文档生成器
 使用尹玉华1.xlsx模板生成发货单
+
+DEPRECATED:
+- 该模块仅作为文档生成底层实现（由 XCAGI 基础设施适配层调用）。
+- 编号模式解析/编排已迁移至 XCAGI 内部服务，不应再从路由直接动态加载本模块。
 """
 
 import sys
 import os
-import io
 import re
 import sqlite3
 from datetime import datetime
@@ -19,12 +22,6 @@ import logging
 import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
-
-# 强制设置UTF-8编码
-if hasattr(sys.stdout, 'buffer') and sys.stdout.buffer is not None:
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-if hasattr(sys.stderr, 'buffer') and sys.stderr.buffer is not None:
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # 配置日志编码
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', encoding='utf-8')
@@ -231,7 +228,8 @@ class ShipmentDocumentGenerator:
         order_text: str,
         parsed_data: Dict,
         purchase_unit: PurchaseUnitInfo = None,
-        template_name: str = None
+        template_name: str = None,
+        custom_order_number: str = None,
     ) -> ShipmentDocument:
         """
         生成发货单文档
@@ -242,7 +240,7 @@ class ShipmentDocumentGenerator:
                 purchase_unit = self._get_purchase_unit_info(parsed_data["purchase_unit"])
             
             # 2. 生成订单编号
-            order_number = self._generate_order_number()
+            order_number = (custom_order_number or "").strip() or self._generate_order_number()
             
             # 3. 准备产品数据
             products = self._prepare_products(parsed_data, order_number)
@@ -718,7 +716,15 @@ class DocumentAPIGenerator:
             logger.error(f"同步到Excel失败: {e}", exc_info=True)
             return False
 
-    def parse_and_generate(self, order_text: str, custom_mode: bool = False, number_mode: bool = False, generate_labels: bool = False, enable_excel_sync: bool = None) -> Dict:
+    def parse_and_generate(
+        self,
+        order_text: str,
+        custom_mode: bool = False,
+        number_mode: bool = False,
+        generate_labels: bool = False,
+        enable_excel_sync: bool = None,
+        custom_order_number: str = None,
+    ) -> Dict:
         """
         解析订单并生成文档
         :param order_text: 订单文本
@@ -729,13 +735,52 @@ class DocumentAPIGenerator:
         :return: 生成结果
         """
         try:
-            # 优先使用AI增强解析器
+            # 优先使用同目录 AI 增强解析器
             from ai_augmented_parser import AIAugmentedShipmentParser
             parser = AIAugmentedShipmentParser(self.generator.db_path)
         except ImportError:
-            # 回退到传统解析器
-            from shipment_parser import ShipmentParser
-            parser = ShipmentParser(self.generator.db_path)
+            try:
+                # 回退到同目录传统解析器
+                from shipment_parser import ShipmentParser
+                parser = ShipmentParser(self.generator.db_path)
+            except ImportError:
+                # 最终兜底：使用 XCAGI 内部解析函数，避免依赖外部 98k 目录
+                logger.warning("未找到本地解析器模块，回退到 XCAGI 内部解析器")
+                from app.routes.tools import _parse_order_text
+
+                class _FallbackParsedOrder:
+                    def __init__(self, raw_text: str, parsed: Dict):
+                        self.raw_text = raw_text
+                        self.purchase_unit = str((parsed or {}).get("unit_name") or "")
+                        self.products = list((parsed or {}).get("products") or [])
+                        self.parsed_data = dict(parsed or {})
+
+                    def is_valid(self) -> bool:
+                        return bool(self.products)
+
+                    def to_dict(self) -> Dict:
+                        return {
+                            "purchase_unit": self.purchase_unit,
+                            "products": self.products,
+                            "raw_text": self.raw_text,
+                            "parsed_data": self.parsed_data,
+                            "product_name": (self.products[0].get("name", "") if self.products else ""),
+                            "model_number": (self.products[0].get("model_number", "") if self.products else ""),
+                            "quantity_kg": sum(float(p.get("quantity_kg", 0) or 0) for p in self.products),
+                            "quantity_tins": sum(int(p.get("quantity_tins", 0) or 0) for p in self.products),
+                            "tin_spec": (float(self.products[0].get("tin_spec", 0) or 0) if self.products else 0.0),
+                            "unit_price": (float(self.products[0].get("unit_price", 0) or 0) if self.products else 0.0),
+                            "amount": sum(float(p.get("amount", 0) or 0) for p in self.products),
+                        }
+
+                class _FallbackParser:
+                    def parse(self, text: str, custom_mode: bool = False, number_mode: bool = False):
+                        parsed = _parse_order_text(text) or {}
+                        if not parsed.get("success"):
+                            return _FallbackParsedOrder(text, {"unit_name": "", "products": []})
+                        return _FallbackParsedOrder(text, parsed)
+
+                parser = _FallbackParser()
 
         # 1. 解析订单
         parsed_order = parser.parse(order_text, custom_mode, number_mode)
@@ -758,7 +803,8 @@ class DocumentAPIGenerator:
                 order_text=order_text,
                 parsed_data=parsed_order.to_dict(),
                 purchase_unit=purchase_unit,
-                template_name="尹玉华1.xlsx"
+                template_name="尹玉华1.xlsx",
+                custom_order_number=custom_order_number,
             )
 
             # 4. 创建发货记录

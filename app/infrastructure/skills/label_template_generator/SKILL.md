@@ -25,10 +25,11 @@ Invoke this skill when:
 - Estimate layout sections
 
 ### 2. OCR Text Extraction (Optional)
-- Extract text from label images using Tesseract OCR
+- Extract text from label images using **PaddleOCR** (`extract_text_with_ocr` in the Python module), plus OpenCV-based grid line detection for label/value pairing
 - Identify fixed labels (e.g., "品名:", "颜色:", "货号:")
 - Extract variable data values (e.g., "XX 运动鞋", "白色", "1635")
 - Recognize common label field patterns
+- **Note:** Label images now use the same `OCRService` as `/api/ocr` (PaddleOCR first, then EasyOCR/Tesseract). See `app/services/skills/label_template_generator/RECOGNITION_TEMPLATE_OCR.md`.
 
 ### 3. Barcode Generation (NEW!)
 - **Automatic barcode generation** from label data
@@ -49,9 +50,11 @@ Invoke this skill when:
 ### Python Module
 
 ```python
-from app.services.skills.label-template-generator import get_label_template_generator_skill
+from app.services.skills.label_template_generator.label_template_generator import (
+    LabelTemplateGeneratorSkill,
+)
 
-skill = get_label_template_generator_skill()
+skill = LabelTemplateGeneratorSkill()
 
 # Generate template with OCR
 result = skill.execute(
@@ -194,12 +197,9 @@ The generated code will automatically:
 ### Required
 - Pillow (PIL) for image handling: `pip install Pillow`
 
-### Optional (for OCR)
-- pytesseract: `pip install pytesseract`
-- Tesseract OCR engine (system installation required)
-  - Windows: Download from https://github.com/tesseract-ocr/tesseract
-  - macOS: `brew install tesseract`
-  - Linux: `sudo apt-get install tesseract-ocr`
+### Optional (for OCR on label images)
+- **PaddleOCR** (what the implementation uses): `pip install paddlepaddle paddleocr` (see Paddle docs for GPU/CUDA)
+- OpenCV (`opencv-python`) and NumPy are required by `extract_text_with_ocr` for grid detection
 
 ### Optional (for Barcode Generation)
 - python-barcode: `pip install python-barcode`
