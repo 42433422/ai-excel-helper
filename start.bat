@@ -60,10 +60,10 @@ set PYTHONUTF8=1
 
 REM 启动后端
 echo.
-echo [启动] Flask 后端服务...
-echo 请访问: http://localhost:5000
+echo [启动] FastAPI 后端服务...
+echo 请访问: http://localhost:8000/docs
 echo.
-python run.py
+python -m uvicorn backend.http_app:app --host 127.0.0.1 --port 8000
 
 :end
 pause

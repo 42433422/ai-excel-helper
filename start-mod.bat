@@ -67,10 +67,10 @@ if not defined ADB_EXE (
 echo [1/2] Starting backend at http://127.0.0.1:5000 (WITH MODS) ...
 echo        Python : %PYTHON_EXE%
 if /I "%PYTHON_EXE%"=="python" (
-    start "XCAGI Backend (Mod)" /D "%~dp0" cmd /k python run.py
+    start "XCAGI Backend (Mod)" /D "%~dp0" cmd /k python -m uvicorn backend.http_app:app --host 127.0.0.1 --port 5000
 ) else (
     rem Avoid nested quoting: PYTHON_EXE is usually a no-space path under .venv.
-    start "XCAGI Backend (Mod)" /D "%~dp0" cmd /k ""%PYTHON_EXE%" run.py"
+    start "XCAGI Backend (Mod)" /D "%~dp0" cmd /k ""%PYTHON_EXE%" -m uvicorn backend.http_app:app --host 127.0.0.1 --port 5000"
 )
 
 rem 2) Start frontend Vite on port 5001

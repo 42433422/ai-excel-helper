@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-XCAGI 应用启动入口
+XCAGI FastAPI 启动入口（Neuro-DDD）。
 
-开发环境启动脚本。
+统一启动 backend.http_app:app，避免再走 Flask create_app 入口。
 """
 
 import os
 import sys
+import uvicorn
 
 # Force UTF-8 for stdout/stderr so Windows console doesn't render Chinese
 # as "ï¿½ï¿½..." (looks like "code rain" in logs).
@@ -31,22 +32,8 @@ if "XCAGI_DISABLE_MODS" in os.environ:
 if os.path.isdir(_MODS_DIR) and not (os.environ.get("XCAGI_MODS_ROOT") or os.environ.get("XCAGI_MODS_DIR") or "").strip():
     os.environ["XCAGI_MODS_ROOT"] = os.path.abspath(_MODS_DIR)
 
-from app import create_app
-from app.config import DevelopmentConfig
-
-# 创建 Flask 应用
-app = create_app(DevelopmentConfig)
-
-
 if __name__ == "__main__":
-    # 启动开发服务器
-    # host="0.0.0.0" 允许外部访问
-    # port=5000 默认端口
-    # debug=True 启用调试模式
-    debug_flag = os.environ.get("XCAGI_DEBUG", "0").lower() in {"1", "true", "yes", "on"}
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=debug_flag,
-        threaded=True
-    )
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "8000"))
+    reload_flag = os.environ.get("XCAGI_DEBUG", "0").lower() in {"1", "true", "yes", "on"}
+    uvicorn.run("backend.http_app:app", host=host, port=port, reload=reload_flag)

@@ -5,7 +5,8 @@
 [![Release](https://img.shields.io/github/v/release/42433422/xcagi?color=blue&label=Release&version=v5.0.0)](https://github.com/42433422/xcagi/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://www.python.org/)
-[![Flask](https://img.shields.io/badge/Flask-3.0-red.svg)](https://flask.palletsprojects.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
+[![Architecture](https://img.shields.io/badge/Architecture-Neuro--DDD-purple.svg)](#-技术架构)
 [![Vue](https://img.shields.io/badge/Vue-3.3-brightgreen.svg)](https://vuejs.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://www.microsoft.com/windows/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -15,7 +16,7 @@
 
 **XCAGI v5.0** 是一款**基于 AI 的单据智能处理 AI 员工**，适用于各行业的标签打印、出货管理和收货确认。通过深度学习 OCR 技术、混合意图识别引擎和智能决策系统，像真实员工一样自动识别、理解和处理 Excel 单据数据。
 
-> 🚀 **v5.0 当前版本**: 在 v4.0 基础上新增模块生态（MODstore/Mod Manager）、前端工作流组件、数据库读鉴权集成与交付运维资料
+> 🚀 **v5.0 当前版本**: 在 v4.0 基础上完成 `Neuro-DDD + FastAPI` 主入口演进，并新增模块生态（MODstore/Mod Manager）、前端工作流组件、数据库读鉴权集成与交付运维资料
 >
 > 🎯 **从"工具"到"员工"**: 不再是被动工具，而是能主动决策、自主学习、智能执行的 AI 员工
 
@@ -148,10 +149,10 @@ pip install -r requirements.txt
 # 3. 运行数据库迁移
 alembic upgrade head
 
-# 4. 启动服务
-python run.py
+# 4. 启动服务（FastAPI）
+python -m uvicorn backend.http_app:app --host 127.0.0.1 --port 8000
 
-# 访问地址：http://localhost:5000
+# 访问地址：http://localhost:8000/docs
 ```
 
 ### 方式 3：使用部署脚本
@@ -172,7 +173,7 @@ python run.py
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              AI 员工核心层 (Flask 3.0 + AI Engines)          │
+│       AI 员工核心层 (FastAPI + Neuro-DDD + AI Engines)       │
 ├─────────────────────────────────────────────────────────────┤
 │  🧠 混合意图识别引擎 | 🗣️ TTS 语音 | 🤖 任务 Agent           │
 │  📊 智能决策系统 | 🔄 流程自动化 | 📱 微信集成               │
@@ -191,7 +192,7 @@ python run.py
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│             数据层 (SQLAlchemy 2.0 + DDD 架构)                │
+│           数据层 (SQLAlchemy 2.0 + Neuro-DDD 分层)            │
 │   SQLite + Alembic 迁移 + Repository Pattern                 │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -203,7 +204,8 @@ python run.py
 | 技术 | 版本 | 用途 |
 |------|------|------|
 | **Python** | 3.11+ | 核心编程语言 |
-| **Flask** | 3.0+ | Web 框架 |
+| **FastAPI** | 0.110+ | 主 API 框架（OpenAPI / docs） |
+| **Neuro-DDD** | v5 | 应用/领域/基础设施分层架构 |
 | **SQLAlchemy** | 2.0+ | ORM 框架 |
 | **Alembic** | 1.13+ | 数据库迁移 |
 | **Celery** | 5.3+ | 分布式任务队列 |
@@ -298,7 +300,7 @@ python run.py
 
 ### Swagger 文档
 
-访问 `http://localhost:5000/apidocs` 查看完整 API 文档
+访问 `http://localhost:8000/docs` 查看完整 OpenAPI 文档
 
 ## 🔄 版本演进
 
@@ -307,7 +309,7 @@ python run.py
 - 🧩 **模块生态能力落地** - 新增 `MODstore` 与 `xcagi-mod-manager`，包含后端服务、CLI、前端管理台与模板骨架
 - 🔐 **数据库读鉴权链路** - 新增前端读令牌拦截/提示组件与 Vue 集成片段，覆盖 `ProductsReadGate`、`GlobalReadTokenPrompt` 等场景
 - 🧠 **工作流可视化组件** - 新增 workflow 组件与类型定义，支持流程分支卡片、员工行与示例页面
-- ⚙️ **后端兼容与运行时增强** - 更新 `http_app`、`llm_config`、`xcagi_compat` 路由，并补充 `torch_runtime_env` 运行时环境支持
+- ⚙️ **后端主入口升级** - 统一以 `backend.http_app`（FastAPI）承载 API 与兼容路由，完善 `torch_runtime_env` 运行时环境支持
 - 📦 **交付与运维资料补全** - 补充优化指南、测试报告、部署辅助脚本与模板文档，便于项目落地与复盘
 - 🛡️ **隐私发布策略** - 发布版本移除了数据库文件与敏感大文件，确保远端仓库可公开共享
 
@@ -340,7 +342,7 @@ python run.py
 | 自动化 | ❌ | 半自动 | 任务 Agent | 全自动 | **全自动 + 工作流可视化** |
 | 交互 | 命令行 | Web 界面 | 对话界面 | 多模态 | **多模态 + 集成化组件** |
 | 数据访问 | 本地直连 | 基础 API | 多租户 | 智能管理 | **读库鉴权与令牌门禁** |
-| 架构 | 单文件 | MVC | DDD | DDD+ | **DDD+ + MODstore/Mod Manager** |
+| 架构 | 单文件 | MVC | DDD | DDD+ | **Neuro-DDD + FastAPI + MODstore** |
 
 ## ⚠️ 注意事项
 
@@ -389,7 +391,7 @@ pytest
 - 🤖 [AI 员工配置指南](docs/AI_EMPLOYEE.md) - 行业适配配置
 - 📝 [更新日志](CHANGELOG.md) - 版本更新历史
 - 🔒 [安全策略](SECURITY.md) - 安全报告指南
-- 📟 [API 文档](http://localhost:5000/apidocs) - Swagger 文档
+- 📟 [API 文档](http://localhost:8000/docs) - FastAPI OpenAPI 文档
 - 🛠️ [部署指南](docs/DEPLOYMENT.md) - 生产和开发部署
 
 ## 🗺️ 路线图
@@ -417,7 +419,7 @@ pytest
 感谢以下开源项目：
 
 - [Vue.js](https://vuejs.org/) - 渐进式 JavaScript 框架
-- [Flask](https://flask.palletsprojects.com/) - Python Web 框架
+- [FastAPI](https://fastapi.tiangolo.com/) - 高性能 Python API 框架
 - [SQLAlchemy](https://www.sqlalchemy.org/) - Python SQL 工具包
 - [DeepSeek](https://www.deepseek.com/) - AI 大模型
 - [RASA](https://rasa.com/) - 开源对话 AI
