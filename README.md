@@ -1,8 +1,8 @@
-# XCAGI v4.0 - AI 单据智能处理员工
+# XCAGI v5.0 - AI 单据智能处理员工
 
 🤖 **基于 AI 的单据智能处理 AI 员工**，适用于各行业的标签打印、出货管理和收货确认场景。
 
-[![Release](https://img.shields.io/github/v/release/42433422/xcagi?color=blue&label=Release&version=v4.0.0)](https://github.com/42433422/xcagi/releases)
+[![Release](https://img.shields.io/github/v/release/42433422/xcagi?color=blue&label=Release&version=v5.0.0)](https://github.com/42433422/xcagi/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0-red.svg)](https://flask.palletsprojects.com/)
@@ -13,9 +13,9 @@
 
 ## 🌟 项目简介
 
-**XCAGI v4.0** 是一款**基于 AI 的单据智能处理 AI 员工**，适用于各行业的标签打印、出货管理和收货确认。通过深度学习 OCR 技术、混合意图识别引擎和智能决策系统，像真实员工一样自动识别、理解和处理 Excel 单据数据。
+**XCAGI v5.0** 是一款**基于 AI 的单据智能处理 AI 员工**，适用于各行业的标签打印、出货管理和收货确认。通过深度学习 OCR 技术、混合意图识别引擎和智能决策系统，像真实员工一样自动识别、理解和处理 Excel 单据数据。
 
-> 🚀 **v4.0 重大升级**: AI 员工定位 + 全自动化流程 + 多模态交互 + 行业智能适配
+> 🚀 **v5.0 当前版本**: 在 v4.0 基础上持续迭代，完善工程化能力、模块体系与交付稳定性
 >
 > 🎯 **从"工具"到"员工"**: 不再是被动工具，而是能主动决策、自主学习、智能执行的 AI 员工
 
@@ -302,7 +302,7 @@ python run.py
 
 ## 🔄 版本演进
 
-### v4.0 新特性（当前最新）⭐
+### v5.0 新特性（当前最新）⭐
 
 - 🤖 **AI 员工定位** - 从"工具"升级为"员工"，主动决策、自主学习
 - 🔄 **全自动化流程** - 业务流程自动执行，解放双手
@@ -312,7 +312,7 @@ python run.py
 - 🎯 **混合意图引擎 v2** - 准确率提升至 99%+
 - ⚡ **性能优化** - 前端加载时间降至 1s，响应速度提升 10 倍
 
-### v3.0 特性
+### v4.0 特性
 
 - 🎯 混合意图识别引擎 - 规则 + RASA NLU + BERT
 - 🔊 TTS 语音合成 - Edge TTS 集成
@@ -321,14 +321,14 @@ python run.py
 - 🏷️ 标签打印增强 - TSC 打印机支持
 - 🏛️ DDD 领域驱动设计 - 清晰架构
 
-### v2.0 特性
+### v3.0 特性
 
 - 🎨 Vue 3 前端界面 - 现代化 Web 界面
 - 🤖 AI 对话系统 - DeepSeek 集成
 - 📸 OCR 识别 - 文字自动识别
 - 📊 多客户隔离 - 数据安全管理
 
-### v1.0 特性
+### v2.0 特性
 
 - 📊 Excel 解析 - 自动识别单据
 - 🏷️ 标签打印 - TSC 打印机支持
@@ -395,7 +395,7 @@ pytest
 
 ## 🗺️ 路线图
 
-### v4.x 计划（当前）
+### v5.x 计划（当前）
 
 - [x] AI 员工定位升级
 - [x] 全自动化流程
@@ -405,7 +405,7 @@ pytest
 - [ ] 云端部署方案
 - [ ] 更多行业模板
 
-### v5.0 展望
+### v6.0 展望
 
 - [ ] 支持更多 AI 模型本地部署
 - [ ] 微服务架构改造
@@ -452,10 +452,10 @@ pytest
 
 <div align="center">
 
-**XCAGI v4.0 - AI 单据智能处理员工**
+**XCAGI v5.0 - AI 单据智能处理员工**
 
 🤖 适用于各行业的标签打印、出货管理和收货确认
 
-[🔝 返回顶部](#xcagi-v40---ai-单据智能处理员工)
+[🔝 返回顶部](#xcagi-v50---ai-单据智能处理员工)
 
 </div>
