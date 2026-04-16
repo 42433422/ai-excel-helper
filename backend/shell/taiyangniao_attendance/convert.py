@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
+import shutil
 import uuid
 import warnings
 from pathlib import Path
@@ -14,6 +16,38 @@ import pandas as pd
 from .mapping import DINGTALK_COLUMN_ALIASES, STATISTICS_OUTPUT_COLUMNS
 from .paths import ensure_parent_dir
 from .rules import process_attendance_dataframe, AttendanceRule
+
+logger = logging.getLogger(__name__)
+
+
+def _excel_cell_str(v: Any) -> str:
+    """写入 Excel 单元格的短文本；pandas NaN / 缺失 转为空串。"""
+    if v is None:
+        return ""
+    try:
+        if pd.isna(v):
+            return ""
+    except TypeError:
+        pass
+    s = str(v).strip()
+    if s.lower() in ("nan", "none", "<na>"):
+        return ""
+    return s
+
+
+def _resolve_excel_path_on_disk(candidate: Path) -> Path | None:
+    """``Path.is_file()`` 在部分中文路径下不可靠时，用目录枚举匹配真实文件名。"""
+    if candidate.is_file():
+        return candidate
+    parent, name = candidate.parent, candidate.name
+    norm = name.replace(" ", "")
+    try:
+        for fn in os.listdir(str(parent)):
+            if fn.replace(" ", "") == norm:
+                return parent / fn
+    except OSError:
+        pass
+    return None
 
 
 def _to_datetime_mixed(series: pd.Series) -> pd.Series:
@@ -31,13 +65,28 @@ def _norm_header(s: Any) -> str:
     return re.sub(r"\s+", " ", str(s or "").strip())
 
 
-def _pick_column(df: pd.DataFrame, aliases: list[str]) -> str | None:
+def _pick_column(
+    df: pd.DataFrame,
+    aliases: list[str],
+    *,
+    prefer_non_empty: bool = False,
+) -> str | None:
+    """按别名解析列名；``prefer_non_empty`` 时在多个同义列中选首个有非空样本值的列（如空「工号」+ 有值 UserId）。"""
     cols = list(df.columns)
     norm_map = {_norm_header(c): str(c) for c in cols}
+    exact_hits: list[str] = []
     for a in aliases:
         key = _norm_header(a)
         if key in norm_map:
-            return norm_map[key]
+            exact_hits.append(norm_map[key])
+    if exact_hits:
+        if prefer_non_empty and not df.empty:
+            sample_n = min(len(df), 300)
+            for c in exact_hits:
+                ser = df[c].head(sample_n)
+                if ser.notna().any() and ser.dropna().astype(str).str.strip().ne("").any():
+                    return c
+        return exact_hits[0]
     for a in aliases:
         ak = _norm_header(a)
         for c in cols:
@@ -45,6 +94,26 @@ def _pick_column(df: pd.DataFrame, aliases: list[str]) -> str | None:
             if ak and ak in cn:
                 return str(c)
     return None
+
+
+def _year_month_for_template_dates(month: str | None, dingtalk_detail: pd.DataFrame) -> tuple[int, int]:
+    """模板按日填格子用的 (年, 月)；优先 ``YYYY-MM``，否则从明细首行日期推断，再否则当前月。"""
+    raw = (month or "").strip()
+    m = re.fullmatch(r"(\d{4})-(\d{2})", raw)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    if "日期" in dingtalk_detail.columns and not dingtalk_detail.empty:
+        v = dingtalk_detail["日期"].iloc[0]
+        if isinstance(v, str):
+            parts = v.split("-")
+            if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+                y, mo = int(parts[0]), int(parts[1])
+                if 1 <= mo <= 12:
+                    return y, mo
+    from datetime import datetime
+
+    d = datetime.now()
+    return d.year, d.month
 
 
 def _extract_month_from_file(path: Path, sheet: str | int | None = 0) -> str | None:
@@ -71,9 +140,15 @@ def read_dingtalk_dataframe(
     sheet: str | int | None = 0,
     header_row: int | None = None,
 ) -> pd.DataFrame:
-    if header_row is None:
-        header_row = _auto_detect_header_row(path, sheet)
-    return pd.read_excel(path, sheet_name=sheet, header=header_row, engine="openpyxl")
+    """``header_row`` 为 ``None`` 时自动检测。显式 ``0`` 若读不出「姓名」列（钉钉标题行被误当表头），会回退为自动检测。"""
+    effective = _auto_detect_header_row(path, sheet) if header_row is None else int(header_row)
+    df = pd.read_excel(path, sheet_name=sheet, header=effective, engine="openpyxl")
+    if header_row is not None and int(header_row) == 0 and effective == 0:
+        if _pick_column(df, DINGTALK_COLUMN_ALIASES["name"]) is None:
+            alt = _auto_detect_header_row(path, sheet)
+            if alt != 0:
+                df = pd.read_excel(path, sheet_name=sheet, header=alt, engine="openpyxl")
+    return df
 
 
 def _auto_detect_header_row(path: Path, sheet: str | int | None = 0) -> int:
@@ -207,7 +282,11 @@ def build_normalized_frame(df: pd.DataFrame, *, month: str | None = None) -> pd.
 
     picks: dict[str, str | None] = {}
     for logical, aliases in DINGTALK_COLUMN_ALIASES.items():
-        picks[logical] = _pick_column(df_data, aliases)
+        picks[logical] = _pick_column(
+            df_data,
+            aliases,
+            prefer_non_empty=(logical == "emp_no"),
+        )
 
     date_columns = {}
     if date_header_row_idx is not None:
@@ -260,174 +339,158 @@ def aggregate_monthly_stats(norm: pd.DataFrame, *, month: str | None = None) -> 
     return agg[STATISTICS_OUTPUT_COLUMNS]
 
 
+def _cell_value_for_openpyxl(v: Any) -> Any:
+    """openpyxl 不接受 pd.NA / NaT；统一成 None 或原生类型。"""
+    if v is pd.NA:
+        return None
+    try:
+        if pd.isna(v):
+            return None
+    except TypeError:
+        pass
+    return v
+
+
+def _workbook_append_dataframe_sheet(wb: Any, sheet_name: str, df: pd.DataFrame) -> None:
+    """在已打开的工作簿中追加（或覆盖同名）由 DataFrame 构成的表。"""
+    from openpyxl.utils.dataframe import dataframe_to_rows
+
+    if sheet_name in wb.sheetnames:
+        wb.remove(wb[sheet_name])
+    ws_new = wb.create_sheet(sheet_name)
+    for row in dataframe_to_rows(df, index=False, header=True):
+        ws_new.append([_cell_value_for_openpyxl(v) for v in row])
+
+
 def _write_workbook_to_path(
     stats: pd.DataFrame,
     target: Path,
     *,
     template_path: Path | None,
     dingtalk_detail: pd.DataFrame,
+    month: str | None = None,
 ) -> None:
     """写入统计结果到模板。
-    
-    - 无模板时：生成「月度统计」和「钉钉解析」两个工作表
-    - 有模板时：在模板的"明细"工作表中填充数据，保留所有格式、合并单元格和公式
+
+    - 无模板时：仅「月度统计」「钉钉解析」两个工作表
+    - 有模板时：复制考勤统计表 xlsx，按版式填写「明细」；并在同一文件中追加「月度统计」「钉钉解析」（与无模板分支数据一致）
     """
-    import os
-    import shutil
-    
-    # 检查模板文件是否存在（处理中文路径编码问题）
     use_template = False
     if template_path is not None:
-        parent_dir = str(template_path.parent)
-        file_name = template_path.name
-        
-        # 方法：通过目录列表找到实际的文件名
-        try:
-            dir_contents = os.listdir(parent_dir)
-            # 查找匹配的文件（通过去除空格的方式比较）
-            normalized_file_name = file_name.replace(' ', '')
-            for f in dir_contents:
-                if f.replace(' ', '') == normalized_file_name:
-                    # 找到匹配的文件，先复制模板到输出路径
-                    old_cwd = os.getcwd()
-                    try:
-                        os.chdir(parent_dir)
-                        # 复制模板文件到输出路径
-                        target_str = str(target)
-                        target_parent = os.path.dirname(target_str)
-                        if not os.path.exists(target_parent):
-                            os.makedirs(target_parent)
-                        shutil.copy2(f, target_str)
-                        use_template = True
-                    finally:
-                        os.chdir(old_cwd)
-                    break
-        except Exception:
-            # 如果目录列表失败，尝试直接使用 Path（通过目录列表验证）
-            import os
-            parent_dir = template_path.parent
-            file_name = template_path.name
+        src = _resolve_excel_path_on_disk(template_path)
+        if src is None:
+            logger.warning("template file not found on disk: %s", template_path)
+        else:
             try:
-                dir_contents = os.listdir(str(parent_dir))
-                normalized_file_name = file_name.replace(' ', '')
-                for f in dir_contents:
-                    if f.replace(' ', '') == normalized_file_name:
-                        # 找到匹配的文件，使用 chdir 方式复制
-                        old_cwd = os.getcwd()
-                        try:
-                            os.chdir(str(parent_dir))
-                            target_str = str(target)
-                            target_parent = os.path.dirname(target_str)
-                            if not os.path.exists(target_parent):
-                                os.makedirs(target_parent)
-                            shutil.copy2(f, target_str)
-                            use_template = True
-                        finally:
-                            os.chdir(old_cwd)
-                        break
-            except Exception:
-                pass
-    
+                ensure_parent_dir(target)
+                shutil.copy2(str(src), str(target))
+                use_template = True
+            except OSError as e:
+                logger.warning("template copy failed %s -> %s: %s", src, target, e)
+
     if use_template:
         from openpyxl import load_workbook
-        
-        # 加载已复制的模板（使用输出路径，避免编码问题）
+
         wb = load_workbook(str(target))
-        
-        # 使用模板的"明细"工作表
+
         if "明细" in wb.sheetnames:
             ws = wb["明细"]
         else:
             ws = wb.active
-        
-        # 清空数据区域（从第 4 行开始到最后）
-        # 获取合并单元格范围，避免清空合并单元格
-        merged_ranges = ws.merged_cells.ranges
-        
+
+        merged_cells: set[tuple[int, int]] = set()
+        for mr in ws.merged_cells.ranges:
+            for r in range(mr.min_row, mr.max_row + 1):
+                for c in range(mr.min_col, mr.max_col + 1):
+                    merged_cells.add((r, c))
+
         for row_idx in range(4, ws.max_row + 1):
             for col_idx in range(1, ws.max_column + 1):
+                if (row_idx, col_idx) in merged_cells:
+                    continue
                 cell = ws.cell(row=row_idx, column=col_idx)
-                # 检查是否在合并单元格范围内
-                is_merged = False
-                for merged_range in merged_ranges:
-                    if (merged_range.min_row <= row_idx <= merged_range.max_row and
-                        merged_range.min_col <= col_idx <= merged_range.max_col):
-                        is_merged = True
-                        break
-                
-                # 只清空非合并单元格和非公式单元格
-                if not is_merged:
-                    if not cell.value or (isinstance(cell.value, str) and not cell.value.startswith('=')):
-                        cell.value = None
-        
-        # 从钉钉原始数据中提取员工打卡数据
-        # dingtalk_detail 包含规范化的长表格式数据
-        # 需要将其转换为模板需要的格式
-        
-        # 按员工分组
-        if '姓名' in dingtalk_detail.columns:
-            employees = dingtalk_detail['姓名'].dropna().unique()
+                v = cell.value
+                if isinstance(v, str) and v.startswith("="):
+                    continue
+                cell.value = None
+
+        if "姓名" in dingtalk_detail.columns:
+            employees = dingtalk_detail["姓名"].dropna().unique()
         else:
             employees = []
-        
+
+        y_cal, m_cal = _year_month_for_template_dates(month, dingtalk_detail)
         current_row = 4
         for emp_name in employees:
-            emp_data = dingtalk_detail[dingtalk_detail['姓名'] == emp_name]
-            
+            emp_data = dingtalk_detail[dingtalk_detail["姓名"] == emp_name]
+
             if emp_data.empty:
                 continue
-            
-            # 获取员工信息
-            emp_dept = emp_data['部门'].iloc[0] if '部门' in emp_data.columns else ''
-            
-            # 每个员工占 6 行（上午、下午、晚上各 2 行）
-            for time_period_idx, time_period in enumerate(['上午', '下午', '晚上']):
-                base_row = current_row + time_period_idx * 2
-                
-                # 第一行填写部门、姓名、时段
+
+            emp_dept = (
+                _excel_cell_str(emp_data["部门"].iloc[0])
+                if "部门" in emp_data.columns
+                else ""
+            )
+
+            for time_period_idx, time_period in enumerate(["上午", "下午", "晚上"]):
+                label_row = current_row + time_period_idx * 2
+                is_evening = time_period_idx == 2
+                fill_rows = [label_row] if is_evening else [label_row, label_row + 1]
+
                 if time_period_idx == 0:
-                    ws.cell(row=base_row, column=1, value=emp_dept)  # A 列：部门
-                    ws.cell(row=base_row, column=2, value='计时')     # B 列：性质
-                    ws.cell(row=base_row, column=3, value=emp_name)  # C 列：姓名
-                
-                ws.cell(row=base_row, column=4, value=time_period)   # D 列：时段
-                
-                # 填充 31 天的打卡数据
-                # 模板中每天的列位置：G 列开始，每 3 列一组（标记、工时、标记）
+                    ws.cell(row=label_row, column=1, value=emp_dept)
+                    ws.cell(row=label_row, column=2, value="计时")
+                    ws.cell(row=label_row, column=3, value=emp_name)
+
+                ws.cell(row=label_row, column=4, value=time_period)
+
                 for day in range(1, 32):
-                    date_str = f'2026-03-{day:02d}'
-                    day_data = emp_data[emp_data['日期'] == date_str]
-                    
-                    col_base = 7 + (day - 1) * 3  # G 列是第 7 列
-                    
-                    if col_base + 2 <= ws.max_column:
-                        if not day_data.empty:
-                            check_in = day_data['上班打卡'].iloc[0] if '上班打卡' in day_data.columns else None
-                            check_out = day_data['下班打卡'].iloc[0] if '下班打卡' in day_data.columns else None
-                            work_hours = day_data['工作时长'].iloc[0] if '工作时长' in day_data.columns else 0
-                            
-                            # 根据打卡情况填充标记
-                            if pd.notna(check_in) or pd.notna(check_out):
-                                # 有打卡记录
-                                ws.cell(row=base_row, column=col_base, value='√')
-                                ws.cell(row=base_row, column=col_base + 1, value=work_hours if pd.notna(work_hours) else 0)
-                                ws.cell(row=base_row, column=col_base + 2, value='√')
-                            else:
-                                # 无打卡记录
-                                ws.cell(row=base_row, column=col_base, value='☆')
-                                ws.cell(row=base_row, column=col_base + 2, value='☆')
+                    date_str = f"{y_cal}-{m_cal:02d}-{day:02d}"
+                    day_data = emp_data[emp_data["日期"] == date_str]
+
+                    col_base = 7 + (day - 1) * 3
+                    if col_base + 2 > ws.max_column:
+                        continue
+
+                    left: str | None = None
+                    mid: Any = None
+                    right: str | None = None
+
+                    if not day_data.empty:
+                        check_in = (
+                            day_data["上班打卡"].iloc[0] if "上班打卡" in day_data.columns else None
+                        )
+                        check_out = (
+                            day_data["下班打卡"].iloc[0] if "下班打卡" in day_data.columns else None
+                        )
+                        work_hours = (
+                            day_data["工作时长"].iloc[0] if "工作时长" in day_data.columns else 0
+                        )
+                        if pd.notna(check_in) or pd.notna(check_out):
+                            left, right = "√", "√"
+                            mid = work_hours if pd.notna(work_hours) else 0
                         else:
-                            # 无数据
-                            ws.cell(row=base_row, column=col_base, value='☆')
-                            ws.cell(row=base_row, column=col_base + 2, value='☆')
-            
+                            left, right = "☆", "☆"
+                    else:
+                        left, right = "☆", "☆"
+
+                    for dr in fill_rows:
+                        if left is not None:
+                            ws.cell(row=dr, column=col_base, value=left)
+                        if mid is not None:
+                            ws.cell(row=dr, column=col_base + 1, value=mid)
+                        if right is not None:
+                            ws.cell(row=dr, column=col_base + 2, value=right)
+
             current_row += 6
-        
-        # 保存文件（覆盖已复制的模板）
+
+        _workbook_append_dataframe_sheet(wb, "月度统计", stats)
+        _workbook_append_dataframe_sheet(wb, "钉钉解析", dingtalk_detail)
+
         wb.save(str(target))
         wb.close()
     else:
-        # 无模板时，生成两个工作表
         with pd.ExcelWriter(target, engine="openpyxl", mode="w") as writer:
             stats.to_excel(writer, sheet_name="月度统计", index=False)
             dingtalk_detail.to_excel(writer, sheet_name="钉钉解析", index=False)
@@ -439,6 +502,7 @@ def write_statistics_workbook(
     *,
     template_path: Path | None = None,
     dingtalk_detail: pd.DataFrame | None = None,
+    month: str | None = None,
 ) -> None:
     """先写到同目录临时文件再 ``os.replace``，避免目标已存在时部分环境直接打开失败。"""
     ensure_parent_dir(output_path)
@@ -447,7 +511,13 @@ def write_statistics_workbook(
     parent.mkdir(parents=True, exist_ok=True)
     tmp = parent / f"{output_path.stem}_writing_{uuid.uuid4().hex[:12]}{output_path.suffix}"
     try:
-        _write_workbook_to_path(stats, tmp, template_path=template_path, dingtalk_detail=detail)
+        _write_workbook_to_path(
+            stats,
+            tmp,
+            template_path=template_path,
+            dingtalk_detail=detail,
+            month=month,
+        )
         os.replace(tmp, output_path)
     except PermissionError as e:
         try:
@@ -486,6 +556,7 @@ def convert_dingtalk_file(
         output,
         template_path=template_path,
         dingtalk_detail=norm,
+        month=month,
     )
 
     return {

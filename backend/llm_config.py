@@ -7,8 +7,9 @@ OpenAI-compatible Chat API credentials + 离线模式路由。
 
 from __future__ import annotations
 
-import os
 import logging
+import os
+from typing import Any
 
 from openai import OpenAI
 
@@ -65,6 +66,31 @@ def resolve_base_url() -> str | None:
     return None
 
 
+def resolve_planner_llm_timeout_seconds() -> float | None:
+    """
+    Planner / get_llm_client 使用的单次 HTTP 超时（秒）。
+
+    未设置或 <=0 时返回 None：在线客户端用 OpenAI SDK 默认；离线客户端仍用 offline_llm 内置默认。
+    支持 ``PLANNER_LLM_TIMEOUT_SECONDS`` 或 ``FHD_PLANNER_LLM_TIMEOUT_SECONDS``（前者优先）。
+    有效范围 5～7200 秒。
+    """
+    raw = (
+        os.environ.get("PLANNER_LLM_TIMEOUT_SECONDS")
+        or os.environ.get("FHD_PLANNER_LLM_TIMEOUT_SECONDS")
+        or ""
+    ).strip()
+    if not raw:
+        return None
+    try:
+        v = float(raw)
+    except ValueError:
+        logger.warning("invalid PLANNER_LLM_TIMEOUT_SECONDS: %r", raw)
+        return None
+    if v <= 0:
+        return None
+    return max(5.0, min(v, 7200.0))
+
+
 def resolve_chat_model() -> str:
     if resolve_mode() == "offline":
         return _offline_model_override or os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
@@ -99,10 +125,11 @@ def get_openai_compatible_client() -> OpenAI:
     获取在线 OpenAI 兼容客户端。
     注意：此函数在离线模式下会抛出异常，请使用 get_llm_client() 替代。
     """
-    return OpenAI(
-        api_key=require_api_key(),
-        base_url=resolve_base_url(),
-    )
+    t = resolve_planner_llm_timeout_seconds()
+    kw: dict[str, Any] = {"api_key": require_api_key(), "base_url": resolve_base_url()}
+    if t is not None:
+        kw["timeout"] = t
+    return OpenAI(**kw)
 
 
 def get_llm_client():
@@ -111,6 +138,9 @@ def get_llm_client():
 
     返回的客户端统一支持 .chat.completions.create() 接口，
     planner / text-to-pandas / schema-service 可无感知使用。
+
+    若设置 ``PLANNER_LLM_TIMEOUT_SECONDS``（或 ``FHD_PLANNER_LLM_TIMEOUT_SECONDS``），
+    在线 ``OpenAI`` 与离线 ``OfflineClient`` 的 HTTP 层将使用该超时（秒）。
     """
     mode = resolve_mode()
     if mode == "offline":
@@ -119,6 +149,9 @@ def get_llm_client():
         model = _offline_model_override or os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
         base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
         logger.info("using offline LLM client: base=%s model=%s", base, model)
+        t = resolve_planner_llm_timeout_seconds()
+        if t is not None:
+            return get_offline_client(base_url=base, model=model, timeout=t)
         return get_offline_client(base_url=base, model=model)
 
     logger.info("using online LLM client: base=%s", resolve_base_url())

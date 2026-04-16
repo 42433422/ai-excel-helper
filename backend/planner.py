@@ -85,6 +85,13 @@ from backend.ai_tier import (
     tier_denied_tool_json,
 )
 from backend.tools import execute_workflow_tool, flatten_tool_result_dict_for_client, get_workflow_tool_registry
+from backend.http_request_context import get_http_request_id
+from backend.llm_circuit_breaker import (
+    before_llm_call,
+    is_llm_upstream_failure,
+    record_llm_failure,
+    record_llm_success,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -446,6 +453,8 @@ def chat(
       WORKSPACE_ROOT — excel 沙箱根目录
       PLANNER_MAX_ITERATIONS — 可选，1–30，限制 agent 最大轮数（默认在线 15 / 离线 8）
       PLANNER_PARALLEL_TOOLS — 可选 1/0，强制开/关「同一轮多条 tool 并行执行」
+      PLANNER_LLM_TIMEOUT_SECONDS / FHD_PLANNER_LLM_TIMEOUT_SECONDS — 可选，Planner HTTP 超时秒数（5–7200）
+      FHD_LLM_CIRCUIT_ENABLED — 可选 1/true 开启上游熔断；FHD_LLM_CB_FAILURE_THRESHOLD、FHD_LLM_CB_OPEN_SECONDS
     """
     global _last_tool_result
 
@@ -464,7 +473,12 @@ def chat(
     tier = effective_tier_from_runtime(runtime_context)
     tools = filter_tools_for_tier(get_workflow_tool_registry(), tier)
 
-    logger.info("planner chat start mode=%s model=%s", resolve_mode(), mdl)
+    logger.info(
+        "planner chat start mode=%s model=%s request_id=%s",
+        resolve_mode(),
+        mdl,
+        get_http_request_id() or "-",
+    )
 
     if max_iterations is None:
         max_iterations = _default_max_iterations()
@@ -491,7 +505,14 @@ def chat(
         for iteration in range(max_iterations):
             t0 = time.perf_counter()
             logger.debug("planner iteration %s", iteration + 1)
-            completion = _call_model_completion(cli, mdl, messages, tools)
+            before_llm_call()
+            try:
+                completion = _call_model_completion(cli, mdl, messages, tools)
+            except BaseException as e:
+                if is_llm_upstream_failure(e):
+                    record_llm_failure()
+                raise
+            record_llm_success()
             choice = completion.choices[0]
             msg = choice.message
 
@@ -572,7 +593,12 @@ def chat_stream_sse_events(
     tier = effective_tier_from_runtime(runtime_context)
     tools = filter_tools_for_tier(get_workflow_tool_registry(), tier)
 
-    logger.info("planner chat_stream_events mode=%s model=%s", resolve_mode(), mdl)
+    logger.info(
+        "planner chat_stream_events mode=%s model=%s request_id=%s",
+        resolve_mode(),
+        mdl,
+        get_http_request_id() or "-",
+    )
 
     if max_iterations is None:
         max_iterations = _default_max_iterations()
@@ -610,8 +636,15 @@ def chat_stream_sse_events(
                 "message": f"第 {it} 轮：正在请求大模型…",
             }
             logger.debug("planner stream iteration %s", it)
-            stream = _call_model_stream(cli, mdl, state.messages, tools)
-            assistant_dict, finish_reason, content_parts = _consume_chat_stream(stream)
+            before_llm_call()
+            try:
+                stream = _call_model_stream(cli, mdl, state.messages, tools)
+                assistant_dict, finish_reason, content_parts = _consume_chat_stream(stream)
+            except BaseException as e:
+                if is_llm_upstream_failure(e):
+                    record_llm_failure()
+                raise
+            record_llm_success()
             names = _tool_names_from_assistant_dict(assistant_dict)
             _log_turn(it, mdl, t0, mode="stream", finish_reason=finish_reason, tool_names=names or None)
 
@@ -696,3 +729,28 @@ def chat_stream_text(
     ):
         if ev.get("type") == "token" and ev.get("text"):
             yield str(ev["text"])
+
+
+def chat_completion_no_tools(
+    messages: list[dict[str, Any]],
+    *,
+    model: str | None = None,
+    client: OpenAI | None = None,
+    strip_response: bool = True,
+) -> str:
+    """
+    单次 Chat Completions，不传 tools（供 code-editor/draft 等受控子任务使用）。
+
+    strip_response:
+        默认 True 与历史行为一致；code-editor/draft 传 False 以保留文件末尾换行符。
+    """
+    if client is None:
+        require_api_key()
+        cli = get_llm_client()
+    else:
+        cli = client
+    mdl = model or resolve_chat_model()
+    completion = cli.chat.completions.create(model=mdl, messages=messages)
+    msg = completion.choices[0].message
+    text = msg.content or ""
+    return text.strip() if strip_response else text

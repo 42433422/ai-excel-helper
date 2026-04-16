@@ -24,6 +24,36 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/mod/taiyangniao-pro", tags=["mod-taiyangniao-pro"])
 
+# 未指定模板时，若该文件存在于 WORKSPACE_ROOT 下则用于「明细」表填充式导出
+DEFAULT_ATTENDANCE_TEMPLATE_RELPATH = "424/考勤-2026-3月份考勤统计表.xlsx"
+
+
+def _rel_under_workspace(p: Path | None) -> str | None:
+    if p is None:
+        return None
+    root = workspace_root()
+    try:
+        return str(p.resolve().relative_to(root))
+    except ValueError:
+        return str(p.resolve())
+
+
+def _resolve_attendance_template(template_relpath: str | None) -> Path | None:
+    """显式路径优先；未填则用默认考勤统计表模板。``none`` / ``-`` / ``__none__`` 表示不要模板（两工作表）。"""
+    raw = (template_relpath if template_relpath is not None else "").strip()
+    if raw.lower() in ("-", "none", "__none__"):
+        return None
+    if raw:
+        return resolve_workspace_excel(raw)
+    try:
+        return resolve_workspace_excel(DEFAULT_ATTENDANCE_TEMPLATE_RELPATH)
+    except (OSError, ValueError, PermissionError, FileNotFoundError):
+        logger.info(
+            "attendance default template missing, two-sheet output: %s",
+            DEFAULT_ATTENDANCE_TEMPLATE_RELPATH,
+        )
+        return None
+
 
 def _default_attendance_rules_payload() -> dict:
     """与 ``rules.AttendanceRule`` / ``process_attendance_dataframe`` 默认行为一致的可读说明。"""
@@ -59,8 +89,18 @@ class AttendanceConvertBody(BaseModel):
     output_relpath: str = Field(..., description="相对 WORKSPACE_ROOT")
     month: str | None = None
     sheet: str | int = 0
-    header_row: int = 0
-    template_relpath: str | None = None
+    header_row: int | None = Field(
+        default=None,
+        description="表头所在 0-based 行号；省略或 null 时按钉钉多行表头自动检测（推荐）",
+    )
+    template_relpath: str | None = Field(
+        default=None,
+        description=(
+            "模板相对 WORKSPACE_ROOT；省略时使用默认 "
+            f"{DEFAULT_ATTENDANCE_TEMPLATE_RELPATH}（若存在）。"
+            "填 none 或 - 表示无模板，仅输出「月度统计」「钉钉解析」。"
+        ),
+    )
 
 
 @router.post("/attendance/convert")
@@ -87,14 +127,10 @@ async def attendance_convert(body: AttendanceConvertBody) -> dict:
     if not source.is_file():
         raise HTTPException(status_code=404, detail=f"源文件不存在: {source}")
 
-    template_path = None
-    if body.template_relpath and str(body.template_relpath).strip():
-        try:
-            template_path = resolve_workspace_excel(str(body.template_relpath).strip())
-        except (OSError, ValueError, PermissionError) as e:
-            raise HTTPException(status_code=400, detail=f"模板路径无效：{e}") from e
-        # 不依赖 is_file() 检查，因为中文文件名可能导致 is_file() 返回 False
-        # resolve_workspace_excel 已经验证了文件存在
+    try:
+        template_path = _resolve_attendance_template(body.template_relpath)
+    except (OSError, ValueError, PermissionError) as e:
+        raise HTTPException(status_code=400, detail=f"模板路径无效：{e}") from e
 
     sheet = coerce_sheet_arg(body.sheet)
     try:
@@ -103,7 +139,7 @@ async def attendance_convert(body: AttendanceConvertBody) -> dict:
             output,
             month=body.month,
             sheet=sheet,
-            header_row=int(body.header_row or 0),
+            header_row=body.header_row,
             template_path=template_path,
         )
     except PermissionError as e:
@@ -116,7 +152,22 @@ async def attendance_convert(body: AttendanceConvertBody) -> dict:
         logger.exception("attendance_convert failed")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
-    return {"success": True, "message": "转换完成", "data": meta}
+    return {
+        "success": True,
+        "message": "转换完成",
+        "data": {**meta, "template_relpath_resolved": _rel_under_workspace(template_path)},
+    }
+
+
+def _parse_header_row_form(raw: str) -> int | None:
+    """空串 / auto → 自动检测表头；否则为 0-based 表头行号。"""
+    s = (raw or "").strip()
+    if not s or s.lower() == "auto":
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
 
 
 @router.post("/attendance/convert-upload")
@@ -124,24 +175,22 @@ async def attendance_convert_upload(
     file: UploadFile = File(..., description="钉钉导出的 xlsx"),
     output_relpath: str = Form(""),
     month: str = Form(""),
-    template_relpath: str = Form(""),
+    template_relpath: str = Form(
+        "",
+        description=(
+            f"可选；留空则用默认 {DEFAULT_ATTENDANCE_TEMPLATE_RELPATH}。"
+            "填 none 或 - 仅输出「月度统计」「钉钉解析」。"
+        ),
+    ),
     sheet: str = Form("0"),
-    header_row: str = Form("0"),
+    header_row: str = Form(
+        "",
+        description="表头 0-based 行号；留空则自动检测（钉钉「打卡时间」等多行表头）",
+    ),
 ) -> dict:
-    import sys
-    print(f"=== attendance_convert_upload 被调用 ===", file=sys.stderr)
-    print(f"output_relpath: '{output_relpath}'", file=sys.stderr)
-    print(f"month: '{month}'", file=sys.stderr)
-    print(f"template_relpath: '{template_relpath}'", file=sys.stderr)
-    print(f"sheet: '{sheet}'", file=sys.stderr)
-    print(f"header_row: '{header_row}'", file=sys.stderr)
-
     out_rel = (output_relpath or "").strip() or f"424/考勤转换输出_{uuid.uuid4().hex[:10]}.xlsx"
 
-    try:
-        hdr = int(header_row or 0)
-    except ValueError:
-        hdr = 0
+    hdr = _parse_header_row_form(header_row)
 
     upload_dir = workspace_root() / "424" / "_taiyangniao_uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
@@ -167,15 +216,11 @@ async def attendance_convert_upload(
         tmp_path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    template_path = None
-    if (template_relpath or "").strip():
-        try:
-            template_path = resolve_workspace_excel(template_relpath.strip())
-        except (OSError, ValueError, PermissionError) as e:
-            tmp_path.unlink(missing_ok=True)
-            raise HTTPException(status_code=400, detail=f"模板路径无效：{e}") from e
-        # 不依赖 is_file() 检查，因为中文文件名可能导致 is_file() 返回 False
-        # resolve_workspace_excel 已经验证了文件存在
+    try:
+        template_path = _resolve_attendance_template(template_relpath)
+    except (OSError, ValueError, PermissionError) as e:
+        tmp_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"模板路径无效：{e}") from e
 
     sh = coerce_sheet_arg(sheet)
     month_clean = month.strip() or None
@@ -208,7 +253,11 @@ async def attendance_convert_upload(
     return {
         "success": True,
         "message": "上传并转换完成",
-        "data": {**meta, "output_relpath": out_rel},
+        "data": {
+            **meta,
+            "output_relpath": out_rel,
+            "template_relpath_resolved": _rel_under_workspace(template_path),
+        },
     }
 
 

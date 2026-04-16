@@ -66,7 +66,7 @@ def test_code_editor_status_public(client):
     assert r.status_code == 200
     j = r.json()
     assert j.get("success") is True
-    assert j.get("phase") == "readonly_analyze"
+    assert j.get("phase") == "edit_diff_apply"
     assert "analyze_readonly" in (j.get("capabilities") or [])
 
 
@@ -713,6 +713,151 @@ def test_health_preserves_incoming_request_id(client):
     r = client.get("/api/health", headers={"X-Request-ID": rid})
     assert r.status_code == 200
     assert r.headers.get("x-request-id") == rid
+
+
+def test_http_request_id_available_inside_chat_handler(client, monkeypatch):
+    """AuditMiddleware 注入的 x-request-id 应通过 ContextVar 进入 /api/chat 处理链。"""
+    seen: list[str | None] = []
+
+    def fake_chat(*_a, **_k):
+        from backend.http_request_context import get_http_request_id
+
+        seen.append(get_http_request_id())
+        return "stub"
+
+    monkeypatch.setattr(http_app, "chat", fake_chat)
+    rid = "trace-from-middleware-abc"
+    r = client.post("/api/chat", json={"message": "hello"}, headers={"X-Request-ID": rid})
+    assert r.status_code == 200
+    assert seen == [rid]
+
+
+def test_chat_idempotency_replays_json(client, monkeypatch):
+    from backend.chat_idempotency import clear_for_tests
+
+    clear_for_tests()
+    calls: list[int] = []
+
+    def fake_chat(*_a, **_k):
+        calls.append(1)
+        return "once"
+
+    monkeypatch.setattr(http_app, "chat", fake_chat)
+    headers = {"Idempotency-Key": "idem-chat-1"}
+    r1 = client.post("/api/chat", json={"message": "hello"}, headers=headers)
+    assert r1.status_code == 200
+    assert r1.json() == {"reply": "once"}
+    assert r1.headers.get("idempotency-replayed") is None
+    assert calls == [1]
+
+    r2 = client.post("/api/chat", json={"message": "hello"}, headers=headers)
+    assert r2.status_code == 200
+    assert r2.json() == {"reply": "once"}
+    assert (r2.headers.get("idempotency-replayed") or "").lower() == "true"
+    assert calls == [1]
+
+
+def test_chat_idempotency_conflict_409(client, monkeypatch):
+    from backend.chat_idempotency import clear_for_tests
+
+    clear_for_tests()
+    monkeypatch.setattr(http_app, "chat", lambda *a, **k: "a")
+    h = {"Idempotency-Key": "idem-chat-2"}
+    r1 = client.post("/api/chat", json={"message": "one"}, headers=h)
+    assert r1.status_code == 200
+    r2 = client.post("/api/chat", json={"message": "two"}, headers=h)
+    assert r2.status_code == 409
+    assert "Idempotency" in (r2.json().get("detail") or "")
+
+
+def test_llm_circuit_opens_and_before_call_raises(monkeypatch):
+    import backend.llm_circuit_breaker as cb
+
+    cb.reset_for_tests()
+    monkeypatch.setenv("FHD_LLM_CIRCUIT_ENABLED", "1")
+    monkeypatch.setenv("FHD_LLM_CB_FAILURE_THRESHOLD", "2")
+    monkeypatch.setenv("FHD_LLM_CB_OPEN_SECONDS", "600")
+    cb.record_llm_failure()
+    cb.record_llm_failure()
+    with pytest.raises(RuntimeError, match="熔断"):
+        cb.before_llm_call()
+
+
+def test_llm_circuit_disabled_no_raise(monkeypatch):
+    import backend.llm_circuit_breaker as cb
+
+    cb.reset_for_tests()
+    monkeypatch.delenv("FHD_LLM_CIRCUIT_ENABLED", raising=False)
+    cb.record_llm_failure()
+    cb.before_llm_call()
+
+
+def test_chat_rate_limit_returns_429(client, monkeypatch):
+    from backend.http_rate_limit import reset_for_tests
+
+    reset_for_tests()
+    monkeypatch.delenv("FHD_RATE_LIMIT_RPM", raising=False)
+    monkeypatch.setenv("FHD_RATE_LIMIT_CHAT_RPM", "2")
+    monkeypatch.setattr(http_app, "chat", lambda *a, **k: "ok")
+    assert client.post("/api/chat", json={"message": "a"}).status_code == 200
+    assert client.post("/api/chat", json={"message": "b"}).status_code == 200
+    r3 = client.post("/api/chat", json={"message": "c"})
+    assert r3.status_code == 429
+    assert r3.json().get("detail") == "rate limit exceeded"
+    assert int(r3.headers.get("retry-after") or "0") >= 1
+
+
+def test_resolve_planner_llm_timeout_seconds(monkeypatch):
+    import backend.llm_config as lc
+
+    monkeypatch.delenv("PLANNER_LLM_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("FHD_PLANNER_LLM_TIMEOUT_SECONDS", raising=False)
+    assert lc.resolve_planner_llm_timeout_seconds() is None
+    monkeypatch.setenv("PLANNER_LLM_TIMEOUT_SECONDS", "90")
+    assert lc.resolve_planner_llm_timeout_seconds() == 90.0
+    monkeypatch.setenv("PLANNER_LLM_TIMEOUT_SECONDS", "3")
+    assert lc.resolve_planner_llm_timeout_seconds() == 5.0
+    monkeypatch.setenv("PLANNER_LLM_TIMEOUT_SECONDS", "99999")
+    assert lc.resolve_planner_llm_timeout_seconds() == 7200.0
+    monkeypatch.delenv("PLANNER_LLM_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.setenv("FHD_PLANNER_LLM_TIMEOUT_SECONDS", "120")
+    assert lc.resolve_planner_llm_timeout_seconds() == 120.0
+
+
+def test_chat_openai_timeout_maps_to_504(client, monkeypatch):
+    from openai import APITimeoutError
+
+    monkeypatch.setattr(http_app, "chat", lambda *a, **k: (_ for _ in ()).throw(APITimeoutError(request=None)))
+    r = client.post("/api/chat", json={"message": "x"})
+    assert r.status_code == 504
+    assert "超时" in (r.json().get("detail") or "")
+
+
+def test_chat_stream_idempotency_replays_bytes(client, monkeypatch):
+    from unittest.mock import MagicMock
+
+    from backend.chat_idempotency import clear_for_tests
+
+    clear_for_tests()
+
+    def fake_stream(*_a, **_k):
+        yield "x"
+        yield "y"
+
+    monkeypatch.setattr(http_app, "resolve_llm_mode", lambda: "offline")
+    monkeypatch.setattr(http_app, "get_llm_client", lambda: MagicMock())
+    monkeypatch.setattr(http_app, "chat_stream_text", fake_stream)
+
+    headers = {"Idempotency-Key": "idem-stream-1"}
+    r1 = client.post("/api/chat/stream", json={"message": "hello"}, headers=headers)
+    assert r1.status_code == 200
+    assert r1.headers.get("idempotency-replayed") is None
+    body1 = r1.content
+
+    r2 = client.post("/api/chat/stream", json={"message": "hello"}, headers=headers)
+    assert r2.status_code == 200
+    assert body1 == r2.content
+    assert (r2.headers.get("idempotency-replayed") or "").lower() == "true"
 
 
 def test_audit_log_jsonlines(client, monkeypatch, tmp_path):

@@ -22,9 +22,16 @@ import time
 import uuid
 from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from openai import APIConnectionError, APIError, AuthenticationError, RateLimitError
+import httpx
+from openai import (
+    APIConnectionError,
+    APIError,
+    APITimeoutError,
+    AuthenticationError,
+    RateLimitError,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp
 
@@ -78,8 +85,26 @@ from backend.request_active_mod_ctx import (
     reset_request_active_mod_id,
     set_request_active_mod_id,
 )
+from backend.http_request_context import (
+    install_log_record_request_id,
+    reset_http_request_id,
+    set_http_request_id,
+)
+from backend.http_rate_limit import check_http_rate_limit
+from backend.chat_idempotency import (
+    CHAT_JSON_ROUTE,
+    CHAT_STREAM_ROUTE,
+    IDEMPOTENCY_CONFLICT,
+    fingerprint_chat,
+    normalize_idempotency_key,
+    store_json,
+    store_stream,
+    try_get_json,
+    try_get_stream,
+)
 
 logger = logging.getLogger(__name__)
+install_log_record_request_id()
 
 _ALLOWED_SUFFIX = {".xlsx", ".xlsm", ".xls"}
 _WORD_SUFFIX = {".docx"}
@@ -97,6 +122,10 @@ def _http_exc_from_chat_error(exc: BaseException) -> HTTPException:
         return HTTPException(status_code=429, detail=f"大模型限流: {exc}")
     if isinstance(exc, APIConnectionError):
         return HTTPException(status_code=503, detail=f"无法连接大模型服务: {exc}")
+    if isinstance(exc, APITimeoutError):
+        return HTTPException(status_code=504, detail=f"大模型请求超时: {exc}")
+    if isinstance(exc, httpx.TimeoutException):
+        return HTTPException(status_code=504, detail=f"大模型请求超时: {exc}")
     if isinstance(exc, APIError):
         return HTTPException(status_code=502, detail=f"大模型接口错误: {exc}")
     if isinstance(exc, RuntimeError):
@@ -191,7 +220,57 @@ class AuditMiddleware:
         cm_token = set_request_client_mods_ui_off(off)
         active_mod = parse_active_mod_header(headers)
         am_token = set_request_active_mod_id(active_mod)
+        rid_token = set_http_request_id(request_id)
         try:
+            rl_ok, rl_retry = check_http_rate_limit(
+                method=method,
+                path_norm=path_norm,
+                scope=scope,
+                headers_lower=headers,
+            )
+            if not rl_ok:
+                body = json.dumps({"detail": "rate limit exceeded"}).encode("utf-8")
+                host = None
+                client = scope.get("client")
+                if client:
+                    host = client[0]
+                ff = headers.get("x-forwarded-for")
+                if ff:
+                    host = ff.split(",")[0].strip() or host
+                _append_audit_line(
+                    {
+                        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "request_id": request_id,
+                        "method": method,
+                        "path": path,
+                        "status_code": 429,
+                        "duration_ms": round((time.perf_counter() - t0) * 1000, 3),
+                        "streaming": False,
+                        "client_host": host,
+                        "user_agent": ua,
+                        "audit_note": "rate_limited",
+                    }
+                )
+                ra_hdrs: list[tuple[bytes, bytes]] = [
+                    (b"content-type", b"application/json"),
+                    (b"x-request-id", request_id.encode("ascii")),
+                ]
+                if rl_retry is not None and rl_retry > 0:
+                    ra_hdrs.append((b"retry-after", str(int(rl_retry)).encode("ascii")))
+
+                async def rl_send(message):
+                    await send(message)
+
+                await rl_send(
+                    {
+                        "type": "http.response.start",
+                        "status": 429,
+                        "headers": ra_hdrs,
+                    }
+                )
+                await rl_send({"type": "http.response.body", "body": body})
+                return
+
             streaming = path.rstrip("/").endswith("/stream")
             start = time.perf_counter()
 
@@ -227,6 +306,7 @@ class AuditMiddleware:
 
             await self.app(scope, receive, send_wrapper)
         finally:
+            reset_http_request_id(rid_token)
             reset_request_active_mod_id(am_token)
             reset_request_client_mods_ui_off(cm_token)
 
@@ -705,17 +785,42 @@ async def api_word_download(path: str = "") -> StreamingResponse:
 
 
 @app.post("/api/chat")
-async def api_chat(request: Request, body: ChatRequest) -> dict:
+async def api_chat(request: Request, body: ChatRequest) -> dict | JSONResponse:
     """Agentic chat；请把上传接口返回的 runtime_context 原样传入。"""
     if body.mode:
         set_llm_mode(body.mode)
     assert_p2_elevated_claim_or_raise(request)
     tier = resolve_ai_tier(request)
     rc = runtime_context_with_tier(body.runtime_context, tier)
+    idem = normalize_idempotency_key(
+        request.headers.get("idempotency-key") or request.headers.get("x-idempotency-key")
+    )
+    fp = fingerprint_chat(
+        message=body.message,
+        runtime_context=rc,
+        system_prompt=body.system_prompt,
+        mode=body.mode,
+        db_write_token=body.db_write_token,
+    )
+    if idem:
+        cached = try_get_json(CHAT_JSON_ROUTE, idem, fp)
+        if cached is IDEMPOTENCY_CONFLICT:
+            raise HTTPException(
+                status_code=409,
+                detail="Idempotency-Key was reused with a different request body",
+            )
+        if isinstance(cached, dict):
+            return JSONResponse(
+                content=cached,
+                headers={"Idempotency-Replayed": "true"},
+            )
     intr = planner_workflow_interrupt_reply(body.message)
     if intr is not None:
         cleared = runtime_context_after_workflow_interrupt(rc)
-        return {"reply": intr, "runtime_context": cleared}
+        out: dict = {"reply": intr, "runtime_context": cleared}
+        if idem:
+            store_json(CHAT_JSON_ROUTE, idem, fp, out)
+        return out
     try:
         reply = chat(
             body.message,
@@ -725,7 +830,10 @@ async def api_chat(request: Request, body: ChatRequest) -> dict:
         )
     except Exception as e:
         raise _http_exc_from_chat_error(e) from e
-    return {"reply": reply}
+    out = {"reply": reply}
+    if idem:
+        store_json(CHAT_JSON_ROUTE, idem, fp, out)
+    return out
 
 
 def _sse_line(payload: dict) -> bytes:
@@ -751,14 +859,48 @@ async def api_chat_stream(request: Request, body: ChatRequest) -> StreamingRespo
     assert_p2_elevated_claim_or_raise(request)
     tier = resolve_ai_tier(request)
     rc = runtime_context_with_tier(body.runtime_context, tier)
+    idem = normalize_idempotency_key(
+        request.headers.get("idempotency-key") or request.headers.get("x-idempotency-key")
+    )
+    fp = fingerprint_chat(
+        message=body.message,
+        runtime_context=rc,
+        system_prompt=body.system_prompt,
+        mode=body.mode,
+        db_write_token=body.db_write_token,
+    )
+    if idem:
+        cached = try_get_stream(CHAT_STREAM_ROUTE, idem, fp)
+        if cached is IDEMPOTENCY_CONFLICT:
+            raise HTTPException(
+                status_code=409,
+                detail="Idempotency-Key was reused with a different request body",
+            )
+        if isinstance(cached, (bytes, bytearray)) and cached:
+
+            def _replay():
+                yield bytes(cached)
+
+            return StreamingResponse(
+                _replay(),
+                media_type="text/event-stream",
+                headers={"Idempotency-Replayed": "true"},
+            )
 
     def event_gen():
+        buf = bytearray()
         try:
             intr = planner_workflow_interrupt_reply(body.message)
             if intr is not None:
                 cleared = runtime_context_after_workflow_interrupt(rc)
-                yield _sse_line({"type": "token", "text": intr})
-                yield _sse_line({"type": "done", "runtime_context": cleared})
+                t1 = _sse_line({"type": "token", "text": intr})
+                t2 = _sse_line({"type": "done", "runtime_context": cleared})
+                buf.extend(t1)
+                buf.extend(t2)
+                yield t1
+                yield t2
+                if idem:
+                    store_stream(CHAT_STREAM_ROUTE, idem, fp, bytes(buf))
                 return
             for fragment in chat_stream_text(
                 body.message,
@@ -766,17 +908,24 @@ async def api_chat_stream(request: Request, body: ChatRequest) -> StreamingRespo
                 system_prompt=body.system_prompt,
                 db_write_token=body.db_write_token,
             ):
-                yield _sse_line({"type": "token", "text": fragment})
-            yield _sse_line({"type": "done"})
+                line = _sse_line({"type": "token", "text": fragment})
+                buf.extend(line)
+                yield line
+            done_line = _sse_line({"type": "done"})
+            buf.extend(done_line)
+            yield done_line
+            if idem:
+                store_stream(CHAT_STREAM_ROUTE, idem, fp, bytes(buf))
         except Exception as e:
             err = _http_exc_from_chat_error(e)
-            yield _sse_line(
+            line = _sse_line(
                 {
                     "type": "error",
                     "message": err.detail if isinstance(err.detail, str) else str(err.detail),
                     "status_code": err.status_code,
                 }
             )
+            yield line
 
     return StreamingResponse(event_gen(), media_type="text/event-stream")
 
