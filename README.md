@@ -1,24 +1,27 @@
 # XCAGI v5.0 - AI 单据智能处理员工
 
-🤖 **基于 AI 的单据智能处理 AI 员工**，适用于各行业的标签打印、出货管理和收货确认场景。
+🤖 **基于 Neuro-DDD（分层 + AI 用例编排）与 FastAPI 的 AI 单据智能处理系统**，适用于各行业的标签打印、出货管理和收货确认场景。
 
 [![Release](https://img.shields.io/github/v/release/42433422/xcagi?color=blue&label=Release&version=v5.0.0)](https://github.com/42433422/xcagi/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
-[![Architecture](https://img.shields.io/badge/Architecture-Neuro--DDD-purple.svg)](#-技术架构)
+[![Flask](https://img.shields.io/badge/Flask-3.0%20%28兼容%2F遗留%29-red.svg)](https://flask.palletsprojects.com/)
+[![Architecture](https://img.shields.io/badge/Architecture-Neuro--DDD-purple.svg)](#-neuro-ddd-与代码落点必读)
 [![Vue](https://img.shields.io/badge/Vue-3.3-brightgreen.svg)](https://vuejs.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://www.microsoft.com/windows/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/42433422/xcagi/blob/main/.github/CONTRIBUTING.md)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/42433422/ai-excel-helper/blob/master/.github/CONTRIBUTING.md)
 
 ## 🌟 项目简介
 
-**XCAGI v5.0** 是一款**基于 AI 的单据智能处理 AI 员工**，适用于各行业的标签打印、出货管理和收货确认。通过深度学习 OCR 技术、混合意图识别引擎和智能决策系统，像真实员工一样自动识别、理解和处理 Excel 单据数据。
+**XCAGI v5.0** 通过 OCR、混合意图识别与大模型工作流，把「上传 Excel / 对话指令 → 解析 → 业务动作（出货、打印、库存等）」连成可运维的闭环。
 
-> 🚀 **v5.0 当前版本**: 在 v4.0 基础上完成 `Neuro-DDD + FastAPI` 主入口演进，并新增模块生态（MODstore/Mod Manager）、前端工作流组件、数据库读鉴权集成与交付运维资料
->
-> 🎯 **从"工具"到"员工"**: 不再是被动工具，而是能主动决策、自主学习、智能执行的 AI 员工
+> 🚀 **v5.0 当前版本**: `Neuro-DDD + FastAPI` 主 API 入口，模块生态（MODstore / Mod Manager）、工作流前端组件、数据库读鉴权与兼容层并存演进。  
+> 🎯 **从「工具」到「员工」**: 侧重可编排的用例与可替换的基础设施实现，而不是把业务规则堆在路由里。  
+> 🧠 **Neuro-DDD 在本仓库的含义**: **DDD 分层**（`application` / `domain` / `infrastructure`）+ **AI 对话与工作流的用例编排**；HTTP 层尽量薄，装配集中在 Composition Root（`app/bootstrap.py`）。下文示意图帮助理解边界，**以源码为准**。
+
+**仓库**: 默认以 **[ai-excel-helper](https://github.com/42433422/ai-excel-helper)** 为一体化交付树（与历史 **xcagi** 发行说明互通，克隆地址见下文）。
 
 **快速链接**:
 - 📖 [快速开始指南](docs/QUICK_START.md)
@@ -28,158 +31,167 @@
 - 📝 [更新日志](CHANGELOG.md)
 - 🤝 [贡献指南](.github/CONTRIBUTING.md)
 
+---
+
+## 🧠 Neuro-DDD 与代码落点（必读）
+
+| 层级 / 组件 | 代码落点 | 说明 |
+|-------------|----------|------|
+| **主 API 运行时（默认）** | `backend/http_app.py` | FastAPI `app`，挂载 `/api/*`、CORS、SSE 对话、上传与业务路由 |
+| **启动命令（推荐）** | 见下文「快速开始」 | `uvicorn backend.http_app:app --host 127.0.0.1 --port 8000` |
+| **兼容层** | `backend/routers/xcagi_compat.py` 等 | 承接旧版前端路径与请求形状，减少一次性大改 |
+| **装配根** | `app/bootstrap.py` | `@lru_cache` 将 **application** 与 **infrastructure** 接线（仓储、生成器、外部 IO） |
+| **应用服务（用例编排）** | `app/application/` | 编排、事务与用例级逻辑；路由应优先调用此处 |
+| **领域层** | `app/domain/` | 实体、值对象、领域服务 |
+| **基础设施** | `app/infrastructure/` | ORM、仓储实现、文件与第三方调用 |
+| **历史 HTTP（迁移中）** | `app/routes/*`（Flask Blueprint） | 仍可能承载部分业务接口；与 FastAPI **并行存在**，按模块逐步迁移 |
+
+**依赖方向（约定）**: `routes` → `application` → (`domain` + `infrastructure` 抽象)；领域核心不依赖具体 ORM。更细的约束与示例见 [`app/application/README.md`](app/application/README.md)。
+
+**OpenAPI**: 启动后访问 `http://127.0.0.1:8000/docs` 与 `/redoc`。
+
+---
+
+## 🚀 三大产品路线（概览）
+
+| 路线 | 说明 | 典型落点 |
+|------|------|----------|
+| **Mod 仓库** | 扩展功能与行业包，核心尽量不 fork | `mods/`、`/api/mod-store/*`、Mod Manager |
+| **小程序** | 移动侧 CRM / 单据能力 | `/api/mp*` 族接口、`miniprogram/` |
+| **传统模式** | 类资源管理器 + 表格工作流，降低上手成本 | 前端「传统模式」视图与对应 API（以 OpenAPI 为准） |
+
+---
+
 ## 🎯 AI 员工核心能力
 
 ### 🧠 AI 智能决策
-- **LLM 工作流规划** - DeepSeek 驱动的动态工作流生成
-- 混合意图识别引擎（准确率 99%+）
-- 智能业务决策支持
-- 自主学习和持续优化
-- 上下文理解和推理
+- **LLM 工作流规划**（DeepSeek 等）与工具调用闭环
+- 混合意图识别（规则 + NLU + 模型，随部署变化）
+- 业务确认流、风险门与工作流中断恢复（见运行时与 OpenAPI）
 
 ### 🔄 全自动化处理
-- 单据自动识别和解析
-- 业务流程自动执行
-- **LLM 驱动的动态规划** - 智能编排多步骤任务
-- 任务自动化 Agent
-- 异常自动处理
+- 单据解析 → 结构化 → 写库 / 出单 / 打印链路
+- 异常与重试策略（HTTP 层、LLM 与任务队列按部署启用）
 
 ### 💬 多模态交互
-- TTS 语音合成播报
-- 自然语言对话界面
-- 微信消息自动处理
-- 智能语音交互
+- 对话、TTS、微信与打印等通道按模块启用
 
-### 🏢 行业智能适配
-- 多行业模板支持
-- 灵活配置适配
-- 快速部署上线
-- 智能规则引擎
+### 🏢 行业与模板
+- 多行业模板与 Mod 覆盖
+
+---
 
 ## 🏢 适用行业与场景
 
 ### 🏭 制造业
-- 生产单据处理
-- 物料标签打印
-- 出货管理
-- 质检记录管理
+- 生产单据、物料标签、出货与质检记录
 
-### 🚚 物流行业
-- 快递单据识别
-- 货物追踪管理
-- 签收确认
-- 运输单据处理
+### 🚚 物流与批发
+- 快递/批发单据、签收、价格与出货追踪
 
-### 🛒 零售业
-- 进货单处理
-- 商品标签打印
-- 库存管理
-- 价格标签更新
+### 🛒 零售与电商
+- 进货、价签、库存与发货协同
 
-### 📦 批发行业
-- 批发单据处理
-- 客户订单管理
-- 价格体系管理
-- 出货记录追踪
-
-### 🛍️ 电商行业
-- 订单自动处理
-- 发货单打印
-- 退货管理
-- 库存同步
+---
 
 ## 📊 AI 员工 vs 传统工具
 
 | 维度 | 传统工具 | XCAGI AI 员工 | 优势 |
 |------|----------|---------------|------|
-| **决策能力** | 无 | ✅ 智能决策 | 自主判断 |
-| **学习能力** | 无 | ✅ 持续优化 | 越用越聪明 |
-| **交互方式** | 点击操作 | ✅ 自然语言 + 语音 | 像人一样交流 |
-| **自动化** | 半自动 | ✅ 全自动 | 解放双手 |
-| **适应性** | 固定流程 | ✅ 灵活适配 | 快速上线 |
-| **离线能力** | ❌ 依赖网络 | ✅ 混合离线 | 稳定可靠 |
+| **架构** | 脚本/单体 | **Neuro-DDD + FastAPI** | 分层清晰、可替换实现 |
+| **决策** | 无 | 对话 + 工作流 | 可编排、可审计 |
+| **交互** | 表单为主 | 对话 + 业务 UI | 降低重复操作 |
+| **自动化** | 半自动 | 端到端链路 | 减少人工拷贝 |
+| **扩展** | 改核心 | **Mod** | 行业包隔离 |
+
+---
 
 ## ⚡ 性能指标
 
-| 指标 | v3.0 | v4.0 | 提升 |
+下表为版本迭代中的**内部对比与目标取向**（环境、模型与数据不同会导致差异），非第三方审计 SLA。
+
+| 指标 | v3.0 | v4.0 | v5.0 |
 |------|------|------|------|
-| 前端加载时间 | ~1.5s | ~1.0s | ⬆️ **33%** |
-| 意图识别准确率 | ~98% | ~99% | ⬆️ **1%** |
-| 单据处理速度 | 基础 | 优化 | ⬆️ **50%** |
-| AI 员工响应 | 秒级 | 毫秒级 | ⬆️ **10 倍** |
-| 行业适配速度 | 手动 | 配置化 | ⬆️ **5 倍** |
+| 前端加载（典型） | ~1.5s | ~1.0s | 视构建与网络 |
+| 意图与对话延迟 | 秒级 | 优化 | **显著依赖模型与路由** |
+| 行业适配 | 手动配置 | 配置化 | **Mod / 模板 + 策略** |
+
+---
 
 ## 🔧 系统要求
 
-- Windows 10/11
+- Windows 10/11 或 Linux（以实际部署为准）
 - Python 3.11+
-- Microsoft Excel (可选，用于自动化)
-- TSC 打印机 (可选，用于标签打印)
-- Redis (用于缓存和任务队列)
-- Docker & Docker Compose (推荐)
+- PostgreSQL 16+（推荐，含 pgvector）或按迁移支持的 DB
+- Redis（缓存 / 队列，按场景）
+- Docker & Docker Compose（可选，推荐生产）
+
+---
 
 ## 🚀 快速开始
 
-### 方式 1：Docker 一键部署（推荐）
+### 克隆本仓库（一体化树）
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/42433422/xcagi.git
-cd xcagi
+git clone https://github.com/42433422/ai-excel-helper.git
+cd ai-excel-helper
+```
 
-# 2. 一键部署
+（历史文档中若出现 `xcagi` 仓库名，多为同源发行说明；**以你实际推送的远程为准**。）
+
+### 方式 1：Docker（若提供 compose）
+
+```bash
 docker-compose up -d --build
-
-# 3. 查看状态
 docker-compose ps
-
-# 访问地址：http://localhost
 ```
 
-### 方式 2：本地部署
+### 方式 2：本地 Python
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/42433422/xcagi.git
-cd xcagi
-
-# 2. 安装依赖
 pip install -r requirements.txt
-
-# 3. 运行数据库迁移
 alembic upgrade head
-
-# 4. 启动服务（FastAPI）
 python -m uvicorn backend.http_app:app --host 127.0.0.1 --port 8000
-
-# 访问地址：http://localhost:8000/docs
 ```
 
-### 方式 3：使用部署脚本
+浏览器打开：**http://127.0.0.1:8000/docs**。
 
-```cmd
-# Windows 用户
-双击 deploy.bat
-选择选项 1 (生产环境部署)
-```
+### 方式 3：Windows 部署脚本
+
+若仓库根目录提供 `deploy.bat` / `deploy-release.bat`，可按脚本菜单选择生产或开发配置。
+
+---
 
 ## 🏗️ 技术架构
 
-当前仓库在 `master` 的**真实运行架构**如下（按代码目录）：
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│           用户界面层 (Vue 3 + Vite + TypeScript)                      │
+│     对话 / 单据 / 打印 / Pro Mode / 工作流 / 读库门禁                  │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│     API 层（FastAPI，`backend/http_app.py`）                          │
+│     业务 Router + `xcagi_compat` 兼容 + CORS + 审计/限流（如有）      │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│              Neuro-DDD（`app/`：分层 + 用例编排）                       │
+├─────────────────────────────────────────────────────────────────────┤
+│  Flask 蓝图（`app/routes`，迁移中）或 FastAPI 路由 →                  │
+│  `application`（用例）→ `domain`（规则）→ `infrastructure`（实现）   │
+│  装配：`app/bootstrap.py`                                           │
+└─────────────────────────────────────────────────────────────────────┘
+                │                              │
+                ▼                              ▼
+┌──────────────────────────┐    ┌──────────────────────────┐
+│ LLM / OCR / 工具执行       │    │ PostgreSQL / Redis / 文件   │
+└──────────────────────────┘    └──────────────────────────┘
+```
 
-- **主 API 运行时（FastAPI）**
-  - 入口：`backend/http_app.py`
-  - 启动：`uvicorn backend.http_app:app --host 127.0.0.1 --port 8000`
-  - 特点：统一挂载 `/api/*` 路由、审计中间件、CORS、SSE 对话流、上传接口
-- **兼容路由层（FastAPI APIRouter）**
-  - 入口：`backend/routers/xcagi_compat.py`
-  - 作用：承接旧版 XCAGI 前端请求格式与部分历史接口
-- **Neuro-DDD 业务代码树（当前仍在仓库）**
-  - 目录：`app/application`、`app/domain`、`app/infrastructure`、`app/routes` 等
-  - 现状：目录结构体现 Neuro-DDD 分层，但仍保留 Flask 蓝图实现，处于迁移过程
-- **前端层**
-  - 目录：`frontend/`
-  - 作用：业务 UI、workflow 可视化、读库令牌门禁组件
+---
 
 ## 💻 技术栈详情
 
@@ -187,256 +199,162 @@ python -m uvicorn backend.http_app:app --host 127.0.0.1 --port 8000
 
 | 技术 | 版本 | 用途 |
 |------|------|------|
-| **Python** | 3.11+ | 核心编程语言 |
-| **FastAPI** | 0.110+ | 当前主 API 运行时与 OpenAPI 文档 |
-| **Neuro-DDD** | v5 | 代码分层目标（application / domain / infrastructure） |
-| **Flask（遗留）** | 3.0+ | `app/` 目录中仍存在的历史蓝图实现（迁移中） |
-| **SQLAlchemy** | 2.0+ | ORM 框架 |
-| **Alembic** | 1.13+ | 数据库迁移 |
-| **Celery** | 5.3+ | 任务队列依赖（按场景启用） |
-| **Redis** | 7.0+ | 缓存 / 消息中间件（按场景启用） |
-| **PostgreSQL** | 16+ | 生产级数据库 (含 pgvector) |
+| **Python** | 3.11+ | 核心语言 |
+| **FastAPI** | 0.110+ | **默认 Web 与 OpenAPI** |
+| **Flask** | 3.0+ | **遗留蓝图**（`app/routes`，迁移中） |
+| **Uvicorn** | - | ASGI 服务器 |
+| **SQLAlchemy** | 2.0+ | ORM |
+| **Alembic** | 1.13+ | 迁移 |
+| **Celery / Redis** | 按场景 | 异步任务与缓存 |
+| **PostgreSQL** | 16+ | 生产库（含 pgvector） |
 
-### AI/ML 引擎
+### AI / 数据
 
 | 技术 | 用途 |
 |------|------|
-| **DeepSeek AI** | 大语言模型对话 & 意图识别 |
-| **RASA NLU** | 自然语言理解 & 对话管理 |
-| **BERT** | 深度语义理解 & 文本分类 |
-| **Transformers** | 预训练模型库 |
-| **PyTorch** | 深度学习框架 |
-| **EasyOCR / Tesseract** | OCR 文字识别 |
-| **Edge TTS** | 语音合成 |
+| **DeepSeek 等 LLM** | 对话、规划、工具调用 |
+| **RASA / BERT / 蒸馏** | NLU 与意图（按部署） |
+| **PyTorch / Transformers** | 模型推理 |
+| **PaddleOCR / EasyOCR** | OCR |
+| **OpenPyXL / Pandas** | Excel 与表格 |
 
 ### 前端技术
 
-| 技术 | 版本 | 用途 |
-|------|------|------|
-| **Vue** | 3.3+ | 渐进式 JavaScript 框架 |
-| **Vite** | 4.4+ | 下一代前端构建工具 |
-| **Pinia** | 3.0+ | Vue 状态管理 |
-| **Vue Router** | 4.6+ | Vue 路由管理 |
-
-### 数据处理
-
 | 技术 | 用途 |
 |------|------|
-| **OpenPyXL** | Excel 文件读写 |
-| **Pandas** | 数据分析 & 处理 |
-| **NumPy** | 科学计算 |
-| **Scikit-learn** | 机器学习算法 |
+| **Vue 3 + Vite + TS** | SPA |
+| **Pinia / Vue Router** | 状态与路由 |
 
-## 🎯 AI 员工核心场景
+---
 
-### 场景 1：标签打印 AI 员工
-```
-用户上传 Excel → AI 自动解析 → 生成标签模板 → 自动打印
-```
-- 自动识别 Excel 格式
-- 智能提取产品信息
-- 自动生成标签模板
-- 批量打印标签
+## 🎯 AI 员工核心场景（示例）
 
-### 场景 2：出货管理 AI 员工
-```
-接收出货单 → AI 识别产品 → 创建出货记录 → 生成标签 → 打印发货
-```
-- 自动识别出货单
-- 智能匹配产品
-- 自动创建出货记录
-- 生成并发货标签
+### 标签打印
+用户上传 Excel → 解析 → 模板/标签 → 打印队列。
 
-### 场景 3：收货确认 AI 员工
-```
-接收收货单 → AI 核对数据 → 更新库存 → 生成确认单
-```
-- 自动识别收货单
-- 智能核对数据
-- 自动更新库存
-- 生成确认单据
+### 出货管理
+识别订单文本或表格 → 预览 → 确认 → 出货记录与打印。
 
-### 场景 4：微信消息处理 AI 员工
-```
-接收微信消息 → AI 理解意图 → 自动回复/创建任务 → 同步联系人
-```
-- 自动接收微信消息
-- 智能理解意图
-- 自动回复或创建任务
-- 同步联系人信息
+### 收货与库存
+单据核对 → 库存更新（以实际模块与权限为准）。
 
-## 📡 API 接口
+### 微信与对话
+消息接入 → 意图 → 工具或业务流程（按启用模块）。
 
-### 主要 API 端点（当前 FastAPI）
+---
 
-- `/api/health` - 健康检查
-- `/api/chat` / `/api/chat/stream` - 对话与流式对话
-- `/api/upload/excel` / `/api/upload/template` - 文件与模板上传
-- `/api/template` / `/api/word/template` / `/api/excel/template` - 模板处理
-- `/api/fhd/*` - FHD 身份、DB token 状态、AI 策略等
-- `/api/mod-store/*` - 模块市场相关接口
-- `/api/print/*` - 打印相关接口
-- `/api/*`（兼容）- 通过 `xcagi_compat` 暴露的旧版接口族
+## 📡 API 接口（摘录）
 
-### Swagger 文档
+完整列表以 **OpenAPI** 为准（`/docs`）。
 
-访问 `http://localhost:8000/docs` 查看完整 OpenAPI 文档
+- `/api/health` — 健康检查  
+- `/api/chat`、`/api/chat/stream` — 对话与流式输出  
+- `/api/upload/*` — 上传与运行时上下文  
+- `/api/template`、`/api/word/*`、`/api/excel/*` — 模板与文档处理  
+- `/api/fhd/*` — 身份、读库令牌、AI 策略等  
+- `/api/mod-store/*` — 模块市场相关  
+- `/api/*`（兼容路由）— 旧版路径族  
+
+---
 
 ## 🔄 版本演进
 
-### v5.0 新特性（当前最新）⭐
+### v5.0（当前主线）
 
-- 🧩 **模块生态能力落地** - 新增 `MODstore` 与 `xcagi-mod-manager`，包含后端服务、CLI、前端管理台与模板骨架
-- 🔐 **数据库读鉴权链路** - 新增前端读令牌拦截/提示组件与 Vue 集成片段，覆盖 `ProductsReadGate`、`GlobalReadTokenPrompt` 等场景
-- 🧠 **工作流可视化组件** - 新增 workflow 组件与类型定义，支持流程分支卡片、员工行与示例页面
-- ⚙️ **后端主入口升级** - 统一以 `backend.http_app`（FastAPI）承载 API 与兼容路由，完善 `torch_runtime_env` 运行时环境支持
-- 🧱 **Neuro-DDD 迁移状态可见化** - 保留 `app/` 分层目录并标注遗留 Flask 模块，便于按域逐步迁移至 FastAPI
-- 📦 **交付与运维资料补全** - 补充优化指南、测试报告、部署辅助脚本与模板文档，便于项目落地与复盘
-- 🛡️ **隐私发布策略** - 发布版本移除了数据库文件与敏感大文件，确保远端仓库可公开共享
+- **FastAPI 主入口**：`backend.http_app` 统一对外 API 与兼容层  
+- **Neuro-DDD 分层**：`app/application`、`app/domain`、`app/infrastructure` + `app/bootstrap.py` 装配  
+- **模块生态**：MODstore、Mod Manager、前后端 Mod 路由注册  
+- **读库鉴权与门禁**：前端令牌提示与 API 协同  
+- **工作流与 Pro Mode UI**：可视化与员工站组件  
+- **隐私与安全发布**：移除数据库与大文件敏感物，公开仓库可审计  
 
-### v4.0 特性
+### v4.0 及更早
 
-- 🎯 混合意图识别引擎 - 规则 + RASA NLU + BERT
-- 🔊 TTS 语音合成 - Edge TTS 集成
-- 🤖 任务自动化 Agent - 智能任务代理
-- 📱 微信生态集成 - 消息自动处理
-- 🏷️ 标签打印增强 - TSC 打印机支持
-- 🏛️ DDD 领域驱动设计 - 清晰架构
+- AI 员工定位、自动化流程、多模态、DDD 演进等（见 `CHANGELOG.md`）。
 
-### v3.0 特性
-
-- 🎨 Vue 3 前端界面 - 现代化 Web 界面
-- 🤖 AI 对话系统 - DeepSeek 集成
-- 📸 OCR 识别 - 文字自动识别
-- 📊 多客户隔离 - 数据安全管理
-
-### v2.0 特性
-
-- 📊 Excel 解析 - 自动识别单据
-- 🏷️ 标签打印 - TSC 打印机支持
+---
 
 ## 📊 技术栈演进对比
 
-| 组件 | v1.0 | v2.0 | v3.0 | v4.0 | v5.0 |
-|------|:----:|:----:|:----:|:----:|:----:|
+| 组件 | v1.0 | v2.0 | v3.0 | v4.0 | **v5.0** |
+|------|:----:|:----:|:----:|:----:|:--------:|
 | 定位 | 工具 | 智能系统 | 智能系统 | AI 员工 | **AI 员工 + 模块生态** |
-| 自动化 | ❌ | 半自动 | 任务 Agent | 全自动 | **全自动 + 工作流可视化** |
-| 交互 | 命令行 | Web 界面 | 对话界面 | 多模态 | **多模态 + 集成化组件** |
-| 数据访问 | 本地直连 | 基础 API | 多租户 | 智能管理 | **读库鉴权与令牌门禁** |
-| 架构 | 单文件 | MVC | DDD | DDD+ | **Neuro-DDD + FastAPI + MODstore** |
+| 主 API | - | - | Flask 为主 | Flask + 演进 | **FastAPI 为主** |
+| 架构 | 单文件 | MVC | DDD | DDD+ | **Neuro-DDD + 兼容层** |
+| 扩展 | ❌ | ❌ | ❌ | 有限 | **Mod / Mod Store** |
+
+---
 
 ## ⚠️ 注意事项
 
-**隐私保护**:
-- 数据库文件（*.db）已列入 .gitignore，不会上传到仓库
-- 出货记录文件夹已排除
-- 请勿在代码中硬编码敏感信息
+**隐私**: 数据库文件、密钥与大体积私有资源勿提交；以 `.gitignore` 与发布检查清单为准。
 
-**安全建议**:
-- API 密钥通过环境变量配置
-- 生产环境请设置强密码和 HTTPS
-- 定期备份数据库文件
+**安全**: API Key 与数据库凭据使用环境变量；生产环境务必 HTTPS 与最小权限。
+
+---
 
 ## 🤝 贡献指南
 
-我们欢迎各种形式的贡献！
+1. Fork **[ai-excel-helper](https://github.com/42433422/ai-excel-helper)**  
+2. 新建分支 `feature/...`  
+3. 提交并推送后开启 Pull Request  
 
-### 如何贡献
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
-### 开发环境设置
+开发环境示例：
 
 ```bash
-# 克隆仓库
-git clone https://github.com/42433422/xcagi.git
-cd xcagi
-
-# 安装依赖
+git clone https://github.com/42433422/ai-excel-helper.git
+cd ai-excel-helper
 pip install -r requirements.txt
-
-# 运行测试
 pytest
 ```
 
-详细信息请查阅 [贡献指南](.github/CONTRIBUTING.md)
+详见 [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)。
+
+---
 
 ## 📚 文档资源
 
-- 📖 [快速开始指南](docs/QUICK_START.md) - 5 分钟快速上手
-- 🏗️ [架构设计文档](docs/ARCHITECTURE.md) - DDD 架构详解
-- 🤖 [AI 员工配置指南](docs/AI_EMPLOYEE.md) - 行业适配配置
-- 📝 [更新日志](CHANGELOG.md) - 版本更新历史
-- 🔒 [安全策略](SECURITY.md) - 安全报告指南
-- 📟 [API 文档](http://localhost:8000/docs) - FastAPI OpenAPI 文档
-- 🛠️ [部署指南](docs/DEPLOYMENT.md) - 生产和开发部署
+- [快速开始](docs/QUICK_START.md)  
+- [架构](docs/ARCHITECTURE.md)  
+- [AI 员工配置](docs/AI_EMPLOYEE.md)  
+- [CHANGELOG](CHANGELOG.md)  
+- [SECURITY](SECURITY.md)  
+- [部署](docs/DEPLOYMENT.md)  
+- 在线 API：`http://127.0.0.1:8000/docs`  
 
-## 🗺️ 路线图
+---
 
-### v5.x 计划（当前）
+## 🗺️ 路线图（节选）
 
-- [x] AI 员工定位升级
-- [x] 全自动化流程
-- [x] 多模态交互
-- [ ] 移动端 App 支持
-- [ ] 多语言支持（国际化）
-- [ ] 云端部署方案
-- [ ] 更多行业模板
+- [x] FastAPI 主入口与兼容层  
+- [x] Neuro-DDD 分层与 Mod 生态  
+- [ ] 更广覆盖的自动化测试与 CI  
+- [ ] 国际化与更多行业模板  
 
-### v6.0 展望
-
-- [ ] 支持更多 AI 模型本地部署
-- [ ] 微服务架构改造
-- [ ] 实时协作功能
-- [ ] AI 模型自主训练
-- [ ] 区块链存证
+---
 
 ## 🙏 致谢
 
-感谢以下开源项目：
+[Vue.js](https://vuejs.org/)、[FastAPI](https://fastapi.tiangolo.com/)、[Uvicorn](https://www.uvicorn.org/)、[SQLAlchemy](https://www.sqlalchemy.org/)、[DeepSeek](https://www.deepseek.com/)、[RASA](https://rasa.com/)、[Hugging Face](https://huggingface.co/) 等开源项目。
 
-- [Vue.js](https://vuejs.org/) - 渐进式 JavaScript 框架
-- [FastAPI](https://fastapi.tiangolo.com/) - 高性能 Python API 框架
-- [SQLAlchemy](https://www.sqlalchemy.org/) - Python SQL 工具包
-- [DeepSeek](https://www.deepseek.com/) - AI 大模型
-- [RASA](https://rasa.com/) - 开源对话 AI
-- [Hugging Face](https://huggingface.co/) - 预训练模型库
+---
 
 ## 📄 许可证
 
-本项目采用 **GNU Affero General Public License v3.0 (AGPL-3.0)** 开源许可证。
+**AGPL-3.0** — 详见 [LICENSE](LICENSE)。
 
-这意味着：
-- ✅ 你可以自由使用本软件
-- ✅ 你可以查看和修改源代码
-- ✅ 你必须开源任何基于本项目的修改
-- ⚠️ 如果你通过网络提供服务，必须开源你的服务代码
-
-详情请参阅 [LICENSE](LICENSE) 文件。
+---
 
 ## 📬 联系方式
 
-- **作者**: [@42433422](https://github.com/42433422)
-- **Issues**: [提交 Issue](https://github.com/42433422/xcagi/issues)
-- **Discussions**: [参与讨论](https://github.com/42433422/xcagi/discussions)
-
-## 🌟 支持项目
-
-如果这个 AI 员工对你有帮助，请给我一个 Star！⭐
-
-你的支持是我持续改进的动力！
+- **作者**: [@42433422](https://github.com/42433422)  
+- **Issues**: [ai-excel-helper Issues](https://github.com/42433422/ai-excel-helper/issues)  
 
 ---
 
 <div align="center">
 
-**XCAGI v5.0 - AI 单据智能处理员工**
-
-🤖 适用于各行业的标签打印、出货管理和收货确认
+**XCAGI v5.0 — Neuro-DDD + FastAPI 一体化交付**
 
 [🔝 返回顶部](#xcagi-v50---ai-单据智能处理员工)
 
