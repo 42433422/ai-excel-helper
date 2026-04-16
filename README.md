@@ -35,6 +35,11 @@
 
 ## 🧠 Neuro-DDD 与代码落点（必读）
 
+> **架构展示**（神经域拓扑、NeuroBus 大图、伪代码摘录、11 域职责表）与 **[`XCAGI/README.md`](XCAGI/README.md)** 同一套叙事对齐，便于「一体化仓库」与 **XCAGI 独立发行子树** 对照阅读。  
+> **两套入口并存**：本仓库根目录默认 **`backend/http_app.py`**（常见 `8000`）；若只跑 **`XCAGI/`** 子工程，则入口为 **`run.py` → `app.fastapi_main:app`**（常见 `5000`），详见下表与 [XCAGI/README.md](XCAGI/README.md)。
+
+### 1）一体化仓库（根目录，默认 API）
+
 | 层级 / 组件 | 代码落点 | 说明 |
 |-------------|----------|------|
 | **主 API 运行时（默认）** | `backend/http_app.py` | FastAPI `app`，挂载 `/api/*`、CORS、SSE 对话、上传与业务路由 |
@@ -48,7 +53,148 @@
 
 **依赖方向（约定）**: `routes` → `application` → (`domain` + `infrastructure` 抽象)；领域核心不依赖具体 ORM。更细的约束与示例见 [`app/application/README.md`](app/application/README.md)。
 
-**OpenAPI**: 启动后访问 `http://127.0.0.1:8000/docs` 与 `/redoc`。
+**OpenAPI（一体化默认）**: `http://127.0.0.1:8000/docs` 与 `/redoc`。
+
+---
+
+### 2）Neuro-DDD 神经领域驱动架构（与 `XCAGI/README.md` 同构展示）
+
+在经典 **DDD** 之上，为 AI 对话、意图、工作流与多模块协同增加了 **NeuroBus / 神经域** 等概念与实现（**`XCAGI/app/neuro_bus/`**、**`XCAGI/app/fastapi_main.py`** 生命周期装配等），统称为 **Neuro-DDD**。下图与后文摘录用于理解边界，**以 `XCAGI/` 下源码为准**。
+
+#### 2.1 神经域 (NeuroDomain) 体系
+
+项目定义了 **11 个神经域**，每个域都是独立的自治单元，通过**神经总线 (NeuroBus)** 进行异步信号通信：
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        🧠 Neuro-DDD 架构                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐         │
+│   │  Intent     │     │   Order     │     │ Inventory   │         │
+│   │  NeuroDomain│────▶│  NeuroDomain│────▶│  NeuroDomain│         │
+│   │  意图识别    │     │   订单域    │     │   库存域     │         │
+│   └─────────────┘     └─────────────┘     └─────────────┘         │
+│         │                   │                   │                   │
+│         ▼                   ▼                   ▼                   │
+│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐         │
+│   │  Product    │     │ Customer    │     │  AIService  │         │
+│   │  NeuroDomain│     │  NeuroDomain│     │  NeuroDomain│         │
+│   │   产品域     │     │   客户域    │     │  AI服务域   │         │
+│   └─────────────┘     └─────────────┘     └─────────────┘         │
+│         │                   │                   │                   │
+│         └───────────────────┼───────────────────┘                   │
+│                             ▼                                        │
+│   ┌─────────────────────────────────────────────────────────┐       │
+│   │                    NeuroBus 神经总线                      │       │
+│   │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐     │       │
+│   │  │ 去重器   │ │ 限流器   │ │ 熔断器   │ │ 追踪器   │     │       │
+│   │  └─────────┘ └─────────┘ └─────────┘ └─────────┘     │       │
+│   │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐     │       │
+│   │  │ SLA配置  │ │错误反馈  │ │ 沙盒预演  │ │ 保命通道  │     │       │
+│   │  └─────────┘ └─────────┘ └─────────┘ └─────────┘     │       │
+│   └─────────────────────────────────────────────────────────┘       │
+│                             │                                        │
+│         ┌───────────────────┼───────────────────┐                    │
+│         ▼                   ▼                   ▼                    │
+│   ┌───────────┐       ┌───────────┐       ┌───────────┐            │
+│   │  Wechat   │       │  Print    │       │   OCR     │            │
+│   │  NeuroDomain│     │  NeuroDomain│     │  NeuroDomain│           │
+│   └───────────┘       └───────────┘       └───────────┘            │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### 2.2 神经科学启发的核心组件（摘录）
+
+以下类名与层级为**架构说明用伪代码/摘录**，具体实现分布在 **`XCAGI/app/domain`**、**`XCAGI/app/application`**、**`XCAGI/app/neuro_bus`** 等目录，以实际文件为准。
+
+##### IntentNeuroDomain - 双模式意图识别引擎
+
+```python
+# 潜意识处理器 - <10ms 快速响应
+class SubconsciousProcessor:
+    Level 1: 缓存命中 (<1ms)
+    Level 2: 规则匹配 (<5ms)
+    Level 3: 关键词匹配 (<10ms)
+
+# 显意识处理器 - 99%+ 准确率
+class ConsciousProcessor:
+    Level 1: BERT 语义分析 (~50ms)
+    Level 2: DeepSeek 深度推理 (~150ms)
+```
+
+##### 神经反射弧 (Reflex Arc)
+
+```python
+class IntentReflexArc:
+    """预定义模式的超快速响应，类似人体膝跳反射"""
+    REFLEX_PATTERNS = {
+        "greeting":      简单问候 → 即时回复 (<1ms)
+        "emergency.stop": 紧急停止 → 立即中止 (<1ms)
+        "confirmation.yes/no": 确认/取消 → 快速响应 (<1ms)
+    }
+```
+
+##### NeuroUnitOfWork - 神经工作单元
+
+```python
+class NeuroUnitOfWork:
+    """模拟神经系统的 ACID 事务特性"""
+    - Atomicity: 原子性 - 所有操作全或无
+    - Consistency: 一致性 - 状态转换保持一致
+    - Isolation: 隔离性 - 并发操作互不干扰
+    - Durability: 持久性 - 操作结果持久保存
+    + 支持保存点 (Savepoint) - 神经可塑性模拟
+```
+
+##### NeuroBus - 神经总线 (8 大可靠性机制)
+
+```python
+class AsyncNeuroBusImpl:
+    """生产级异步事件总线"""
+    1. 链路追踪 (Tracing)      - 分布式请求追踪
+    2. 去重 (Deduplication)    - 基于幂等键的去重
+    3. 动态限流 (Rate Limiting) - 令牌桶算法
+    4. 熔断保护 (Circuit Breaker) - 状态机保护
+    5. SLA 超时控制           - 域级别 SLA 配置
+    6. 错误反馈与重试         - 智能降级策略
+    7. 沙盒预演 (Sandbox)      - 干运行验证
+    8. 保命通道 (Lifeline)      - 关键域紧急通道
+```
+
+#### 2.3 神经域详解
+
+| 神经域 | 职责 | 核心能力 |
+|--------|------|---------|
+| **IntentNeuroDomain** | 意图识别 | 双模式引擎 + 神经反射弧 |
+| **OrderNeuroDomain** | 订单/出货 | 状态机管理 + 工作流编排 |
+| **InventoryNeuroDomain** | 库存管理 | NeuroUnitOfWork 事务 + 预留/扣减 |
+| **ProductNeuroDomain** | 产品管理 | Fan-Out/Fan-In 并行处理 |
+| **CustomerNeuroDomain** | 客户管理 | 联系人同步 + 层级管理 |
+| **AIServiceNeuroDomain** | AI 服务 | 多引擎调度 + 负载均衡 |
+| **WechatNeuroDomain** | 微信集成 | 消息处理 + 联系人同步 |
+| **PrintNeuroDomain** | 打印服务 | 标签生成 + 任务队列 |
+| **OCRNeuroDomain** | OCR 识别 | 多引擎支持 (PaddleOCR/EasyOCR) |
+| **PaymentNeuroDomain** | 支付管理 | 价格计算 + 退款处理 |
+| **SafetyNeuroDomain** | 安全域 | 一致性检查 + 熔断保护 |
+
+---
+
+### 3）XCAGI 子工程：运行入口与分层表（与 `XCAGI/README.md` 一致）
+
+| 层级 / 组件 | 代码落点（相对 `XCAGI/`） | 说明 |
+|-------------|--------------------------|------|
+| **HTTP 入口（默认）** | `XCAGI/run.py` | `uvicorn` 加载 **`app.fastapi_main:app`**，默认 **`0.0.0.0:5000`**；热重载可设 `XCAGI_UVICORN_RELOAD=1` |
+| **FastAPI 应用** | `XCAGI/app/fastapi_main.py` | `lifespan` 内初始化 NeuroBus、数据库表；注册 **`app/fastapi_routes/`** 与 **`app/fastapi_compat_routes.py`** |
+| **装配根** | `XCAGI/app/bootstrap.py` | `@lru_cache` 将 **application** 与 **infrastructure** 接线 |
+| **应用服务** | `XCAGI/app/application/` | 用例编排 |
+| **领域层** | `XCAGI/app/domain/` | 领域规则 |
+| **基础设施** | `XCAGI/app/infrastructure/` | 持久化与外部系统 |
+| **遗留兼容** | `XCAGI/app/__init__.py` 中 `create_app()` | 已弃用，转发到 **`app.fastapi_main:app`** |
+
+**OpenAPI（XCAGI 子工程）**: `http://localhost:5000/docs` 或 `/redoc`。  
+**静态前端托管（可选）**: 环境变量 `XCAGI_SPA_ROOT_MOUNT=1` 且存在 `XCAGI/frontend/dist/`（见 `XCAGI/app/fastapi_main.py` 注释）。
 
 ---
 
