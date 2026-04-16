@@ -66,13 +66,34 @@ def test_code_editor_status_public(client):
     assert r.status_code == 200
     j = r.json()
     assert j.get("success") is True
-    assert j.get("phase") == "placeholder"
+    assert j.get("phase") == "readonly_analyze"
+    assert "analyze_readonly" in (j.get("capabilities") or [])
 
 
-def test_code_editor_analyze_placeholder(client):
+def test_code_editor_analyze_no_path(client):
     r = client.post("/api/code-editor/analyze", json={"message": "x"})
     assert r.status_code == 200
-    assert r.json().get("placeholder") is True
+    body = r.json()
+    assert body.get("success") is True
+    assert body.get("kind") == "noop"
+    assert body.get("message_echo") == "x"
+
+
+def test_code_editor_analyze_text_preview(client, monkeypatch, tmp_path):
+    monkeypatch.setenv("WORKSPACE_ROOT", str(tmp_path))
+    (tmp_path / "note.txt").write_text("hello brain", encoding="utf-8")
+    r = client.post("/api/code-editor/analyze", json={"path": "note.txt", "message": "peek"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("success") is True
+    assert body.get("kind") == "text_preview"
+    assert "hello brain" in (body.get("preview") or "")
+
+
+def test_code_editor_analyze_escape_rejected(client, monkeypatch, tmp_path):
+    monkeypatch.setenv("WORKSPACE_ROOT", str(tmp_path))
+    r = client.post("/api/code-editor/analyze", json={"path": "../outside.txt"})
+    assert r.status_code == 400
 
 
 def test_document_templates_list_public(client):

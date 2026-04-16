@@ -30,3 +30,19 @@ def traditional_resolve_path(rel: str) -> Path:
     except ValueError as e:
         raise HTTPException(status_code=400, detail="invalid path") from e
     return target
+
+
+def resolve_safe_workspace_relpath(rel: str) -> Path:
+    """在 WORKSPACE_ROOT 下解析相对路径；禁止 .. 与越出根目录。"""
+    root = workspace_root()
+    raw = unquote((rel or "").strip()).replace("\\", "/").lstrip("/")
+    if not raw:
+        raise HTTPException(status_code=400, detail="path required")
+    if ".." in Path(raw).parts:
+        raise HTTPException(status_code=400, detail="path must not contain '..'")
+    candidate = (root / raw).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="path outside workspace") from e
+    return candidate
