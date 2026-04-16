@@ -165,37 +165,21 @@ python -m uvicorn backend.http_app:app --host 127.0.0.1 --port 8000
 
 ## 🏗️ 技术架构
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  用户界面层 (Vue 3 + Vite)                    │
-│   智能对话界面 | 单据管理 | 标签打印 | 数据可视化              │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│       AI 员工核心层 (FastAPI + Neuro-DDD + AI Engines)       │
-├─────────────────────────────────────────────────────────────┤
-│  🧠 混合意图识别引擎 | 🗣️ TTS 语音 | 🤖 任务 Agent           │
-│  📊 智能决策系统 | 🔄 流程自动化 | 📱 微信集成               │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌───────────────┐    ┌───────────────┐    ┌───────────────┐
-│   AI 引擎群    │    │   业务服务群   │    │   任务队列     │
-│               │    │               │    │               │
-│ DeepSeek AI   │    │ 单据处理服务   │    │ Celery 5.3    │
-│ RASA NLU      │    │ 产品管理服务   │    │ Redis 5.0     │
-│ BERT 模型     │    │ 标签打印服务   │    │               │
-│ OCR/TTS       │    │ 微信集成服务   │    │               │
-└───────────────┘    └───────────────┘    └───────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│           数据层 (SQLAlchemy 2.0 + Neuro-DDD 分层)            │
-│   SQLite + Alembic 迁移 + Repository Pattern                 │
-└─────────────────────────────────────────────────────────────┘
-```
+当前仓库在 `master` 的**真实运行架构**如下（按代码目录）：
+
+- **主 API 运行时（FastAPI）**
+  - 入口：`backend/http_app.py`
+  - 启动：`uvicorn backend.http_app:app --host 127.0.0.1 --port 8000`
+  - 特点：统一挂载 `/api/*` 路由、审计中间件、CORS、SSE 对话流、上传接口
+- **兼容路由层（FastAPI APIRouter）**
+  - 入口：`backend/routers/xcagi_compat.py`
+  - 作用：承接旧版 XCAGI 前端请求格式与部分历史接口
+- **Neuro-DDD 业务代码树（当前仍在仓库）**
+  - 目录：`app/application`、`app/domain`、`app/infrastructure`、`app/routes` 等
+  - 现状：目录结构体现 Neuro-DDD 分层，但仍保留 Flask 蓝图实现，处于迁移过程
+- **前端层**
+  - 目录：`frontend/`
+  - 作用：业务 UI、workflow 可视化、读库令牌门禁组件
 
 ## 💻 技术栈详情
 
@@ -204,12 +188,13 @@ python -m uvicorn backend.http_app:app --host 127.0.0.1 --port 8000
 | 技术 | 版本 | 用途 |
 |------|------|------|
 | **Python** | 3.11+ | 核心编程语言 |
-| **FastAPI** | 0.110+ | 主 API 框架（OpenAPI / docs） |
-| **Neuro-DDD** | v5 | 应用/领域/基础设施分层架构 |
+| **FastAPI** | 0.110+ | 当前主 API 运行时与 OpenAPI 文档 |
+| **Neuro-DDD** | v5 | 代码分层目标（application / domain / infrastructure） |
+| **Flask（遗留）** | 3.0+ | `app/` 目录中仍存在的历史蓝图实现（迁移中） |
 | **SQLAlchemy** | 2.0+ | ORM 框架 |
 | **Alembic** | 1.13+ | 数据库迁移 |
-| **Celery** | 5.3+ | 分布式任务队列 |
-| **Redis** | 7.0+ | 缓存 & 消息中间件 |
+| **Celery** | 5.3+ | 任务队列依赖（按场景启用） |
+| **Redis** | 7.0+ | 缓存 / 消息中间件（按场景启用） |
 | **PostgreSQL** | 16+ | 生产级数据库 (含 pgvector) |
 
 ### AI/ML 引擎
@@ -282,21 +267,16 @@ python -m uvicorn backend.http_app:app --host 127.0.0.1 --port 8000
 
 ## 📡 API 接口
 
-### 主要 API 端点
+### 主要 API 端点（当前 FastAPI）
 
-- `/api/excel/extract` - 提取 Excel 数据
-- `/api/shipment/create` - 创建出货单
-- `/api/shipment/receive` - 创建收货单
-- `/api/products` - 产品管理
-- `/api/customers` - 客户管理
-- `/api/materials` - 物料管理
-- `/api/print/label` - 标签打印
-- `/api/ai/chat` - AI 对话接口
-- `/api/ai/intent` - 意图识别
-- `/api/ai/tts` - 语音合成
-- `/api/wechat/messages` - 微信消息
-- `/api/wechat/contacts` - 联系人同步
-- `/api/tasks` - 任务管理
+- `/api/health` - 健康检查
+- `/api/chat` / `/api/chat/stream` - 对话与流式对话
+- `/api/upload/excel` / `/api/upload/template` - 文件与模板上传
+- `/api/template` / `/api/word/template` / `/api/excel/template` - 模板处理
+- `/api/fhd/*` - FHD 身份、DB token 状态、AI 策略等
+- `/api/mod-store/*` - 模块市场相关接口
+- `/api/print/*` - 打印相关接口
+- `/api/*`（兼容）- 通过 `xcagi_compat` 暴露的旧版接口族
 
 ### Swagger 文档
 
@@ -310,6 +290,7 @@ python -m uvicorn backend.http_app:app --host 127.0.0.1 --port 8000
 - 🔐 **数据库读鉴权链路** - 新增前端读令牌拦截/提示组件与 Vue 集成片段，覆盖 `ProductsReadGate`、`GlobalReadTokenPrompt` 等场景
 - 🧠 **工作流可视化组件** - 新增 workflow 组件与类型定义，支持流程分支卡片、员工行与示例页面
 - ⚙️ **后端主入口升级** - 统一以 `backend.http_app`（FastAPI）承载 API 与兼容路由，完善 `torch_runtime_env` 运行时环境支持
+- 🧱 **Neuro-DDD 迁移状态可见化** - 保留 `app/` 分层目录并标注遗留 Flask 模块，便于按域逐步迁移至 FastAPI
 - 📦 **交付与运维资料补全** - 补充优化指南、测试报告、部署辅助脚本与模板文档，便于项目落地与复盘
 - 🛡️ **隐私发布策略** - 发布版本移除了数据库文件与敏感大文件，确保远端仓库可公开共享
 
