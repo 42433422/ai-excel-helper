@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>前端结构分析</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { text-align: center; color: #333; }
+        .info { text-align: center; color: #666; margin-bottom: 20px; }
+        .preview { display: flex; gap: 20px; }
+        .canvas-wrapper { background: #fafafa; padding: 20px; border-radius: 4px; }
+        canvas { border: 2px solid #333; }
+        .cell-list { flex: 1; background: #f8f9fa; padding: 20px; border-radius: 4px; max-height: 600px; overflow-y: auto; }
+        .cell { padding: 10px; margin: 5px 0; background: white; border-radius: 4px; border-left: 4px solid #007bff; }
+        .cell.merged-h { background: #fff3cd; border-left-color: #ffc107; }
+        .cell.merged-v { background: #d4edda; border-left-color: #28a745; }
+        .cell.merged-both { background: #f8d7da; border-left-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 前端结构分析</h1>
+        <div class="info">
+            图片尺寸：900 × 600 |
+            网格：1 行 × 1 列 |
+            水平合并：0 个 |
+            垂直合并：0 个
+        </div>
+
+        <div class="preview">
+            <div class="canvas-wrapper">
+                <canvas id="canvas" width="900" height="600"></canvas>
+            </div>
+            <div class="cell-list">
+                <h3>单元格列表</h3>
+                <div class="cell ">
+                    <div><strong>#[0,0]</strong> 正常</div>
+                    <div>位置: (0, 0) 尺寸: 898×598</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const cells = [{"row": 0, "col": 0, "x": 0, "y": 0, "width": 898, "height": 598, "is_merged_horizontally": false, "is_merged_vertically": false}];
+        const horizontalLines = [0, 598];
+        const verticalLines = [0, 898];
+
+        function draw() {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            cells.forEach((cell, index) => {
+                let fillColor = 'rgba(0, 123, 255, 0.2)';
+                let borderColor = '#007bff';
+
+                if (cell.is_merged_horizontally && cell.is_merged_vertically) {
+                    fillColor = 'rgba(220, 53, 69, 0.2)';
+                    borderColor = '#dc3545';
+                } else if (cell.is_merged_horizontally) {
+                    fillColor = 'rgba(255, 193, 7, 0.3)';
+                    borderColor = '#ffc107';
+                } else if (cell.is_merged_vertically) {
+                    fillColor = 'rgba(40, 167, 69, 0.3)';
+                    borderColor = '#28a745';
+                }
+
+                ctx.fillStyle = fillColor;
+                ctx.fillRect(cell.x, cell.y, cell.width, cell.height);
+
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cell.x, cell.y, cell.width, cell.height);
+
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(index, cell.x + 5, cell.y + 15);
+            });
+
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            horizontalLines.forEach(y => {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            });
+            verticalLines.forEach(x => {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            });
+
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+        }
+
+        draw();
+    </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景 -->
+  <rect width="200" height="200" fill="#f5f5f5" rx="10"/>
+  
+  <!-- 盒子主体 -->
+  <rect x="50" y="70" width="100" height="80" fill="#d9d9d9" rx="5"/>
+  <path d="M 50 70 L 100 100 L 150 70" fill="#bfbfbf"/>
+  
+  <!-- 盒子盖子 -->
+  <rect x="45" y="65" width="110" height="10" fill="#bfbfbf" rx="2"/>
+  
+  <!-- 感叹号 -->
+  <text x="100" y="120" text-anchor="middle" font-size="40" fill="#999999" font-weight="bold">!</text>
+  
+  <!-- 装饰线条 -->
+  <circle cx="100" cy="100" r="60" stroke="#e8e8e8" stroke-width="2" fill="none"/>
+  <circle cx="100" cy="100" r="40" stroke="#f0f0f0" stroke-width="2" fill="none"/>
+</svg>

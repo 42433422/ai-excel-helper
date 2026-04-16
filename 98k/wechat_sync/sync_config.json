@@ -1,0 +1,14 @@
+{
+    "wechat_db_dir": "C:\\Users\\97088\\Documents\\xwechat_files\\wxid_bommxleja9kq22_22c5\\db_storage",
+    "keys_file": "E:\\FHD\\wechat_sync\\all_keys.json",
+    "decrypted_dir": "E:\\FHD\\wechat_sync\\decrypted",
+    "local_db_path": "E:\\FHD\\wechat_sync\\wechat_messages.db",
+    "poll_interval_ms": 100,
+    "batch_size": 100,
+    "log_level": "INFO",
+    "wechat_process": "Weixin.exe",
+    "sync_msg_types": [1, 3, 34, 43, 47, 49],
+    "sync_group_messages": true,
+    "sync_private_messages": true,
+    "sync_history_days": 0
+}

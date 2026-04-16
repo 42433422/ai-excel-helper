@@ -1,0 +1,157 @@
+/* 物流跟踪页面样式 */
+.container {
+  padding: 20rpx;
+  background-color: #f5f5f5;
+}
+
+/* 物流状态 */
+.logistics-status {
+  margin-bottom: 20rpx;
+}
+
+.status-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20rpx;
+}
+
+.company-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+
+.tracking-no {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 12rpx;
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: #1890ff;
+  padding: 8rpx 16rpx;
+  background-color: #e6f7ff;
+  border-radius: 8rpx;
+  width: fit-content;
+}
+
+.copy-btn .iconfont {
+  margin-right: 4rpx;
+  font-size: 24rpx;
+}
+
+.status-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.status-text {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #1890ff;
+}
+
+.update-time {
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* 物流轨迹 */
+.logistics-track {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+}
+
+.track-item {
+  display: flex;
+  position: relative;
+}
+
+.track-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 20rpx;
+}
+
+.node-icon {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background-color: #1890ff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.node-icon.current {
+  background-color: #52c41a;
+}
+
+.node-icon .iconfont {
+  font-size: 24rpx;
+}
+
+.node-line {
+  width: 4rpx;
+  flex: 1;
+  background-color: #f0f0f0;
+  margin-top: 10rpx;
+}
+
+.track-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 30rpx;
+}
+
+.track-info {
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 8rpx;
+  line-height: 1.6;
+}
+
+.track-time {
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 200rpx 0;
+}
+
+.empty-state image {
+  width: 400rpx;
+  height: 400rpx;
+  margin-bottom: 40rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 加载中 */
+.loading {
+  text-align: center;
+  padding: 40rpx 0;
+  color: #999;
+  font-size: 26rpx;
+}

@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "title": "XCAGI Mod 扩展面（MODstore 内置）",
+  "summary": "宿主（XCAGI Flask）在启动时加载 mods 目录下各包；本文件描述 manifest 契约、常见挂点与调试方式。可配合「制作向导」页一键合并宿主 openapi.json。",
+  "ui_intro_zh": {
+    "page": "本页是「制作向导」：上半部分为内置中文说明，帮助你对照 manifest 各字段、后端蓝图与运行方式。点击「合并宿主 /api 路由」后，会从「路径与同步」中配置的后端地址请求 openapi.json，并只展示以 /api 开头的路径摘要，便于扩展开发与排错。",
+    "manifest_section": "下列为 manifest 常见字段说明。「必填」表示校验强烈建议填写；未填可能出现警告或影响部署。",
+    "blueprint_section": "后端扩展通常放在 backend/blueprints.py（或根目录 blueprints.py），并实现 register_blueprints(app, mod_id)；与 manifest.backend.entry 对应。",
+    "openapi_section": "表格为宿主当前登记的接口路径节选；HTTP 方法、参数与鉴权以宿主完整 OpenAPI 为准。",
+    "runtime_section": "以下为部署目标、沙箱环境变量与 FHD 壳菜单导出等关键词，供复制到文档或脚本使用。"
+  },
+  "manifest_contract": {
+    "required_concepts": [
+      "目录名必须与 manifest.id 一致",
+      "根目录包含 manifest.json"
+    ],
+    "fields": [
+      {
+        "key": "id",
+        "kind": "string",
+        "required": true,
+        "pattern": "^[a-z0-9][a-z0-9._-]*$",
+        "note": "小写 id，与文件夹名相同；XCAGI 按目录名加载"
+      },
+      {
+        "key": "name",
+        "kind": "string",
+        "required": true,
+        "note": "展示名"
+      },
+      {
+        "key": "version",
+        "kind": "string",
+        "required": true,
+        "note": "语义化版本字符串"
+      },
+      {
+        "key": "primary",
+        "kind": "boolean",
+        "required": false,
+        "note": "多 Mod 时影响排序/主包标记（见 ADR 0001）"
+      },
+      {
+        "key": "backend.entry",
+        "kind": "string",
+        "required": true,
+        "example": "blueprints",
+        "note": "相对 Mod 根：Python 模块名（不含 .py），内含 register_blueprints(app, mod_id)"
+      },
+      {
+        "key": "backend.init",
+        "kind": "string",
+        "required": true,
+        "example": "mod_init",
+        "note": "模块内可调函数名，宿主在适当时机 import 并调用"
+      },
+      {
+        "key": "frontend.routes",
+        "kind": "string",
+        "required": true,
+        "example": "frontend/routes",
+        "note": "前端路由模块路径（按宿主前端加载器约定）"
+      },
+      {
+        "key": "frontend.menu",
+        "kind": "array",
+        "required": false,
+        "note": "壳或主导航菜单项：id、label、icon、path"
+      },
+      {
+        "key": "hooks",
+        "kind": "object",
+        "required": false,
+        "note": "生命周期钩子名 → 模块路径（宿主定义可用键）"
+      },
+      {
+        "key": "comms.exports",
+        "kind": "string[]",
+        "required": false,
+        "note": "跨 Mod 调用导出符号列表；实现侧 register(name, fn)"
+      },
+      {
+        "key": "workflow_employees",
+        "kind": "array",
+        "required": false,
+        "note": "工作流员工定义（结构依宿主）"
+      },
+      {
+        "key": "fhd_shell",
+        "kind": "object",
+        "required": false,
+        "note": "仅用于 FHD 壳 GET /api/mods 导出：type、color、description、name 覆盖"
+      },
+      {
+        "key": "data_directory",
+        "kind": "string",
+        "required": false,
+        "example": "data",
+        "note": "（约定）相对 Mod 根存放随包分发的 SQLite 等文件；可用 CLI「modman migrate-db-into-mod」从旧路径拷入；宿主/蓝图内应使用相对 Mod 根的路径连接数据库"
+      },
+      {
+        "key": "database_seed_sql",
+        "kind": "string",
+        "required": false,
+        "example": "data/seed.sql",
+        "note": "（可选）PostgreSQL 种子 SQL 文件路径；相对 Mod 根；导出 fhd_shell_mods.json 时转为绝对路径；FHD 在 FHD_DB_MOD_GATE 通过且建连后执行一次"
+      }
+    ]
+  },
+  "backend_blueprint_convention": {
+    "file_candidates": ["backend/blueprints.py", "blueprints.py"],
+    "register_signature": "register_blueprints(app, mod_id: str) -> None",
+    "url_prefix_example": "/api/mod/{mod_id}",
+    "flask_patterns": [
+      "@bp.route(\"/path\", methods=[\"GET\"])",
+      "Blueprint(mod_id, __name__, url_prefix=f\"/api/mod/{mod_id}\")"
+    ],
+    "comms_example": "get_mod_comms().register(mod_id, \"ping\", callable, replace=True)"
+  },
+  "runtime_and_debug": {
+    "deploy_target": "XCAGI/mods/<id>/",
+    "sandbox_env": "XCAGI_MODS_ROOT 指向仅含单 Mod 的 mods 根目录后重启后端",
+    "fhd_shell_export": "modman export-fhd-shell → FHD backend/shell/fhd_shell_mods.json"
+  },
+  "host_discovery": {
+    "openapi_url": "/openapi.json",
+    "note": "制作向导中「合并宿主路由」将请求 {xcagi_backend_url}/openapi.json 并筛选 /api 前缀路径"
+  },
+  "reference_mods_in_repo": [
+    { "id": "example-mod", "note": "最小 Flask 蓝图 + comms 注册示例" },
+    { "id": "sz-qsm-pro", "note": "更接近业务的完整包（若存在于 library）" }
+  ]
+}

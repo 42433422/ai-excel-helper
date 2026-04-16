@@ -1,0 +1,73 @@
+<view class="container">
+  <!-- 商品图片 -->
+  <view class="product-images">
+    <swiper class="image-swiper" indicator-dots="{{true}}" autoplay="{{false}}" circular="{{true}}">
+      <swiper-item wx:for="{{product.images}}" wx:key="index">
+        <image class="product-image" src="{{item}}" mode="aspectFill" bindtap="previewImage" data-index="{{index}}"></image>
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <!-- 商品信息 -->
+  <view class="product-info card">
+    <view class="price-section">
+      <text class="price">¥{{product.price}}</text>
+      <text class="original-price" wx:if="{{product.originalPrice}}">¥{{product.originalPrice}}</text>
+    </view>
+    <text class="product-name">{{product.name}}</text>
+    <text class="product-desc">{{product.description}}</text>
+    
+    <view class="product-meta">
+      <view class="meta-item">
+        <text class="meta-label">销量</text>
+        <text class="meta-value">{{product.sales}}</text>
+      </view>
+      <view class="meta-item">
+        <text class="meta-label">库存</text>
+        <text class="meta-value">{{product.stock}}</text>
+      </view>
+      <view class="meta-item">
+        <text class="meta-label">品牌</text>
+        <text class="meta-value">{{product.brand}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 规格选择 -->
+  <view class="spec-section card" wx:if="{{product.specs && product.specs.length > 0}}">
+    <view class="section-title">选择规格</view>
+    <view class="spec-list">
+      <view 
+        class="spec-item {{selectedSpec === item ? 'active' : ''}}" 
+        wx:for="{{product.specs}}" 
+        wx:key="*this"
+        bindtap="selectSpec"
+        data-spec="{{item}}"
+      >
+        {{item}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 商品详情 -->
+  <view class="detail-section card">
+    <view class="section-title">商品详情</view>
+    <view class="detail-content">
+      <rich-text nodes="{{product.detail}}"></rich-text>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar safe-area-bottom">
+    <view class="action-item" bindtap="goToCart">
+      <text class="iconfont icon-cart"></text>
+      <text class="action-text">购物车</text>
+      <view class="badge" wx:if="{{cartCount > 0}}">{{cartCount}}</view>
+    </view>
+    <view class="action-item" bindtap="addToCart">
+      <text class="iconfont icon-add-cart"></text>
+      <text class="action-text">加入购物车</text>
+    </view>
+    <view class="btn-buy" bindtap="buyNow">立即购买</view>
+  </view>
+</view>

@@ -1,0 +1,3 @@
+provider: generic
+url: https://placeholder.example.com
+updaterCacheDirName: '@guanjia-openclawelectron-updater'

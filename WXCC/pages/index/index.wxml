@@ -1,0 +1,74 @@
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input" bindtap="goToSearch">
+      <text class="iconfont icon-search"></text>
+      <text class="placeholder">搜索商品</text>
+    </view>
+  </view>
+
+  <!-- 轮播图 -->
+  <view class="banner-section">
+    <swiper class="banner-swiper" indicator-dots="{{true}}" autoplay="{{true}}" interval="{{3000}}" duration="{{500}}" circular="{{true}}">
+      <swiper-item wx:for="{{banners}}" wx:key="id">
+        <image class="banner-image" src="{{item.image}}" mode="aspectFill" bindtap="goToBanner" data-url="{{item.url}}"></image>
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <!-- 分类导航 -->
+  <view class="category-nav">
+    <view class="nav-item" wx:for="{{categories}}" wx:key="id" bindtap="goToCategory" data-id="{{item.id}}">
+      <image class="nav-icon" src="{{item.icon}}" mode="aspectFit"></image>
+      <text class="nav-text">{{item.name}}</text>
+    </view>
+  </view>
+
+  <!-- 公告栏 -->
+  <view class="notice-bar" wx:if="{{notice}}">
+    <text class="notice-icon">📢</text>
+    <swiper class="notice-swiper" autoplay="{{true}}" interval="{{3000}}">
+      <swiper-item wx:for="{{notice}}" wx:key="index">
+        <text class="notice-text" bindtap="goToNotice">{{item}}</text>
+      </swiper-item>
+    </swiper>
+  </view>
+
+  <!-- 推荐商品 -->
+  <view class="product-section">
+    <view class="section-header">
+      <text class="section-title">推荐商品</text>
+      <text class="section-more" bindtap="goToRecommend">更多 ></text>
+    </view>
+
+    <view class="product-grid">
+      <view class="product-card" wx:for="{{products}}" wx:key="id" bindtap="goToProductDetail" data-id="{{item.id}}">
+        <image class="product-image" src="{{item.image}}" mode="aspectFill"></image>
+        <view class="product-info">
+          <text class="product-name">{{item.name}}</text>
+          <text class="product-desc">{{item.description}}</text>
+          <view class="product-bottom">
+            <text class="product-price">¥{{item.price}}</text>
+            <text class="product-sales">已售{{item.sales}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载更多 -->
+  <view class="load-more" wx:if="{{hasMore}}">
+    <text>加载更多...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && products.length === 0}}">
+    <image src="/assets/empty.png" mode="aspectFit"></image>
+    <text>暂无商品</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

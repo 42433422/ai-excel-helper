@@ -1,0 +1,67 @@
+<view class="container">
+  <!-- 缓存概览 -->
+  <view class="cache-overview card">
+    <view class="overview-title">缓存概览</view>
+    <view class="overview-content">
+      <view class="stat-item">
+        <text class="stat-value">{{cacheInfo.count}}</text>
+        <text class="stat-label">缓存图片数</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{cacheInfo.sizeText}}</text>
+        <text class="stat-label">已用空间</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-value">{{cacheInfo.maxSizeText}}</text>
+        <text class="stat-label">最大空间</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 缓存管理 -->
+  <view class="cache-management card">
+    <view class="section-title">缓存管理</view>
+    
+    <view class="action-item" bindtap="clearCache">
+      <view class="action-info">
+        <text class="action-title">清除所有缓存</text>
+        <text class="action-desc">删除所有缓存的图片</text>
+      </view>
+      <text class="action-btn">清除</text>
+    </view>
+    
+    <view class="action-item" bindtap="refreshCacheInfo">
+      <view class="action-info">
+        <text class="action-title">刷新缓存信息</text>
+        <text class="action-desc">重新计算缓存大小</text>
+      </view>
+      <text class="action-btn">刷新</text>
+    </view>
+  </view>
+
+  <!-- 缓存设置 -->
+  <view class="cache-settings card">
+    <view class="section-title">缓存设置</view>
+    
+    <view class="setting-item">
+      <text class="setting-label">缓存有效期</text>
+      <text class="setting-value">7 天</text>
+    </view>
+    
+    <view class="setting-item">
+      <text class="setting-label">自动清理</text>
+      <switch checked="{{autoClean}}" bindchange="onAutoCleanChange" color="#1890ff"></switch>
+    </view>
+  </view>
+
+  <!-- 使用说明 -->
+  <view class="usage-guide card">
+    <view class="section-title">使用说明</view>
+    <view class="guide-content">
+      <text class="guide-text">• 缓存会自动保存浏览过的图片，下次访问无需重新下载</text>
+      <text class="guide-text">• 缓存超过 7 天会自动清理</text>
+      <text class="guide-text">• 缓存大小超过 50MB 会自动清理旧缓存</text>
+      <text class="guide-text">• 定期清理缓存可以释放手机存储空间</text>
+    </view>
+  </view>
+</view>

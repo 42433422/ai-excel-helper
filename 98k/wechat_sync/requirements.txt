@@ -1,0 +1,4 @@
+pycryptodome>=3.20.0
+zstandard>=0.22.0
+pymem>=1.13.1
+psutil>=5.9.8

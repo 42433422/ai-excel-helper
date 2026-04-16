@@ -1,0 +1,21 @@
+{
+  "id": "prompt-optimizer",
+  "name": "Prompt 优化器",
+  "description": "通过 fetch 劫持拦截 LLM 请求，从 systemprompt.txt 中按 section 名称列表自由组装 system prompt 和 user query 注入内容。",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+      "ordered_system_prompt": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "按顺序列出要保留的 section 名称（对应 systemprompt.txt 中 ## 标题），最终 system prompt 将按此顺序拼接"
+      },
+      "inject_user_query": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "按顺序列出要注入到 user query 前面的 section 名称，内容将拼接后插入到最后一条用户消息之前"
+      }
+    }
+  }
+}

@@ -1,0 +1,117 @@
+# OpenClaw Skills Configuration
+# 这个文件定义了 OpenClaw 可以使用的技能
+# DeepSeek MCP Server 会自动注册这些技能
+
+skills:
+  - name: 出货单查询
+    description: 查询出货单记录，支持按客户名、日期搜索
+    endpoint: /chat
+    method: POST
+    parameters:
+      - name: message
+        type: string
+        required: true
+        description: 查询语句，如"查询客户 A 的出货单"
+      - name: use_tools
+        type: boolean
+        required: false
+        default: true
+        description: 是否使用工具增强功能
+    
+  - name: 产品查询
+    description: 查询产品信息，支持按型号、名称搜索
+    endpoint: /chat
+    method: POST
+    parameters:
+      - name: message
+        type: string
+        required: true
+        description: 查询语句，如"搜索产品 A001"
+      - name: use_tools
+        type: boolean
+        required: false
+        default: true
+    
+  - name: 原材料查询
+    description: 查询原材料库存信息
+    endpoint: /chat
+    method: POST
+    parameters:
+      - name: message
+        type: string
+        required: true
+        description: 查询语句，如"查询原材料库存"
+      - name: use_tools
+        type: boolean
+        required: false
+        default: true
+    
+  - name: 库存预警
+    description: 查看库存不足的原材料
+    endpoint: /chat
+    method: POST
+    parameters:
+      - name: message
+        type: string
+        required: true
+        description: 查询语句，如"查看库存预警"
+      - name: use_tools
+        type: boolean
+        required: false
+        default: true
+    
+  - name: 客户查询
+    description: 查询客户信息
+    endpoint: /chat
+    method: POST
+    parameters:
+      - name: message
+        type: string
+        required: true
+        description: 查询语句，如"查询客户列表"
+      - name: use_tools
+        type: boolean
+        required: false
+        default: true
+    
+  - name: 读取 Excel
+    description: 读取 Excel 文件内容，分析表格数据
+    endpoint: /tools/read_excel
+    method: POST
+    parameters:
+      - name: file_path
+        type: string
+        required: true
+        description: Excel 文件路径
+      - name: sheet_name
+        type: string
+        required: false
+        description: 工作表名称（可选，不指定则读取所有 sheet）
+
+# DeepSeek MCP Server 配置
+server:
+  host: 127.0.0.1
+  port: 5001
+  base_url: http://127.0.0.1:5001
+  
+# 工具配置
+tools:
+  read_excel:
+    enabled: true
+    description: 读取 Excel 文件内容
+  search_products:
+    enabled: true
+    description: 搜索产品信息
+  get_customers:
+    enabled: true
+    description: 获取客户列表
+  get_shipments:
+    enabled: true
+    description: 查询出货单记录
+
+# OpenClaw 集成配置
+openclaw:
+  enabled: true
+  gateway_url: ws://127.0.0.1:18789
+  skills_endpoint: /skills
+  tool_endpoint: /tools

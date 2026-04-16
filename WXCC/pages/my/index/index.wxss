@@ -1,0 +1,157 @@
+/* 个人中心页面样式 */
+.container {
+  padding: 20rpx;
+  padding-bottom: 40rpx;
+  background-color: #f5f5f5;
+}
+
+/* 用户卡片 */
+.user-card {
+  margin-bottom: 20rpx;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: #fff;
+}
+
+.user-header {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+}
+
+.user-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(255, 255, 255, 0.3);
+  margin-right: 24rpx;
+}
+
+.user-info {
+  flex: 1;
+}
+
+.user-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.user-phone {
+  font-size: 26rpx;
+  opacity: 0.8;
+  display: block;
+}
+
+.user-header .iconfont {
+  font-size: 32rpx;
+  opacity: 0.8;
+}
+
+/* 订单卡片 */
+.order-card {
+  margin-bottom: 20rpx;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid #e8e8e8;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.card-more {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.order-status {
+  display: flex;
+  justify-content: space-around;
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.status-icon {
+  font-size: 48rpx;
+  margin-bottom: 12rpx;
+}
+
+.status-text {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.status-count {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
+  background-color: #f5222d;
+  color: #fff;
+  border-radius: 20rpx;
+  padding: 4rpx 12rpx;
+  font-size: 20rpx;
+  min-width: 32rpx;
+  text-align: center;
+}
+
+/* 菜单列表 */
+.menu-list {
+  margin-bottom: 20rpx;
+  padding: 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 30rpx 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-icon {
+  font-size: 40rpx;
+  margin-right: 20rpx;
+}
+
+.menu-text {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333;
+}
+
+.menu-item .iconfont {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 退出登录按钮 */
+.logout-btn {
+  background-color: #fff;
+  color: #f5222d;
+  border-radius: 12rpx;
+  padding: 24rpx 0;
+  text-align: center;
+  font-size: 30rpx;
+  margin-top: 40rpx;
+}
+
+.logout-btn:active {
+  opacity: 0.8;
+}

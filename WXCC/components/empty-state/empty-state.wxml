@@ -1,0 +1,4 @@
+<view class="empty-state">
+  <image class="empty-image" src="/assets/empty.svg" mode="aspectFit"></image>
+  <text class="empty-text">{{text}}</text>
+</view>

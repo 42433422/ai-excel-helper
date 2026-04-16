@@ -1,0 +1,1 @@
+C:\Program Files\Python311\python.exe: can't open file 'E:\\FHD\\scripts\\_cmp_three_once.py': [Errno 2] No such file or directory

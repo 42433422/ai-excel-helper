@@ -1,0 +1,87 @@
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input-wrapper">
+      <text class="iconfont icon-search"></text>
+      <input 
+        class="search-input" 
+        placeholder="搜索商品名称、型号"
+        value="{{keyword}}"
+        bindinput="onKeywordInput"
+        bindconfirm="search"
+        confirm-type="search"
+      />
+      <text class="iconfont icon-close" wx:if="{{keyword}}" bindtap="clearKeyword"></text>
+    </view>
+    <view class="btn-search" bindtap="search">搜索</view>
+  </view>
+
+  <!-- 搜索历史 -->
+  <view class="history-section" wx:if="{{!searching && !keyword && searchHistory.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">搜索历史</text>
+      <text class="section-clear" bindtap="clearHistory">清除</text>
+    </view>
+    <view class="history-list">
+      <view 
+        class="history-item" 
+        wx:for="{{searchHistory}}" 
+        wx:key="*this"
+        bindtap="searchHistory"
+        data-keyword="{{item}}"
+      >
+        {{item}}
+        <text class="iconfont icon-close" bindtap="deleteHistory" data-index="{{index}}"></text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 热门搜索 -->
+  <view class="hot-section" wx:if="{{!searching && !keyword}}">
+    <view class="section-header">
+      <text class="section-title">热门搜索</text>
+    </view>
+    <view class="hot-list">
+      <view 
+        class="hot-item" 
+        wx:for="{{hotKeywords}}" 
+        wx:key="*this"
+        bindtap="searchHot"
+        data-keyword="{{item}}"
+      >
+        {{item}}
+      </view>
+    </view>
+  </view>
+
+  <!-- 搜索结果 -->
+  <view class="result-section" wx:if="{{searching}}">
+    <view class="product-list">
+      <view 
+        class="product-item" 
+        wx:for="{{products}}" 
+        wx:key="id"
+        bindtap="goToProduct"
+        data-id="{{item.id}}"
+      >
+        <image class="product-image" src="{{item.image}}" mode="aspectFill"></image>
+        <view class="product-info">
+          <text class="product-name">{{item.name}}</text>
+          <text class="product-desc">{{item.description}}</text>
+          <text class="product-price">¥{{item.price}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="empty-state" wx:if="{{!loading && products.length === 0}}">
+      <image src="/assets/empty.png" mode="aspectFit"></image>
+      <text class="empty-text">未找到相关商品</text>
+    </view>
+
+    <!-- 加载中 -->
+    <view class="loading" wx:if="{{loading}}">
+      <text>加载中...</text>
+    </view>
+  </view>
+</view>

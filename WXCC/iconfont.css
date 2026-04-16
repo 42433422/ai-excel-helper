@@ -1,0 +1,44 @@
+/* 图标字体 - 使用 Unicode 编码 */
+/* 实际使用时建议引入 iconfont.cn 的在线字体或本地字体文件 */
+
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 32rpx;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 常用图标 Unicode 编码 */
+.icon-search::before { content: "\e600"; }
+.icon-close::before { content: "\e601"; }
+.icon-plus::before { content: "\e602"; }
+.icon-delete::before { content: "\e603"; }
+.icon-edit::before { content: "\e604"; }
+.icon-camera::before { content: "\e605"; }
+.icon-location::before { content: "\e606"; }
+.icon-arrow-right::before { content: "\e607"; }
+.icon-check::before { content: "\e608"; }
+.icon-cart::before { content: "\e609"; }
+.icon-add-cart::before { content: "\e60a"; }
+.icon-order::before { content: "\e60b"; }
+.icon-system::before { content: "\e60c"; }
+.icon-promotion::before { content: "\e60d"; }
+.icon-logistics::before { content: "\e60e"; }
+.icon-copy::before { content: "\e60f"; }
+
+/* 注意：
+   实际项目中需要：
+   1. 在 iconfont.cn 创建项目并添加图标
+   2. 下载字体文件到项目
+   3. 在 app.wxss 中引入 @font-face
+   4. 或者使用在线字体 CDN
+   
+   示例：
+   @font-face {
+     font-family: 'iconfont';
+     src: url('iconfont.woff2?t=xxx') format('woff2'),
+          url('iconfont.woff?t=xxx') format('woff'),
+          url('iconfont.ttf?t=xxx') format('truetype');
+   }
+*/

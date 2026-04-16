@@ -1,0 +1,192 @@
+/* transitions.css - 通用过渡动画 */
+
+/* 让过渡文字围绕屏幕中心轨道旋转 */
+@keyframes turboSpin {
+    0% {
+        transform: rotate(0deg) scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: rotate(360deg) scale(0.9);
+        opacity: 0.8;
+    }
+    100% {
+        transform: rotate(720deg) scale(0);
+        opacity: 0;
+    }
+}
+
+@keyframes turboSpinReverse {
+    0% {
+        transform: rotate(720deg) scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: rotate(360deg) scale(0.9);
+        opacity: 0.8;
+    }
+    100% {
+        transform: rotate(0deg) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes bgColorShift {
+    0% {
+        background-color: #0a0a15;
+    }
+    100% {
+        background-color: #050510;
+    }
+}
+
+.transition-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 99999;
+    pointer-events: auto;
+    display: none;
+    overflow: hidden;
+    background: rgba(5, 5, 16, 0.95);
+}
+
+.transition-overlay.active {
+    display: block;
+}
+
+.transition-text {
+    position: absolute;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    font-weight: bold;
+    font-size: 20px;
+    color: #00ffff;
+    text-shadow: 0 0 10px #00ffff;
+    white-space: nowrap;
+    will-change: transform, opacity;
+    z-index: 100000;
+    display: inline-block;
+    padding: 5px 10px;
+    /* 初始位置在屏幕中心 */
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* 从对应位置飞入屏幕中心并消失（进入动画）- 使用贝塞尔曲线实现平滑过渡 */
+.transition-overlay.entering .transition-text {
+    animation: flyInFromElement 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* 从屏幕中心飞出到对应位置（退出动画） */
+.transition-overlay.exiting .transition-text {
+    animation: flyOutToElement 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes flyInFromElement {
+    0% {
+        left: var(--start-left);
+        top: var(--start-top);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.3);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+    60% {
+        left: 50%;
+        top: 50%;
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+        left: 50%;
+        top: 50%;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.6);
+    }
+}
+
+/* 进入动画：从元素位置飞入，同时围绕屏幕中心旋转并渐变消失 */
+@keyframes flyInWithOrbit {
+    0% {
+        left: var(--start-left);
+        top: var(--start-top);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+    }
+    30% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1) rotate(120deg);
+    }
+    70% {
+        left: 50%;
+        top: 50%;
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(240deg);
+    }
+    100% {
+        left: 50%;
+        top: 50%;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5) rotate(360deg);
+    }
+}
+
+/* 退出动画：从屏幕中心飞出，同时围绕屏幕中心旋转并渐变消失 */
+@keyframes flyOutWithOrbit {
+    0% {
+        left: 50%;
+        top: 50%;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5) rotate(0deg);
+    }
+    30% {
+        left: 50%;
+        top: 50%;
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(120deg);
+    }
+    70% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1) rotate(240deg);
+    }
+    100% {
+        left: var(--start-left);
+        top: var(--start-top);
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.3) rotate(360deg);
+    }
+}
+
+/* 使用新的旋转动画 */
+.transition-overlay.entering .transition-text {
+    animation: flyInWithOrbit 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.transition-overlay.exiting .transition-text {
+    animation: flyOutWithOrbit 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.transition-overlay.entering {
+    animation: bgFadeIn 0.4s ease forwards;
+}
+
+.transition-overlay.exiting {
+    animation: bgFadeOut 0.4s ease forwards;
+}
+
+@keyframes bgFadeIn {
+    0% { background: rgba(5, 5, 16, 0); }
+    70% { background: rgba(5, 5, 16, 0.95); }
+    100% { background: rgba(5, 5, 16, 0.95); }
+}
+
+@keyframes bgFadeOut {
+    0% { background: rgba(5, 5, 16, 0.95); }
+    30% { background: rgba(5, 5, 16, 0.95); }
+    100% { background: rgba(5, 5, 16, 0); }
+}

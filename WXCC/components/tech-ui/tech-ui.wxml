@@ -1,0 +1,44 @@
+<!-- 科技感卡片组件 -->
+<view class="tech-card {{glow ? 'glow' : ''}} {{hover ? 'hover-effect' : ''}}" style="{{customStyle}}">
+  <view class="card-bg">
+    <view class="bg-gradient"></view>
+    <view class="bg-pattern"></view>
+  </view>
+  <view class="card-content">
+    <slot></slot>
+  </view>
+  <view class="card-border"></view>
+</view>
+
+<!-- 数据流动画组件 -->
+<view class="data-flow">
+  <view class="flow-line" wx:for="{{lines}}" wx:key="index" style="animation-delay: {{item.delay}}s;">
+    <view class="flow-dot" style="animation-delay: {{item.dotDelay}}s;"></view>
+  </view>
+</view>
+
+<!-- 进度条组件 -->
+<view class="tech-progress">
+  <view class="progress-bg">
+    <view class="progress-bar" style="width: {{percent}}%; background: {{color}};">
+      <view class="progress-glow"></view>
+    </view>
+  </view>
+  <view class="progress-text">
+    <text>{{text || percent + '%'}}</text>
+  </view>
+</view>
+
+<!-- 数字计数器组件 -->
+<view class="counter-container">
+  <text class="counter-value" style="color: {{color}};">{{animatedValue}}</text>
+  <text class="counter-label">{{label}}</text>
+</view>
+
+<!-- 加载动画组件 -->
+<view class="tech-loading {{size}}">
+  <view class="loading-orbit">
+    <view class="loading-electron" wx:for="{{3}}" wx:key="index" style="animation-delay: {{index * 0.2}}s;"></view>
+  </view>
+  <text class="loading-text" wx:if="{{text}}">{{text}}</text>
+</view>

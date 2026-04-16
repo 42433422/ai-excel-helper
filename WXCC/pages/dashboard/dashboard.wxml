@@ -1,0 +1,102 @@
+<view class="dashboard-container">
+  <!-- 顶部统计卡片 -->
+  <view class="stats-row">
+    <tech-card glow="{{true}}" hover="{{true}}" custom-style="flex: 1;">
+      <data-card 
+        title="今日销售额" 
+        value="{{stats.todaySales}}" 
+        unit="元" 
+        trend="{{stats.salesTrend}}"
+        trend-text="{{stats.salesTrendText}}"
+        description="较昨日 {{stats.salesChange}}%"
+      />
+    </tech-card>
+    
+    <tech-card glow="{{true}}" hover="{{true}}" custom-style="flex: 1;">
+      <data-card 
+        title="订单数量" 
+        value="{{stats.orderCount}}" 
+        unit="单" 
+        trend="{{stats.orderTrend}}"
+        trend-text="{{stats.orderTrendText}}"
+        description="实时更新"
+      />
+    </tech-card>
+  </view>
+
+  <!-- 数据流动画分隔 -->
+  <data-flow line-count="{{8}}" />
+
+  <!-- 销售趋势图表 -->
+  <tech-card glow="{{true}}" hover="{{false}}">
+    <chart-bar 
+      title="7日销售趋势" 
+      data="{{salesData}}" 
+      type="bar"
+    />
+  </tech-card>
+
+  <!-- 商品分类占比 -->
+  <tech-card glow="{{true}}" hover="{{false}}">
+    <chart-pie 
+      title="商品分类占比" 
+      data="{{categoryData}}" 
+      type="pie"
+      size="{{200}}"
+    />
+  </tech-card>
+
+  <!-- 实时订单监控 -->
+  <tech-card glow="{{true}}" hover="{{false}}">
+    <view class="section-title">实时订单监控</view>
+    <view class="order-monitor">
+      <view class="order-item" wx:for="{{recentOrders}}" wx:key="id">
+        <view class="order-info">
+          <text class="order-id">订单 #{{item.id}}</text>
+          <text class="order-time">{{item.time}}</text>
+        </view>
+        <view class="order-status {{item.status}}">
+          <text>{{item.statusText}}</text>
+        </view>
+      </view>
+    </view>
+  </tech-card>
+
+  <!-- 系统性能监控 -->
+  <tech-card glow="{{true}}" hover="{{false}}">
+    <view class="section-title">系统性能</view>
+    <view class="performance-grid">
+      <view class="performance-item">
+        <text class="perf-label">API响应</text>
+        <tech-progress percent="{{performance.apiResponse}}" color="#52c41a" />
+        <text class="perf-value">{{performance.apiResponse}}ms</text>
+      </view>
+      <view class="performance-item">
+        <text class="perf-label">内存使用</text>
+        <tech-progress percent="{{performance.memoryUsage}}" color="#1890ff" />
+        <text class="perf-value">{{performance.memoryUsage}}%</text>
+      </view>
+      <view class="performance-item">
+        <text class="perf-label">并发用户</text>
+        <tech-progress percent="{{performance.concurrentUsers}}" color="#faad14" />
+        <text class="perf-value">{{performance.concurrentUsers}}</text>
+      </view>
+    </view>
+  </tech-card>
+
+  <!-- 智能推荐统计 -->
+  <tech-card glow="{{true}}" hover="{{false}}">
+    <view class="section-title">推荐算法效果</view>
+    <view class="recommend-stats">
+      <view class="stat-item">
+        <counter value="{{recommendStats.clickRate}}" label="点击率" duration="{{1500}}" />
+      </view>
+      <view class="stat-item">
+        <counter value="{{recommendStats.conversionRate}}" label="转化率" duration="{{1500}}" />
+      </view>
+      <view class="stat-item">
+        <counter value="{{recommendStats.avgViewTime}}" label="平均浏览" duration="{{1500}}" />
+      </view>
+    </view>
+  </tech-card>
+</view>

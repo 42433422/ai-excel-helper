@@ -1,0 +1,57 @@
+<!-- 柱状图组件 -->
+<view class="chart-container">
+  <view class="chart-title">{{title}}</view>
+  <view class="chart-content">
+    <view class="chart-bars">
+      <view 
+        class="chart-bar" 
+        wx:for="{{data}}" 
+        wx:key="label"
+        style="height: {{item.percent}}%; background: {{item.color}};"
+      >
+        <text class="bar-value">{{item.value}}</text>
+        <text class="bar-label">{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 环形图组件 -->
+<view class="chart-container">
+  <view class="chart-title">{{title}}</view>
+  <view class="pie-chart">
+    <view class="pie-container" style="width: {{size}}rpx; height: {{size}}rpx;">
+      <view 
+        class="pie-segment" 
+        wx:for="{{data}}" 
+        wx:key="label"
+        style="transform: rotate({{item.startAngle}}deg); background: conic-gradient({{item.color}} 0 {{item.percent}}%, transparent {{item.percent}}% 100%);"
+      ></view>
+      <view class="pie-center">
+        <text class="pie-total">{{total}}</text>
+        <text class="pie-label">总计</text>
+      </view>
+    </view>
+    <view class="pie-legend">
+      <view class="legend-item" wx:for="{{data}}" wx:key="label">
+        <view class="legend-color" style="background: {{item.color}};"></view>
+        <text class="legend-text">{{item.label}}: {{item.value}} ({{item.percent}}%)</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 数据卡片组件 -->
+<view class="data-card">
+  <view class="card-header">
+    <text class="card-title">{{title}}</text>
+    <text class="card-trend {{trendClass}}">{{trendText}}</text>
+  </view>
+  <view class="card-content">
+    <text class="card-value">{{value}}</text>
+    <text class="card-unit">{{unit}}</text>
+  </view>
+  <view class="card-footer">
+    <text class="card-desc">{{description}}</text>
+  </view>
+</view>

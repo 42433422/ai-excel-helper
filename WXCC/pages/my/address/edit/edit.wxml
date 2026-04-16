@@ -1,0 +1,53 @@
+<view class="container">
+  <view class="form-section card">
+    <view class="form-item">
+      <text class="form-label">收货人 <text class="required">*</text></text>
+      <input 
+        class="form-input" 
+        placeholder="请填写收货人姓名"
+        value="{{formData.name}}"
+        bindinput="onNameInput"
+      />
+    </view>
+    <view class="form-item">
+      <text class="form-label">手机号码 <text class="required">*</text></text>
+      <input 
+        class="form-input" 
+        type="number"
+        placeholder="请填写手机号码"
+        value="{{formData.phone}}"
+        bindinput="onPhoneInput"
+      />
+    </view>
+    <view class="form-item">
+      <text class="form-label">所在地区 <text class="required">*</text></text>
+      <view class="form-picker" bindtap="pickRegion">
+        <text class="picker-text" wx:if="{{!formData.region}}">请选择省/市/区</text>
+        <text class="picker-value" wx:else>{{formData.region}}</text>
+        <text class="iconfont icon-arrow-right"></text>
+      </view>
+    </view>
+    <view class="form-item">
+      <text class="form-label">详细地址 <text class="required">*</text></text>
+      <textarea 
+        class="form-textarea" 
+        placeholder="请填写详细地址，如：街道、小区、门牌号等"
+        value="{{formData.detail}}"
+        bindinput="onDetailInput"
+        maxlength="200"
+      ></textarea>
+    </view>
+    <view class="form-item">
+      <text class="form-label">默认地址</text>
+      <switch 
+        class="form-switch" 
+        checked="{{formData.isDefault}}"
+        bindchange="onDefaultChange"
+        color="#1890ff"
+      />
+    </view>
+  </view>
+
+  <!-- 保存按钮 -->
+  <view class="save-btn" bindtap="saveAddress">保存地址</view>
+</view>

@@ -1,0 +1,77 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/category/category",
+    "pages/product/detail/detail",
+    "pages/cart/cart",
+    "pages/my/index/index",
+    "pages/my/info/info",
+    "pages/my/favorite/favorite",
+    "pages/my/address/list/list",
+    "pages/my/address/edit/edit",
+    "pages/my/cache/cache",
+    "pages/search/search",
+    "pages/message/list/list",
+    "pages/login/login",
+    "pages/agreement/agreement"
+  ],
+  "subPackages": [
+    {
+      "root": "pages/order",
+      "name": "order",
+      "pages": [
+        "list/list",
+        "detail/detail",
+        "confirm/confirm",
+        "result/result",
+        "pay/pay",
+        "review/review",
+        "logistics/logistics"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "all",
+      "packages": ["order"]
+    },
+    "pages/cart/cart": {
+      "network": "wifi",
+      "packages": ["order"]
+    }
+  },
+  "window": {
+    "navigationBarBackgroundColor": "#1890ff",
+    "navigationBarTitleText": "XCAGI 智能采购",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f5f5",
+    "backgroundTextStyle": "dark",
+    "enablePullDownRefresh": true
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#1890ff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/category/category",
+        "text": "分类"
+      },
+      {
+        "pagePath": "pages/cart/cart",
+        "text": "购物车"
+      },
+      {
+        "pagePath": "pages/my/index/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

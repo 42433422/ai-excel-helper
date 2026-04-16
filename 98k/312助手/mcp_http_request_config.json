@@ -1,0 +1,11 @@
+{
+  "url": "http://127.0.0.1:5001/chat",
+  "method": "POST",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": {
+    "message": "{{user_input}}",
+    "use_tools": true
+  }
+}

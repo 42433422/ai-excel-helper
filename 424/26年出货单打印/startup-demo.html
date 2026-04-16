@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XC 启动动画示例</title>
+  <style>
+    :root {
+      --bg: #f3f5f7;
+      --text: #1d2430;
+      --subtext: #5f6b7b;
+      --brand: #178cf4;
+      --splash-total: 1700ms;
+      --logo-fade-delay: 300ms;
+      --logo-fade-duration: 850ms;
+      --page-fade-duration: 560ms;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* 页面初始隐藏，等待启动动画结束再淡入 */
+    .app {
+      min-height: 100%;
+      opacity: 0;
+      transition: opacity var(--page-fade-duration) ease;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    body.app-ready .app {
+      opacity: 1;
+    }
+
+    .card {
+      width: min(920px, 100%);
+      background: #fff;
+      border-radius: 16px;
+      padding: 30px 32px;
+      box-shadow: 0 10px 35px rgba(12, 37, 64, 0.12);
+    }
+
+    .card h1 {
+      margin: 0 0 12px;
+      font-size: 30px;
+      letter-spacing: 0.6px;
+    }
+
+    .card p {
+      margin: 0;
+      line-height: 1.8;
+      color: var(--subtext);
+      font-size: 16px;
+    }
+
+    .splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--bg);
+      display: grid;
+      place-items: center;
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 420ms ease, visibility 0s linear 420ms;
+    }
+
+    .splash.hide {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .logo-wrap {
+      position: relative;
+      width: min(420px, 72vw);
+      aspect-ratio: 1 / 1;
+    }
+
+    .logo-wrap img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .logo-base {
+      opacity: 1;
+    }
+
+    .logo-text {
+      opacity: 0;
+      animation: textFadeIn var(--logo-fade-duration) ease var(--logo-fade-delay) forwards;
+    }
+
+    .loading-tip {
+      margin-top: 14px;
+      text-align: center;
+      color: #70839c;
+      font-size: 14px;
+      letter-spacing: 0.6px;
+    }
+
+    .dot::after {
+      content: "";
+      animation: dots 1400ms steps(4, end) infinite;
+    }
+
+    @keyframes textFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes dots {
+      0% { content: ""; }
+      25% { content: "."; }
+      50% { content: ".."; }
+      75% { content: "..."; }
+      100% { content: ""; }
+    }
+  </style>
+</head>
+<body>
+  <div id="splash" class="splash" aria-label="初始化动画">
+    <div>
+      <div class="logo-wrap">
+        <img class="logo-base" src="./f5e8c83a174840e71762500c8a52f70b.jpg" alt="XC logo" />
+        <img class="logo-text" src="./e9f2ac326c808c280954bbf64da0d763.jpg" alt="XC logo with text" />
+      </div>
+      <div class="loading-tip">系统初始化中<span class="dot"></span></div>
+    </div>
+  </div>
+
+  <main class="app">
+    <section class="card">
+      <h1>欢迎进入系统</h1>
+      <p>
+        当前页已接入“刷新和初始化时显示启动动画，然后主页面渐显”的流程。
+        将本文件里的 splash 结构与脚本复制到你的正式页面，即可实现同样效果。
+      </p>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var splash = document.getElementById("splash");
+      var totalDuration = 1700;
+
+      function showPage() {
+        splash.classList.add("hide");
+        document.body.classList.add("app-ready");
+      }
+
+      if (document.readyState === "complete") {
+        setTimeout(showPage, totalDuration);
+      } else {
+        window.addEventListener("load", function () {
+          setTimeout(showPage, totalDuration);
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

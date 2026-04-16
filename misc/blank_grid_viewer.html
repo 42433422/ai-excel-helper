@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>空白网格模板预览</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+
+        .preview-section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #007bff;
+        }
+
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 10px;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .info-panel {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .grid-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .grid-lines {
+            display: flex;
+            gap: 30px;
+            margin-top: 10px;
+        }
+
+        .lines-column {
+            flex: 1;
+        }
+
+        .lines-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #007bff;
+        }
+
+        .lines-list {
+            list-style: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .lines-list li {
+            padding: 5px 10px;
+            margin: 3px 0;
+            background: #f8f9fa;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .lines-list li:nth-child(odd) {
+            background: #e9ecef;
+        }
+
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .instructions h3 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .instructions ul {
+            margin-left: 20px;
+            color: #856404;
+        }
+
+        .instructions li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 空白网格模板预览</h1>
+
+        <!-- 画布预览 -->
+        <div class="preview-section">
+            <div class="section-title">🎨 Canvas 预览</div>
+            <div class="canvas-container">
+                <canvas id="gridCanvas" width="600" height="600"></canvas>
+            </div>
+            <div class="instructions">
+                <h3>💡 操作说明</h3>
+                <ul>
+                    <li>黑色线条 = 检测到的表格边框和分隔线</li>
+                    <li>红色边框 = 字段编辑框（示例）</li>
+                    <li>鼠标悬停在红色框上可查看字段信息</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 信息面板 -->
+        <div class="info-panel">
+            <div class="section-title">📊 网格信息</div>
+            
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">图片尺寸</div>
+                    <div class="info-value">600 × 600</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">水平线数量</div>
+                    <div class="info-value" id="hLineCount">6 条</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">垂直线数量</div>
+                    <div class="info-value" id="vLineCount">4 条</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">网格单元</div>
+                    <div class="info-value" id="cellCount">5 行 × 3 列</div>
+                </div>
+            </div>
+
+            <div class="grid-info">
+                <div class="grid-lines">
+                    <div class="lines-column">
+                        <div class="lines-title">📏 水平线 Y 坐标</div>
+                        <ul class="lines-list" id="hLinesList"></ul>
+                    </div>
+                    <div class="lines-column">
+                        <div class="lines-title">📐 垂直线 X 坐标</div>
+                        <ul class="lines-list" id="vLinesList"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 网格数据（从实际标签图片检测得到）
+        const gridData = {
+            horizontal_lines: [1, 125, 225, 325, 425, 598],
+            vertical_lines: [1, 200, 650, 898],
+            fields: [
+                { label: '产品编号', value: '6808AA', x: 10, y: 10, width: 180, height: 100 },
+                { label: '产品名称', value: 'PE 封固底漆稀料', x: 10, y: 135, width: 180, height: 90 },
+                { label: '生产日期', value: '2026.03.21', x: 10, y: 235, width: 180, height: 80 },
+                { label: '保质期', value: '6 个月', x: 460, y: 235, width: 180, height: 80 },
+                { label: '产品规格', value: '23.0±0.1KG/桶', x: 10, y: 335, width: 180, height: 80 },
+                { label: '检验员', value: '合格', x: 460, y: 335, width: 180, height: 80 },
+            ]
+        };
+
+        // 初始化 Canvas
+        const canvas = document.getElementById('gridCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 绘制函数
+        function drawCanvas() {
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制网格线
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+
+            // 水平线
+            gridData.horizontal_lines.forEach(y => {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            });
+
+            // 垂直线
+            gridData.vertical_lines.forEach(x => {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            });
+
+            // 绘制字段框
+            gridData.fields.forEach((field, index) => {
+                // 半透明填充
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+                ctx.fillRect(field.x, field.y, field.width, field.height);
+
+                // 红色边框
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(field.x, field.y, field.width, field.height);
+
+                // 字段标签
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 14px Microsoft YaHei';
+                ctx.fillText(field.label, field.x + 5, field.y + 20);
+
+                // 字段值（用 X 表示待编辑）
+                ctx.fillStyle = '#666666';
+                ctx.font = '12px Microsoft YaHei';
+                ctx.fillText(field.value, field.x + 5, field.y + 45);
+            });
+        }
+
+        // 更新信息面板
+        function updateInfoPanel() {
+            document.getElementById('hLineCount').textContent = gridData.horizontal_lines.length + ' 条';
+            document.getElementById('vLineCount').textContent = gridData.vertical_lines.length + ' 条';
+            
+            const rows = gridData.horizontal_lines.length - 1;
+            const cols = gridData.vertical_lines.length - 1;
+            document.getElementById('cellCount').textContent = `${rows}行 × ${cols}列`;
+
+            // 填充水平线列表
+            const hLinesList = document.getElementById('hLinesList');
+            hLinesList.innerHTML = '';
+            gridData.horizontal_lines.forEach((y, index) => {
+                const li = document.createElement('li');
+                li.textContent = `[${index}] Y = ${y}`;
+                hLinesList.appendChild(li);
+            });
+
+            // 填充垂直线列表
+            const vLinesList = document.getElementById('vLinesList');
+            vLinesList.innerHTML = '';
+            gridData.vertical_lines.forEach((x, index) => {
+                const li = document.createElement('li');
+                li.textContent = `[${index}] X = ${x}`;
+                vLinesList.appendChild(li);
+            });
+        }
+
+        // 鼠标交互
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            // 检查是否悬停在某个字段上
+            let hovered = false;
+            gridData.fields.forEach(field => {
+                if (mouseX >= field.x && mouseX <= field.x + field.width &&
+                    mouseY >= field.y && mouseY <= field.y + field.height) {
+                    canvas.style.cursor = 'pointer';
+                    hovered = true;
+                }
+            });
+
+            if (!hovered) {
+                canvas.style.cursor = 'default';
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            // 检查点击了哪个字段
+            gridData.fields.forEach((field, index) => {
+                if (mouseX >= field.x && mouseX <= field.x + field.width &&
+                    mouseY >= field.y && mouseY <= field.y + field.height) {
+                    alert(`点击了字段 ${index + 1}:\n标签：${field.label}\n值：${field.value}\n位置：(${field.x}, ${field.y})\n尺寸：${field.width} x ${field.height}`);
+                }
+            });
+        });
+
+        // 初始化
+        drawCanvas();
+        updateInfoPanel();
+
+        console.log('网格数据:', gridData);
+        console.log('Canvas 已初始化');
+    </script>
+</body>
+</html>

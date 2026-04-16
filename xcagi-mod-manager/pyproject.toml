@@ -1,0 +1,24 @@
+[project]
+name = "xcagi-mod-manager"
+version = "0.1.0"
+description = "XCAGI Mod 库：集中储存、校验与部署到 XCAGI/mods"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+web = [
+  "fastapi>=0.109",
+  "uvicorn[standard]>=0.27",
+  "python-multipart>=0.0.6",
+]
+
+[project.scripts]
+modman = "modman.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["modman*", "modrepo_server*"]

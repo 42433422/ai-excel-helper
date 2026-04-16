@@ -1,0 +1,90 @@
+{
+  "name": "DeepSeek AI 助手",
+  "description": "使用 DeepSeek AI 进行智能对话",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "trigger-1",
+      "type": "trigger",
+      "name": "触发器",
+      "config": {
+        "mode": "manual",
+        "label": "开始对话"
+      },
+      "position": { "x": 100, "y": 100 }
+    },
+    {
+      "id": "input-1",
+      "type": "input",
+      "name": "用户输入",
+      "config": {
+        "field": "user_input",
+        "label": "请输入你的问题",
+        "required": true
+      },
+      "position": { "x": 100, "y": 200 }
+    },
+    {
+      "id": "http-1",
+      "type": "http-request",
+      "name": "DeepSeek AI",
+      "config": {
+        "url": "http://127.0.0.1:5001/chat",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "message": "{{input-1.user_input}}",
+          "use_tools": true
+        },
+        "timeout": 60
+      },
+      "position": { "x": 100, "y": 300 }
+    },
+    {
+      "id": "parse-1",
+      "type": "json-parse",
+      "name": "解析响应",
+      "config": {
+        "input": "{{http-1.body}}",
+        "fields": [
+          {
+            "name": "reply",
+            "path": "$.reply",
+            "type": "string"
+          }
+        ]
+      },
+      "position": { "x": 100, "y": 400 }
+    },
+    {
+      "id": "response-1",
+      "type": "response",
+      "name": "AI 回复",
+      "config": {
+        "content": "{{parse-1.reply}}",
+        "format": "text"
+      },
+      "position": { "x": 100, "y": 500 }
+    }
+  ],
+  "connections": [
+    {
+      "from": "trigger-1",
+      "to": "input-1"
+    },
+    {
+      "from": "input-1",
+      "to": "http-1"
+    },
+    {
+      "from": "http-1",
+      "to": "parse-1"
+    },
+    {
+      "from": "parse-1",
+      "to": "response-1"
+    }
+  ]
+}

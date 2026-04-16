@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实际标签布局预览 - 900x600</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .preview-container {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+        }
+        .canvas-wrapper {
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+        }
+        canvas {
+            border: 2px solid #000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .cell-info {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 20px;
+            min-width: 280px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .cell-info h3 {
+            color: #007bff;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 8px;
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+        }
+        .cell-item {
+            background: white;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .cell-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .cell-value {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+        }
+        .cell-position {
+            font-size: 11px;
+            color: #999;
+            font-family: monospace;
+            margin-top: 4px;
+        }
+        .merged-badge {
+            display: inline-block;
+            background: #ffc107;
+            color: #000;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 实际标签布局预览</h1>
+        <div class="info">
+            <strong>图片尺寸：900 × 600</strong> | 比例 1.50:1 | 5行×3列（含合并单元格）
+        </div>
+
+        <div class="preview-container">
+            <div class="canvas-wrapper">
+                <canvas id="labelCanvas" width="900" height="600"></canvas>
+            </div>
+
+            <div class="cell-info">
+                <h3>📦 单元格信息</h3>
+                <div class="cell-item">
+                    <div class="cell-label">产品编号 <span class="merged-badge">合并</span></div>
+                    <div class="cell-value">26-0300001A</div>
+                    <div class="cell-position">行1-1 × 列1-3 | 位置:(0,0)→(651,2)</div>
+                </div>
+                <div class="cell-item">
+                    <div class="cell-label">产品名称 <span class="merged-badge">合并</span></div>
+                    <div class="cell-value">PE封固底漆稀料</div>
+                    <div class="cell-position">行2-2 × 列1-3 | 位置:(0,2)→(651,125)</div>
+                </div>
+                <div class="cell-item">
+                    <div class="cell-label">生产日期 <span class="merged-badge">合并</span></div>
+                    <div class="cell-value">2026-03-22</div>
+                    <div class="cell-position">行3-3 × 列1-2 | 位置:(0,125)→(200,226)</div>
+                </div>
+                <div class="cell-item">
+                    <div class="cell-label">保质期 </div>
+                    <div class="cell-value">6个月</div>
+                    <div class="cell-position">行3-3 × 列3-3 | 位置:(200,125)→(651,226)</div>
+                </div>
+                <div class="cell-item">
+                    <div class="cell-label">产品规格 <span class="merged-badge">合并</span></div>
+                    <div class="cell-value">23.0±0.1KG/桶</div>
+                    <div class="cell-position">行4-4 × 列1-2 | 位置:(0,226)→(200,325)</div>
+                </div>
+                <div class="cell-item">
+                    <div class="cell-label">检验员 </div>
+                    <div class="cell-value">合格</div>
+                    <div class="cell-position">行4-4 × 列3-3 | 位置:(200,226)→(651,325)</div>
+                </div>
+                <div class="cell-item">
+                    <div class="cell-label">备注 <span class="merged-badge">合并</span></div>
+                    <div class="cell-value">(待填充)</div>
+                    <div class="cell-position">行5-5 × 列1-3 | 位置:(0,325)→(651,426)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('labelCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 网格线位置
+        const horizontalLines = [0, 2, 125, 226, 325, 426, 524, 598];
+        const verticalLines = [0, 2, 200, 651, 897];
+
+        // 单元格信息
+        const cells = [(0, 1, 0, 3, '产品编号', '26-0300001A'), (1, 2, 0, 3, '产品名称', 'PE封固底漆稀料'), (2, 3, 0, 2, '生产日期', '2026-03-22'), (2, 3, 2, 3, '保质期', '6个月'), (3, 4, 0, 2, '产品规格', '23.0±0.1KG/桶'), (3, 4, 2, 3, '检验员', '合格'), (4, 5, 0, 3, '备注', '')];
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制网格线
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+
+            // 水平线
+            horizontalLines.forEach(y => {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            });
+
+            // 垂直线
+            verticalLines.forEach(x => {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            });
+
+            // 绘制边框（加粗）
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制单元格标签和值
+            ctx.font = '24px Microsoft YaHei';
+            cells.forEach((cell, index) => {
+                const [row_start, row_end, col_start, col_end, label, value] = cell;
+                const x1 = verticalLines[col_start];
+                const y1 = horizontalLines[row_start];
+                const x2 = verticalLines[col_end];
+                const y2 = horizontalLines[row_end];
+
+                const centerX = (x1 + x2) / 2;
+                const centerY = (y1 + y2) / 2;
+
+                // 半透明背景
+                ctx.fillStyle = 'rgba(0, 123, 255, 0.1)';
+                ctx.fillRect(x1 + 2, y1 + 2, x2 - x1 - 4, y2 - y1 - 4);
+
+                // 标签
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 20px Microsoft YaHei';
+                const labelWidth = ctx.measureText(label).width;
+                ctx.fillText(label, centerX - labelWidth / 2, centerY - 10);
+
+                // 值
+                if (value) {
+                    ctx.fillStyle = '#666';
+                    ctx.font = '16px Microsoft YaHei';
+                    const displayValue = value.length > 10 ? value.substring(0, 10) + '...' : value;
+                    const valueWidth = ctx.measureText(displayValue).width;
+                    ctx.fillText(displayValue, centerX - valueWidth / 2, centerY + 15);
+                }
+            });
+        }
+
+        drawCanvas();
+    </script>
+</body>
+</html>

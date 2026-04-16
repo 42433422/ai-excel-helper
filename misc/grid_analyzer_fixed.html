@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>标签网格分析报告（修复版）</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .preview-container {
+            display: flex;
+            gap: 30px;
+        }
+        .canvas-wrapper {
+            background: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+        }
+        canvas {
+            border: 2px solid #333;
+        }
+        .analysis-panel {
+            flex: 1;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .cell-grid {
+            display: grid;
+            gap: 5px;
+        }
+        .cell {
+            padding: 10px;
+            background: white;
+            border: 2px solid #007bff;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .cell.merged-h {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+        .cell-num {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .cell-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 标签网格分析报告（修复版）</h1>
+        <div class="info">
+            <strong>图片尺寸：900 × 600</strong> |
+            <strong>网格：5 行 × 2 列</strong> |
+            <strong>单元格：10 个</strong>
+        </div>
+
+        <div class="preview-container">
+            <div class="canvas-wrapper">
+                <canvas id="gridCanvas" width="900" height="600"></canvas>
+            </div>
+
+            <div class="analysis-panel">
+                <h3>单元格详情</h3>
+                <div class="cell-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="cell ">
+                        <div class="cell-num">#0</div>
+                        <div class="cell-info">
+                            行0 列0<br>
+                            199x124<br>
+                            正常
+                        </div>
+                    </div>
+                    <div class="cell ">
+                        <div class="cell-num">#1</div>
+                        <div class="cell-info">
+                            行0 列1<br>
+                            698x124<br>
+                            正常
+                        </div>
+                    </div>
+                    <div class="cell ">
+                        <div class="cell-num">#2</div>
+                        <div class="cell-info">
+                            行1 列0<br>
+                            199x100<br>
+                            正常
+                        </div>
+                    </div>
+                    <div class="cell ">
+                        <div class="cell-num">#3</div>
+                        <div class="cell-info">
+                            行1 列1<br>
+                            698x100<br>
+                            正常
+                        </div>
+                    </div>
+                    <div class="cell ">
+                        <div class="cell-num">#4</div>
+                        <div class="cell-info">
+                            行2 列0<br>
+                            199x100<br>
+                            正常
+                        </div>
+                    </div>
+                    <div class="cell ">
+                        <div class="cell-num">#5</div>
+                        <div class="cell-info">
+                            行2 列1<br>
+                            698x100<br>
+                            正常
+                        </div>
+                    </div>
+                    <div class="cell ">
+                        <div class="cell-num">#6</div>
+                        <div class="cell-info">
+                            行3 列0<br>
+                            199x100<br>
+                            正常
+                        </div>
+                    </div>
+                    <div class="cell ">
+                        <div class="cell-num">#7</div>
+                        <div class="cell-info">
+                            行3 列1<br>
+                            698x100<br>
+                            正常
+                        </div>
+                    </div>
+                    <div class="cell ">
+                        <div class="cell-num">#8</div>
+                        <div class="cell-info">
+                            行4 列0<br>
+                            199x173<br>
+                            正常
+                        </div>
+                    </div>
+                    <div class="cell ">
+                        <div class="cell-num">#9</div>
+                        <div class="cell-info">
+                            行4 列1<br>
+                            698x173<br>
+                            正常
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gridCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const horizontalLines = [1, 125, 225, 325, 425, 598];
+        const verticalLines = [1, 200, 898];
+        const cells = [{"index": 0, "row": 0, "col": 0, "x": 1, "y": 1, "width": 199, "height": 124, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [0], "merged_rows": [0]}, {"index": 1, "row": 0, "col": 1, "x": 200, "y": 1, "width": 698, "height": 124, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [1], "merged_rows": [0]}, {"index": 2, "row": 1, "col": 0, "x": 1, "y": 125, "width": 199, "height": 100, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [0], "merged_rows": [1]}, {"index": 3, "row": 1, "col": 1, "x": 200, "y": 125, "width": 698, "height": 100, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [1], "merged_rows": [1]}, {"index": 4, "row": 2, "col": 0, "x": 1, "y": 225, "width": 199, "height": 100, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [0], "merged_rows": [2]}, {"index": 5, "row": 2, "col": 1, "x": 200, "y": 225, "width": 698, "height": 100, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [1], "merged_rows": [2]}, {"index": 6, "row": 3, "col": 0, "x": 1, "y": 325, "width": 199, "height": 100, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [0], "merged_rows": [3]}, {"index": 7, "row": 3, "col": 1, "x": 200, "y": 325, "width": 698, "height": 100, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [1], "merged_rows": [3]}, {"index": 8, "row": 4, "col": 0, "x": 1, "y": 425, "width": 199, "height": 173, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [0], "merged_rows": [4]}, {"index": 9, "row": 4, "col": 1, "x": 200, "y": 425, "width": 698, "height": 173, "is_merged_horizontally": false, "is_merged_vertically": false, "merged_cols": [1], "merged_rows": [4]}];
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制单元格
+            cells.forEach(cell => {
+                let fillColor = cell.is_merged_horizontally
+                    ? 'rgba(255, 193, 7, 0.3)'
+                    : 'rgba(0, 123, 255, 0.1)';
+                let borderColor = cell.is_merged_horizontally ? '#ffc107' : '#007bff';
+
+                ctx.fillStyle = fillColor;
+                ctx.fillRect(cell.x, cell.y, cell.width, cell.height);
+
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cell.x, cell.y, cell.width, cell.height);
+
+                // 编号
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 14px Microsoft YaHei';
+                ctx.fillText('#' + cell.index, cell.x + 5, cell.y + 20);
+            });
+
+            // 绘制完整分隔线
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+
+            horizontalLines.forEach(y => {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            });
+
+            valid_vertical_lines.forEach(x => {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            });
+
+            // 外边框
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+        }
+
+        drawCanvas();
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+
+            cells.forEach(cell => {
+                if (mouseX >= cell.x && mouseX <= cell.x + cell.width &&
+                    mouseY >= cell.y && mouseY <= cell.y + cell.height) {
+                    canvas.title = `#${cell.index} 行${cell.row} 列${cell.col} ${cell.width}x${cell.height}`;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

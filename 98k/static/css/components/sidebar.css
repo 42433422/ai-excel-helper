@@ -1,0 +1,68 @@
+/* sidebar.css - 侧边栏样式 */
+
+.sidebar {
+    width: 220px;
+    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+    color: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.sidebar-header h4 { margin: 0; font-size: 16px; }
+
+.sidebar-menu { flex: 1; padding: 15px 0; overflow-y: auto; }
+
+.menu-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: rgba(255,255,255,0.7);
+    border-left: 3px solid transparent;
+}
+
+.menu-item:hover { background: rgba(255,255,255,0.1); color: white; }
+.menu-item.active { background: rgba(74,144,217,0.2); color: white; border-left-color: var(--primary-color); }
+
+.mode-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+}
+
+.mode-label {
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+}
+
+.toggle-switch {
+    width: 40px;
+    height: 20px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.3s;
+}
+
+.toggle-switch.active {
+    background: #4a90d9;
+}
+
+.toggle-slider {
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s;
+}
+
+.toggle-switch.active .toggle-slider {
+    transform: translateX(20px);
+}

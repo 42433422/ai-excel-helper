@@ -1,0 +1,9 @@
+{
+  "desc": "关于本小程序的收录和排序，请阅读 sitemap 说明",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

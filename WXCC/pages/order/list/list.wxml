@@ -1,0 +1,59 @@
+<view class="container">
+  <!-- 订单状态筛选 -->
+  <view class="order-tabs">
+    <scroll-view class="tabs-scroll" scroll-x="{{true}}">
+      <view class="tab-item {{currentStatus === item.value ? 'active' : ''}}" 
+            wx:for="{{orderTabs}}" 
+            wx:key="value"
+            bindtap="selectTab"
+            data-status="{{item.value}}">
+        {{item.label}}
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 订单列表 -->
+  <view class="order-list" wx:if="{{orders.length > 0}}">
+    <view class="order-card card" wx:for="{{orders}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
+      <view class="order-header">
+        <text class="order-number">订单号：{{item.orderNumber}}</text>
+        <text class="order-status {{item.statusClass}}">{{item.statusText}}</text>
+      </view>
+      
+      <view class="order-products">
+        <view class="product-item" wx:for="{{item.products}}" wx:key="id" wx:for-item="product">
+          <image class="product-image" src="{{product.image}}" mode="aspectFill"></image>
+          <view class="product-info">
+            <text class="product-name">{{product.name}}</text>
+            <text class="product-spec">{{product.spec}}</text>
+          </view>
+          <view class="product-quantity">x{{product.quantity}}</view>
+        </view>
+      </view>
+
+      <view class="order-footer">
+        <view class="order-total">
+          <text class="total-label">合计：</text>
+          <text class="total-price">¥{{item.totalPrice}}</text>
+        </view>
+        <view class="order-actions">
+          <button class="btn-cancel" wx:if="{{item.canCancel}}">取消订单</button>
+          <button class="btn-primary" wx:if="{{item.canPay}}">立即支付</button>
+          <button class="btn-primary" wx:if="{{item.canReceive}}">确认收货</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && orders.length === 0}}">
+    <image src="/assets/empty-order.png" mode="aspectFit"></image>
+    <text class="empty-text">暂无订单</text>
+    <view class="btn-primary" bindtap="goShopping">去逛逛</view>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

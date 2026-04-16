@@ -1,0 +1,42 @@
+<view class="skeleton-wrapper" wx:if="{{isLoading}}">
+  <!-- 列表骨架屏 -->
+  <view class="skeleton-list" wx:if="{{type === 'list'}}">
+    <view class="skeleton-item card" wx:for="{{items}}" wx:key="id">
+      <view class="skeleton-image"></view>
+      <view class="skeleton-content">
+        <view class="skeleton-title"></view>
+        <view class="skeleton-desc"></view>
+        <view class="skeleton-footer">
+          <view class="skeleton-price"></view>
+          <view class="skeleton-sales"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 详情骨架屏 -->
+  <view class="skeleton-detail" wx:if="{{type === 'detail'}}">
+    <view class="skeleton-banner"></view>
+    <view class="skeleton-info">
+      <view class="skeleton-price-lg"></view>
+      <view class="skeleton-name"></view>
+      <view class="skeleton-desc-sm"></view>
+    </view>
+  </view>
+
+  <!-- 购物车骨架屏 -->
+  <view class="skeleton-cart" wx:if="{{type === 'cart'}}">
+    <view class="skeleton-cart-item card" wx:for="{{items}}" wx:key="id">
+      <view class="skeleton-checkbox"></view>
+      <view class="skeleton-cart-image"></view>
+      <view class="skeleton-cart-content">
+        <view class="skeleton-cart-title"></view>
+        <view class="skeleton-cart-price"></view>
+      </view>
+    </view>
+  </view>
+</view>
+
+<view class="content-wrapper" wx:if="{{!isLoading}}">
+  <slot></slot>
+</view>

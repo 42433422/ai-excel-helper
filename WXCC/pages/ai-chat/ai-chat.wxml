@@ -1,0 +1,80 @@
+<!-- AI智能客服页面 -->
+<view class="ai-chat-container">
+  <!-- 聊天头部 -->
+  <view class="chat-header">
+    <view class="header-content">
+      <view class="ai-avatar">
+        <text class="ai-icon">🤖</text>
+      </view>
+      <view class="header-info">
+        <text class="ai-name">XCAGI 智能助手</text>
+        <text class="ai-status">在线 · 实时响应</text>
+      </view>
+    </view>
+    <view class="header-actions">
+      <text class="action-btn" bindtap="clearChat">🗑️</text>
+      <text class="action-btn" bindtap="toggleTheme">🌙</text>
+    </view>
+  </view>
+
+  <!-- 聊天内容 -->
+  <scroll-view class="chat-messages" scroll-y="{{true}}" scroll-top="{{scrollTop}}" scroll-with-animation="{{true}}">
+    <view class="message-list">
+      <view class="message-item {{item.role}}" wx:for="{{messages}}" wx:key="id">
+        <view class="message-avatar">
+          <text class="avatar-icon">{{item.role === 'user' ? '👤' : '🤖'}}</text>
+        </view>
+        <view class="message-content">
+          <view class="message-bubble">
+            <text class="message-text">{{item.content}}</text>
+            <view class="message-time">{{item.time}}</view>
+          </view>
+          <view class="message-actions" wx:if="{{item.role === 'assistant'}}">
+            <text class="action-btn" bindtap="copyMessage" data-content="{{item.content}}">📋</text>
+            <text class="action-btn" bindtap="regenerateMessage" data-id="{{item.id}}">🔄</text>
+          </view>
+        </view>
+      </view>
+      
+      <!-- AI思考动画 -->
+      <view class="thinking-indicator" wx:if="{{isThinking}}">
+        <view class="thinking-dots">
+          <text class="thinking-dot">.</text>
+          <text class="thinking-dot">.</text>
+          <text class="thinking-dot">.</text>
+        </view>
+        <text class="thinking-text">AI正在思考中</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 快捷问题 -->
+  <view class="quick-questions" wx:if="{{messages.length === 0}}">
+    <view class="questions-title">快捷提问</view>
+    <view class="questions-grid">
+      <view class="question-item" wx:for="{{quickQuestions}}" wx:key="id" bindtap="sendQuickQuestion" data-question="{{item}}">
+        <text class="question-text">{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 输入区域 -->
+  <view class="input-area">
+    <view class="input-container">
+      <textarea 
+        class="message-input" 
+        placeholder="输入您的问题..." 
+        value="{{inputText}}" 
+        bindinput="onInput"
+        maxlength="500"
+        auto-height
+        focus="{{autoFocus}}"
+      />
+      <view class="input-actions">
+        <text class="send-btn {{inputText ? 'active' : ''}}" bindtap="sendMessage">
+          {{isThinking ? '⏳' : '🚀'}}
+        </text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,16 @@
+{
+  "name": "xc_startup_text_fadein",
+  "version": 1,
+  "width": 1320,
+  "height": 1320,
+  "fps": 30,
+  "totalFrames": 45,
+  "durationSeconds": 1.5,
+  "framePattern": "frames/frame_{index:04d}.png",
+  "playback": {
+    "loop": false,
+    "holdStartSeconds": 0.35,
+    "fadeInSeconds": 0.7,
+    "holdEndSeconds": 0.45
+  }
+}

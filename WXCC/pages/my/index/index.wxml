@@ -1,0 +1,93 @@
+<view class="container">
+  <!-- 用户信息卡片 -->
+  <view class="user-card card">
+    <view class="user-header" bindtap="goToProfile">
+      <image class="user-avatar" src="{{userInfo.avatar || '/assets/default-avatar.png'}}" mode="aspectFill"></image>
+      <view class="user-info">
+        <text class="user-name">{{userInfo.name || '点击登录'}}</text>
+        <text class="user-phone">{{userInfo.phone || '登录后享受更多服务'}}</text>
+      </view>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+    <view class="login-btn" wx:if="{{!isLoggedIn}}" bindtap="goToLogin">
+      <text>立即登录</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+  </view>
+
+  <!-- 订单卡片 -->
+  <view class="order-card card">
+    <view class="card-header">
+      <text class="card-title">我的订单</text>
+      <text class="card-more" bindtap="goToOrders">全部订单 ></text>
+    </view>
+    <view class="order-status">
+      <view class="status-item" bindtap="goToOrderStatus" data-status="pending">
+        <text class="status-icon">📦</text>
+        <text class="status-text">待发货</text>
+        <text class="status-count" wx:if="{{orderCount.pending > 0}}">{{orderCount.pending}}</text>
+      </view>
+      <view class="status-item" bindtap="goToOrderStatus" data-status="shipping">
+        <text class="status-icon">🚚</text>
+        <text class="status-text">待收货</text>
+        <text class="status-count" wx:if="{{orderCount.shipping > 0}}">{{orderCount.shipping}}</text>
+      </view>
+      <view class="status-item" bindtap="goToOrderStatus" data-status="completed">
+        <text class="status-icon">✅</text>
+        <text class="status-text">已完成</text>
+      </view>
+      <view class="status-item" bindtap="goToOrderStatus" data-status="refund">
+        <text class="status-icon">💰</text>
+        <text class="status-text">退款/售后</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 功能菜单 -->
+  <view class="menu-list card">
+    <view class="menu-item" bindtap="goToAddress">
+      <text class="menu-icon">📍</text>
+      <text class="menu-text">收货地址</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+    <view class="menu-item" bindtap="goToFavorite">
+      <text class="menu-icon">⭐</text>
+      <text class="menu-text">我的收藏</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+    <view class="menu-item" bindtap="goToCoupon">
+      <text class="menu-icon">🎫</text>
+      <text class="menu-text">优惠券</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+  </view>
+
+  <!-- 其他功能 -->
+  <view class="menu-list card">
+    <view class="menu-item" bindtap="goToMessage">
+      <text class="menu-icon">💬</text>
+      <text class="menu-text">消息中心</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+    <view class="menu-item" bindtap="goToCache">
+      <text class="menu-icon">🗂️</text>
+      <text class="menu-text">缓存管理</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+    <view class="menu-item" bindtap="goToFeedback">
+      <text class="menu-icon">📝</text>
+      <text class="menu-text">意见反馈</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+    <view class="menu-item" bindtap="goToAbout">
+      <text class="menu-icon">ℹ️</text>
+      <text class="menu-text">关于我们</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+  </view>
+
+  <!-- 退出登录 -->
+  <view class="logout-btn" wx:if="{{isLoggedIn}}" bindtap="logout">
+    退出登录
+  </view>
+</view>

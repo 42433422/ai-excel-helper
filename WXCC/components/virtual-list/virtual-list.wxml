@@ -1,0 +1,19 @@
+<scroll-view 
+  class="virtual-list" 
+  scroll-y="{{true}}"
+  scroll-top="{{scrollTop}}"
+  scroll-with-animation="{{false}}"
+  bindscroll="onScroll"
+  style="height: {{height}}px;"
+>
+  <view class="virtual-list-content" style="height: {{totalHeight}}px;">
+    <view 
+      class="virtual-list-item" 
+      wx:for="{{visibleItems}}" 
+      wx:key="{{keyField}}"
+      style="transform: translateY({{item.offsetTop}}px);"
+    >
+      <slot item="{{item.data}}"></slot>
+    </view>
+  </view>
+</scroll-view>

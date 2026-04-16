@@ -1,0 +1,9 @@
+.modrepo-config.json
+__pycache__/
+*.py[cod]
+.venv/
+modrepo-ui/node_modules/
+modrepo-ui/dist/
+library/*
+!library/.gitkeep
+*.zip

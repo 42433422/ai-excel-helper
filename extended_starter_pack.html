@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扩展新手对话包 - 20个实用功能</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .starter-pack-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .starter-pack-header {
+            background: linear-gradient(135deg, #007AFF, #0056CC);
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+        
+        .starter-pack-header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .starter-pack-header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .search-container {
+            padding: 20px 40px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e1e5e9;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 16px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 16px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #007AFF;
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+        
+        .category-tabs {
+            display: flex;
+            padding: 0 40px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e1e5e9;
+            overflow-x: auto;
+        }
+        
+        .category-tab {
+            padding: 16px 24px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            white-space: nowrap;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .category-tab:hover {
+            color: #007AFF;
+            background: rgba(0, 122, 255, 0.05);
+        }
+        
+        .category-tab.active {
+            color: #007AFF;
+            border-bottom-color: #007AFF;
+            background: rgba(0, 122, 255, 0.1);
+        }
+        
+        .functions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 30px 40px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .function-card {
+            border: 1px solid #e1e5e9;
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            position: relative;
+        }
+        
+        .function-card:hover {
+            border-color: #007AFF;
+            box-shadow: 0 8px 25px rgba(0, 122, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .function-card:active {
+            transform: translateY(0);
+        }
+        
+        .function-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 24px;
+            color: white;
+        }
+        
+        .function-icon.query {
+            background: linear-gradient(135deg, #34C759, #30D158);
+        }
+        
+        .function-icon.operation {
+            background: linear-gradient(135deg, #FF9500, #FF9F0A);
+        }
+        
+        .function-icon.generate {
+            background: linear-gradient(135deg, #AF52DE, #BF5AF2);
+        }
+        
+        .function-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1a1a1a;
+        }
+        
+        .function-description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        
+        .function-example {
+            background: #f0f7ff;
+            border: 1px solid #d0e3ff;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #007AFF;
+        }
+        
+        .usage-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #8E8E93;
+            color: white;
+            border-radius: 12px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .favorite-star {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            cursor: pointer;
+            font-size: 18px;
+            color: #ccc;
+            transition: all 0.3s ease;
+        }
+        
+        .favorite-star.active {
+            color: #FFD700;
+        }
+        
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px 40px;
+            background: #f8f9fa;
+            border-top: 1px solid #e1e5e9;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .functions-grid {
+                grid-template-columns: 1fr;
+                padding: 20px;
+            }
+            
+            .starter-pack-header {
+                padding: 20px;
+            }
+            
+            .search-container {
+                padding: 15px 20px;
+            }
+            
+            .category-tabs {
+                padding: 0 20px;
+            }
+            
+            .stats-bar {
+                padding: 15px 20px;
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="starter-pack-container">
+        <div class="starter-pack-header">
+            <h1>智能业务助手</h1>
+            <p>20个实用功能，助您高效处理业务</p>
+        </div>
+        
+        <div class="search-container">
+            <input type="text" class="search-box" placeholder="🔍 搜索功能..." id="searchInput">
+        </div>
+        
+        <div class="category-tabs">
+            <button class="category-tab active" data-category="all">全部功能</button>
+            <button class="category-tab" data-category="query">查询类</button>
+            <button class="category-tab" data-category="operation">操作类</button>
+            <button class="category-tab" data-category="generate">生成类</button>
+            <button class="category-tab" data-category="favorite">收藏夹</button>
+        </div>
+        
+        <div class="functions-grid" id="functionsGrid">
+            <!-- 查询类功能 -->
+            <div class="function-card" data-category="query" data-usage="156">
+                <span class="favorite-star active">★</span>
+                <span class="usage-badge">156次</span>
+                <div class="function-icon query">🔍</div>
+                <div class="function-title">查产品价格</div>
+                <div class="function-description">快速查询产品价格信息，支持多种查询方式</div>
+                <div class="function-example">示例：查询产品「七彩乐园9803」</div>
+            </div>
+            
+            <div class="function-card" data-category="query" data-usage="89">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">89次</span>
+                <div class="function-icon query">📦</div>
+                <div class="function-title">库存查询</div>
+                <div class="function-description">实时查询产品库存状态和可用数量</div>
+                <div class="function-example">示例：查询9806A库存情况</div>
+            </div>
+            
+            <div class="function-card" data-category="query" data-usage="67">
+                <span class="favorite-star active">★</span>
+                <span class="usage-badge">67次</span>
+                <div class="function-icon query">👤</div>
+                <div class="function-title">客户信息查询</div>
+                <div class="function-description">查看客户资料、联系方式和交易记录</div>
+                <div class="function-example">示例：查询客户张三的信息</div>
+            </div>
+            
+            <div class="function-card" data-category="query" data-usage="45">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">45次</span>
+                <div class="function-icon query">📋</div>
+                <div class="function-title">发货单状态查询</div>
+                <div class="function-description">跟踪发货单处理进度和当前状态</div>
+                <div class="function-example">示例：查询发货单FH2024001状态</div>
+            </div>
+            
+            <div class="function-card" data-category="query" data-usage="34">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">34次</span>
+                <div class="function-icon query">📏</div>
+                <div class="function-title">产品规格查询</div>
+                <div class="function-description">查看产品详细规格参数和技术指标</div>
+                <div class="function-example">示例：查询9806A产品规格</div>
+            </div>
+            
+            <div class="function-card" data-category="query" data-usage="28">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">28次</span>
+                <div class="function-icon query">📊</div>
+                <div class="function-title">历史订单查询</div>
+                <div class="function-description">查看过往订单记录和交易明细</div>
+                <div class="function-example">示例：查询上月订单记录</div>
+            </div>
+            
+            <div class="function-card" data-category="query" data-usage="23">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">23次</span>
+                <div class="function-icon query">🏢</div>
+                <div class="function-title">供应商信息查询</div>
+                <div class="function-description">查看供应商联系方式和合作记录</div>
+                <div class="function-example">示例：查询供应商A的联系方式</div>
+            </div>
+            
+            <!-- 操作类功能 -->
+            <div class="function-card" data-category="operation" data-usage="134">
+                <span class="favorite-star active">★</span>
+                <span class="usage-badge">134次</span>
+                <div class="function-icon operation">➕</div>
+                <div class="function-title">增加发货单</div>
+                <div class="function-description">批量增加发货单数量和规格信息</div>
+                <div class="function-example">示例：增加2桶9806规格23</div>
+            </div>
+            
+            <div class="function-card" data-category="operation" data-usage="78">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">78次</span>
+                <div class="function-icon operation">✏️</div>
+                <div class="function-title">修改发货单</div>
+                <div class="function-description">编辑已创建的发货单内容和信息</div>
+                <div class="function-example">示例：修改发货单FH2024001数量</div>
+            </div>
+            
+            <div class="function-card" data-category="operation" data-usage="56">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">56次</span>
+                <div class="function-icon operation">🗑️</div>
+                <div class="function-title">删除发货单</div>
+                <div class="function-description">删除不需要或错误的发货单记录</div>
+                <div class="function-example">示例：删除发货单FH2024002</div>
+            </div>
+            
+            <div class="function-card" data-category="operation" data-usage="42">
+                <span class="favorite-star active">★</span>
+                <span class="usage-badge">42次</span>
+                <div class="function-icon operation">✅</div>
+                <div class="function-title">发货单审核</div>
+                <div class="function-description">审核待处理的发货单并确认通过</div>
+                <div class="function-example">示例：审核待处理发货单</div>
+            </div>
+            
+            <div class="function-card" data-category="operation" data-usage="38">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">38次</span>
+                <div class="function-icon operation">🔧</div>
+                <div class="function-title">批量操作</div>
+                <div class="function-description">批量处理多个发货单或产品信息</div>
+                <div class="function-example">示例：批量更新发货单状态</div>
+            </div>
+            
+            <div class="function-card" data-category="operation" data-usage="31">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">31次</span>
+                <div class="function-icon operation">🔄</div>
+                <div class="function-title">状态更新</div>
+                <div class="function-description">更新发货单处理状态和进度信息</div>
+                <div class="function-example">示例：更新发货单为已发货</div>
+            </div>
+            
+            <div class="function-card" data-category="operation" data-usage="27">
+                <span class="favorite-star active">★</span>
+                <span class="usage-badge">27次</span>
+                <div class="function-icon operation">📤</div>
+                <div class="function-title">数据导出</div>
+                <div class="function-description">导出发货单数据为Excel或PDF格式</div>
+                <div class="function-example">示例：导出本月发货单数据</div>
+            </div>
+            
+            <!-- 生成类功能 -->
+            <div class="function-card" data-category="generate" data-usage="189">
+                <span class="favorite-star active">★</span>
+                <span class="usage-badge">189次</span>
+                <div class="function-icon generate">📄</div>
+                <div class="function-title">生成发货单</div>
+                <div class="function-description">自动生成发货单及相关产品信息</div>
+                <div class="function-example">示例：发货单蕊芯1一桶9806A规格23</div>
+            </div>
+            
+            <div class="function-card" data-category="generate" data-usage="95">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">95次</span>
+                <div class="function-icon generate">🏷️</div>
+                <div class="function-title">生成产品标签</div>
+                <div class="function-description">创建产品标签、条码和识别信息</div>
+                <div class="function-example">示例：生成9806A产品标签</div>
+            </div>
+            
+            <div class="function-card" data-category="generate" data-usage="63">
+                <span class="favorite-star active">★</span>
+                <span class="usage-badge">63次</span>
+                <div class="function-icon generate">📈</div>
+                <div class="function-title">生成报表</div>
+                <div class="function-description">生成销售、库存和业务分析报表</div>
+                <div class="function-example">示例：生成本月销售报表</div>
+            </div>
+            
+            <div class="function-card" data-category="generate" data-usage="47">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">47次</span>
+                <div class="function-icon generate">💳</div>
+                <div class="function-title">生成对账单</div>
+                <div class="function-description">创建客户对账单和结算信息</div>
+                <div class="function-example">示例：生成客户A对账单</div>
+            </div>
+            
+            <div class="function-card" data-category="generate" data-usage="39">
+                <span class="favorite-star">☆</span>
+                <span class="usage-badge">39次</span>
+                <div class="function-icon generate">🛒</div>
+                <div class="function-title">生成采购单</div>
+                <div class="function-description">基于库存情况生成采购需求单</div>
+                <div class="function-example">示例：生成库存不足产品采购单</div>
+            </div>
+            
+            <div class="function-card" data-category="generate" data-usage="52">
+                <span class="favorite-star active">★</span>
+                <span class="usage-badge">52次</span>
+                <div class="function-icon generate">📢</div>
+                <div class="function-title">生成通知</div>
+                <div class="function-description">自动生成业务通知和提醒信息</div>
+                <div class="function-example">示例：生成发货完成通知</div>
+            </div>
+        </div>
+        
+        <div class="stats-bar">
+            <div>总计：20个功能</div>
+            <div>今日使用：8个功能</div>
+            <div>收藏功能：7个</div>
+        </div>
+    </div>
+
+    <script>
+        // 搜索功能
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.function-card');
+            
+            cards.forEach(card => {
+                const title = card.querySelector('.function-title').textContent.toLowerCase();
+                const desc = card.querySelector('.function-description').textContent.toLowerCase();
+                
+                if (title.includes(searchTerm) || desc.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+        
+        // 分类切换
+        document.querySelectorAll('.category-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                const category = this.dataset.category;
+                const cards = document.querySelectorAll('.function-card');
+                
+                cards.forEach(card => {
+                    if (category === 'all') {
+                        card.style.display = 'block';
+                    } else if (category === 'favorite') {
+                        const isFavorite = card.querySelector('.favorite-star').classList.contains('active');
+                        card.style.display = isFavorite ? 'block' : 'none';
+                    } else {
+                        const cardCategory = card.dataset.category;
+                        card.style.display = cardCategory === category ? 'block' : 'none';
+                    }
+                });
+            });
+        });
+        
+        // 收藏功能
+        document.querySelectorAll('.favorite-star').forEach(star => {
+            star.addEventListener('click', function(e) {
+                e.stopPropagation();
+                this.classList.toggle('active');
+                this.textContent = this.classList.contains('active') ? '★' : '☆';
+            });
+        });
+        
+        // 点击功能
+        document.querySelectorAll('.function-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const title = this.querySelector('.function-title').textContent;
+                const example = this.querySelector('.function-example').textContent;
+                
+                // 模拟发送到聊天框
+                alert(`功能已发送：${title}\n示例：${example}`);
+                
+                // 增加使用计数
+                const badge = this.querySelector('.usage-badge');
+                const currentCount = parseInt(badge.textContent);
+                badge.textContent = (currentCount + 1) + '次';
+                
+                // 点击动画
+                this.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 150);
+            });
+        });
+    </script>
+</body>
+</html>

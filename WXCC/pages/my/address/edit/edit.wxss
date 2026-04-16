@@ -1,0 +1,87 @@
+/* 地址编辑页面样式 */
+.container {
+  padding: 20rpx;
+  padding-bottom: 140rpx;
+  background-color: #f5f5f5;
+}
+
+/* 表单区块 */
+.form-section {
+  margin-bottom: 20rpx;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  padding: 30rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.form-item:last-child {
+  border-bottom: none;
+}
+
+.form-label {
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+.required {
+  color: #f5222d;
+}
+
+.form-input {
+  font-size: 28rpx;
+  color: #333;
+  padding: 20rpx 0;
+}
+
+.form-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+}
+
+.picker-text {
+  color: #999;
+  font-size: 28rpx;
+}
+
+.picker-value {
+  color: #333;
+  font-size: 28rpx;
+}
+
+.form-picker .iconfont {
+  font-size: 28rpx;
+  color: #999;
+}
+
+.form-textarea {
+  font-size: 28rpx;
+  color: #333;
+  padding: 20rpx 0;
+  min-height: 200rpx;
+}
+
+.form-switch {
+  margin-left: auto;
+}
+
+/* 保存按钮 */
+.save-btn {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: #fff;
+  border-radius: 50rpx;
+  padding: 24rpx 0;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: bold;
+  box-shadow: 0 4rpx 20rpx rgba(24, 144, 255, 0.3);
+}
+
+.save-btn:active {
+  opacity: 0.8;
+}

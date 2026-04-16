@@ -1,0 +1,35 @@
+<view class="container">
+  <!-- 订单信息 -->
+  <view class="order-section card">
+    <view class="section-title">订单信息</view>
+    <view class="order-item">
+      <text class="item-label">订单编号</text>
+      <text class="item-value">{{orderInfo.orderNo}}</text>
+    </view>
+    <view class="order-item">
+      <text class="item-label">商品名称</text>
+      <text class="item-value">{{orderInfo.productName}}</text>
+    </view>
+    <view class="order-item">
+      <text class="item-label">支付金额</text>
+      <text class="item-value price">¥{{orderInfo.amount}}</text>
+    </view>
+  </view>
+
+  <!-- 支付方式 -->
+  <view class="payment-section card">
+    <view class="section-title">支付方式</view>
+    <view class="payment-method active">
+      <text class="method-name">
+        <text class="iconfont icon-wechat"></text>
+        微信支付
+      </text>
+      <text class="iconfont icon-check"></text>
+    </view>
+  </view>
+
+  <!-- 支付按钮 -->
+  <view class="payment-btn" bindtap="startPayment">
+    <text>立即支付 ¥{{orderInfo.amount}}</text>
+  </view>
+</view>

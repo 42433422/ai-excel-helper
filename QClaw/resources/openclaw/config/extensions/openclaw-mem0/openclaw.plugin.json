@@ -1,0 +1,77 @@
+{
+  "id": "openclaw-mem0",
+  "kind": "generic",
+  "uiHints": {
+    "mode": {
+      "label": "Mode",
+      "help": "\"server\" for remote Mem0 REST server"
+    },
+    "userId": {
+      "label": "Default User ID",
+      "placeholder": "default",
+      "help": "User ID for scoping memories"
+    },
+    "autoCapture": {
+      "label": "Auto-Capture",
+      "help": "Automatically store conversation context after each agent turn"
+    },
+    "autoRecall": {
+      "label": "Auto-Recall",
+      "help": "Automatically inject relevant memories before each agent turn"
+    },
+    "searchThreshold": {
+      "label": "Search Threshold",
+      "placeholder": "0.5",
+      "help": "Minimum similarity score for search results (0-1). Default: 0.5"
+    },
+    "topK": {
+      "label": "Top K Results",
+      "placeholder": "5",
+      "help": "Maximum number of memories to retrieve"
+    },
+    "serverUrl": {
+      "label": "Mem0 Server URL",
+      "placeholder": "http://21.214.97.71:8000",
+      "help": "Base URL of the Mem0 REST server. Required for server mode."
+    },
+    "useProxy": {
+      "label": "Use Auth Gateway Proxy",
+      "placeholder": "true",
+      "help": "If true, route all requests through the local Auth Gateway proxy (port dynamically detected from openclaw.json). The proxy automatically adds authentication headers."
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": [
+          "server"
+        ]
+      },
+      "userId": {
+        "type": "string"
+      },
+      "autoCapture": {
+        "type": "boolean"
+      },
+      "autoRecall": {
+        "type": "boolean"
+      },
+      "searchThreshold": {
+        "type": "number"
+      },
+      "topK": {
+        "type": "number"
+      },
+      "serverUrl": {
+        "type": "string"
+      },
+      "useProxy": {
+        "type": "boolean"
+      }
+    },
+    "required": []
+  }
+}

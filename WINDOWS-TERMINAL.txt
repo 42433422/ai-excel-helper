@@ -1,0 +1,24 @@
+Why you see: '/d' is not recognized
+------------------------------------
+The syntax  cd /d D:\path  is for CMD.exe only.
+
+If your terminal is PowerShell (Cursor default), use:
+  Set-Location E:\FHD
+instead of:
+  cd /d E:\FHD
+
+The stray 't' / 'm' errors often happen when a multi-line command was split
+(e.g. "python", then "-m", then "pytest" on separate lines). Run one line at a time
+or use the scripts below.
+
+Easiest: double-click in Explorer
+---------------------------------
+  Open-FHD-Cmd-here.bat
+That opens CMD already in this repo. Then:
+  call scripts\fhd-set-database-url.cmd
+
+PowerShell (set env vars in THIS window)
+-----------------------------------------
+  Set-Location E:\FHD
+  . .\scripts\fhd-set-database-url.ps1
+Note the leading dot-space before the script path (dot-source).

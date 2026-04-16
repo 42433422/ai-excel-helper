@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "wechat": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mcp_server_wechat",
+        "--folder-path=E:\\FHD\\wechat_history"
+      ]
+    }
+  }
+}

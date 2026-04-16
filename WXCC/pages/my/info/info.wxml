@@ -1,0 +1,46 @@
+<view class="container">
+  <!-- 头像和昵称 -->
+  <view class="profile-section card">
+    <view class="avatar-section" bindtap="changeAvatar">
+      <image class="avatar" src="{{userInfo.avatar || '/assets/default-avatar.png'}}" mode="aspectFill"></image>
+      <text class="iconfont icon-camera"></text>
+    </view>
+    <view class="nickname-section">
+      <text class="label">昵称</text>
+      <input 
+        class="nickname-input" 
+        placeholder="点击设置昵称"
+        value="{{userInfo.name}}"
+        bindinput="onNameInput"
+      />
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+    <view class="phone-section">
+      <text class="label">手机号</text>
+      <text class="value">{{userInfo.phone || '未绑定'}}</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+  </view>
+
+  <!-- 账户安全 -->
+  <view class="security-section card">
+    <view class="section-title">账户安全</view>
+    <view class="menu-item">
+      <text class="menu-text">登录密码</text>
+      <view class="menu-right">
+        <text class="menu-desc">未设置</text>
+        <text class="iconfont icon-arrow-right"></text>
+      </view>
+    </view>
+    <view class="menu-item">
+      <text class="menu-text">账号绑定</text>
+      <view class="menu-right">
+        <text class="menu-desc">微信已绑定</text>
+        <text class="iconfont icon-arrow-right"></text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 保存按钮 -->
+  <view class="save-btn" bindtap="saveProfile">保存修改</view>
+</view>

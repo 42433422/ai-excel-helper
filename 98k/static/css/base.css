@@ -1,0 +1,298 @@
+/* base.css - 基础样式（变量、重置、布局、通用类等） */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --primary-color: #4a90d9;
+    --secondary-color: #6c757d;
+    --success-color: #28a745;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --bg-color: #f5f7fa;
+    --card-bg: #ffffff;
+}
+
+body {
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background-color: var(--bg-color);
+    height: 100vh;
+    overflow: hidden;
+}
+
+.main-container { display: flex; height: 100vh; }
+
+.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.top-bar {
+    height: 50px;
+    background: var(--card-bg);
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.page-title { font-size: 16px; font-weight: 600; color: #333; }
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-primary { background: var(--primary-color); color: white; }
+.btn-primary:hover { background: #3a7bc8; }
+.btn-success { background: var(--success-color); color: white; }
+.btn-secondary { background: var(--secondary-color); color: white; }
+.btn-danger { background: var(--danger-color); color: white; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+.card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+.form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+
+.badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; }
+.badge-success { background: #d4edda; color: #155724; }
+.badge-warning { background: #fff3cd; color: #856404; }
+.badge-danger { background: #f8d7da; color: #721c24; }
+
+.action-btns { display: flex; gap: 5px; }
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+.stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+.stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; }
+.stat-card .number { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+.stat-card .label { font-size: 12px; color: #666; }
+
+/* 功能页面样式 */
+.page-view {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.page-view.active { display: flex; }
+
+.page-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.header-actions input,
+.header-actions select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+/* ========== 响应式适配 ========== */
+
+/* 屏幕宽度小于 1024px */
+@media screen and (max-width: 1023px) {
+    .right-panel {
+        display: none;
+    }
+    
+    .chat-container {
+        width: 100%;
+    }
+    
+    .chat-view {
+        width: 100%;
+    }
+}
+
+/* 屏幕宽度小于 768px */
+@media screen and (max-width: 767px) {
+    .sidebar {
+        display: none;
+    }
+    
+    .main-container {
+        width: 100vw;
+    }
+    
+    .main-content {
+        width: 100%;
+    }
+    
+    .top-bar {
+        padding: 0 10px;
+    }
+    
+    .chat-messages {
+        padding: 10px;
+    }
+    
+    .message {
+        max-width: 90%;
+    }
+    
+    .input-area {
+        padding: 10px;
+    }
+    
+    .input-wrapper {
+        flex-direction: column;
+    }
+    
+    .input-wrapper textarea {
+        min-height: 60px;
+    }
+    
+    .quick-actions {
+        padding: 8px 10px;
+        overflow-x: auto;
+    }
+}
+
+/* 悬浮窗响应式适配 */
+@media screen and (max-width: 1023px) {
+    .preview-float-window {
+        top: 60px;
+        left: 10px;
+        right: auto;
+        width: auto;
+        max-width: calc(100vw - 20px);
+    }
+    
+    .import-float-window {
+        right: 10px;
+        bottom: 10px;
+        left: 10px;
+        width: auto;
+        max-width: calc(100vw - 20px);
+    }
+}
+
+@media screen and (max-width: 767px) {
+    .preview-float-window {
+        top: 50px;
+        left: 5px;
+        right: auto;
+        max-width: calc(100vw - 10px);
+        max-height: 70vh;
+    }
+    
+    .preview-content {
+        max-height: 50vh;
+    }
+    
+    .preview-media {
+        min-height: 150px;
+    }
+    
+    .preview-media img,
+    .preview-media video {
+        max-height: 40vh;
+    }
+    
+    .import-float-window {
+        right: 5px;
+        bottom: 5px;
+        left: 5px;
+        width: auto;
+        max-width: calc(100vw - 10px);
+    }
+    
+    .jarvis-chat-panel {
+        width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px);
+        right: 10px;
+        bottom: 70px;
+    }
+    
+    .jarvis-voice-btn {
+        right: 15px;
+        bottom: 15px;
+        width: 50px;
+        height: 50px;
+    }
+}
+
+/* 防止悬浮窗超出视口 */
+@media screen and (max-width: 480px) {
+    .preview-float-window {
+        top: 45px;
+        left: 5px;
+        right: auto;
+        width: auto;
+        max-width: calc(100vw - 10px);
+    }
+    
+    .preview-header {
+        padding: 10px 12px;
+    }
+    
+    .preview-header h4 {
+        font-size: 13px;
+    }
+    
+    .import-float-window {
+        right: 5px;
+        bottom: 5px;
+        left: 5px;
+        width: auto;
+    }
+    
+    .import-header {
+        padding: 10px 12px;
+    }
+    
+    .drop-zone {
+        padding: 20px 15px;
+    }
+}

@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>价格表模板导出</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .price-template-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .template-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 24px;
+        }
+
+        .template-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .template-header p {
+            font-size: 13px;
+            opacity: 0.85;
+        }
+
+        .template-content {
+            padding: 24px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            flex: 1;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #606266;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #dcdfe6;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .template-drop-zone {
+            border: 2px dashed #dcdfe6;
+            border-radius: 6px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #fafafa;
+            margin-bottom: 20px;
+        }
+
+        .template-drop-zone:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .template-drop-zone.has-file {
+            border-color: #67c23a;
+            background: #f0f9eb;
+        }
+
+        .template-drop-zone .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            color: #909399;
+        }
+
+        .template-drop-zone.has-file .icon {
+            color: #67c23a;
+        }
+
+        .template-drop-zone .text {
+            font-size: 14px;
+            color: #606266;
+        }
+
+        .template-drop-zone .filename {
+            font-weight: 600;
+            color: #303133;
+            margin-top: 8px;
+        }
+
+        .data-section {
+            background: #f5f7fa;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .data-section h4 {
+            font-size: 14px;
+            color: #606266;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .data-section h4 .badge {
+            background: #67c23a;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .data-section h4 .badge.warning {
+            background: #e6a23c;
+        }
+
+        .data-section h4 .badge.error {
+            background: #f56c6c;
+        }
+
+        .data-section table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-bottom: 12px;
+        }
+
+        .data-section table th,
+        .data-section table td {
+            padding: 8px 10px;
+            text-align: left;
+            border: 1px solid #dcdfe6;
+            white-space: nowrap;
+        }
+
+        .data-section table th {
+            background: #e4e7ed;
+            color: #303133;
+            font-weight: 500;
+        }
+
+        .data-section table tr.matched {
+            background: #f0f9eb;
+        }
+
+        .data-section table tr.unmatched {
+            background: #fef0f0;
+        }
+
+        .template-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .info-item {
+            background: #ecf5ff;
+            padding: 12px;
+            border-radius: 4px;
+        }
+
+        .info-item .label {
+            font-size: 12px;
+            color: #909399;
+            margin-bottom: 4px;
+        }
+
+        .info-item .value {
+            font-size: 14px;
+            color: #303133;
+            font-weight: 500;
+        }
+
+        .info-item .value.success {
+            color: #67c23a;
+        }
+
+        .info-item .value.warning {
+            color: #e6a23c;
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            background: #c0c4cc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: #606266;
+            border: 1px solid #dcdfe6;
+        }
+
+        .btn-secondary:hover {
+            color: #667eea;
+            border-color: #667eea;
+        }
+
+        .btn-success {
+            background: #67c23a;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #5daf34;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            background: white;
+            padding: 24px 40px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .loading-spinner .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            color: white;
+            font-size: 14px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            background: #67c23a;
+        }
+
+        .toast.error {
+            background: #f56c6c;
+        }
+
+        .toast.info {
+            background: #409eff;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #303133;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #ebeef5;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="price-template-container">
+        <div class="template-header">
+            <h2>📊 价格表模板导出</h2>
+            <p>支持 Word (.docx) 模板上传，自动匹配数据库产品数据并导出</p>
+        </div>
+
+        <div class="template-content">
+            <div class="section-title">基本信息</div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>客户名称</label>
+                    <input
+                        type="text"
+                        v-model="customerName"
+                        placeholder="输入客户/采购单位名称"
+                        @blur="onCustomerNameBlur"
+                    >
+                </div>
+                <div class="form-group">
+                    <label>报价日期</label>
+                    <input
+                        type="date"
+                        v-model="quoteDate"
+                    >
+                </div>
+            </div>
+
+            <div class="template-drop-zone"
+                :class="{ 'has-file': templateFile }"
+                @click="triggerFileInput"
+                @dragover.prevent="onDragOver"
+                @dragleave="onDragLeave"
+                @drop.prevent="onDrop"
+            >
+                <input
+                    type="file"
+                    ref="fileInput"
+                    accept=".docx"
+                    style="display: none"
+                    @change="onFileSelected"
+                >
+                <div class="icon">📄</div>
+                <div class="text" v-if="!templateFile">
+                    点击或拖拽上传 Word 模板 (.docx)
+                </div>
+                <div class="text" v-else>
+                    已选择模板：
+                    <div class="filename">{{ templateFile.name }}</div>
+                </div>
+            </div>
+
+            <div class="template-info-grid" v-if="templateInfo">
+                <div class="info-item">
+                    <div class="label">表格索引</div>
+                    <div class="value">{{ templateInfo.table_index }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">数据行数</div>
+                    <div class="value">{{ templateInfo.row_count - 1 }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">列数</div>
+                    <div class="value">{{ templateInfo.column_count }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">表头</div>
+                    <div class="value">{{ templateInfo.header.join(' / ') }}</div>
+                </div>
+            </div>
+
+            <div v-if="cleanResult" style="margin-top: 20px;">
+                <div class="section-title">清理结果</div>
+
+                <div class="template-info-grid" style="margin-bottom: 16px;">
+                    <div class="info-item">
+                        <div class="label">报价日期</div>
+                        <div class="value success">{{ cleanResult.quote_date }}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">匹配客户</div>
+                        <div class="value" :class="cleanResult.unit_info ? 'success' : 'warning'">
+                            {{ cleanResult.unit_info ? cleanResult.unit_info.unit_name : (cleanResult.unmatched_unit || '未匹配') }}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">产品匹配</div>
+                        <div class="value success" v-if="cleanResult.products_matched && Object.keys(cleanResult.products_matched).length === cleanResult.cleaned_data.length">
+                            {{ Object.keys(cleanResult.products_matched).length }} / {{ cleanResult.cleaned_data.length }} 全部匹配
+                        </div>
+                        <div class="value warning" v-else>
+                            {{ Object.keys(cleanResult.products_matched || {}).length }} / {{ cleanResult.cleaned_data.length }} 匹配
+                        </div>
+                    </div>
+                    <div class="info-item" v-if="cleanResult.unmatched_products && cleanResult.unmatched_products.length">
+                        <div class="label">未匹配产品</div>
+                        <div class="value warning">{{ cleanResult.unmatched_products.join(', ') }}</div>
+                    </div>
+                </div>
+
+                <div class="data-section">
+                    <h4>
+                        📈 数据预览
+                        <span class="badge" :class="{ 'warning': hasUnmatched }">
+                            {{ cleanResult.cleaned_data.length }} 条
+                        </span>
+                    </h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>产品名称</th>
+                                <th>单位</th>
+                                <th>单价</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="(row, idx) in cleanResult.cleaned_data"
+                                :key="idx"
+                                :class="{ 'matched': row.matched, 'unmatched': !row.matched }"
+                            >
+                                <td>{{ row.产品名称 }}</td>
+                                <td>{{ row.单位 }}</td>
+                                <td>{{ row.单价 }}</td>
+                                <td>{{ row.matched ? '✓ 已匹配' : '✗ 未匹配' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="action-bar" style="margin-top: 20px;">
+                <button
+                    class="btn btn-primary"
+                    :disabled="!templateFile || loading"
+                    @click="processTemplate"
+                >
+                    🔍 解析并清理数据
+                </button>
+                <button
+                    class="btn btn-success"
+                    :disabled="!cleanResult || !cleanResult.cleaned_data || !cleanResult.cleaned_data.length || loading"
+                    @click="exportPriceTable"
+                >
+                    📥 导出价格表
+                </button>
+                <button
+                    class="btn btn-secondary"
+                    :disabled="!templateFile && !cleanResult"
+                    @click="clearAll"
+                >
+                    🗑️ 重置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>{{ loadingText }}</p>
+        </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <script>
+        const { createApp, ref, computed, watch } = Vue;
+
+        createApp({
+            setup() {
+                const fileInput = ref(null);
+                const templateFile = ref(null);
+                const templateInfo = ref(null);
+                const rawData = ref([]);
+                const cleanResult = ref(null);
+                const customerName = ref('');
+                const quoteDate = ref('');
+                const loading = ref(false);
+                const loadingText = ref('处理中...');
+                const uploadedFilePath = ref('');
+
+                const API_BASE = '/api';
+
+                const hasUnmatched = computed(() => {
+                    return cleanResult.value &&
+                           cleanResult.value.cleaned_data &&
+                           cleanResult.value.cleaned_data.some(r => !r.matched);
+                });
+
+                const today = new Date().toISOString().split('T')[0];
+                quoteDate.value = today;
+
+                function triggerFileInput() {
+                    fileInput.value?.click();
+                }
+
+                function onDragOver(e) {
+                    const zone = e.target.closest('.template-drop-zone');
+                    if (zone) {
+                        zone.style.borderColor = '#667eea';
+                        zone.style.background = '#f0f4ff';
+                    }
+                }
+
+                function onDragLeave(e) {
+                    const zone = e.target.closest('.template-drop-zone');
+                    if (!zone) return;
+                    if (!templateFile.value) {
+                        zone.style.borderColor = '#dcdfe6';
+                        zone.style.background = '#fafafa';
+                    }
+                }
+
+                function onDrop(e) {
+                    const zone = e.target.closest('.template-drop-zone');
+                    if (!zone) return;
+
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        handleFile(files[0]);
+                    }
+
+                    if (!templateFile.value) {
+                        zone.style.borderColor = '#dcdfe6';
+                        zone.style.background = '#fafafa';
+                    }
+                }
+
+                function onFileSelected(e) {
+                    const files = e.target.files;
+                    if (files.length > 0) {
+                        handleFile(files[0]);
+                    }
+                }
+
+                async function handleFile(file) {
+                    if (!file.name.endsWith('.docx')) {
+                        showToast('请选择 Word (.docx) 文件', 'error');
+                        return;
+                    }
+
+                    templateFile.value = file;
+                    templateInfo.value = null;
+                    rawData.value = [];
+                    cleanResult.value = null;
+                    uploadedFilePath.value = '';
+
+                    showToast('模板已选择，点击"解析并清理数据"处理', 'info');
+                }
+
+                async function uploadTemplate(file) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch(`${API_BASE}/upload/word`, {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.detail || '上传失败');
+                    }
+
+                    return await response.json();
+                }
+
+                async function parseTemplate() {
+                    if (!templateFile.value) return null;
+
+                    showLoading('正在上传模板...');
+
+                    try {
+                        const uploadResult = await uploadTemplate(templateFile.value);
+                        uploadedFilePath.value = uploadResult.file_path;
+
+                        const parseResponse = await fetch(`${API_BASE}/word/template`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                action: 'parse',
+                                file_path: uploadResult.file_path,
+                            }),
+                        });
+
+                        if (!parseResponse.ok) {
+                            const error = await parseResponse.json();
+                            throw new Error(error.detail || '解析失败');
+                        }
+
+                        const parseResult = await parseResponse.json();
+
+                        hideLoading();
+                        return parseResult;
+
+                    } catch (error) {
+                        hideLoading();
+                        showToast('解析失败: ' + error.message, 'error');
+                        return null;
+                    }
+                }
+
+                async function cleanupData(records, customer, date) {
+                    showLoading('正在清理数据...');
+
+                    try {
+                        const response = await fetch(`${API_BASE}/word/template`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                action: 'cleanup',
+                                records: records,
+                                customer_name: customer,
+                                quote_date: date,
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.detail || '清理失败');
+                        }
+
+                        const result = await response.json();
+
+                        hideLoading();
+                        return result;
+
+                    } catch (error) {
+                        hideLoading();
+                        showToast('清理失败: ' + error.message, 'error');
+                        return null;
+                    }
+                }
+
+                async function processTemplate() {
+                    if (!templateFile.value) return;
+
+                    const parseResult = await parseTemplate();
+                    if (!parseResult || !parseResult.tables || !parseResult.tables.length) {
+                        showToast('模板解析失败，请检查文件', 'error');
+                        return;
+                    }
+
+                    templateInfo.value = parseResult.tables[0];
+
+                    const dataRows = parseResult.tables[0].data_rows || [];
+                    if (!dataRows.length) {
+                        showToast('模板中没有数据行', 'error');
+                        return;
+                    }
+
+                    rawData.value = dataRows;
+
+                    const cleaned = await cleanupData(dataRows, customerName.value, quoteDate.value);
+                    if (cleaned) {
+                        cleanResult.value = cleaned;
+                        showToast('数据清理完成', 'success');
+                    }
+                }
+
+                async function exportPriceTable() {
+                    if (!cleanResult.value || !cleanResult.value.cleaned_data || !cleanResult.value.cleaned_data.length) {
+                        showToast('没有可导出的数据', 'error');
+                        return;
+                    }
+
+                    if (!uploadedFilePath.value) {
+                        showToast('请先解析模板', 'error');
+                        return;
+                    }
+
+                    showLoading('正在导出价格表...');
+
+                    try {
+                        const exportData = cleanResult.value.cleaned_data.map(row => ({
+                            '客户名称': row.客户名称,
+                            '产品名称': row.产品名称,
+                            '单位': row.单位,
+                            '单价': row.单价,
+                            '报价日期': row.报价日期,
+                        }));
+
+                        const response = await fetch(`${API_BASE}/word/template`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                action: 'export',
+                                records: exportData,
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.detail || '导出失败');
+                        }
+
+                        const result = await response.json();
+
+                        const fileName = `价格表_${customerName.value || '通用'}_${quoteDate.value}.docx`;
+                        await downloadFile(result.output_path, fileName);
+
+                        hideLoading();
+                        showToast('导出成功！', 'success');
+
+                    } catch (error) {
+                        hideLoading();
+                        showToast('导出失败: ' + error.message, 'error');
+                    }
+                }
+
+                async function downloadFile(filePath, defaultName) {
+                    try {
+                        const response = await fetch(`${API_BASE}/word/download?path=${encodeURIComponent(filePath)}`);
+
+                        if (!response.ok) {
+                            throw new Error('下载失败');
+                        }
+
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = defaultName;
+                        a.click();
+                        URL.revokeObjectURL(url);
+
+                    } catch (error) {
+                        showToast('下载失败: ' + error.message, 'error');
+                    }
+                }
+
+                function clearAll() {
+                    templateFile.value = null;
+                    templateInfo.value = null;
+                    rawData.value = [];
+                    cleanResult.value = null;
+                    customerName.value = '';
+                    quoteDate.value = today;
+                    uploadedFilePath.value = '';
+                    if (fileInput.value) {
+                        fileInput.value.value = '';
+                    }
+                    showToast('已重置', 'info');
+                }
+
+                function onCustomerNameBlur() {
+                    console.log('Customer name:', customerName.value);
+                }
+
+                function showLoading(text) {
+                    loading.value = true;
+                    loadingText.value = text;
+                    document.getElementById('loadingOverlay').classList.remove('hidden');
+                }
+
+                function hideLoading() {
+                    loading.value = false;
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                }
+
+                function showToast(message, type = 'success') {
+                    const toast = document.getElementById('toast');
+                    toast.textContent = message;
+                    toast.className = `toast ${type}`;
+                    toast.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        toast.classList.add('hidden');
+                    }, 3000);
+                }
+
+                return {
+                    fileInput,
+                    templateFile,
+                    templateInfo,
+                    rawData,
+                    cleanResult,
+                    customerName,
+                    quoteDate,
+                    loading,
+                    loadingText,
+                    hasUnmatched,
+                    triggerFileInput,
+                    onDragOver,
+                    onDragLeave,
+                    onDrop,
+                    onFileSelected,
+                    processTemplate,
+                    exportPriceTable,
+                    clearAll,
+                    onCustomerNameBlur,
+                };
+            },
+        }).mount('#app');
+    </script>
+</body>
+</html>

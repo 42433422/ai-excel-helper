@@ -1,0 +1,8 @@
+node_modules/
+*.tsbuildinfo
+.DS_Store
+.worktrees
+
+# TUI
+tui/lcm-tui
+tui/tui

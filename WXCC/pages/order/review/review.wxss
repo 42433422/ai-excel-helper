@@ -1,0 +1,163 @@
+/* 评价页面样式 */
+.container {
+  padding: 20rpx;
+  padding-bottom: 140rpx;
+  background-color: #f5f5f5;
+}
+
+/* 区块通用样式 */
+.order-section,
+.rating-section,
+.comment-section,
+.image-section,
+.anonymous-section {
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+/* 订单信息 */
+.order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+}
+
+.item-label {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.item-value {
+  font-size: 28rpx;
+  color: #333;
+}
+
+/* 评分 */
+.rating-stars {
+  display: flex;
+  align-items: center;
+}
+
+.star {
+  font-size: 48rpx;
+  color: #d9d9d9;
+  margin-right: 12rpx;
+}
+
+.star.active {
+  color: #faad14;
+}
+
+.rating-text {
+  font-size: 28rpx;
+  color: #999;
+  margin-left: 20rpx;
+}
+
+/* 评价内容 */
+.comment-input {
+  width: 100%;
+  min-height: 200rpx;
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.6;
+}
+
+.comment-count {
+  display: block;
+  text-align: right;
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 12rpx;
+}
+
+/* 上传图片 */
+.image-list {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.image-item {
+  width: 200rpx;
+  height: 200rpx;
+  margin-right: 20rpx;
+  margin-bottom: 20rpx;
+  position: relative;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+  background-color: #f0f0f0;
+}
+
+.delete-btn {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
+  width: 40rpx;
+  height: 40rpx;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.delete-btn .iconfont {
+  font-size: 28rpx;
+}
+
+.add-image {
+  width: 200rpx;
+  height: 200rpx;
+  border: 2rpx dashed #d9d9d9;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d9d9d9;
+}
+
+.add-image .iconfont {
+  font-size: 48rpx;
+}
+
+/* 匿名评价 */
+.anonymous-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.anonymous-label {
+  font-size: 28rpx;
+  color: #333;
+}
+
+/* 提交按钮 */
+.submit-btn {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: #fff;
+  border-radius: 50rpx;
+  padding: 24rpx 0;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: bold;
+  box-shadow: 0 4rpx 20rpx rgba(24, 144, 255, 0.3);
+}
+
+.submit-btn:active {
+  opacity: 0.8;
+}

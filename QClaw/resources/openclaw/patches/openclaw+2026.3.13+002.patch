@@ -1,0 +1,160 @@
+diff --git a/node_modules/openclaw/dist/auth-profiles-DDVivXkv.js b/node_modules/openclaw/dist/auth-profiles-DDVivXkv.js
+index 9e57b20..10c31c0 100644
+--- a/node_modules/openclaw/dist/auth-profiles-DDVivXkv.js
++++ b/node_modules/openclaw/dist/auth-profiles-DDVivXkv.js
+@@ -52822,6 +52822,9 @@ function getAcpSessionManager() {
+ function resolveHeartbeatPrompt(raw) {
+ 	return (typeof raw === "string" ? raw.trim() : "") || "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.";
+ }
++function shouldInjectHeartbeatPrompt(params) {
++	return params.isDefaultAgent && params.trigger !== "cron";
++}
+ function stripTokenAtEdges(raw) {
+ 	let text = raw.trim();
+ 	if (!text) return {
+@@ -102747,7 +102750,7 @@ async function compactEmbeddedPiSessionDirect(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,
+@@ -109271,7 +109274,7 @@ async function runEmbeddedAttempt(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,
+diff --git a/node_modules/openclaw/dist/auth-profiles-DRjqKE3G.js b/node_modules/openclaw/dist/auth-profiles-DRjqKE3G.js
+index a869785..4d475ef 100644
+--- a/node_modules/openclaw/dist/auth-profiles-DRjqKE3G.js
++++ b/node_modules/openclaw/dist/auth-profiles-DRjqKE3G.js
+@@ -48796,6 +48796,9 @@ function isHeartbeatContentEffectivelyEmpty(content) {
+ function resolveHeartbeatPrompt(raw) {
+ 	return (typeof raw === "string" ? raw.trim() : "") || "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.";
+ }
++function shouldInjectHeartbeatPrompt(params) {
++	return params.isDefaultAgent && params.trigger !== "cron";
++}
+ function stripTokenAtEdges(raw) {
+ 	let text = raw.trim();
+ 	if (!text) return {
+@@ -100081,7 +100084,7 @@ async function compactEmbeddedPiSessionDirect(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,
+@@ -106628,7 +106631,7 @@ async function runEmbeddedAttempt(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,
+diff --git a/node_modules/openclaw/dist/model-selection-46xMp11W.js b/node_modules/openclaw/dist/model-selection-46xMp11W.js
+index fdd1f3e..2161cfc 100644
+--- a/node_modules/openclaw/dist/model-selection-46xMp11W.js
++++ b/node_modules/openclaw/dist/model-selection-46xMp11W.js
+@@ -53977,6 +53977,9 @@ function getAcpSessionManager() {
+ function resolveHeartbeatPrompt(raw) {
+ 	return (typeof raw === "string" ? raw.trim() : "") || "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.";
+ }
++function shouldInjectHeartbeatPrompt(params) {
++	return params.isDefaultAgent && params.trigger !== "cron";
++}
+ function stripTokenAtEdges(raw) {
+ 	let text = raw.trim();
+ 	if (!text) return {
+@@ -103573,7 +103576,7 @@ async function compactEmbeddedPiSessionDirect(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,
+@@ -110097,7 +110100,7 @@ async function runEmbeddedAttempt(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,
+diff --git a/node_modules/openclaw/dist/model-selection-CU2b7bN6.js b/node_modules/openclaw/dist/model-selection-CU2b7bN6.js
+index 9c08a11..d79dcba 100644
+--- a/node_modules/openclaw/dist/model-selection-CU2b7bN6.js
++++ b/node_modules/openclaw/dist/model-selection-CU2b7bN6.js
+@@ -53587,6 +53587,9 @@ function getAcpSessionManager() {
+ function resolveHeartbeatPrompt(raw) {
+ 	return (typeof raw === "string" ? raw.trim() : "") || "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.";
+ }
++function shouldInjectHeartbeatPrompt(params) {
++	return params.isDefaultAgent && params.trigger !== "cron";
++}
+ function stripTokenAtEdges(raw) {
+ 	let text = raw.trim();
+ 	if (!text) return {
+@@ -103183,7 +103186,7 @@ async function compactEmbeddedPiSessionDirect(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,
+@@ -109707,7 +109710,7 @@ async function runEmbeddedAttempt(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,
+diff --git a/node_modules/openclaw/dist/reply-Bm8VrLQh.js b/node_modules/openclaw/dist/reply-Bm8VrLQh.js
+index 7f4bf25..239b2d5 100644
+--- a/node_modules/openclaw/dist/reply-Bm8VrLQh.js
++++ b/node_modules/openclaw/dist/reply-Bm8VrLQh.js
+@@ -51172,6 +51172,9 @@ function isHeartbeatContentEffectivelyEmpty(content) {
+ function resolveHeartbeatPrompt(raw) {
+ 	return (typeof raw === "string" ? raw.trim() : "") || "Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.";
+ }
++function shouldInjectHeartbeatPrompt(params) {
++	return params.isDefaultAgent && params.trigger !== "cron";
++}
+ function stripTokenAtEdges(raw) {
+ 	let text = raw.trim();
+ 	if (!text) return {
+@@ -102736,7 +102739,7 @@ async function compactEmbeddedPiSessionDirect(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,
+@@ -109283,7 +109286,7 @@ async function runEmbeddedAttempt(params) {
+ 			ownerDisplay: ownerDisplay.ownerDisplay,
+ 			ownerDisplaySecret: ownerDisplay.ownerDisplaySecret,
+ 			reasoningTagHint,
+-			heartbeatPrompt: isDefaultAgent ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
++			heartbeatPrompt: shouldInjectHeartbeatPrompt({ isDefaultAgent, trigger: params.trigger }) ? resolveHeartbeatPrompt(params.config?.agents?.defaults?.heartbeat?.prompt) : void 0,
+ 			skillsPrompt,
+ 			docsPath: docsPath ?? void 0,
+ 			ttsHint,

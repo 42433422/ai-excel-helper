@@ -1,0 +1,32 @@
+<view class="container">
+  <!-- 收藏列表 -->
+  <view class="favorites-list" wx:if="{{favorites.length > 0}}">
+    <view class="favorite-item card" wx:for="{{favorites}}" wx:key="id">
+      <image class="product-image" src="{{item.image}}" mode="aspectFill" bindtap="goToProduct" data-id="{{item.id}}"></image>
+      <view class="product-info">
+        <text class="product-name" bindtap="goToProduct" data-id="{{item.id}}">{{item.name}}</text>
+        <text class="product-price">¥{{item.price}}</text>
+      </view>
+      <view class="actions">
+        <view class="action-btn cart" bindtap="addToCart" data-id="{{item.id}}">
+          <text class="iconfont icon-cart"></text>
+        </view>
+        <view class="action-btn delete" bindtap="removeFavorite" data-id="{{item.id}}">
+          <text class="iconfont icon-delete"></text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && favorites.length === 0}}">
+    <image src="/assets/empty-favorite.png" mode="aspectFit"></image>
+    <text class="empty-text">暂无收藏</text>
+    <button class="go-shopping" bindtap="goShopping">去逛逛</button>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

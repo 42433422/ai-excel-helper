@@ -1,0 +1,88 @@
+{
+  "bizchat\\bizchat.db": {
+    "enc_key": "e7074b907fa148c483c776b1ce5264eabacfeef45cb8e2561cb6e98a171edde8",
+    "salt": "c168277b3482370422e751de6354ed3a",
+    "size_mb": 0.0
+  },
+  "contact\\contact.db": {
+    "enc_key": "a1bd5359d27de3e5fe9683d56a80f6cc6ca6303f203fe9ff49f979e92f6e392e",
+    "salt": "a793f8d4459122fd656dae6a7241951a",
+    "size_mb": 2.0
+  },
+  "contact\\contact_fts.db": {
+    "enc_key": "c3bf8786ca088f469de369ad3b7e04fb366e8eb2d27f7b9ed5e80b10ab0d1356",
+    "salt": "c28b6cc344b38969b9095020300b7225",
+    "size_mb": 0.8
+  },
+  "emoticon\\emoticon.db": {
+    "enc_key": "2b1a882bcd5723726123b67c0d113933612cd922c7acaa4dd9c9d89e9b1bbb65",
+    "salt": "42cf605d92c834ed6870940f691c739b",
+    "size_mb": 0.7
+  },
+  "favorite\\favorite.db": {
+    "enc_key": "a9664f4661175e40c5c48113b9de3117e8466d1951600ce7756a95e715b33548",
+    "salt": "7d7f59dd9e3c86a10358277f6d98dc12",
+    "size_mb": 0.1
+  },
+  "favorite\\favorite_fts.db": {
+    "enc_key": "f496d96fceff7109ebfe4edf29a3c3672291edcf5efbd8e6d11d24dce9d10ceb",
+    "salt": "8995537586184a69bfbf22bca4b15948",
+    "size_mb": 0.0
+  },
+  "general\\general.db": {
+    "enc_key": "ddde36d8ac63a19d06cdcb92337a4436c66873f797ebefb18c8577a1525273a6",
+    "salt": "88d463516c35f6c1be8c19fccfd79bc5",
+    "size_mb": 1.5
+  },
+  "hardlink\\hardlink.db": {
+    "enc_key": "79a30cff73fc9e82b0a0c6142c1edca80391516736ccbeaa1b480ab181127d9c",
+    "salt": "ec15aa649b496552e88f8c95aa7797a9",
+    "size_mb": 0.1
+  },
+  "head_image\\head_image.db": {
+    "enc_key": "af80c6940295f1100612459980a155dd96c566ca3869fbc5e5a8fe28a135a09b",
+    "salt": "e77e035388ae690f999a9e9f89bcd7bb",
+    "size_mb": 0.7
+  },
+  "message\\biz_message_0.db": {
+    "enc_key": "e2b6db5b66fdec1e2c4981cdad3ffcd217c620e4de5c06a766eaabfaf02cae6a",
+    "salt": "5499a7791b9344bee58c6b4e835bc9df",
+    "size_mb": 0.6
+  },
+  "message\\media_0.db": {
+    "enc_key": "e14cf242eb726adac551c79d5e6e62298d83ab6cb2c5251f6c4ee1ff29aef940",
+    "salt": "f54859afad2a2bcaf7cacbbaf44e2526",
+    "size_mb": 0.2
+  },
+  "message\\message_0.db": {
+    "enc_key": "e1ce4cc34b69c09fe35ee10f3ef7a09b1149813344e9c38072d81c37f6cb62e7",
+    "salt": "d7b24b3b975136e3fea0c395bdb7b731",
+    "size_mb": 1.0
+  },
+  "message\\message_fts.db": {
+    "enc_key": "9edf0cc2e10e94168fc9704c8d4a7fb979a9d431e72ab04c9144051aa6ae9f35",
+    "salt": "14a4e52f66d83e643886db9cc3f8c479",
+    "size_mb": 0.4
+  },
+  "message\\message_resource.db": {
+    "enc_key": "c1db1c557aec7140ce08eb3a39ba36995e183e3a165b3b5c04f9158f72ca7d5e",
+    "salt": "518603c7d60fa13fefa40ab3da055cb0",
+    "size_mb": 0.1
+  },
+  "session\\session.db": {
+    "enc_key": "604f088b023d113cddceefc6bbecde650af1ea3de08ac5257a9b362e4650c054",
+    "salt": "bbf575845fbc578ec37d9400718bbe82",
+    "size_mb": 0.1
+  },
+  "sns\\sns.db": {
+    "enc_key": "bc3cefbb7da93b18364f9d223a2f443e1bb6f8a05aa7b333db92df20945f6a7b",
+    "salt": "c7e358a90007b1352aa8d7e658f30742",
+    "size_mb": 0.1
+  },
+  "solitaire\\solitaire.db": {
+    "enc_key": "9b484985f1a0994d7d99cffc466332ebdc67311645a6c1ffee7ab82950afc069",
+    "salt": "72bf1cd824a9ee9c896fd69801526b0c",
+    "size_mb": 0.0
+  },
+  "_db_dir": "C:\\Users\\97088\\Documents\\xwechat_files\\wxid_bommxleja9kq22_22c5\\db_storage"
+}

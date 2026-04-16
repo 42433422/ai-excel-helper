@@ -1,0 +1,8 @@
+<image 
+  class="lazy-image {{loaded ? 'loaded' : ''}}"
+  src="{{loaded ? src : placeholder}}"
+  mode="{{mode}}"
+  lazy-load="{{true}}"
+  bindload="onLoad"
+  binderror="onError"
+></image>

@@ -1,0 +1,62 @@
+<view class="login-container">
+  <view class="login-content">
+    <!-- Logo -->
+    <view class="logo-section">
+      <image class="logo" src="/assets/logo.png" mode="aspectFit"></image>
+      <text class="app-name">XCAGI 智能采购</text>
+    </view>
+
+    <!-- 登录表单 -->
+    <view class="login-form card">
+      <view class="form-item">
+        <text class="form-label">手机号</text>
+        <input 
+          class="form-input" 
+          type="number"
+          placeholder="请输入手机号"
+          value="{{formData.phone}}"
+          bindinput="onPhoneInput"
+          maxlength="11"
+        />
+      </view>
+      <view class="form-item">
+        <text class="form-label">验证码</text>
+        <view class="code-wrapper">
+          <input 
+            class="form-input code-input" 
+            type="number"
+            placeholder="请输入验证码"
+            value="{{formData.code}}"
+            bindinput="onCodeInput"
+            maxlength="6"
+          />
+          <button 
+            class="send-code-btn {{canSendCode ? '' : 'disabled'}}"
+            bindtap="sendCode"
+            disabled="{{!canSendCode}}"
+          >
+            {{sendCodeText}}
+          </button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 登录按钮 -->
+    <view class="login-actions">
+      <button class="btn-login" bindtap="loginWithPhone">手机号登录</button>
+      <button class="btn-wechat" bindtap="loginWithWechat">
+        <text class="iconfont icon-wechat"></text>
+        微信一键登录
+      </button>
+    </view>
+
+    <!-- 协议 -->
+    <view class="agreement">
+      <checkbox checked="{{agreeProtocol}}" bindtap="toggleAgreement" color="#1890ff" />
+      <text class="agreement-text">我已阅读并同意</text>
+      <text class="agreement-link" bindtap="viewAgreement">《用户协议》</text>
+      <text class="agreement-text">和</text>
+      <text class="agreement-link" bindtap="viewPrivacy">《隐私政策》</text>
+    </view>
+  </view>
+</view>

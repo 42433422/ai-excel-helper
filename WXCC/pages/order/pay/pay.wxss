@@ -1,0 +1,97 @@
+/* 支付页面样式 */
+.container {
+  padding: 20rpx;
+  padding-bottom: 140rpx;
+  background-color: #f5f5f5;
+}
+
+/* 订单信息 */
+.order-section {
+  margin-bottom: 20rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+}
+
+.item-label {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.item-value {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.item-value.price {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #f5222d;
+}
+
+/* 支付方式 */
+.payment-section {
+  margin-bottom: 20rpx;
+}
+
+.payment-method {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx;
+  border: 2rpx solid #f0f0f0;
+  border-radius: 16rpx;
+}
+
+.payment-method.active {
+  border-color: #1890ff;
+  background-color: #e6f7ff;
+}
+
+.method-name {
+  display: flex;
+  align-items: center;
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.method-name .iconfont {
+  margin-right: 12rpx;
+  color: #07c160;
+  font-size: 36rpx;
+}
+
+.payment-method .icon-check {
+  color: #1890ff;
+  font-size: 36rpx;
+}
+
+/* 支付按钮 */
+.payment-btn {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: #fff;
+  border-radius: 50rpx;
+  padding: 24rpx 0;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: bold;
+  box-shadow: 0 4rpx 20rpx rgba(24, 144, 255, 0.3);
+}
+
+.payment-btn:active {
+  opacity: 0.8;
+}

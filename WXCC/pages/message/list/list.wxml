@@ -1,0 +1,29 @@
+<view class="container">
+  <!-- 消息列表 -->
+  <view class="message-list" wx:if="{{messages.length > 0}}">
+    <view class="message-item card" wx:for="{{messages}}" wx:key="id" bindtap="goToDetail" data-id="{{item.id}}">
+      <view class="message-icon {{item.type}}">
+        <text class="iconfont {{item.icon}}"></text>
+      </view>
+      <view class="message-content">
+        <view class="message-header">
+          <text class="message-title">{{item.title}}</text>
+          <text class="message-time">{{item.time}}</text>
+        </view>
+        <text class="message-desc">{{item.content}}</text>
+      </view>
+      <view class="message-badge" wx:if="{{!item.read}}"></view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && messages.length === 0}}">
+    <image src="/assets/empty-message.png" mode="aspectFit"></image>
+    <text class="empty-text">暂无消息</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

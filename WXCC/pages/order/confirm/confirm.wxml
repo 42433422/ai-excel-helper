@@ -1,0 +1,85 @@
+<view class="container">
+  <!-- 收货地址 -->
+  <view class="address-section card" bindtap="selectAddress">
+    <view class="address-content" wx:if="{{address}}">
+      <view class="address-header">
+        <text class="address-name">{{address.name}}</text>
+        <text class="address-phone">{{address.phone}}</text>
+      </view>
+      <view class="address-detail">
+        <text class="iconfont icon-location"></text>
+        <text>{{address.detail}}</text>
+      </view>
+    </view>
+    <view class="no-address" wx:else>
+      <text class="iconfont icon-location"></text>
+      <text>请选择收货地址</text>
+      <text class="iconfont icon-arrow-right"></text>
+    </view>
+  </view>
+
+  <!-- 商品列表 -->
+  <view class="product-section card">
+    <view class="section-title">商品信息</view>
+    <view class="product-list">
+      <view class="product-item" wx:for="{{products}}" wx:key="id">
+        <image class="product-image" src="{{item.image}}" mode="aspectFill"></image>
+        <view class="product-info">
+          <text class="product-name">{{item.name}}</text>
+          <text class="product-spec">{{item.spec}}</text>
+        </view>
+        <view class="product-right">
+          <text class="product-quantity">x{{item.quantity}}</text>
+          <text class="product-price">¥{{item.price}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 配送方式 -->
+  <view class="delivery-section card">
+    <view class="section-title">配送方式</view>
+    <view class="delivery-item">
+      <text class="delivery-text">快递配送</text>
+      <text class="delivery-price">免运费</text>
+    </view>
+  </view>
+
+  <!-- 订单备注 -->
+  <view class="remark-section card">
+    <view class="section-title">订单备注</view>
+    <textarea 
+      class="remark-input" 
+      placeholder="选填：对本订单的说明（如配送时间等）"
+      value="{{remark}}"
+      bindinput="onRemarkInput"
+      maxlength="200"
+    ></textarea>
+  </view>
+
+  <!-- 费用明细 -->
+  <view class="price-section card">
+    <view class="price-item">
+      <text class="price-label">商品总额</text>
+      <text class="price-value">¥{{productTotal}}</text>
+    </view>
+    <view class="price-item">
+      <text class="price-label">运费</text>
+      <text class="price-value">¥0.00</text>
+    </view>
+    <view class="divider"></view>
+    <view class="price-item total">
+      <text class="price-label">实付款</text>
+      <text class="total-price">¥{{totalPrice}}</text>
+    </view>
+  </view>
+
+  <!-- 底部提交栏 -->
+  <view class="bottom-bar safe-area-bottom">
+    <view class="total-info">
+      <text class="total-label">合计：</text>
+      <text class="total-price">¥{{totalPrice}}</text>
+    </view>
+    <view class="btn-submit" bindtap="submitOrder">提交订单</view>
+  </view>
+</view>

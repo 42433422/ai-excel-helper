@@ -1,0 +1,100 @@
+/* 订单结果页面样式 */
+.container {
+  padding: 40rpx;
+  background-color: #f5f5f5;
+}
+
+.result-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 40rpx;
+}
+
+.result-icon {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 40rpx;
+}
+
+.result-icon.success {
+  background-color: #52c41a;
+  color: #fff;
+}
+
+.result-icon.fail {
+  background-color: #f5222d;
+  color: #fff;
+}
+
+.result-icon .iconfont {
+  font-size: 100rpx;
+}
+
+.result-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+.result-desc {
+  font-size: 28rpx;
+  color: #999;
+  margin-bottom: 40rpx;
+}
+
+.order-info {
+  display: flex;
+  align-items: center;
+  background-color: #f5f5f5;
+  padding: 20rpx 30rpx;
+  border-radius: 8rpx;
+  margin-bottom: 40rpx;
+}
+
+.order-label {
+  font-size: 26rpx;
+  color: #999;
+  margin-right: 12rpx;
+}
+
+.order-number {
+  font-size: 28rpx;
+  color: #333;
+  margin-right: 12rpx;
+}
+
+.order-info .iconfont {
+  font-size: 32rpx;
+  color: #1890ff;
+}
+
+.result-actions {
+  display: flex;
+  gap: 20rpx;
+  width: 100%;
+}
+
+.result-actions .btn-secondary,
+.result-actions .btn-primary {
+  flex: 1;
+  border-radius: 50rpx;
+  padding: 24rpx 0;
+  font-size: 30rpx;
+  text-align: center;
+}
+
+.result-actions .btn-secondary {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.result-actions .btn-primary {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: #fff;
+}

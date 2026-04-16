@@ -1,0 +1,16 @@
+{
+  "agents": {
+    "main": {
+      "model": {
+        "provider": "anthropic",
+        "name": "claude-opus-4-6"
+      }
+    }
+  },
+  "providers": {
+    "anthropic": {
+      "api_base": "http://127.0.0.1:5002/v1",
+      "api_key": "sk-fake-key-not-needed"
+    }
+  }
+}

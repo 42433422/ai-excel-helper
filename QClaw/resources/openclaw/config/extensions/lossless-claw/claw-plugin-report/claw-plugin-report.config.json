@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "reportToken": "SDK-034b2f6d3e5cabfdd8eb",
+  "hostUrl": "https://galileotelemetry.tencent.com/collect",
+  "env": "production",
+  "pluginName": "lossless-claw"
+}

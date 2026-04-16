@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel 数据预览</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .preview-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .preview-header {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .preview-info {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-label {
+            opacity: 0.8;
+        }
+
+        .info-value {
+            font-weight: 600;
+        }
+
+        .preview-toolbar {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .toolbar-left, .toolbar-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .data-type-selector {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-input {
+            padding: 8px 12px 8px 36px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 250px;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a0aec0;
+        }
+
+        .preview-content {
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .table-wrapper {
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .data-table thead {
+            background: #f8f9fa;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .data-table th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #4a5568;
+            border-bottom: 2px solid #e1e4e8;
+            border-right: 1px solid #e1e4e8;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .data-table th:hover {
+            background: #edf2f7;
+        }
+
+        .data-table th.sorted-asc::after {
+            content: ' ▲';
+            font-size: 12px;
+        }
+
+        .data-table th.sorted-desc::after {
+            content: ' ▼';
+            font-size: 12px;
+        }
+
+        .data-table td {
+            padding: 10px 16px;
+            border-bottom: 1px solid #e1e4e8;
+            border-right: 1px solid #f0f0f0;
+            color: #2d3748;
+        }
+
+        .data-table tbody tr {
+            transition: background 0.2s;
+        }
+
+        .data-table tbody tr:hover {
+            background: #f7fafc;
+        }
+
+        .data-table tbody tr.selected {
+            background: #ebf8ff;
+        }
+
+        .validation-error {
+            background: #fff5f5 !important;
+        }
+
+        .validation-error td {
+            color: #c53030;
+        }
+
+        .validation-warning {
+            background: #fffff0 !important;
+        }
+
+        .cell-error {
+            position: relative;
+        }
+
+        .cell-error::after {
+            content: '!';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #c53030;
+            color: white;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .cell-editable {
+            background: #fffaf0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cell-editable:hover {
+            background: #fef3c7;
+        }
+
+        .cell-editable:focus {
+            outline: 2px solid #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .cell-editing {
+            background: white;
+            border: 2px solid #667eea;
+            padding: 4px 8px;
+        }
+
+        .edit-input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #667eea;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .edit-input:focus {
+            outline: none;
+            border-color: #5568d3;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .edit-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+        }
+
+        .edit-btn-save, .edit-btn-cancel {
+            padding: 4px 8px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .edit-btn-save {
+            background: #48bb78;
+            color: white;
+        }
+
+        .edit-btn-save:hover {
+            background: #38a169;
+        }
+
+        .edit-btn-cancel {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .edit-btn-cancel:hover {
+            background: #cbd5e0;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-valid {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .status-warning {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .page-btn {
+            padding: 6px 12px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .page-btn:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .page-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            font-size: 14px;
+            color: #718096;
+        }
+
+        .error-panel {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .error-panel.show {
+            display: block;
+        }
+
+        .error-panel h4 {
+            color: #c53030;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .error-list {
+            list-style: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .error-item {
+            padding: 8px;
+            border-bottom: 1px solid #fed7d7;
+            font-size: 13px;
+            color: #742a2a;
+        }
+
+        .error-item:last-child {
+            border-bottom: none;
+        }
+
+        .field-mapping-panel {
+            background: #f8f9fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .mapping-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .mapping-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .mapping-label {
+            font-size: 13px;
+            color: #4a5568;
+            min-width: 80px;
+        }
+
+        .mapping-select {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .confidence-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .confidence-high {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .confidence-medium {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+
+        .confidence-low {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .progress-bar-container {
+            width: 200px;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-spinner {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 14px;
+            color: #4a5568;
+        }
+
+        .virtual-scroll-container {
+            height: 500px;
+            overflow-y: auto;
+            position: relative;
+            background: white;
+        }
+
+        .virtual-scroll-content {
+            position: relative;
+            width: 100%;
+        }
+
+        .row {
+            position: absolute;
+            width: 100%;
+            background: white;
+            border-bottom: 1px solid #e1e4e8;
+        }
+
+        .virtual-table {
+            position: relative;
+            width: 100%;
+        }
+
+        .virtual-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: #f8f9fa;
+        }
+
+        .virtual-body {
+            position: relative;
+        }
+
+        .tooltip {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d3748;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 100;
+            margin-bottom: 5px;
+        }
+
+        .checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .action-cell {
+            white-space: nowrap;
+        }
+
+        .action-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            margin-right: 4px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .action-btn-edit {
+            background: #667eea;
+            color: white;
+        }
+
+        .action-btn-delete {
+            background: #f56565;
+            color: white;
+        }
+
+        .summary-bar {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e1e4e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 30px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .stat-value.error {
+            color: #c53030;
+        }
+
+        .stat-value.warning {
+            color: #d69e2e;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-container">
+        <!-- 头部 -->
+        <div class="preview-header">
+            <h2>📊 Excel 数据预览</h2>
+            <div class="preview-info">
+                <div class="info-item">
+                    <span class="info-label">文件:</span>
+                    <span class="info-value" id="fileName">未选择</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">数据类型:</span>
+                    <span class="info-value" id="dataTypeDisplay">未检测</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">总行数:</span>
+                    <span class="info-value" id="totalRows">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 工具栏 -->
+        <div class="preview-toolbar">
+            <div class="toolbar-left">
+                <select class="data-type-selector" id="dataTypeSelector">
+                    <option value="">选择数据类型...</option>
+                    <option value="product">产品数据</option>
+                    <option value="customer">客户数据</option>
+                    <option value="order">订单数据</option>
+                    <option value="material">原材料数据</option>
+                </select>
+                <button class="btn btn-secondary" id="btnRefresh">
+                    <span>🔄</span> 刷新
+                </button>
+                <button class="btn btn-secondary" id="btnFieldMapping">
+                    <span>🔧</span> 字段映射
+                </button>
+                <button class="btn btn-secondary" id="btnUndo" title="撤销 (Ctrl+Z)">
+                    <span>↩️</span>
+                </button>
+                <button class="btn btn-secondary" id="btnRedo" title="重做 (Ctrl+Y)">
+                    <span>↪️</span>
+                </button>
+            </div>
+            <div class="toolbar-right">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="searchInput" placeholder="搜索数据...">
+                </div>
+                <button class="btn btn-secondary" id="btnBatchEdit">
+                    <span>✏️</span> 批量编辑
+                </button>
+                <button class="btn btn-secondary" id="btnBatchDelete">
+                    <span>🗑️</span> 批量删除
+                </button>
+                <button class="btn btn-success" id="btnImport" disabled>
+                    <span>✅</span> 导入数据
+                </button>
+            </div>
+        </div>
+
+        <!-- 内容区域 -->
+        <div class="preview-content">
+            <div class="table-wrapper">
+                <div class="virtual-scroll-container" id="virtualScrollContainer">
+                    <table class="data-table" id="dataTable">
+                        <thead>
+                            <tr id="tableHeader">
+                                <th style="width: 50px;">
+                                    <input type="checkbox" class="checkbox" id="selectAll">
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 错误面板 -->
+            <div class="error-panel" id="errorPanel">
+                <h4>⚠️ 数据验证错误 (<span id="errorCount">0</span>)</h4>
+                <ul class="error-list" id="errorList">
+                </ul>
+            </div>
+
+            <!-- 字段映射面板 -->
+            <div class="field-mapping-panel" id="fieldMappingPanel" style="display: none;">
+                <h4 style="margin-bottom: 10px; color: #4a5568;">🔧 字段映射配置</h4>
+                <div class="mapping-grid" id="mappingGrid">
+                </div>
+                <div style="margin-top: 15px; text-align: right;">
+                    <button class="btn btn-secondary" id="btnCancelMapping">取消</button>
+                    <button class="btn btn-primary" id="btnSaveMapping">保存映射</button>
+                </div>
+            </div>
+
+            <!-- 分页 -->
+            <div class="pagination" id="pagination">
+            </div>
+        </div>
+
+        <!-- 摘要栏 -->
+        <div class="summary-bar">
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <span class="stat-label">有效数据</span>
+                    <span class="stat-value" id="validCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">错误数据</span>
+                    <span class="stat-value error" id="errorCountStat">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">警告数据</span>
+                    <span class="stat-value warning" id="warningCount">0</span>
+                </div>
+            </div>
+            <div>
+                <button class="btn btn-secondary" id="btnExportErrors">
+                    <span>📥</span> 导出错误报告
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loadingText">正在加载数据...</div>
+        </div>
+    </div>
+
+    <script>
+        // Excel 数据预览组件
+        class ExcelDataPreview {
+            constructor(options = {}) {
+                this.options = {
+                    apiBaseUrl: '/api/extract',
+                    rowsPerPage: 50,
+                    rowHeight: 45,
+                    bufferSize: 5,
+                    useVirtualScroll: true,
+                    ...options
+                };
+                
+                this.currentData = [];
+                this.filteredData = [];
+                this.currentPage = 1;
+                this.totalPages = 1;
+                this.sortColumn = null;
+                this.sortOrder = 'asc';
+                this.selectedRows = new Set();
+                this.fieldMappings = {};
+                this.validationErrors = [];
+                
+                this.virtualScrollState = {
+                    scrollTop: 0,
+                    visibleStart: 0,
+                    visibleEnd: 0,
+                    containerHeight: 0
+                };
+                
+                this.editState = {
+                    editingRow: null,
+                    editingCell: null,
+                    originalValue: null,
+                    history: [],
+                    historyIndex: -1
+                };
+                
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.showLoading(false);
+                if (this.options.useVirtualScroll) {
+                    this.initVirtualScroll();
+                }
+            }
+
+            initVirtualScroll() {
+                const container = document.getElementById('virtualScrollContainer');
+                if (!container) return;
+                
+                this.virtualScrollState.containerHeight = container.clientHeight;
+                
+                container.addEventListener('scroll', () => {
+                    this.onVirtualScroll();
+                });
+            }
+
+            onVirtualScroll() {
+                const container = document.getElementById('virtualScrollContainer');
+                if (!container) return;
+                
+                const scrollTop = container.scrollTop;
+                this.virtualScrollState.scrollTop = scrollTop;
+                
+                const visibleStart = Math.max(0, Math.floor(scrollTop / this.options.rowHeight) - this.options.bufferSize);
+                const visibleEnd = Math.min(
+                    this.filteredData.length,
+                    Math.ceil((scrollTop + this.virtualScrollState.containerHeight) / this.options.rowHeight) + this.options.bufferSize
+                );
+                
+                if (visibleStart !== this.virtualScrollState.visibleStart || 
+                    visibleEnd !== this.virtualScrollState.visibleEnd) {
+                    this.virtualScrollState.visibleStart = visibleStart;
+                    this.virtualScrollState.visibleEnd = visibleEnd;
+                    this.renderVirtualTable();
+                }
+            }
+
+            renderVirtualTable() {
+                if (!this.options.useVirtualScroll || this.filteredData.length === 0) {
+                    this.renderTable();
+                    return;
+                }
+
+                const container = document.getElementById('virtualScrollContainer');
+                const table = document.getElementById('dataTable');
+                if (!container || !table) return;
+
+                const totalHeight = this.filteredData.length * this.options.rowHeight;
+                table.style.height = `${totalHeight}px`;
+                table.style.position = 'relative';
+
+                const columns = Object.keys(this.currentData[0]);
+                const thead = table.querySelector('thead');
+                const tbody = table.querySelector('tbody');
+
+                if (thead) {
+                    thead.style.position = 'sticky';
+                    thead.style.top = '0';
+                    thead.style.background = '#f8f9fa';
+                    thead.style.zIndex = '100';
+                }
+
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    tbody.style.position = 'relative';
+
+                    const startIndex = this.virtualScrollState.visibleStart;
+                    const endIndex = this.virtualScrollState.visibleEnd;
+
+                    for (let i = startIndex; i < endIndex && i < this.filteredData.length; i++) {
+                        const row = this.filteredData[i];
+                        const tr = document.createElement('tr');
+                        tr.className = 'row';
+                        tr.style.position = 'absolute';
+                        tr.style.top = `${i * this.options.rowHeight}px`;
+                        tr.style.height = `${this.options.rowHeight}px`;
+                        tr.dataset.index = i;
+
+                        if (this.selectedRows.has(i)) {
+                            tr.classList.add('selected');
+                        }
+
+                        const hasError = this.validationErrors.some(e => e.row === i);
+                        if (hasError) {
+                            tr.classList.add('validation-error');
+                        }
+
+                        const tdCheckbox = document.createElement('td');
+                        tdCheckbox.style.height = `${this.options.rowHeight}px`;
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'checkbox';
+                        checkbox.checked = this.selectedRows.has(i);
+                        checkbox.addEventListener('change', (e) => {
+                            this.onRowSelect(i, e.target.checked);
+                        });
+                        tdCheckbox.appendChild(checkbox);
+                        tr.appendChild(tdCheckbox);
+
+                        columns.forEach(col => {
+                            const td = document.createElement('td');
+                            td.style.height = `${this.options.rowHeight - 1}px`;
+                            
+                            // 检查是否正在编辑该单元格
+                            if (this.editState.editingRow === i && this.editState.editingCell === col) {
+                                td.className = 'cell-editing';
+                                const input = document.createElement('input');
+                                input.type = 'text';
+                                input.className = 'edit-input';
+                                input.value = row[col] || '';
+                                
+                                // 绑定事件
+                                input.addEventListener('keydown', (e) => {
+                                    if (e.key === 'Enter') {
+                                        this.saveCellEdit();
+                                    } else if (e.key === 'Escape') {
+                                        this.cancelEdit();
+                                    }
+                                });
+                                
+                                td.appendChild(input);
+                            } else {
+                                td.textContent = row[col] || '';
+                                td.className = 'cell-editable';
+                                td.addEventListener('dblclick', () => {
+                                    this.editCell(i, col);
+                                });
+
+                                const cellError = this.validationErrors.find(
+                                    e => e.row === i && e.field === col
+                                );
+                                if (cellError) {
+                                    td.classList.add('cell-error');
+                                    td.classList.add('tooltip');
+                                    td.setAttribute('data-tooltip', cellError.message);
+                                }
+                            }
+
+                            tr.appendChild(td);
+                        });
+
+                        const actionTd = document.createElement('td');
+                        actionTd.className = 'action-cell';
+                        actionTd.style.height = `${this.options.rowHeight - 1}px`;
+                        actionTd.innerHTML = `
+                            <button class="action-btn action-btn-edit" onclick="preview.editRow(${i})">编辑</button>
+                            <button class="action-btn action-btn-delete" onclick="preview.deleteRow(${i})">删除</button>
+                        `;
+                        tr.appendChild(actionTd);
+
+                        tbody.appendChild(tr);
+                    }
+                }
+            }
+
+            bindEvents() {
+                // 数据类型选择
+                document.getElementById('dataTypeSelector').addEventListener('change', (e) => {
+                    this.onDataTypeChange(e.target.value);
+                });
+
+                // 刷新按钮
+                document.getElementById('btnRefresh').addEventListener('click', () => {
+                    this.refresh();
+                });
+
+                // 字段映射按钮
+                document.getElementById('btnFieldMapping').addEventListener('click', () => {
+                    this.toggleFieldMapping();
+                });
+
+                // 导入按钮
+                document.getElementById('btnImport').addEventListener('click', () => {
+                    this.importData();
+                });
+
+                // 搜索输入
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    this.onSearch(e.target.value);
+                });
+
+                // 全选复选框
+                document.getElementById('selectAll').addEventListener('change', (e) => {
+                    this.onSelectAll(e.target.checked);
+                });
+
+                // 取消映射
+                document.getElementById('btnCancelMapping').addEventListener('click', () => {
+                    this.toggleFieldMapping(false);
+                });
+
+                // 保存映射
+                document.getElementById('btnSaveMapping').addEventListener('click', () => {
+                    this.saveFieldMapping();
+                });
+
+                // 导出错误报告
+                document.getElementById('btnExportErrors').addEventListener('click', () => {
+                    this.exportErrors();
+                });
+
+                // 撤销
+                document.getElementById('btnUndo').addEventListener('click', () => {
+                    this.undo();
+                });
+
+                // 重做
+                document.getElementById('btnRedo').addEventListener('click', () => {
+                    this.redo();
+                });
+
+                // 批量编辑
+                document.getElementById('btnBatchEdit').addEventListener('click', () => {
+                    this.showBatchEditDialog();
+                });
+
+                // 批量删除
+                document.getElementById('btnBatchDelete').addEventListener('click', () => {
+                    this.batchDelete();
+                });
+
+                // 键盘快捷键
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === 'z') {
+                        e.preventDefault();
+                        this.undo();
+                    } else if (e.ctrlKey && e.key === 'y') {
+                        e.preventDefault();
+                        this.redo();
+                    } else if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        this.importData();
+                    }
+                });
+            }
+
+            // 加载数据
+            async loadData(filePath, dataType = '') {
+                this.showLoading(true, '正在分析 Excel 文件...');
+                
+                try {
+                    const response = await fetch(`${this.options.apiBaseUrl}/analyze`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            file_path: filePath,
+                            data_type: dataType || undefined
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('分析失败');
+                    }
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.currentData = result.data || [];
+                        this.filteredData = [...this.currentData];
+                        this.fieldMappings = result.field_mappings || {};
+                        this.validationErrors = result.validation_errors || [];
+                        
+                        this.updateFileInfo(result);
+                        this.renderTable();
+                        this.renderPagination();
+                        this.updateStatistics();
+                        this.checkImportReady();
+                    } else {
+                        alert('分析失败：' + (result.message || '未知错误'));
+                    }
+                } catch (error) {
+                    console.error('加载数据失败:', error);
+                    alert('加载数据失败：' + error.message);
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            // 更新文件信息
+            updateFileInfo(result) {
+                document.getElementById('fileName').textContent = 
+                    result.file_name || '未命名文件';
+                document.getElementById('dataTypeDisplay').textContent = 
+                    result.detected_type || '未检测';
+                document.getElementById('totalRows').textContent = 
+                    this.currentData.length;
+            }
+
+            // 渲染表格
+            renderTable() {
+                if (this.options.useVirtualScroll) {
+                    this.renderVirtualTable();
+                    return;
+                }
+
+                const tableHeader = document.getElementById('tableHeader');
+                const tableBody = document.getElementById('tableBody');
+                
+                if (this.currentData.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="100%" style="text-align: center; padding: 40px; color: #a0aec0;">暂无数据</td></tr>';
+                    return;
+                }
+
+                // 获取列名
+                const columns = Object.keys(this.currentData[0]);
+                
+                // 渲染表头
+                tableHeader.innerHTML = `
+                    <th style="width: 50px;">
+                        <input type="checkbox" class="checkbox" id="selectAll">
+                    </th>
+                `;
+                
+                columns.forEach(col => {
+                    const th = document.createElement('th');
+                    th.textContent = col;
+                    th.addEventListener('click', () => {
+                        this.sortByColumn(col);
+                    });
+                    tableHeader.appendChild(th);
+                });
+
+                // 添加操作列
+                const actionTh = document.createElement('th');
+                actionTh.textContent = '操作';
+                actionTh.style.width = '100px';
+                actionTh.style.textAlign = 'center';
+                tableHeader.appendChild(actionTh);
+
+                // 渲染当前页数据
+                const startIndex = (this.currentPage - 1) * this.options.rowsPerPage;
+                const endIndex = startIndex + this.options.rowsPerPage;
+                const pageData = this.filteredData.slice(startIndex, endIndex);
+
+                tableBody.innerHTML = '';
+                pageData.forEach((row, index) => {
+                    const tr = document.createElement('tr');
+                    tr.dataset.index = startIndex + index;
+                    
+                    if (this.selectedRows.has(startIndex + index)) {
+                        tr.classList.add('selected');
+                    }
+
+                    // 检查是否有验证错误
+                    const hasError = this.validationErrors.some(e => e.row === startIndex + index);
+                    if (hasError) {
+                        tr.classList.add('validation-error');
+                    }
+
+                    // 复选框
+                    const tdCheckbox = document.createElement('td');
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'checkbox';
+                    checkbox.checked = this.selectedRows.has(startIndex + index);
+                    checkbox.addEventListener('change', (e) => {
+                        this.onRowSelect(startIndex + index, e.target.checked);
+                    });
+                    tdCheckbox.appendChild(checkbox);
+                    tr.appendChild(tdCheckbox);
+
+                    // 数据单元格
+                    columns.forEach(col => {
+                        const td = document.createElement('td');
+                        td.textContent = row[col] || '';
+                        
+                        // 检查该字段是否有错误
+                        const cellError = this.validationErrors.find(
+                            e => e.row === startIndex + index && e.field === col
+                        );
+                        if (cellError) {
+                            td.classList.add('cell-error');
+                            td.classList.add('tooltip');
+                            td.setAttribute('data-tooltip', cellError.message);
+                        }
+                        
+                        tr.appendChild(td);
+                    });
+
+                    // 操作列
+                    const actionTd = document.createElement('td');
+                    actionTd.className = 'action-cell';
+                    actionTd.innerHTML = `
+                        <button class="action-btn action-btn-edit" onclick="preview.editRow(${startIndex + index})">编辑</button>
+                        <button class="action-btn action-btn-delete" onclick="preview.deleteRow(${startIndex + index})">删除</button>
+                    `;
+                    tr.appendChild(actionTd);
+
+                    tableBody.appendChild(tr);
+                });
+
+                // 更新全选复选框状态
+                const selectAllCheckbox = document.getElementById('selectAll');
+                if (selectAllCheckbox) {
+                    selectAllCheckbox.checked = pageData.length > 0 && 
+                        pageData.every((_, i) => this.selectedRows.has(startIndex + i));
+                }
+            }
+
+            // 渲染分页
+            renderPagination() {
+                const pagination = document.getElementById('pagination');
+                
+                // 虚拟滚动模式下不分页
+                if (this.options.useVirtualScroll) {
+                    pagination.innerHTML = '';
+                    return;
+                }
+                
+                this.totalPages = Math.ceil(this.filteredData.length / this.options.rowsPerPage);
+                
+                if (this.totalPages <= 1) {
+                    pagination.innerHTML = '';
+                    return;
+                }
+
+                let html = '';
+                
+                // 上一页
+                html += `<button class="page-btn" ${this.currentPage === 1 ? 'disabled' : ''} 
+                         onclick="preview.goToPage(${this.currentPage - 1})">上一页</button>`;
+                
+                // 页码
+                for (let i = 1; i <= this.totalPages; i++) {
+                    if (i === 1 || i === this.totalPages || (i >= this.currentPage - 2 && i <= this.currentPage + 2)) {
+                        html += `<button class="page-btn ${i === this.currentPage ? 'active' : ''}" 
+                                 onclick="preview.goToPage(${i})">${i}</button>`;
+                    } else if (i === this.currentPage - 3 || i === this.currentPage + 3) {
+                        html += '<span style="color: #718096;">...</span>';
+                    }
+                }
+                
+                // 下一页
+                html += `<button class="page-btn" ${this.currentPage === this.totalPages ? 'disabled' : ''} 
+                         onclick="preview.goToPage(${this.currentPage + 1})">下一页</button>`;
+                
+                // 页码信息
+                html += `<span class="page-info">共 ${this.totalPages} 页，${this.filteredData.length} 条数据</span>`;
+                
+                pagination.innerHTML = html;
+            }
+
+            // 跳转到指定页
+            goToPage(page) {
+                if (page < 1 || page > this.totalPages) return;
+                this.currentPage = page;
+                if (!this.options.useVirtualScroll) {
+                    this.renderTable();
+                    this.renderPagination();
+                } else {
+                    this.renderVirtualTable();
+                }
+            }
+
+            // 按列排序
+            sortByColumn(column) {
+                if (this.sortColumn === column) {
+                    this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortColumn = column;
+                    this.sortOrder = 'asc';
+                }
+
+                this.filteredData.sort((a, b) => {
+                    let valA = a[column] || '';
+                    let valB = b[column] || '';
+                    
+                    // 数字比较
+                    if (!isNaN(valA) && !isNaN(valB)) {
+                        valA = parseFloat(valA);
+                        valB = parseFloat(valB);
+                    }
+                    
+                    if (valA < valB) return this.sortOrder === 'asc' ? -1 : 1;
+                    if (valA > valB) return this.sortOrder === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                // 更新表头样式
+                document.querySelectorAll('#tableHeader th').forEach(th => {
+                    th.classList.remove('sorted-asc', 'sorted-desc');
+                    if (th.textContent === column) {
+                        th.classList.add(this.sortOrder === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                    }
+                });
+
+                this.currentPage = 1;
+                if (this.options.useVirtualScroll) {
+                    this.virtualScrollState.scrollTop = 0;
+                    document.getElementById('virtualScrollContainer').scrollTop = 0;
+                    this.renderVirtualTable();
+                } else {
+                    this.renderTable();
+                    this.renderPagination();
+                }
+            }
+
+            // 搜索
+            onSearch(keyword) {
+                if (!keyword.trim()) {
+                    this.filteredData = [...this.currentData];
+                } else {
+                    this.filteredData = this.currentData.filter(row => {
+                        return Object.values(row).some(val => 
+                            String(val).toLowerCase().includes(keyword.toLowerCase())
+                        );
+                    });
+                }
+                
+                this.currentPage = 1;
+                if (this.options.useVirtualScroll) {
+                    this.virtualScrollState.scrollTop = 0;
+                    document.getElementById('virtualScrollContainer').scrollTop = 0;
+                    this.renderVirtualTable();
+                } else {
+                    this.renderTable();
+                    this.renderPagination();
+                }
+            }
+
+            // 数据类型变更
+            async onDataTypeChange(dataType) {
+                if (!dataType) return;
+                
+                const filePath = document.getElementById('fileName').textContent;
+                await this.loadData(filePath, dataType);
+            }
+
+            // 刷新
+            refresh() {
+                const filePath = document.getElementById('fileName').textContent;
+                const dataType = document.getElementById('dataTypeSelector').value;
+                this.loadData(filePath, dataType);
+            }
+
+            // 字段映射
+            toggleFieldMapping(show) {
+                const panel = document.getElementById('fieldMappingPanel');
+                const mappingGrid = document.getElementById('mappingGrid');
+                
+                if (show !== false) {
+                    // 显示面板并渲染映射项
+                    mappingGrid.innerHTML = '';
+                    
+                    Object.entries(this.fieldMappings).forEach(([sourceField, mapping]) => {
+                        const item = document.createElement('div');
+                        item.className = 'mapping-item';
+                        
+                        const label = document.createElement('span');
+                        label.className = 'mapping-label';
+                        label.textContent = sourceField;
+                        
+                        const select = document.createElement('select');
+                        select.className = 'mapping-select';
+                        select.dataset.sourceField = sourceField;
+                        
+                        // 添加预定义字段选项
+                        const predefinedFields = [
+                            { value: '', label: '不映射' },
+                            { value: 'name', label: '名称' },
+                            { value: 'code', label: '编码' },
+                            { value: 'specification', label: '规格' },
+                            { value: 'unit', label: '单位' },
+                            { value: 'price', label: '价格' },
+                            { value: 'category', label: '类别' },
+                            { value: 'phone', label: '电话' },
+                            { value: 'address', label: '地址' },
+                            { value: 'quantity', label: '数量' },
+                            { value: 'amount', label: '金额' }
+                        ];
+                        
+                        predefinedFields.forEach(field => {
+                            const option = document.createElement('option');
+                            option.value = field.value;
+                            option.textContent = field.label;
+                            if (field.value === mapping.target_field) {
+                                option.selected = true;
+                            }
+                            select.appendChild(option);
+                        });
+                        
+                        const confidence = document.createElement('span');
+                        confidence.className = `confidence-badge confidence-${
+                            mapping.confidence > 0.8 ? 'high' : 
+                            mapping.confidence > 0.5 ? 'medium' : 'low'
+                        }`;
+                        confidence.textContent = `${Math.round(mapping.confidence * 100)}%`;
+                        
+                        item.appendChild(label);
+                        item.appendChild(select);
+                        item.appendChild(confidence);
+                        mappingGrid.appendChild(item);
+                    });
+                    
+                    panel.style.display = 'block';
+                } else {
+                    panel.style.display = 'none';
+                }
+            }
+
+            // 保存字段映射
+            saveFieldMapping() {
+                const selects = document.querySelectorAll('.mapping-select');
+                const newMappings = {};
+                
+                selects.forEach(select => {
+                    const sourceField = select.dataset.sourceField;
+                    const targetField = select.value;
+                    
+                    if (targetField) {
+                        newMappings[sourceField] = {
+                            target_field: targetField,
+                            confidence: 1.0
+                        };
+                    }
+                });
+                
+                this.fieldMappings = newMappings;
+                this.toggleFieldMapping(false);
+                alert('字段映射已保存');
+            }
+
+            // 行选择
+            onRowSelect(index, selected) {
+                if (selected) {
+                    this.selectedRows.add(index);
+                } else {
+                    this.selectedRows.delete(index);
+                }
+            }
+
+            // 全选
+            onSelectAll(checked) {
+                const startIndex = (this.currentPage - 1) * this.options.rowsPerPage;
+                const endIndex = startIndex + this.options.rowsPerPage;
+                
+                for (let i = startIndex; i < endIndex && i < this.filteredData.length; i++) {
+                    if (checked) {
+                        this.selectedRows.add(i);
+                    } else {
+                        this.selectedRows.delete(i);
+                    }
+                }
+                
+                this.renderTable();
+            }
+
+            // 编辑行
+            editRow(index) {
+                const row = this.filteredData[index];
+                if (!row) return;
+                
+                this.editState.editingRow = index;
+                this.renderTable();
+                
+                // 聚焦到第一个可编辑单元格
+                setTimeout(() => {
+                    const firstEditable = document.querySelector(`tr[data-index="${index}"] .cell-editable`);
+                    if (firstEditable) {
+                        firstEditable.click();
+                    }
+                }, 100);
+            }
+
+            // 编辑单元格
+            editCell(rowIndex, field) {
+                const row = this.filteredData[rowIndex];
+                if (!row || !row.hasOwnProperty(field)) return;
+                
+                this.editState.editingRow = rowIndex;
+                this.editState.editingCell = field;
+                this.editState.originalValue = row[field];
+                
+                this.renderTable();
+                
+                // 聚焦到编辑输入框
+                setTimeout(() => {
+                    const input = document.querySelector(`tr[data-index="${rowIndex}"] .edit-input`);
+                    if (input) {
+                        input.focus();
+                        input.select();
+                    }
+                }, 100);
+            }
+
+            // 保存单元格编辑
+            saveCellEdit() {
+                const { editingRow, editingCell } = this.editState;
+                if (editingRow === null || editingCell === null) return;
+                
+                const input = document.querySelector(`tr[data-index="${editingRow}"] .edit-input`);
+                if (!input) return;
+                
+                const newValue = input.value;
+                const oldValue = this.filteredData[editingRow][editingCell];
+                
+                // 记录历史
+                this.recordHistory({
+                    type: 'cell',
+                    rowIndex: editingRow,
+                    field: editingCell,
+                    oldValue: oldValue,
+                    newValue: newValue
+                });
+                
+                // 更新数据
+                this.filteredData[editingRow][editingCell] = newValue;
+                this.currentData[this.currentData.indexOf(this.filteredData[editingRow])][editingCell] = newValue;
+                
+                // 清除编辑状态
+                this.editState.editingRow = null;
+                this.editState.editingCell = null;
+                this.editState.originalValue = null;
+                
+                this.renderTable();
+                this.updateStatistics();
+            }
+
+            // 取消编辑
+            cancelEdit() {
+                const { editingRow, editingCell, originalValue } = this.editState;
+                if (editingRow === null) return;
+                
+                if (editingCell !== null && originalValue !== null) {
+                    this.filteredData[editingRow][editingCell] = originalValue;
+                }
+                
+                this.editState.editingRow = null;
+                this.editState.editingCell = null;
+                this.editState.originalValue = null;
+                
+                this.renderTable();
+            }
+
+            // 记录历史
+            recordHistory(action) {
+                // 移除当前索引之后的历史
+                this.editState.history = this.editState.history.slice(0, this.editState.historyIndex + 1);
+                this.editState.history.push(action);
+                this.editState.historyIndex++;
+                
+                // 限制历史记录数量
+                if (this.editState.history.length > 50) {
+                    this.editState.history.shift();
+                    this.editState.historyIndex--;
+                }
+            }
+
+            // 撤销
+            undo() {
+                if (this.editState.historyIndex < 0) return;
+                
+                const action = this.editState.history[this.editState.historyIndex];
+                if (action.type === 'cell') {
+                    this.filteredData[action.rowIndex][action.field] = action.oldValue;
+                }
+                
+                this.editState.historyIndex--;
+                this.renderTable();
+                this.updateStatistics();
+            }
+
+            // 重做
+            redo() {
+                if (this.editState.historyIndex >= this.editState.history.length - 1) return;
+                
+                this.editState.historyIndex++;
+                const action = this.editState.history[this.editState.historyIndex];
+                if (action.type === 'cell') {
+                    this.filteredData[action.rowIndex][action.field] = action.newValue;
+                }
+                
+                this.renderTable();
+                this.updateStatistics();
+            }
+
+            // 批量编辑
+            batchEdit(field, value) {
+                if (this.selectedRows.size === 0) {
+                    alert('请先选择要编辑的行');
+                    return;
+                }
+                
+                const action = {
+                    type: 'batch',
+                    field: field,
+                    changes: []
+                };
+                
+                this.selectedRows.forEach(index => {
+                    const oldValue = this.filteredData[index][field];
+                    action.changes.push({
+                        rowIndex: index,
+                        oldValue: oldValue,
+                        newValue: value
+                    });
+                    this.filteredData[index][field] = value;
+                });
+                
+                this.recordHistory(action);
+                this.renderTable();
+                this.updateStatistics();
+                
+                alert(`已批量更新 ${this.selectedRows.size} 行数据`);
+            }
+
+            // 批量删除
+            batchDelete() {
+                if (this.selectedRows.size === 0) {
+                    alert('请先选择要删除的行');
+                    return;
+                }
+                
+                if (!confirm(`确定要删除选中的 ${this.selectedRows.size} 行数据吗？`)) {
+                    return;
+                }
+                
+                const selectedIndices = Array.from(this.selectedRows).sort((a, b) => b - a);
+                selectedIndices.forEach(index => {
+                    this.currentData.splice(index, 1);
+                });
+                
+                this.filteredData = [...this.currentData];
+                this.selectedRows.clear();
+                
+                if (this.options.useVirtualScroll) {
+                    this.renderVirtualTable();
+                } else {
+                    this.renderTable();
+                    this.renderPagination();
+                }
+                
+                this.updateStatistics();
+                
+                alert(`已删除 ${selectedIndices.length} 行数据`);
+            }
+
+            // 删除行
+            deleteRow(index) {
+                if (confirm('确定要删除这行数据吗？')) {
+                    this.currentData.splice(index, 1);
+                    this.filteredData = [...this.currentData];
+                    if (this.options.useVirtualScroll) {
+                        this.renderVirtualTable();
+                    } else {
+                        this.renderTable();
+                        this.renderPagination();
+                    }
+                    this.updateStatistics();
+                }
+            }
+
+            // 导入数据
+            async importData() {
+                this.showLoading(true, '正在导入数据...');
+                
+                try {
+                    const dataType = document.getElementById('dataTypeSelector').value;
+                    if (!dataType) {
+                        alert('请选择数据类型');
+                        return;
+                    }
+                    
+                    const response = await fetch(`${this.options.apiBaseUrl}/import/${dataType}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            file_path: document.getElementById('fileName').textContent,
+                            field_mappings: this.fieldMappings
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        alert(`成功导入 ${result.imported_count || 0} 条数据`);
+                        this.showLoading(false);
+                    } else {
+                        alert('导入失败：' + (result.message || '未知错误'));
+                    }
+                } catch (error) {
+                    console.error('导入失败:', error);
+                    alert('导入失败：' + error.message);
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+
+            // 检查是否可以导入
+            checkImportReady() {
+                const btnImport = document.getElementById('btnImport');
+                const hasData = this.currentData.length > 0;
+                const hasDataType = document.getElementById('dataTypeSelector').value !== '';
+                const hasFewErrors = this.validationErrors.length < this.currentData.length * 0.5;
+                
+                btnImport.disabled = !(hasData && hasDataType && hasFewErrors);
+            }
+
+            // 更新统计信息
+            updateStatistics() {
+                const validCount = this.currentData.length - this.validationErrors.length;
+                const errorCount = this.validationErrors.length;
+                
+                document.getElementById('validCount').textContent = validCount;
+                document.getElementById('errorCountStat').textContent = errorCount;
+                document.getElementById('warningCount').textContent = '0';
+                document.getElementById('errorCount').textContent = errorCount;
+                
+                // 显示错误面板
+                const errorPanel = document.getElementById('errorPanel');
+                const errorList = document.getElementById('errorList');
+                
+                if (errorCount > 0) {
+                    errorPanel.classList.add('show');
+                    errorList.innerHTML = '';
+                    
+                    this.validationErrors.slice(0, 10).forEach(err => {
+                        const li = document.createElement('li');
+                        li.className = 'error-item';
+                        li.textContent = `行${err.row}: ${err.field} - ${err.message}`;
+                        errorList.appendChild(li);
+                    });
+                    
+                    if (this.validationErrors.length > 10) {
+                        const li = document.createElement('li');
+                        li.className = 'error-item';
+                        li.textContent = `... 还有 ${this.validationErrors.length - 10} 条错误`;
+                        errorList.appendChild(li);
+                    }
+                } else {
+                    errorPanel.classList.remove('show');
+                }
+            }
+
+            // 导出错误报告
+            exportErrors() {
+                if (this.validationErrors.length === 0) {
+                    alert('没有错误需要导出');
+                    return;
+                }
+                
+                let csv = '行号，字段，错误信息\n';
+                this.validationErrors.forEach(err => {
+                    csv += `${err.row},${err.field},${err.message}\n`;
+                });
+                
+                const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '错误报告.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            // 显示批量编辑对话框
+            showBatchEditDialog() {
+                if (this.selectedRows.size === 0) {
+                    alert('请先选择要编辑的行');
+                    return;
+                }
+
+                const columns = this.currentData.length > 0 ? Object.keys(this.currentData[0]) : [];
+                if (columns.length === 0) return;
+
+                const columnSelect = document.createElement('select');
+                columnSelect.style.padding = '8px';
+                columnSelect.style.marginRight = '10px';
+                columnSelect.style.borderRadius = '6px';
+                columnSelect.style.border = '1px solid #e2e8f0';
+                
+                columns.forEach(col => {
+                    const option = document.createElement('option');
+                    option.value = col;
+                    option.textContent = col;
+                    columnSelect.appendChild(option);
+                });
+
+                const valueInput = document.createElement('input');
+                valueInput.type = 'text';
+                valueInput.placeholder = '输入新值';
+                valueInput.style.padding = '8px';
+                valueInput.style.marginRight = '10px';
+                valueInput.style.borderRadius = '6px';
+                valueInput.style.border = '1px solid #e2e8f0';
+                valueInput.style.flex = '1';
+
+                const dialog = document.createElement('div');
+                dialog.style.position = 'fixed';
+                dialog.style.top = '50%';
+                dialog.style.left = '50%';
+                dialog.style.transform = 'translate(-50%, -50%)';
+                dialog.style.background = 'white';
+                dialog.style.padding = '30px';
+                dialog.style.borderRadius = '12px';
+                dialog.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+                dialog.style.zIndex = '1001';
+                dialog.style.minWidth = '400px';
+                
+                dialog.innerHTML = `
+                    <h3 style="margin-bottom: 20px; color: #2d3748;">批量编辑</h3>
+                    <p style="margin-bottom: 15px; color: #718096;">将更新选中的 ${this.selectedRows.size} 行数据</p>
+                    <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                        <label style="min-width: 80px; color: #4a5568;">字段：</label>
+                    </div>
+                    <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                        <label style="min-width: 80px; color: #4a5568;">新值：</label>
+                    </div>
+                    <div style="text-align: right;">
+                        <button class="btn btn-secondary" id="batchEditCancel" style="display: inline-block;">取消</button>
+                        <button class="btn btn-primary" id="batchEditConfirm" style="display: inline-block; margin-left: 10px;">确定</button>
+                    </div>
+                `;
+
+                const fieldDiv = dialog.querySelectorAll('div')[0];
+                fieldDiv.appendChild(columnSelect);
+                
+                const valueDiv = dialog.querySelectorAll('div')[1];
+                valueDiv.appendChild(valueInput);
+
+                document.body.appendChild(dialog);
+
+                // 添加遮罩层
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+                overlay.style.width = '100%';
+                overlay.style.height = '100%';
+                overlay.style.background = 'rgba(0,0,0,0.5)';
+                overlay.style.zIndex = '1000';
+                document.body.appendChild(overlay);
+
+                // 绑定事件
+                document.getElementById('batchEditCancel').addEventListener('click', () => {
+                    document.body.removeChild(dialog);
+                    document.body.removeChild(overlay);
+                });
+
+                document.getElementById('batchEditConfirm').addEventListener('click', () => {
+                    const field = columnSelect.value;
+                    const value = valueInput.value;
+                    this.batchEdit(field, value);
+                    document.body.removeChild(dialog);
+                    document.body.removeChild(overlay);
+                });
+
+                // ESC 关闭
+                overlay.addEventListener('click', () => {
+                    document.body.removeChild(dialog);
+                    document.body.removeChild(overlay);
+                });
+
+                valueInput.focus();
+            }
+
+            // 显示/隐藏加载遮罩
+            showLoading(show, text = '正在加载...') {
+                const overlay = document.getElementById('loadingOverlay');
+                const loadingText = document.getElementById('loadingText');
+                
+                if (show) {
+                    loadingText.textContent = text;
+                    overlay.classList.add('show');
+                } else {
+                    overlay.classList.remove('show');
+                }
+            }
+        }
+
+        // 初始化预览组件
+        const preview = new ExcelDataPreview();
+
+        // 示例：加载数据（实际使用时通过文件上传触发）
+        // preview.loadData('e:\\FHD\\AI 助手\\迎扬李总.xlsx', 'product');
+    </script>
+</body>
+</html>

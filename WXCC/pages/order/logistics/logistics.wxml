@@ -1,0 +1,44 @@
+<view class="container">
+  <!-- 物流状态 -->
+  <view class="logistics-status card">
+    <view class="status-header">
+      <text class="company-name">{{logistics.company}}</text>
+      <text class="tracking-no">{{logistics.trackingNo}}</text>
+      <view class="copy-btn" bindtap="copyTrackingNo">
+        <text class="iconfont icon-copy"></text>
+        复制
+      </view>
+    </view>
+    <view class="status-content">
+      <text class="status-text">{{logistics.status}}</text>
+      <text class="update-time">更新时间：{{logistics.updateTime}}</text>
+    </view>
+  </view>
+
+  <!-- 物流轨迹 -->
+  <view class="logistics-track">
+    <view class="track-item" wx:for="{{tracks}}" wx:key="time">
+      <view class="track-node {{index === 0 ? 'current' : ''}}">
+        <view class="node-icon">
+          <text class="iconfont {{index === 0 ? 'icon-check' : 'icon-location'}}"></text>
+        </view>
+        <view class="node-line" wx:if="{{index < tracks.length - 1}}"></view>
+      </view>
+      <view class="track-content">
+        <text class="track-info">{{item.info}}</text>
+        <text class="track-time">{{item.time}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && tracks.length === 0}}">
+    <image src="/assets/empty-logistics.png" mode="aspectFit"></image>
+    <text class="empty-text">暂无物流信息</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

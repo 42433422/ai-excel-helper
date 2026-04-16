@@ -1,0 +1,16 @@
+.virtual-list {
+  width: 100%;
+  overflow-y: scroll;
+}
+
+.virtual-list-content {
+  width: 100%;
+  position: relative;
+}
+
+.virtual-list-item {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  top: 0;
+}

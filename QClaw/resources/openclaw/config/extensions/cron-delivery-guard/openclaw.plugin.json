@@ -1,0 +1,10 @@
+{
+  "id": "cron-delivery-guard",
+  "name": "Cron 投递降级守卫",
+  "description": "拦截 cron 工具调用，当 delivery.mode 为 announce 且无 channel 时自动注入 bestEffort: true，避免投递失败导致 cron 执行结果丢失",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

@@ -1,0 +1,12 @@
+=== 惠州市枫驰家具有限公司 ===
+  CSV body rows: 25  unique model keys from CSV: 25
+  DB product rows: 25
+  CSV keys missing in DB: 0
+=== 惠州市鸿瑞达家具有限公司 ===
+  CSV body rows: 31  unique model keys from CSV: 31
+  DB product rows: 31
+  CSV keys missing in DB: 0
+=== 深圳市百木鼎家具有限公司 ===
+  CSV body rows: 30  unique model keys from CSV: 30
+  DB product rows: 46
+  CSV keys missing in DB: 0

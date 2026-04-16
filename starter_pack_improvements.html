@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新手对话包改进方案</title>
+    <style>
+        .starter-pack-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .category-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .category-tab {
+            padding: 8px 16px;
+            margin-right: 10px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .category-tab.active {
+            border-bottom-color: #007AFF;
+            color: #007AFF;
+        }
+        
+        .starter-pack-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 16px;
+        }
+        
+        .starter-pack-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            position: relative;
+        }
+        
+        .starter-pack-item:hover {
+            border-color: #007AFF;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .starter-pack-item:active {
+            transform: translateY(0);
+        }
+        
+        .starter-pack-label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        
+        .starter-pack-hint {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .usage-count {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #007AFF;
+            color: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 12px;
+        }
+        
+        .favorite-star {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            color: #ffc107;
+            cursor: pointer;
+        }
+        
+        .quick-action {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="starter-pack-container">
+        <h2>智能对话助手</h2>
+        
+        <!-- 搜索框 -->
+        <input type="text" class="search-box" placeholder="搜索功能..." id="searchInput">
+        
+        <!-- 分类标签 -->
+        <div class="category-tabs">
+            <button class="category-tab active" data-category="all">全部功能</button>
+            <button class="category-tab" data-category="query">查询类</button>
+            <button class="category-tab" data-category="operation">操作类</button>
+            <button class="category-tab" data-category="generate">生成类</button>
+            <button class="category-tab" data-category="favorite">收藏夹</button>
+        </div>
+        
+        <!-- 功能网格 -->
+        <div class="starter-pack-grid" id="functionGrid">
+            <!-- 功能1：查产品价格 -->
+            <div class="starter-pack-item" data-category="query" data-usage="15">
+                <span class="favorite-star">★</span>
+                <span class="usage-count">15次</span>
+                <div class="starter-pack-label">查产品价格</div>
+                <div class="starter-pack-hint">快速查询产品价格信息，支持多种查询方式</div>
+                <div class="quick-action">示例：查询产品「七彩乐园9803」</div>
+            </div>
+            
+            <!-- 功能2：生成发货单 -->
+            <div class="starter-pack-item" data-category="generate" data-usage="8">
+                <span class="favorite-star">☆</span>
+                <span class="usage-count">8次</span>
+                <div class="starter-pack-label">生成发货单</div>
+                <div class="starter-pack-hint">自动生成发货单及相关产品信息</div>
+                <div class="quick-action">示例：发货单蕊芯1一桶9806A规格23</div>
+            </div>
+            
+            <!-- 功能3：增加发货单 -->
+            <div class="starter-pack-item" data-category="operation" data-usage="12">
+                <span class="favorite-star">★</span>
+                <span class="usage-count">12次</span>
+                <div class="starter-pack-label">增加发货单</div>
+                <div class="starter-pack-hint">批量增加发货单数量和规格</div>
+                <div class="quick-action">示例：增加2桶9806规格23</div>
+            </div>
+            
+            <!-- 功能4：打印相关 -->
+            <div class="starter-pack-item" data-category="operation" data-usage="6">
+                <span class="favorite-star">☆</span>
+                <span class="usage-count">6次</span>
+                <div class="starter-pack-label">打印相关</div>
+                <div class="starter-pack-hint">触发打印流程或标签生成</div>
+                <div class="quick-action">示例：打印当前发货单</div>
+            </div>
+            
+            <!-- 功能5：组合任务 -->
+            <div class="starter-pack-item" data-category="generate" data-usage="20">
+                <span class="favorite-star">★</span>
+                <span class="usage-count">20次</span>
+                <div class="starter-pack-label">组合任务</div>
+                <div class="starter-pack-hint">一键完成开单、生成、打印全流程</div>
+                <div class="quick-action">示例：开单并打印发货单</div>
+            </div>
+            
+            <!-- 新增功能：库存查询 -->
+            <div class="starter-pack-item" data-category="query" data-usage="3">
+                <span class="favorite-star">☆</span>
+                <span class="usage-count">3次</span>
+                <div class="starter-pack-label">库存查询</div>
+                <div class="starter-pack-hint">实时查询产品库存状态</div>
+                <div class="quick-action">示例：查询9806A库存</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 搜索功能
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const items = document.querySelectorAll('.starter-pack-item');
+            
+            items.forEach(item => {
+                const label = item.querySelector('.starter-pack-label').textContent.toLowerCase();
+                const hint = item.querySelector('.starter-pack-hint').textContent.toLowerCase();
+                
+                if (label.includes(searchTerm) || hint.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+        
+        // 分类切换
+        document.querySelectorAll('.category-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // 移除所有active类
+                document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+                // 添加当前active类
+                this.classList.add('active');
+                
+                const category = this.dataset.category;
+                const items = document.querySelectorAll('.starter-pack-item');
+                
+                items.forEach(item => {
+                    if (category === 'all' || category === 'favorite') {
+                        item.style.display = 'block';
+                    } else if (item.dataset.category === category) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        // 收藏功能
+        document.querySelectorAll('.favorite-star').forEach(star => {
+            star.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (this.textContent === '☆') {
+                    this.textContent = '★';
+                    this.style.color = '#ffc107';
+                } else {
+                    this.textContent = '☆';
+                    this.style.color = '#ccc';
+                }
+            });
+        });
+        
+        // 点击功能项
+        document.querySelectorAll('.starter-pack-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const label = this.querySelector('.starter-pack-label').textContent;
+                const hint = this.querySelector('.starter-pack-hint').textContent;
+                
+                // 模拟发送到聊天框
+                console.log(`发送功能: ${label} - ${hint}`);
+                
+                // 添加点击反馈
+                this.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 150);
+                
+                // 增加使用计数
+                const usageCount = this.querySelector('.usage-count');
+                const currentCount = parseInt(usageCount.textContent);
+                usageCount.textContent = (currentCount + 1) + '次';
+            });
+        });
+    </script>
+</body>
+</html>

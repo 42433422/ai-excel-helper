@@ -1,0 +1,42 @@
+[project]
+name = "modstore"
+version = "0.2.0"
+description = "MODstore：XCAGI Mod 库、制作、调试沙箱与同步"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+web = [
+  "fastapi>=0.109",
+  "uvicorn[standard]>=0.27",
+  "python-multipart>=0.0.6",
+  "httpx>=0.27",
+]
+dev = [
+  "pytest>=7.4",
+  "pytest-cov>=4.1",
+]
+
+[project.scripts]
+modman = "modman.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["modman*", "modstore_server*"]
+
+[tool.setuptools.package-data]
+modman = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["modman", "modstore_server"]
+branch = true
+omit = ["*/tests/*"]

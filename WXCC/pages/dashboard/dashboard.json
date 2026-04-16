@@ -1,0 +1,17 @@
+{
+  "navigationBarTitleText": "智能数据监控",
+  "navigationBarBackgroundColor": "#0a0a0a",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#0a0a0a",
+  "backgroundTextStyle": "light",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "tech-card": "/components/tech-ui/tech-ui",
+    "data-flow": "/components/tech-ui/tech-ui",
+    "tech-progress": "/components/tech-ui/tech-ui",
+    "counter": "/components/tech-ui/tech-ui",
+    "chart-bar": "/components/charts/charts",
+    "chart-pie": "/components/charts/charts",
+    "data-card": "/components/charts/charts"
+  }
+}

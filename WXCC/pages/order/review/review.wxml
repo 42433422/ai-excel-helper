@@ -1,0 +1,76 @@
+<view class="container">
+  <!-- 订单信息 -->
+  <view class="order-section card">
+    <view class="section-title">订单信息</view>
+    <view class="order-item">
+      <text class="item-label">订单编号</text>
+      <text class="item-value">{{orderInfo.orderNo}}</text>
+    </view>
+    <view class="order-item">
+      <text class="item-label">商品名称</text>
+      <text class="item-value">{{orderInfo.productName}}</text>
+    </view>
+  </view>
+
+  <!-- 评分 -->
+  <view class="rating-section card">
+    <view class="section-title">整体评分</view>
+    <view class="rating-stars">
+      <text 
+        class="star {{index < rating ? 'active' : ''}}" 
+        wx:for="{{5}}" 
+        wx:key="*this"
+        bindtap="selectRating"
+        data-value="{{index + 1}}"
+      >
+        ★
+      </text>
+      <text class="rating-text">{{ratingText}}</text>
+    </view>
+  </view>
+
+  <!-- 评价内容 -->
+  <view class="comment-section card">
+    <view class="section-title">评价内容</view>
+    <textarea 
+      class="comment-input"
+      placeholder="分享您的使用感受吧..."
+      value="{{comment}}"
+      bindinput="onCommentInput"
+      maxlength="500"
+    ></textarea>
+    <text class="comment-count">{{commentLength}}/500</text>
+  </view>
+
+  <!-- 上传图片 -->
+  <view class="image-section card">
+    <view class="section-title">上传图片（最多 9 张）</view>
+    <view class="image-list">
+      <view class="image-item" wx:for="{{images}}" wx:key="*this">
+        <image class="image" src="{{item}}" mode="aspectFill"></image>
+        <view class="delete-btn" bindtap="deleteImage" data-index="{{index}}">
+          <text class="iconfont icon-close">×</text>
+        </view>
+      </view>
+      <view class="add-image" bindtap="addImage" wx:if="{{images.length < 9}}">
+        <text class="iconfont icon-plus"></text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 匿名评价 -->
+  <view class="anonymous-section card">
+    <view class="anonymous-label">匿名评价</view>
+    <switch 
+      class="anonymous-switch" 
+      checked="{{isAnonymous}}"
+      bindchange="onAnonymousChange"
+      color="#1890ff"
+    />
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-btn" bindtap="submitReview">
+    <text>提交评价</text>
+  </view>
+</view>

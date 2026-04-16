@@ -1,0 +1,4 @@
+{
+  "key_hex": "请填入从 wechat-decrypt / GetWeChatDBPassword 等工具提取的 80 或 96 位十六进制密钥，无空格无引号",
+  "wechat_data_dir": "C:\\xwechat_files"
+}

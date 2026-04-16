@@ -1,0 +1,126 @@
+/* 地址列表页面样式 */
+.container {
+  padding: 20rpx;
+  padding-bottom: 140rpx;
+  background-color: #f5f5f5;
+}
+
+/* 地址列表 */
+.address-list {
+  margin-bottom: 20rpx;
+}
+
+.address-item {
+  margin-bottom: 20rpx;
+  padding: 0;
+  position: relative;
+}
+
+.address-content {
+  padding: 30rpx;
+}
+
+.address-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.address-name {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-right: 20rpx;
+}
+
+.address-phone {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.default-tag {
+  background-color: #1890ff;
+  color: #fff;
+  border-radius: 4rpx;
+  padding: 4rpx 12rpx;
+  font-size: 22rpx;
+  margin-left: 12rpx;
+}
+
+.address-detail {
+  display: flex;
+  align-items: flex-start;
+  font-size: 28rpx;
+  color: #666;
+  line-height: 1.6;
+}
+
+.address-detail .icon-location {
+  margin-right: 12rpx;
+  font-size: 32rpx;
+  color: #1890ff;
+}
+
+/* 地址操作 */
+.address-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20rpx 30rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60rpx;
+  height: 60rpx;
+  margin-left: 20rpx;
+}
+
+.action-btn .iconfont {
+  font-size: 36rpx;
+  color: #999;
+}
+
+/* 添加地址按钮 */
+.add-address-btn {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30rpx;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: bold;
+  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+}
+
+.add-address-btn .iconfont {
+  font-size: 36rpx;
+  margin-right: 12rpx;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 200rpx 0;
+}
+
+.empty-state image {
+  width: 400rpx;
+  height: 400rpx;
+  margin-bottom: 40rpx;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: #999;
+}

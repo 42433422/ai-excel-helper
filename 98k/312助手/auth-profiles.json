@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "profiles": {
+    "anthropic:wrapper": {
+      "type": "token",
+      "provider": "anthropic",
+      "token": "sk-fake-key-not-needed"
+    }
+  }
+}

@@ -1,0 +1,205 @@
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "qclaw/modelroute"
+      },
+      "workspace": "~/.openclaw/workspace",
+      "maxConcurrent": 3,
+      "timeoutSeconds": 72000
+    }
+  },
+  "skills": {
+    "load": {
+      "extraDirs": []
+    },
+    "entries": {
+      "skill-creator": {
+        "enabled": false
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "qclaw": {
+        "baseUrl": "${QCLAW_LLM_BASE_URL}",
+        "apiKey": "${QCLAW_LLM_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "modelroute",
+            "name": "modelroute"
+          }
+        ]
+      }
+    }
+  },
+  "tools" : {
+    "web": {
+      "search":{
+        "enabled": true
+      }
+    }
+  },
+  "browser": {
+    "enabled": true,
+    "defaultProfile": "openclaw",
+    "ssrfPolicy": {
+      "dangerouslyAllowPrivateNetwork": false
+    }
+  },
+  "gateway": {
+    "port": 28789,
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token",
+      "token": ""
+    },
+    "controlUi": {
+      "allowedOrigins": [
+        "null"
+      ]
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    }
+  },
+  "channels": {
+    "wechat-access": {
+      "enabled": true,
+      "token": "",
+      "wsUrl": "${QCLAW_WECHAT_WS_URL}",
+      "guid": "${QCLAW_USER_GUID}",
+      "userId": "${QCLAW_USER_ID}"
+    },
+    "qqbot": {
+      "enabled": false,
+      "allowFrom": ["*"],
+      "appId": "${QCLAW_QQBOT_APP_ID}",
+      "clientSecret": "${QCLAW_QQBOT_CLIENT_SECRET}"
+    },
+    "yuanbao": {
+      "enabled": false,
+      "allowFrom": ["*"],
+      "appKey": "${QCLAW_YUANBAO_APP_KEY}",
+      "appSecret": "${QCLAW_YUANBAO_APP_SECRET}"
+    },
+    "feishu": {
+      "enabled": false,
+      "allowFrom": ["*"],
+      "dmPolicy": "open",
+      "appId": "${QCLAW_FEISHU_APP_ID}",
+      "appSecret": "${QCLAW_FEISHU_APP_SECRET}"
+    },
+    "dingtalk-connector": {
+      "enabled": false,
+      "allowFrom": ["*"],
+      "clientId": "${QCLAW_DINGTALK_CLIENT_ID}",
+      "clientSecret": "${QCLAW_DINGTALK_CLIENT_SECRET}"
+    },
+    "wecom": {
+      "enabled": false,
+      "allowFrom": ["*"],
+      "botId": "${QCLAW_WECOM_BOT_ID}",
+      "secret": "${QCLAW_WECOM_SECRET}"
+    },
+    "weixin": {
+      "enabled": false
+    }
+  },
+  "plugins": {
+    "enabled": true,
+    "allow": ["wechat-access", "content-plugin", "tool-sandbox", "qmemory", "openclaw-mem0", "openclaw-qqbot", "openclaw-plugin-yuanbao", "feishu", "dingtalk-connector", "wecom-openclaw-plugin", "openclaw-weixin", "pcmgr-ai-security", "cron-delivery-guard", "prompt-optimizer"],
+    "slots": {},
+    "load": {
+      "paths": []
+    },
+    "entries": {
+      "wechat-access": {
+        "enabled": true
+      },
+      "content-plugin": {
+        "enabled": true,
+        "config": {
+          "token": ""
+        }
+      },
+      "qmemory": {
+        "enabled": true,
+        "config": {}
+      },
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "mode": "server",
+          "useProxy": true,
+          "userId": "default"
+        }
+      },
+      "tool-sandbox": {
+        "enabled": true,
+        "config": {}
+      },
+      "openclaw-qqbot": {
+        "enabled": false,
+        "config": {}
+      },
+      "openclaw-plugin-yuanbao": {
+        "enabled": false,
+        "config": {}
+      },
+      "feishu": {
+        "enabled": false,
+        "config": {}
+      },
+      "dingtalk-connector": {
+        "enabled": false,
+        "config": {}
+      },
+      "wecom-openclaw-plugin": {
+        "enabled": false,
+        "config": {}
+      },
+      "openclaw-weixin": {
+        "enabled": false,
+        "config": {}
+      },
+      "pcmgr-ai-security": {
+        "enabled": true,
+        "config": {
+          "appId": "",
+          "softid": 1
+        }
+      },
+      "prompt-optimizer": {
+        "enabled": false,
+        "config": {}
+      },
+      "cron-delivery-guard": {
+        "enabled": true,
+        "config": {}
+      }
+    }
+  },
+  "messages": {
+    "queue": {
+      "mode": "followup"
+    }
+  },
+  "session": {
+    "reset": {
+      "mode": "idle",
+      "idleMinutes": 525600
+    },
+    "maintenance": {
+      "pruneAfter": "365d",
+      "maxEntries": 1000000,
+      "resetArchiveRetention": false,
+      "rotateBytes": "1gb"
+    },
+    "dmScope": "per-channel-peer"
+  }
+}
