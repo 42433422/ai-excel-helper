@@ -19,7 +19,7 @@
 
 > 🚀 **v5.0 当前版本**: `Neuro-DDD + FastAPI` 主 API 入口，模块生态（MODstore / Mod Manager）、工作流前端组件、数据库读鉴权与兼容层并存演进。  
 > 🎯 **从「工具」到「员工」**: 侧重可编排的用例与可替换的基础设施实现，而不是把业务规则堆在路由里。  
-> 🧠 **Neuro-DDD 在本仓库的含义**: **DDD 分层**（`application` / `domain` / `infrastructure`）+ **AI 对话与工作流的用例编排**；HTTP 层尽量薄，装配集中在 Composition Root（`app/bootstrap.py`）。下文示意图帮助理解边界，**以源码为准**。
+> 🧠 **Neuro-DDD 在本仓库的含义**: **DDD 分层**（`application` / `domain` / `infrastructure`）+ **AI 对话与工作流的用例编排**；HTTP 层尽量薄，装配集中在 Composition Root（`app/bootstrap.py`）。**神经域 + NeuroBus 大图及组件摘录**与 **[`XCAGI/README.md`](XCAGI/README.md)** 同构展示；**以源码为准**。
 
 **仓库**: 默认以 **[ai-excel-helper](https://github.com/42433422/ai-excel-helper)** 为一体化交付树（与历史 **xcagi** 发行说明互通，克隆地址见下文）。
 
