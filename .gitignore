@@ -5,3 +5,12 @@
 !main.js
 !assets/
 !assets/logo.jpg
+!requirements.txt
+!pytest.ini
+!backend/
+!backend/**
+!docs/
+!docs/**
+!scripts/
+!scripts/**
+backend/shell/fhd_shell_mods.json
