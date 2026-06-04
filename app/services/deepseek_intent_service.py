@@ -148,32 +148,25 @@ class DeepSeekIntentRecognizer:
             history = "\n".join([f"{m['role']}: {m['content']}" for m in context[-3:]])
             user_message = f"对话历史：\n{history}\n\n当前消息：{message}"
 
+        from app.infrastructure.llm.invoke import chat_completion_openai_format
+
         last_error = None
         for attempt in range(self.max_retries):
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.post(
-                        "https://api.deepseek.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {self._get_api_key()}",
-                            "Content-Type": "application/json",
-                        },
-                        json={
-                            "model": "deepseek-chat",
-                            "messages": [
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_message},
-                            ],
-                            "temperature": 0.1,
-                            "max_tokens": 300,
-                        },
-                    )
-                    result = response.json()
-                    if result.get("choices"):
-                        content = result["choices"][0]["message"]["content"]
-                        parsed = self._parse_response(content, message)
-                        _intent_recognition_cache.set(cache_key, parsed)
-                        return parsed
+                result = await chat_completion_openai_format(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.1,
+                    max_tokens=300,
+                    profile="intent",
+                )
+                if result and result.get("choices"):
+                    content = result["choices"][0]["message"]["content"]
+                    parsed = self._parse_response(content, message)
+                    _intent_recognition_cache.set(cache_key, parsed)
+                    return parsed
             except Exception as e:
                 last_error = e
                 logger.warning(

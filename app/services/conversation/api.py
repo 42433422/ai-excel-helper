@@ -88,90 +88,37 @@ class ApiMixin(NeuroEventPublisherMixin):
         t0 = time.perf_counter()
 
         try:
-            # ========== 优先级1: 平台代理模式 ==========
-            if hasattr(self, 'modstore_adapter') and self.modstore_adapter is not None:
-                logger.info(
-                    f"🌐 [平台模式] 调用修茈市场: "
-                    f"{self.modstore_adapter.default_provider}/"
-                    f"{self.modstore_adapter.default_model}"
-                )
+            from app.infrastructure.llm.providers.registry import get_active_provider
 
-                result = await self.modstore_adapter.chat_completion(
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs
-                )
-
-                # 性能监控
-                try:
-                    from app.neuro_bus.application_neuro_bridge import (
-                        neuro_notify_ai_model_roundtrip,
-                    )
-
-                    neuro_notify_ai_model_roundtrip(
-                        model=f"modstore:{self.modstore_adapter.default_provider}/{self.modstore_adapter.default_model}",
-                        latency_ms=(time.perf_counter() - t0) * 1000.0,
-                        token_count=0,
-                        user_id=str(self.modstore_adapter.user_id or ""),
-                    )
-                except Exception:
-                    pass
-
-                return result
-
-            # ========== 优先级2: 直连模式 ==========
-            if hasattr(self, 'llm_adapter') and self.llm_adapter is not None and self.llm_adapter.is_configured:
-                logger.info(
-                    f"⚡ [直连模式] 调用厂商API: "
-                    f"{self.llm_adapter.provider_name}/{self.llm_adapter.model_name}"
-                )
-
-                result = await self.llm_adapter.chat_completion(
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs
-                )
-
-                # 性能监控
-                try:
-                    from app.neuro_bus.application_neuro_bridge import (
-                        neuro_notify_ai_model_roundtrip,
-                    )
-
-                    neuro_notify_ai_model_roundtrip(
-                        model=self.llm_adapter.model_name,
-                        latency_ms=(time.perf_counter() - t0) * 1000.0,
-                        token_count=0,
-                        user_id="",
-                    )
-                except Exception:
-                    pass
-
-                return result
-
-            # ========== 优先级3: 降级模式（旧版DeepSeek）==========
-            if self.api_key:
-                logger.warning("📦 [降级模式] 使用旧版DeepSeek直连")
-                return await self._call_deepseek_legacy(
-                    messages, temperature, max_tokens, **kwargs
-                )
-
-            else:
-                logger.error("❌ 无可用的LLM配置（平台/直连/降级均不可用）")
+            provider = get_active_provider(conversation_service=self)
+            if provider is None:
+                logger.error("❌ 无可用的 LLM Provider（检查 LLM_ROUTING_ORDER / 密钥）")
                 return None
 
-        except Exception as e:
-            mode_info = "unknown"
-            if hasattr(self, 'modstore_adapter') and self.modstore_adapter:
-                mode_info = f"platform:{self.modstore_adapter.default_provider}"
-            elif hasattr(self, 'llm_adapter') and self.llm_adapter:
-                mode_info = f"direct:{self.llm_adapter.provider_name}"
-            else:
-                mode_info = "deepseek-legacy"
+            logger.info("🤖 [LLM] provider=%s", provider.provider_id)
+            result = await provider.chat_completion(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs,
+            )
+            if result:
+                try:
+                    from app.neuro_bus.application_neuro_bridge import neuro_notify_ai_model_roundtrip
 
-            logger.error(f"❌ LLM API调用异常 [{mode_info}]: {e}", exc_info=True)
+                    usage = result.get("usage") or {}
+                    neuro_notify_ai_model_roundtrip(
+                        model=provider.provider_id,
+                        latency_ms=(time.perf_counter() - t0) * 1000.0,
+                        token_count=int(usage.get("total_tokens") or 0),
+                        user_id=str(getattr(getattr(self, "modstore_adapter", None), "user_id", "") or ""),
+                    )
+                except Exception:
+                    pass
+            return result
+
+        except Exception as e:
+            logger.error("❌ LLM API调用异常: %s", e, exc_info=True)
             return None
 
     async def _call_deepseek_legacy(

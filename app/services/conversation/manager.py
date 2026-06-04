@@ -114,7 +114,9 @@ class AIConversationService(
         else:
             logger.warning("DeepSeek API Key 未配置（降级路径不可用）")
 
-        self.api_url = "https://api.deepseek.com/v1/chat/completions"
+        from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+
+        self.api_url = default_chat_completions_url()
         self.model = "deepseek-chat"
 
         # 记录最终使用的模式

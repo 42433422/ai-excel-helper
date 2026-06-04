@@ -576,3 +576,20 @@ def tools_execute_route(body: dict = Body(default_factory=dict)):
 
     data, code = run_archive_tools_execute(body)
     return JSONResponse(data, status_code=code)
+
+
+@router.post("/api/admin/llm/reload")
+async def admin_llm_reload() -> JSONResponse:
+    """热切换：清空进程内 LLM Provider 注册表。"""
+    import os
+
+    from app.infrastructure.llm.providers import registry as reg_mod
+
+    reg_mod._registry = None  # type: ignore[attr-defined]
+    return JSONResponse(
+        {
+            "success": True,
+            "LLM_PROVIDER": (os.environ.get("LLM_PROVIDER") or "").strip(),
+            "LLM_ROUTING_ORDER": (os.environ.get("LLM_ROUTING_ORDER") or "").strip(),
+        }
+    )

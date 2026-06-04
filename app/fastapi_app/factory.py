@@ -109,6 +109,13 @@ def create_fastapi_app(
 
     register_exception_handlers(app)
 
+    try:
+        from app.utils.metrics import init_metrics
+
+        init_metrics("XCAGI", os.environ.get("XCAGI_VERSION", "9.0.0"))
+    except Exception as e:
+        logger.warning("Prometheus init_metrics skipped: %s", e)
+
     register_extra_middleware(app)
     register_prometheus_metrics(app)
 

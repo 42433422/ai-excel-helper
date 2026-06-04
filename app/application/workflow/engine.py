@@ -293,9 +293,9 @@ class WorkflowEngine:
         ]
 
         try:
-            api_url = (
-                getattr(ai_service, "api_url", "") or "https://api.deepseek.com/v1/chat/completions"
-            )
+            from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+
+            api_url = getattr(ai_service, "api_url", "") or default_chat_completions_url()
             model = getattr(ai_service, "model", "") or "deepseek-chat"
 
             response = _get_sync_http_client().post(

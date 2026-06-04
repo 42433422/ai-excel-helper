@@ -262,30 +262,26 @@ async def call_deepseek_intent(api_key: str, message: str) -> dict[str, Any] | N
 回复格式（严格JSON）：
 {{"intent": "意图ID", "slots": {{"槽位名": "槽位值"}}}}"""
 
+    from app.infrastructure.llm.invoke import chat_completion_openai_format
+
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                "https://api.deepseek.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": message},
-                    ],
-                    "temperature": 0.1,
-                    "max_tokens": 200,
-                },
-            )
-            result = response.json()
-            if result.get("choices"):
-                content = result["choices"][0]["message"]["content"]
-                data = json.loads(content)
-                return {
-                    "intent": data.get("intent", "unk"),
-                    "slots": data.get("slots", {}),
-                    "confidence": 1.0,
-                }
+        result = await chat_completion_openai_format(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
+            temperature=0.1,
+            max_tokens=200,
+            profile="distillation",
+        )
+        if result and result.get("choices"):
+            content = result["choices"][0]["message"]["content"]
+            data = json.loads(content)
+            return {
+                "intent": data.get("intent", "unk"),
+                "slots": data.get("slots", {}),
+                "confidence": 1.0,
+            }
     except Exception as e:
         logger.error(f"DeepSeek API 调用失败: {e}")
 

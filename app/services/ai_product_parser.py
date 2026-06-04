@@ -290,27 +290,20 @@ class AIProductParser:
             response_text = text.strip()
 
             async def call_api():
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    resp = await client.post(
-                        "https://api.deepseek.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json",
-                        },
-                        json={
-                            "model": "deepseek-chat",
-                            "messages": [
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": response_text},
-                            ],
-                            "temperature": 0.1,
-                            "max_tokens": 200,
-                        },
-                    )
-                    result = resp.json()
-                    if result.get("choices"):
-                        return result["choices"][0]["message"]["content"]
-                    return None
+                from app.infrastructure.llm.invoke import chat_completion_openai_format
+
+                result = await chat_completion_openai_format(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": response_text},
+                    ],
+                    temperature=0.1,
+                    max_tokens=200,
+                    profile="product_parser",
+                )
+                if result and result.get("choices"):
+                    return result["choices"][0]["message"]["content"]
+                return None
 
             try:
                 loop = asyncio.get_event_loop()

@@ -1,8 +1,9 @@
-"""请求上下文、访问日志、Neuro HTTP trace、Prometheus /metrics。"""
+"""请求上下文、访问日志、Neuro HTTP trace、Prometheus /metrics、HTTP SLI。"""
 
 from __future__ import annotations
 
 import logging
+import time
 
 from fastapi import FastAPI, Request
 
@@ -15,8 +16,26 @@ from app.request_active_mod_ctx import (
 logger = logging.getLogger(__name__)
 
 
+def register_http_sli_middleware(app: FastAPI) -> None:
+    @app.middleware("http")
+    async def prometheus_http_sli(request: Request, call_next):
+        path = request.url.path or ""
+        if path == "/metrics":
+            return await call_next(request)
+        started = time.perf_counter()
+        response = await call_next(request)
+        try:
+            from app.utils.metrics import record_http_request
+
+            record_http_request(request.method, path, response.status_code, time.perf_counter() - started)
+        except Exception:
+            pass
+        return response
+
+
 def register_extra_middleware(app: FastAPI) -> None:
     """注册应用级 HTTP 中间件（内层：上下文与访问日志）。"""
+    register_http_sli_middleware(app)
 
     @app.middleware("http")
     async def http_request_context(request: Request, call_next):

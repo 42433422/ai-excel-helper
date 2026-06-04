@@ -180,45 +180,39 @@ class DeepseekIntentClassifier:
             history = "\n".join([f"{m['role']}: {m['content']}" for m in context[-3:]])
             user_message = f"对话历史：\n{history}\n\n当前消息：{message}"
 
+        from app.infrastructure.llm.invoke import chat_completion_openai_format
+
         last_error = None
         for attempt in range(self.max_retries):
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.post(
-                        "https://api.deepseek.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {self._get_api_key()}",
-                            "Content-Type": "application/json",
-                        },
-                        json={
-                            "model": "deepseek-chat",
-                            "messages": [
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_message},
-                            ],
-                            "temperature": 0.1,
-                            "max_tokens": 300,
-                        },
-                    )
-                    response.raise_for_status()
-                    result_data = response.json()
-                    content = result_data["choices"][0]["message"]["content"]
+                result_data = await chat_completion_openai_format(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.1,
+                    max_tokens=300,
+                    profile="intent",
+                )
+                if not result_data or not result_data.get("choices"):
+                    raise ValueError("empty LLM response")
+                content = result_data["choices"][0]["message"]["content"]
 
-                    content = content.strip()
-                    if content.startswith("```json"):
-                        content = content[7:]
-                    if content.startswith("```"):
-                        content = content[3:]
-                    if content.endswith("```"):
-                        content = content[:-3]
-                    content = content.strip()
+                content = content.strip()
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.startswith("```"):
+                    content = content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
 
-                    import json
+                import json
 
-                    result = json.loads(content)
-                    result["source"] = "deepseek"
-                    _intent_recognition_cache.set(message, result)
-                    return result
+                result = json.loads(content)
+                result["source"] = "deepseek"
+                _intent_recognition_cache.set(message, result)
+                return result
 
             except Exception as e:
                 last_error = e

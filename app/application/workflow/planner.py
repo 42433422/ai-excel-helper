@@ -1623,10 +1623,9 @@ class LLMWorkflowPlanner:
                 {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
             ]
 
-            api_url = (
-                getattr(self._ai_service, "api_url", "")
-                or "https://api.deepseek.com/v1/chat/completions"
-            )
+            from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+
+            api_url = getattr(self._ai_service, "api_url", "") or default_chat_completions_url()
             response = _get_planner_http_client().post(
                 api_url,
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -1769,10 +1768,9 @@ class LLMWorkflowPlanner:
                 {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
             ]
             api_key = getattr(self._ai_service, "api_key", "") or ""
-            api_url = (
-                getattr(self._ai_service, "api_url", "")
-                or "https://api.deepseek.com/v1/chat/completions"
-            )
+            from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+
+            api_url = getattr(self._ai_service, "api_url", "") or default_chat_completions_url()
             model = getattr(self._ai_service, "model", "") or "deepseek-chat"
             if not api_key:
                 return None

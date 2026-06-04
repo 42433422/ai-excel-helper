@@ -967,10 +967,9 @@ class AIChatApplicationService:
             return {}
         try:
             api_key = str(getattr(self.ai_service, "api_key", "") or "").strip()
-            api_url = str(
-                getattr(self.ai_service, "api_url", "")
-                or "https://api.deepseek.com/v1/chat/completions"
-            )
+            from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+
+            api_url = str(getattr(self.ai_service, "api_url", "") or default_chat_completions_url())
             model = str(getattr(self.ai_service, "model", "") or "deepseek-chat")
             if not api_key:
                 return {}

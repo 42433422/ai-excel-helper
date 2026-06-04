@@ -34,6 +34,20 @@ api_request_duration_seconds = Histogram(
     buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
 )
 
+auth_login_duration_seconds = Histogram(
+    "auth_login_duration_seconds",
+    "Auth login/handshake duration in seconds",
+    ["auth_method"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+
+chat_stream_first_byte_seconds = Histogram(
+    "chat_stream_first_byte_seconds",
+    "Time to first byte for chat streaming responses",
+    ["model", "tenant_id"],
+    buckets=(0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
+)
+
 ai_requests_total = Counter(
     "ai_requests_total", "Total number of AI service requests", ["service", "status"]
 )
@@ -88,6 +102,28 @@ intent_cache_compute_seconds = Histogram(
 )
 
 app_info = Info("app", "Application information")
+
+
+def _normalize_endpoint(path: str) -> str:
+    if not path or path == "/":
+        return "/"
+    parts = path.strip("/").split("/")
+    normalized: list[str] = []
+    for part in parts:
+        if part.isdigit() or (len(part) > 8 and part.replace("-", "").isalnum()):
+            normalized.append("{id}")
+        else:
+            normalized.append(part)
+    return "/" + "/".join(normalized)
+
+
+def record_http_request(method: str, path: str, status_code: int, duration_seconds: float) -> None:
+    endpoint = _normalize_endpoint(path)
+    try:
+        api_requests_total.labels(method=method, endpoint=endpoint, status=str(status_code)).inc()
+        api_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(duration_seconds)
+    except Exception:
+        pass
 
 
 def init_metrics(app_name: str, version: str):
