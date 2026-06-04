@@ -1,14 +1,14 @@
-"""CI fixture: Flask-style routes for modman blueprint_scan tests."""
-from flask import Blueprint
+"""CI fixture: FastAPI routes for modman blueprint_scan tests."""
+from fastapi import APIRouter
 
-bp = Blueprint("taiyangniao_fixture", __name__)
+router = APIRouter()
 
 
-@bp.route("/hello", methods=["GET"])
+@router.get("/hello")
 def hello():
     return "ok"
 
 
-@bp.route("/attendance/rules", methods=["GET"])
+@router.get("/attendance/rules")
 def attendance_rules():
     return []
