@@ -2,8 +2,10 @@
 应用服务层测试
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from app.application.shipment_app_service import ShipmentApplicationService
 from app.domain.shipment.aggregates import Shipment, ShipmentItem
 from app.domain.shipment.legacy_vo import ContactInfo, Money, Quantity

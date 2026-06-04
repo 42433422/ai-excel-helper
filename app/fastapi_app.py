@@ -50,14 +50,14 @@ from app.config import Config, get_config
 from app.db import engine
 from app.db.init_db import (
     ensure_product_query_indexes,
+    ensure_sessions_account_meta_columns,
+    ensure_sessions_enterprise_entitlement_columns,
     ensure_sessions_market_access_token_column,
     ensure_sessions_market_refresh_token_column,
-    ensure_sessions_enterprise_entitlement_columns,
-    ensure_sessions_account_meta_columns,
     init_approval_tables,
-    init_service_bridge_tables,
     init_distillation_tables,
     init_extract_logs_tables,
+    init_service_bridge_tables,
     init_template_tables,
     init_wechat_tasks_table,
     initialize_databases,

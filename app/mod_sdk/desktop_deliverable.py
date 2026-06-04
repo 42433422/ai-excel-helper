@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 async def ensure_deliverable_runtime(app: FastAPI) -> None:
     """首启：复制内置 mods → load_all → 可选自动 bootstrap（默认仅种子，不阻塞公网）。"""
     from app.desktop_runtime.paths import is_desktop_mode
+    from app.mod_sdk.deliverable_status import build_deliverable_status
     from app.mod_sdk.edition_policy import (
         resolve_edition,
         seed_edition_mods_from_bundle,
     )
-    from app.mod_sdk.deliverable_status import build_deliverable_status
 
     if not is_desktop_mode() and resolve_edition() == "full":
         return

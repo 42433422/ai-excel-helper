@@ -4,7 +4,7 @@ import time
 from typing import Any
 
 from app.services.conversation.api import ApiMixin
-from app.services.conversation.context import ConversationContext, ContextMixin
+from app.services.conversation.context import ContextMixin, ConversationContext
 from app.services.conversation.handlers import HandlersMixin
 from app.services.conversation.intent import IntentMixin
 from app.services.conversation.prompts import PromptsMixin
@@ -118,12 +118,11 @@ class AIConversationService(
         self._llm_mode = llm_init_mode
         logger.info(f"🎯 LLM初始化完成，运行模式: {llm_init_mode}")
 
+        from app.services.deepseek_intent_service import HybridIntentWithDeepSeek
         from app.services.intent_confirmation_service import get_confirmation_service
         from app.services.intent_service import recognize_intents
         from app.services.task_agent import get_task_agent
         from app.services.unified_intent_recognizer import get_unified_intent_recognizer
-
-        from app.services.deepseek_intent_service import HybridIntentWithDeepSeek
         from app.services.user_memory_service import get_user_memory_service
         from app.services.user_preference_service import get_user_preference_service
 

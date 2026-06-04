@@ -2,9 +2,9 @@
 
 import os
 
+from app import bootstrap
 from app.application.facades.shipment_event_primary import ShipmentApplicationServiceEventPrimary
 from app.application.shipment_app_service import ShipmentApplicationService
-from app import bootstrap
 
 
 def _clear_shipment_caches():

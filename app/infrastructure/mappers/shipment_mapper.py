@@ -1,7 +1,8 @@
+from typing import Any
+
 from app.db.models import ShipmentRecord
 from app.domain.shipment.aggregates import Shipment
 from app.domain.value_objects import ContactInfo, OrderNumber
-from typing import Any
 
 
 def shipment_to_domain(db_record: ShipmentRecord) -> Shipment:

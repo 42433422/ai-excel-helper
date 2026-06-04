@@ -7,10 +7,11 @@ Material Schema 测试
 
 import pytest
 from pydantic import ValidationError
+
 from app.schemas.material_schema import (
     MaterialCreate,
-    MaterialUpdate,
     MaterialResponse,
+    MaterialUpdate,
 )
 
 

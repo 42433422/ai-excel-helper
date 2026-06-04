@@ -198,8 +198,8 @@ def build_shipment_preview_response_dict(
 
 
 def recognize_intents(message: str) -> dict[str, Any]:
-    from app.domain.neuro import get_reflex_arc, ReflexType
     from app.application.intent_recognition_app import recognize_intents as _recognize
+    from app.domain.neuro import ReflexType, get_reflex_arc
 
     result = _recognize(message)
     return {

@@ -7,7 +7,7 @@ BERT 意图分类推理服务
 import json
 import logging
 import os
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 

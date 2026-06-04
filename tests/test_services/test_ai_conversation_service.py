@@ -2,8 +2,10 @@
 AI Conversation Service 测试
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from app.services.ai_conversation_service import AIConversationService
 
 

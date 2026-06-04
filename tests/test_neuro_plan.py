@@ -52,10 +52,10 @@ async def test_coordinator_exception_triggers_emit_intent_event():
 
 def test_neuro_domains_package_imports():
     from app.neuro_domains import (
-        ShipmentNeuroDomain,
-        get_shipment_domain,
-        get_processor_coordinator,
         NeuroUnitOfWork,
+        ShipmentNeuroDomain,
+        get_processor_coordinator,
+        get_shipment_domain,
     )
 
     assert ShipmentNeuroDomain.domain_name == "shipment"

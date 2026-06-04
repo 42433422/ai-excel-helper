@@ -5,11 +5,10 @@
 测试意图识别的准确率和功能完整性
 """
 
-import sys
-import os
-
 # 直接导入意图服务模块
 import importlib.util
+import os
+import sys
 
 spec = importlib.util.spec_from_file_location(
     "intent_service", r"e:\FHD\XCAGI\app\services\intent_service.py"

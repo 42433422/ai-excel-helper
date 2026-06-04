@@ -21,22 +21,21 @@ from app.domain.context.session_context import (
     planner_workflow_interrupt_reply,
     runtime_context_after_workflow_interrupt,
 )
-from app.infrastructure.llm.client import set_mode as set_llm_mode
-from app.services.conversation.modstore_adapter import create_modstore_openai_client_from_request
-
 from app.fastapi_routes.xcagi_compat_chat_helpers import (
     XcagiCompatChatBatchBody,
     XcagiCompatChatBody,
     _ensure_chat_db_read_authorized,
     _ensure_vector_index_if_needed,
-    _message_requires_db_read_token,
     _merge_runtime_context_with_message_paths,
+    _message_requires_db_read_token,
     _xcagi_chat_http_exc,
     _xcagi_chat_timeout_error_payload,
     _xcagi_chat_timeout_seconds,
     _xcagi_compat_reply_payload,
     _xcagi_planner_stream_bytes_async,
 )
+from app.infrastructure.llm.client import set_mode as set_llm_mode
+from app.services.conversation.modstore_adapter import create_modstore_openai_client_from_request
 
 logger = logging.getLogger(__name__)
 

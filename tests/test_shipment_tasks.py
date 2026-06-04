@@ -2,11 +2,12 @@
 发货单 Celery 任务测试
 """
 
-import pytest
-from datetime import timedelta
-from unittest.mock import Mock, MagicMock, patch
 import os
 import sys
+from datetime import timedelta
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 
 class TestShipmentTasksImport:
@@ -97,6 +98,7 @@ class TestGenerateShipmentOrderTask:
     def test_generate_shipment_order_failure(self, mock_get_app_service):
         """测试生成发货单失败"""
         from celery.app.task import MaxRetriesExceededError
+
         from app.tasks.shipment_tasks import generate_shipment_order
 
         mock_app_service = MagicMock()
@@ -211,6 +213,7 @@ class TestCleanupOldShipmentDocumentsTask:
         """测试成功清理旧文档"""
         import datetime
         from datetime import timedelta
+
         from app.tasks.shipment_tasks import cleanup_old_shipment_documents
 
         mock_exists.return_value = True

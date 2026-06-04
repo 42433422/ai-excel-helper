@@ -4,13 +4,13 @@ import json
 import logging
 
 from app.http.json_response import json_response
-from app.services.document_templates.variables import (
-    _infer_business_scope,
-    _validate_required_terms,
-)
 from app.services.document_templates.renderer import (
     _parse_json_dict,
     _parse_json_list,
+)
+from app.services.document_templates.variables import (
+    _infer_business_scope,
+    _validate_required_terms,
 )
 
 logger = logging.getLogger(__name__)

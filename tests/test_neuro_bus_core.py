@@ -7,8 +7,8 @@ import time
 
 import pytest
 
-from app.neuro_bus.events.base import EventMetadata, EventPriority, NeuroEvent
 from app.neuro_bus.bus import HandlerSubscription, NeuroBus, PriorityEventQueue
+from app.neuro_bus.events.base import EventMetadata, EventPriority, NeuroEvent
 
 
 def _make_event(

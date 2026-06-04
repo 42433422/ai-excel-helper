@@ -4,22 +4,23 @@
 测试应用服务的功能
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-import sys
 import os
+import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app.application.product_app_service import ProductApplicationService
-from app.application.material_app_service import MaterialApplicationService
-from app.application.extract_log_app_service import ExtractLogApplicationService
 from app.application.customer_app_service import CustomerApplicationService
+from app.application.extract_log_app_service import ExtractLogApplicationService
+from app.application.material_app_service import MaterialApplicationService
+from app.application.product_app_service import ProductApplicationService
 from app.application.shipment_app_service import ShipmentApplicationService
 from app.domain.services.intent_recognition_service import IntentRecognitionService
+from app.domain.services.pricing_engine import CustomerType, PricingEngine
 from app.domain.services.product_import_validator import ProductImportValidator, ValidationResult
 from app.domain.services.shipment_rules_engine import ShipmentRulesEngine
-from app.domain.services.pricing_engine import PricingEngine, CustomerType
 
 
 class TestProductApplicationService:

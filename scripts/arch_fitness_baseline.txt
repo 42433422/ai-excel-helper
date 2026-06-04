@@ -107,6 +107,8 @@
 [routes->services] app/fastapi_routes/xcmax_admin.py:478
 [routes->services] app/fastapi_routes/xcmax_admin.py:492
 [routes->services] app/fastapi_routes/xcmax_admin.py:509
+[routes->services] app/fastapi_routes/xcagi_compat_chat_helpers.py:33
+[giant-file] app/fastapi_routes/xcagi_compat_chat_helpers.py
 [routes->services] app/fastapi_routes/xcmax_admin.py:1150
 [routes->services] app/fastapi_routes/xcmax_admin.py:1168
 [routes->services] app/fastapi_routes/xcmax_admin.py:1177

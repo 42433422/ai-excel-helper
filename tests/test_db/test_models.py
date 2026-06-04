@@ -3,6 +3,7 @@ DB Models 测试
 """
 
 import pytest
+
 from app.db.models.customer import Customer
 from app.db.models.product import Product
 from app.db.models.shipment import ShipmentRecord

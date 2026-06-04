@@ -2,26 +2,28 @@
 ORM 层单元测试
 """
 
-import pytest
-import tempfile
 import os
+import tempfile
 from datetime import datetime
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.db.base import Base
 from app.db.models import (
-    PurchaseUnit,
+    AIConversation,
+    AITool,
+    AIToolCategory,
+    Material,
     Product,
+    PurchaseUnit,
     ShipmentRecord,
-    WechatContact,
-    WechatTask,
-    WechatContactContext,
     User,
     UserSession,
-    Material,
-    AIToolCategory,
-    AITool,
-    AIConversation,
+    WechatContact,
+    WechatContactContext,
+    WechatTask,
 )
 
 
@@ -401,6 +403,7 @@ class TestUserAuthentication:
     def test_user_session_expiration(self, test_session):
         """测试用户会话过期"""
         from datetime import datetime, timedelta
+
         from app.db.models.user import Session as UserSession
 
         user = User(username="testuser", password="pwd", role="user")

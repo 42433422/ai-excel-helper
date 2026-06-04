@@ -2,10 +2,11 @@
 提取日志服务单元测试
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
 import os
 import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, PROJECT_ROOT)

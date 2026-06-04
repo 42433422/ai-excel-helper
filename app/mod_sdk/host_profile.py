@@ -9,9 +9,7 @@ import os
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
-
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app.mod_sdk.product_skus import ProductSku

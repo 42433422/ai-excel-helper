@@ -2,9 +2,11 @@
 工具函数测试
 """
 
-import pytest
 import os
-from app.utils.path_utils import get_data_dir, get_base_dir, ensure_dir
+
+import pytest
+
+from app.utils.path_utils import ensure_dir, get_base_dir, get_data_dir
 
 
 class TestPathUtils:

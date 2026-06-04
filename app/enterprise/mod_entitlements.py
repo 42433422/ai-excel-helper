@@ -377,13 +377,13 @@ async def reload_enterprise_mods_after_login() -> None:
     if not enterprise_mod_filter_active():
         return
     try:
+        from app.enterprise.account_mod_binding import SUNBIRD_CLIENT_MOD_ID
         from app.fastapi_app import get_fastapi_app
         from app.infrastructure.mods.mod_manager import (
             ensure_mod_api_ready,
             get_mod_manager,
             load_mod_routes,
         )
-        from app.enterprise.account_mod_binding import SUNBIRD_CLIENT_MOD_ID
 
         mm = get_mod_manager()
         loaded = mm.load_all_mods()

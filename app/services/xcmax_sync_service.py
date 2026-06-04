@@ -187,9 +187,10 @@ def _apply_personnel(item: dict[str, Any]) -> None:
     if not name:
         return
     try:
-        from app.mod_sdk.private_sqlite import resolve_mod_private_sqlite_path
         import sqlite3
         from datetime import datetime
+
+        from app.mod_sdk.private_sqlite import resolve_mod_private_sqlite_path
 
         db_path = resolve_mod_private_sqlite_path("taiyangniao_pro.db")
         conn = sqlite3.connect(str(db_path))
@@ -243,9 +244,10 @@ def _apply_department(item: dict[str, Any]) -> None:
     if not dept:
         return
     try:
-        from app.mod_sdk.private_sqlite import resolve_mod_private_sqlite_path
         import sqlite3
         from datetime import datetime
+
+        from app.mod_sdk.private_sqlite import resolve_mod_private_sqlite_path
 
         db_path = resolve_mod_private_sqlite_path("taiyangniao_pro.db")
         conn = sqlite3.connect(str(db_path))
@@ -278,9 +280,10 @@ def _apply_attendance(item: dict[str, Any]) -> None:
     payload = item.get("payload") or {}
     operation = item.get("operation", "sync")
     try:
+        from datetime import datetime as _dt
+
         from app.db import get_db
         from app.db.models.shipment import ShipmentRecord
-        from datetime import datetime as _dt
 
         with get_db() as db:
             record_id = payload.get("id")
@@ -333,9 +336,10 @@ def _apply_approval(item: dict[str, Any]) -> None:
     payload = item.get("payload") or {}
     operation = item.get("operation", "sync")
     try:
+        from datetime import datetime as _dt
+
         from app.db import get_db
         from app.db.models.approval import ApprovalRequest
-        from datetime import datetime as _dt
 
         with get_db() as db:
             record_id = payload.get("id")
@@ -361,9 +365,10 @@ def _apply_approval_flow(item: dict[str, Any]) -> None:
     """审批流程定义变更：同步 approval_flows 表的 is_active 和配置字段。"""
     payload = item.get("payload") or {}
     try:
+        from datetime import datetime as _dt
+
         from app.db import get_db
         from app.db.models.approval import ApprovalFlow
-        from datetime import datetime as _dt
 
         with get_db() as db:
             flow_key = str(payload.get("flow_key") or "").strip()
@@ -426,8 +431,9 @@ def _apply_template(item: dict[str, Any]) -> None:
     payload = item.get("payload") or {}
     operation = item.get("operation", "sync")
     try:
-        from app.db import get_db
         from sqlalchemy import text
+
+        from app.db import get_db
 
         template_id = str(payload.get("template_id") or item.get("entity_id") or "").strip()
         if not template_id:
@@ -486,8 +492,9 @@ def _apply_ecosystem(item: dict[str, Any]) -> None:
     """智能生态配置变更：记录生态组件启停状态（写入 sync_meta 供前端查询）。"""
     payload = item.get("payload") or {}
     try:
-        from app.db.xcmax_sync import SyncDb, _resolve_db_path
         import sqlite3 as _sqlite3
+
+        from app.db.xcmax_sync import SyncDb, _resolve_db_path
 
         conn = _sqlite3.connect(str(_resolve_db_path()))
         key = f"ecosystem:{item.get('entity_id','default')}"
@@ -510,8 +517,9 @@ def _apply_workflow_employee(item: dict[str, Any]) -> None:
     if not employee_id:
         return
     try:
-        from app.db.xcmax_sync import _resolve_db_path
         import sqlite3 as _sqlite3
+
+        from app.db.xcmax_sync import _resolve_db_path
 
         conn = _sqlite3.connect(str(_resolve_db_path()))
         key = f"workflow_employee:{employee_id}"
@@ -530,8 +538,9 @@ def _apply_workflow_employee(item: dict[str, Any]) -> None:
 
 def apply_inbox(limit: int = 200) -> dict[str, Any]:
     """幂等地把 inbox 中 pending 的变更应用到本地。"""
-    from app.db.xcmax_sync import SyncDb
     import sqlite3
+
+    from app.db.xcmax_sync import SyncDb
 
     db = SyncDb()
     try:

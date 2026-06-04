@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+# products.unit 历史上常被误填为计量单位；客户筛选项应对齐 purchase_units，故从「产品表去重」里排除这些纯计量词（精确匹配）。
+# 供其它仓储实现复用（如 domain 版 SQLAlchemyProductRepository）。
+import logging
 import math
 import re
 from datetime import datetime
@@ -11,10 +14,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.application.ports.product_repository import ProductRepository
 from app.db.models.product import Product
 from app.db.session import get_db
-
-# products.unit 历史上常被误填为计量单位；客户筛选项应对齐 purchase_units，故从「产品表去重」里排除这些纯计量词（精确匹配）。
-# 供其它仓储实现复用（如 domain 版 SQLAlchemyProductRepository）。
-import logging
 
 logger = logging.getLogger(__name__)
 TRIVIAL_MEASURE_UNITS = frozenset(

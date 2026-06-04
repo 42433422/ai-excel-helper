@@ -24,6 +24,8 @@ from app.application.facades.inventory_facade import (
     ReportService,
 )
 from app.application.facades.kitten_facade import (
+    FinancialReportPlugin,
+    InventoryValuationPlugin,
     KittenReportExportService,
     analysis_save_service,
     build_kitten_business_snapshot,
@@ -31,8 +33,6 @@ from app.application.facades.kitten_facade import (
     chart_service,
     generate_office_file,
     pop_document_pickup,
-    FinancialReportPlugin,
-    InventoryValuationPlugin,
 )
 from app.application.facades.ocr_facade import get_ocr_service
 from app.application.facades.print_facade import printer_service

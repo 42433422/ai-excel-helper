@@ -28,11 +28,6 @@ except ModuleNotFoundError:
     BertIntentClassifier = None  # type: ignore[misc, assignment]
 from app.ai_engines.deepseek.intent_service import DeepseekIntentClassifier
 from app.ai_engines.rasa.nlu_service import RasaNLUService, get_rasa_nlu_service
-from app.services.intent_confirmation_service import (
-    IntentConfirmationService,
-    get_confirmation_service,
-)
-
 from app.domain.services.unified_intent_recognizer import (
     UnifiedIntentRecognizer,
     get_unified_intent_recognizer,
@@ -53,6 +48,10 @@ from app.services.hybrid_intent_service import (
     get_hybrid_intent_service,
     hybrid_recognize_intents,
     hybrid_recognize_intents_sync,
+)
+from app.services.intent_confirmation_service import (
+    IntentConfirmationService,
+    get_confirmation_service,
 )
 from app.services.intent_service import get_tool_key_with_negation_check, recognize_intents
 

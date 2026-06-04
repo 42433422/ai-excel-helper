@@ -2,10 +2,11 @@
 AI 聊天应用服务测试
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch, AsyncMock
-import sys
 import os
+import sys
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 

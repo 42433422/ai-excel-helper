@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import os
 import json
+import os
 
 from app.desktop_runtime.database_profile import (
     apply_database_profile_to_env,
     load_or_create_profile,
     resolve_storage_mode,
 )
+from app.desktop_runtime.model_downloader import load_manifest
 from app.desktop_runtime.paths import (
     configure_desktop_environment,
     ensure_desktop_dirs,
     sqlite_database_url,
 )
-from app.desktop_runtime.model_downloader import load_manifest
 
 
 def test_configure_desktop_environment_sets_local_defaults(tmp_path, monkeypatch):

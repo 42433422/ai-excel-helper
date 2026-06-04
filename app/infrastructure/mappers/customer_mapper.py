@@ -1,5 +1,5 @@
 from app.db.models import PurchaseUnit as PurchaseUnitModel
-from app.domain.customer.entities import PurchaseUnit, Customer
+from app.domain.customer.entities import Customer, PurchaseUnit
 from app.domain.value_objects import ContactInfo
 
 

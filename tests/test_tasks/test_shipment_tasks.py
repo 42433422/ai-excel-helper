@@ -2,8 +2,9 @@
 Tasks 层测试
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 class TestShipmentTasks:

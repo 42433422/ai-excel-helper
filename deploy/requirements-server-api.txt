@@ -17,6 +17,7 @@ gunicorn==21.2.0
 gevent==24.2.1
 python-dotenv==1.0.0
 httpx==0.26.0
+requests>=2.31.0
 python-alipay-sdk>=3.3.0
 edge-tts>=6.1.10
 

@@ -3,12 +3,13 @@
 """
 
 import pytest
+
 from app.services.intent_service import (
-    is_negation,
-    is_greeting,
-    is_goodbye,
-    is_help_request,
     is_confirmation,
+    is_goodbye,
+    is_greeting,
+    is_help_request,
+    is_negation,
     is_negation_intent,
 )
 

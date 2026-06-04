@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -9,9 +10,6 @@ from app.application.ports.shipment_record_command import ShipmentRecordCommandP
 from app.db.models import ShipmentRecord
 from app.db.session import get_db
 from app.infrastructure.lookups import resolve_purchase_unit
-
-
-import logging
 
 logger = logging.getLogger(__name__)
 

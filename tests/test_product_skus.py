@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.mod_sdk.erp_domain_compat import ERP_DOMAIN_BRIDGE_MOD_ID
+from app.mod_sdk.host_profile import bundled_mod_ids_for_profile_sku
 from app.mod_sdk.product_skus import (
     ENTERPRISE_HOST_MOD_IDS,
     PERSONAL_HOST_MOD_IDS,
@@ -13,7 +14,6 @@ from app.mod_sdk.product_skus import (
     bundled_mod_ids_for_sku,
     is_mod_blocked_for_sku,
 )
-from app.mod_sdk.host_profile import bundled_mod_ids_for_profile_sku
 
 
 def test_enterprise_includes_erp():

@@ -17,11 +17,11 @@ from app.db.base import Base
 from app.db.models.approval import ApprovalFlow, ApprovalFlowNode, ApprovalStatus
 from app.fastapi_routes import approval as approval_routes
 from app.fastapi_routes import finance as finance_routes
-from app.fastapi_routes.domains.system import routes as legacy_system_routes
 from app.fastapi_routes import shipment_orders as shipment_routes
 from app.fastapi_routes.domains.customer import routes as customer_compat
 from app.fastapi_routes.domains.customer import routes as customer_routes
 from app.fastapi_routes.domains.misc import routes as compat_misc
+from app.fastapi_routes.domains.system import routes as legacy_system_routes
 
 # ---------------------------------------------------------------------------
 # Fixtures

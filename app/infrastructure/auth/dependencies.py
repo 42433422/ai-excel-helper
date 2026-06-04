@@ -12,8 +12,6 @@ Phase 计划：等待正式会话/JWT 层就绪后，替换为标准 OAuth2 Bear
 from __future__ import annotations
 
 import os
-from typing import Any
-
 from collections.abc import Callable
 from typing import Any
 

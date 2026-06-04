@@ -6,11 +6,12 @@
          腾讯混元, 智谱GLM, 讯飞星火, 零一万物, 阶跃星辰, 百川智能, 商汤日日新
 """
 
-from typing import Any, Dict, List, Optional
-from abc import ABC, abstractmethod
-import httpx
-import os
 import logging
+import os
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
 

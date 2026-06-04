@@ -136,9 +136,7 @@ def customers_list(
     except Exception:
         logger.debug("erp domain customers.list dispatch skipped", exc_info=True)
     try:
-        from app.mod_sdk.erp_customers_facade import (
-            customers_list as customers_list_via_service,
-        )
+        from app.mod_sdk.erp_customers_facade import customers_list as customers_list_via_service
         from app.mod_sdk.erp_customers_facade import (
             is_erp_customers_via_service_enabled,
         )
@@ -172,9 +170,7 @@ def customers_list(
 @router.get("/customers/{customer_id}/", response_model=None, include_in_schema=False)
 def customers_get_one(request: Request, customer_id: int) -> dict | JSONResponse:
     try:
-        from app.mod_sdk.erp_customers_facade import (
-            customers_get as customers_get_via_service,
-        )
+        from app.mod_sdk.erp_customers_facade import customers_get as customers_get_via_service
         from app.mod_sdk.erp_customers_facade import (
             is_erp_customers_via_service_enabled,
         )

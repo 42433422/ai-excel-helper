@@ -12,19 +12,19 @@
 
 from __future__ import annotations
 
-from app.services.document_templates.variables import (
-    _DEFAULT_TEMPLATE_SCOPE_RULES,
-    _TERM_EQUIVALENTS,
-    _build_scope_template_type_map,
-    _get_equivalent_normalized_terms,
-    _get_template_scope_required_terms,
-    _has_equivalent_term,
-    _infer_business_scope,
-    _load_template_scope_required_terms,
-    _normalize_term,
-    _validate_required_terms,
+from app.services.document_templates.analyzer import (
+    analysis_progress,
+    analyze_template_with_upload,
+    progress_lock,
 )
-
+from app.services.document_templates.crud import (
+    _build_template_payload_from_row,
+    _ensure_template_tables_ready,
+    _j,
+    _normalize_db_template_id,
+    create_template_with_payload,
+    update_template_with_payload,
+)
 from app.services.document_templates.renderer import (
     _extract_excel_all_sheets_preview,
     _extract_excel_grid_preview,
@@ -36,20 +36,17 @@ from app.services.document_templates.renderer import (
     _parse_json_dict,
     _parse_json_list,
 )
-
-from app.services.document_templates.crud import (
-    _build_template_payload_from_row,
-    _ensure_template_tables_ready,
-    _j,
-    _normalize_db_template_id,
-    create_template_with_payload,
-    update_template_with_payload,
-)
-
-from app.services.document_templates.analyzer import (
-    analysis_progress,
-    analyze_template_with_upload,
-    progress_lock,
+from app.services.document_templates.variables import (
+    _DEFAULT_TEMPLATE_SCOPE_RULES,
+    _TERM_EQUIVALENTS,
+    _build_scope_template_type_map,
+    _get_equivalent_normalized_terms,
+    _get_template_scope_required_terms,
+    _has_equivalent_term,
+    _infer_business_scope,
+    _load_template_scope_required_terms,
+    _normalize_term,
+    _validate_required_terms,
 )
 
 __all__ = [

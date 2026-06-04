@@ -2,10 +2,11 @@
 微信 Celery 任务测试
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
 import os
 import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 
 class TestWechatTasksImport:
@@ -160,6 +161,7 @@ class TestScanWechatMessagesTask:
     def test_scan_wechat_messages_exception(self, mock_service_class, mock_process):
         """测试扫描时服务异常"""
         from celery.app.task import MaxRetriesExceededError
+
         from app.tasks.wechat_tasks import scan_wechat_messages
 
         mock_service = MagicMock()

@@ -2,28 +2,29 @@
 工具类单元测试
 """
 
-import pytest
-from unittest.mock import Mock, MagicMock, patch
 import os
 import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, PROJECT_ROOT)
 
 from app.utils.excel_utils import (
+    cell_str,
     get_header_indices,
     merged_cell_value,
-    cell_str,
     normalize_unit_name,
 )
 from app.utils.path_utils import (
-    get_base_dir,
-    get_app_data_dir,
-    get_data_dir,
-    get_upload_dir,
-    get_log_dir,
-    get_db_path,
     ensure_dir,
+    get_app_data_dir,
+    get_base_dir,
+    get_data_dir,
+    get_db_path,
+    get_log_dir,
+    get_upload_dir,
 )
 
 

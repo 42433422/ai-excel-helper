@@ -2,9 +2,11 @@
 发货单领域聚合测试
 """
 
-import pytest
 from datetime import datetime
-from app.domain.shipment.aggregates import ShipmentItem, Shipment
+
+import pytest
+
+from app.domain.shipment.aggregates import Shipment, ShipmentItem
 from app.domain.shipment.legacy_vo import ContactInfo, Money, OrderNumber, Quantity
 
 

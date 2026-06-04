@@ -214,13 +214,13 @@ def catalog_store_collection(row: dict[str, Any]) -> str:
 
 def materialize_host_foundation_bridges(edition: str | None = None) -> dict[str, Any]:
     """将内置 mods/ 种子复制到用户 mods 根并 load_all_mods。"""
+    from app.infrastructure.mods.mod_manager import get_mod_manager
     from app.mod_sdk.edition_policy import (
         Edition,
         edition_mod_ids,
         resolve_edition,
         seed_edition_mods_from_bundle,
     )
-    from app.infrastructure.mods.mod_manager import get_mod_manager
 
     ed: Edition = edition or resolve_edition() or "generic"  # type: ignore[assignment]
     if ed not in ("minimal", "generic", "full"):

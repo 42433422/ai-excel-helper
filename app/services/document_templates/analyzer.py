@@ -9,17 +9,17 @@ import zipfile
 from xml.etree import ElementTree as ET
 
 from app.http.json_response import json_response
-from app.template_analysis_progress import (
-    clear_template_analysis_progress,
-    set_template_analysis_progress,
+from app.services.document_templates.renderer import (
+    _extract_excel_grid_preview,
+    _extract_structured_excel_preview,
 )
 from app.services.document_templates.variables import (
     _get_template_scope_required_terms,
     _validate_required_terms,
 )
-from app.services.document_templates.renderer import (
-    _extract_excel_grid_preview,
-    _extract_structured_excel_preview,
+from app.template_analysis_progress import (
+    clear_template_analysis_progress,
+    set_template_analysis_progress,
 )
 
 logger = logging.getLogger(__name__)

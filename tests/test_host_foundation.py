@@ -4,8 +4,8 @@ from app.mod_sdk.host_foundation import (
     HOST_FOUNDATION_EMPLOYEE_PACK_ID,
     catalog_store_collection,
     host_foundation_catalog_row,
-    is_infrastructure_mod_hidden_from_store,
     is_host_foundation_employee_pack,
+    is_infrastructure_mod_hidden_from_store,
 )
 
 

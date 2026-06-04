@@ -32,8 +32,8 @@ def test_planner_blueprints_tools_execute_route():
 
 
 def test_list_planner_tools_registry_detail_host_path(monkeypatch):
-    from app.mod_sdk import planner_tools as pt
     from app.mod_sdk import planner_native_tools as pnt
+    from app.mod_sdk import planner_tools as pt
 
     monkeypatch.setattr(pt, "is_planner_tools_via_mod_enabled", lambda: False)
     monkeypatch.setattr(pnt, "is_planner_native_tools_enabled", lambda: False)
@@ -45,8 +45,8 @@ def test_list_planner_tools_registry_detail_host_path(monkeypatch):
 
 
 def test_list_planner_tools_registry_detail_mod_facade(monkeypatch):
-    from app.mod_sdk import planner_tools as pt
     from app.mod_sdk import planner_native_tools as pnt
+    from app.mod_sdk import planner_tools as pt
 
     monkeypatch.setattr(pt, "is_planner_tools_via_mod_enabled", lambda: True)
     monkeypatch.setattr(pnt, "is_planner_native_tools_enabled", lambda: False)

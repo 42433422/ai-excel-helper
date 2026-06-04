@@ -11,8 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Config, get_config
 from app.infrastructure.mods.mod_auth import ModContextMiddleware
-from app.middleware.csrf import CSRFMiddleware
 from app.middleware.auth_rate_limit import AuthRateLimitMiddleware
+from app.middleware.csrf import CSRFMiddleware
 from app.middleware.global_rate_limit import GlobalRateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.xss_sanitizer import XSSSanitizerMiddleware

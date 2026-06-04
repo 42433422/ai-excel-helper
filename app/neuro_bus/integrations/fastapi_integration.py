@@ -14,14 +14,14 @@ from typing import Any
 from fastapi import FastAPI
 
 from app.domain.neuro.processors.coordinator import get_processor_coordinator
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.bus_setup import get_neuro_bus_manager
-from app.neuro_bus.domains.base import get_domain_registry
 from app.mod_sdk.neuro_bus_runtime import (
     get_neuro_bus_health_runtime,
     run_lifespan_setup,
     run_lifespan_teardown,
 )
+from app.neuro_bus.bus import get_neuro_bus
+from app.neuro_bus.bus_setup import get_neuro_bus_manager
+from app.neuro_bus.domains.base import get_domain_registry
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.application.shipment_app_service import ShipmentApplicationService
-from app.domain.shipment.aggregates import ShipmentItem, Shipment
+from app.domain.shipment.aggregates import Shipment, ShipmentItem
 from app.domain.shipment.legacy_vo import ContactInfo, Money, Quantity
 from app.infrastructure.documents.shipment_document_generator_impl import (
     LegacyShipmentDocumentGenerator,

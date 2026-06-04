@@ -2,7 +2,7 @@ from app.db.models import ShipmentRecord
 from app.db.session import get_db
 from app.domain.shipment.aggregates import Shipment
 from app.domain.value_objects import ContactInfo, OrderNumber
-from app.infrastructure.mappers.shipment_mapper import shipment_to_domain, shipment_to_db
+from app.infrastructure.mappers.shipment_mapper import shipment_to_db, shipment_to_domain
 from app.infrastructure.repositories.shipment_repository import ShipmentRepository
 
 

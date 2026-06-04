@@ -14,11 +14,11 @@ from fastapi.testclient import TestClient
 from app.fastapi_routes import debug_client_log as debug_routes
 from app.fastapi_routes import fhd_meta as fhd_meta_routes
 from app.fastapi_routes import health_k8s as health_routes
-from app.fastapi_routes.domains.misc import helpers as legacy_helpers
-from app.fastapi_routes import print_routes, spa_fallback
 from app.fastapi_routes import neuro_migration_routes as neuro_routes
+from app.fastapi_routes import print_routes, spa_fallback
 from app.fastapi_routes import state as state_routes
 from app.fastapi_routes import xcmax_admin as xcmax_routes
+from app.fastapi_routes.domains.misc import helpers as legacy_helpers
 
 # ---------------------------------------------------------------------------
 # Fixtures

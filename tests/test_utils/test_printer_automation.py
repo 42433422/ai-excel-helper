@@ -1,7 +1,7 @@
-import unittest
-from unittest.mock import Mock, MagicMock, patch
 import os
 import sys
+import unittest
+from unittest.mock import MagicMock, Mock, patch
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, PROJECT_ROOT)

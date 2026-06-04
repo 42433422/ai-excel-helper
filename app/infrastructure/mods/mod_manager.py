@@ -1140,9 +1140,9 @@ def _mod_allowed_for_api_load(mod_id: str, session_id: str | None = None) -> boo
             is_sunbird_local_username,
         )
         from app.enterprise.mod_entitlements import (
+            _session_username_for_entitlements,
             enterprise_mod_filter_active,
             is_mod_visible_for_enterprise,
-            _session_username_for_entitlements,
         )
 
         if not enterprise_mod_filter_active():

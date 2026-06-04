@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime
 from typing import Any
@@ -8,12 +9,9 @@ from app.db.models import Product as ProductModel
 from app.db.session import get_db
 from app.domain.product.entities import Product
 from app.domain.value_objects import ModelNumber, Money
-from app.infrastructure.mappers.product_mapper import product_to_domain, product_to_db
+from app.infrastructure.mappers.product_mapper import product_to_db, product_to_domain
 from app.infrastructure.persistence.product_repository_impl import TRIVIAL_MEASURE_UNITS
 from app.infrastructure.repositories.product_repository import ProductRepository
-
-
-import logging
 
 logger = logging.getLogger(__name__)
 

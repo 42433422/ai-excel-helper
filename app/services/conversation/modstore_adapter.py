@@ -26,14 +26,15 @@
     adapter = create_modstore_adapter_from_env()
 """
 
-from collections.abc import Iterator
 import json
-from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Union
-import httpx
 import logging
 import os
 import time
+from collections.abc import Iterator
+from types import SimpleNamespace
+from typing import Any, Dict, List, Optional, Union
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -226,8 +227,8 @@ class ModstorePlatformAdapter:
             try:
                 from app.fastapi_routes.market_account import (
                     latest_session_market_token,
-                    session_market_token,
                     session_id_from_request,
+                    session_market_token,
                 )
 
                 effective_session_id = session_id or (
@@ -305,8 +306,8 @@ class ModstorePlatformAdapter:
         """
         try:
             from app.fastapi_routes.market_account import (
-                session_market_token,
                 session_id_from_request,
+                session_market_token,
             )
 
             effective_session_id = session_id or (

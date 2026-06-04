@@ -2,8 +2,10 @@
 基础设施层测试
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from app.infrastructure.documents.shipment_document_generator_impl import (
     LegacyShipmentDocumentGenerator,
 )

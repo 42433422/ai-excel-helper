@@ -3,12 +3,12 @@ from datetime import datetime
 from app.db.models import PurchaseUnit as PurchaseUnitModel
 from app.db.session import get_db
 from app.domain.customer.entities import Customer, PurchaseUnit
-from app.infrastructure.mappers.customer_mapper import (
-    purchase_unit_to_domain,
-    purchase_unit_to_db,
-    customer_to_domain,
-)
 from app.domain.value_objects import ContactInfo
+from app.infrastructure.mappers.customer_mapper import (
+    customer_to_domain,
+    purchase_unit_to_db,
+    purchase_unit_to_domain,
+)
 from app.infrastructure.repositories.customer_repository import CustomerRepository
 
 

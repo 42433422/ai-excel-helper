@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 CHINESE_DIGIT_MAP = {
     "零": "0",
     "〇": "0",
