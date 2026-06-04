@@ -43,7 +43,6 @@ _CI_STABLE_NODEID_FRAGMENTS = (
     "test_domain/test_shipment_aggregates",
     "test_wechat_tasks",
     "test_neuro_bus_core",
-    "test_db_read_token",
     "test_utils/test_utils",
     "test_openapi_consistency",
     "test_services/test_shipment_service",
