@@ -117,6 +117,7 @@ jobs:
       - name: Run tests with coverage
         env:
           CI_STABLE_ONLY: "1"
+          XCAGI_SKIP_LEGACY_COMPAT_ROUTES: "1"
         run: |
           mkdir -p coverage
           python -m pytest tests/ -v \
