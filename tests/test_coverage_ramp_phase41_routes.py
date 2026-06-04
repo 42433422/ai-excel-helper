@@ -48,7 +48,9 @@ def mock_shipment_svc() -> MagicMock:
 
 @pytest.fixture
 def shipment_client(mock_shipment_svc: MagicMock, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr(shipment_routes, "get_shipment_application_service_core", lambda: mock_shipment_svc)
+    monkeypatch.setattr(
+        shipment_routes, "get_shipment_application_service_core", lambda: mock_shipment_svc
+    )
     app = FastAPI()
     app.include_router(shipment_routes.router)
     return TestClient(app, raise_server_exceptions=False)

@@ -103,9 +103,7 @@ def test_intent_test_missing_message(client: TestClient) -> None:
     assert r.json()["success"] is False
 
 
-def test_intent_test_recognizer_raises(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_intent_test_recognizer_raises(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.routes.ai_chat.recognize_intents",
         MagicMock(side_effect=Exception("意图识别错误")),
@@ -210,9 +208,7 @@ def test_chat_unified_batch_empty(client: TestClient, monkeypatch: pytest.Monkey
     assert r.json()["success"] is False
 
 
-def test_chat_unified_batch_too_many(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_chat_unified_batch_too_many(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.routes.ai_chat.normalize_batch_messages_payload",
         MagicMock(return_value=[f"m{i}" for i in range(25)]),
@@ -222,9 +218,7 @@ def test_chat_unified_batch_too_many(
     assert "最多 20 条" in r.json()["message"]
 
 
-def test_chat_unified_batch_success(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_chat_unified_batch_success(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.routes.ai_chat.normalize_batch_messages_payload",
         MagicMock(return_value=["a", "b", "c"]),

@@ -25,7 +25,9 @@ def mark_startup(phase: str) -> None:
 
 def startup_timing_snapshot() -> dict[str, Any]:
     """返回各阶段相对进程启动的毫秒数（供 /api/desktop/status）。"""
-    out: dict[str, Any] = {"process_uptime_ms": int((time.monotonic() - _PROCESS_START_MONO) * 1000)}
+    out: dict[str, Any] = {
+        "process_uptime_ms": int((time.monotonic() - _PROCESS_START_MONO) * 1000)
+    }
     for key, at in sorted(_marks.items(), key=lambda x: x[1]):
         out[key] = int((at - _PROCESS_START_MONO) * 1000)
     if "mod_staged" in _marks and "mod_background_done" in _marks:
@@ -33,9 +35,7 @@ def startup_timing_snapshot() -> dict[str, Any]:
             (_marks["mod_background_done"] - _marks["mod_staged"]) * 1000
         )
     if "lifespan_begin" in _marks and "lifespan_db_done" in _marks:
-        out["startup_db_ms"] = int(
-            (_marks["lifespan_db_done"] - _marks["lifespan_begin"]) * 1000
-        )
+        out["startup_db_ms"] = int((_marks["lifespan_db_done"] - _marks["lifespan_begin"]) * 1000)
     return out
 
 

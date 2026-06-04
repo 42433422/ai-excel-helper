@@ -17,7 +17,9 @@ from app.application.ports.extract_log_store import ExtractLogStorePort as Extra
 from app.application.ports.file_analysis import FileAnalysisPort as FileAnalysisChannel
 from app.application.ports.material_repository import MaterialRepository as MaterialChannel
 from app.application.ports.product_repository import ProductRepository as ProductChannel
-from app.application.ports.purchase_unit_query import PurchaseUnitQueryPort as PurchaseUnitQueryChannel
+from app.application.ports.purchase_unit_query import (
+    PurchaseUnitQueryPort as PurchaseUnitQueryChannel,
+)
 from app.application.ports.shipment_document_generator import (
     ShipmentDocumentGeneratorPort as ShipmentDocumentGeneratorChannel,
 )

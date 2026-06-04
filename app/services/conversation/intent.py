@@ -271,6 +271,6 @@ class IntentMixin:
 
             intent_result["slots"] = merged_slots
         except Exception:
-            logger.debug('suppressed exception', exc_info=True)
+            logger.debug("suppressed exception", exc_info=True)
 
         return intent_result

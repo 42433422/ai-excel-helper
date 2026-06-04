@@ -80,7 +80,11 @@ def wechat_work_mode_feed(per_contact: int = Query(default=1, ge=1, le=100)) -> 
         config_file = os.path.join(wechat_decrypt_path, "config.json")
         keys_file = os.path.join(wechat_decrypt_path, "all_keys.json")
         if not os.path.exists(config_file) or not os.path.exists(keys_file):
-            return {"items": [], "per_contact": per_contact, "error": "wechat-decrypt not configured"}
+            return {
+                "items": [],
+                "per_contact": per_contact,
+                "error": "wechat-decrypt not configured",
+            }
         with open(config_file) as f:
             cfg = json.load(f)
         with open(keys_file) as f:
@@ -108,11 +112,13 @@ def wechat_work_mode_feed(per_contact: int = Query(default=1, ge=1, le=100)) -> 
 
         def derive_mac_key(enc_key, salt):
             import hashlib
+
             mac_salt = bytes(b ^ 0x3A for b in salt)
             return hashlib.pbkdf2_hmac("sha512", enc_key, mac_salt, 2, dklen=KEY_SZ)
 
         def decrypt_page(enc_key, page_data, pgno):
             from Crypto.Cipher import AES
+
             iv = page_data[PAGE_SZ - RESERVE_SZ : PAGE_SZ - RESERVE_SZ + 16]
             if pgno == 1:
                 encrypted = page_data[SALT_SZ : PAGE_SZ - RESERVE_SZ]
@@ -128,13 +134,17 @@ def wechat_work_mode_feed(per_contact: int = Query(default=1, ge=1, le=100)) -> 
         def get_key_info(keys, rel_path):
             if isinstance(keys, dict):
                 for path_key in keys:
-                    if path_key == rel_path or path_key.replace("\\", "/") == rel_path.replace("\\", "/"):
+                    if path_key == rel_path or path_key.replace("\\", "/") == rel_path.replace(
+                        "\\", "/"
+                    ):
                         info = keys[path_key].copy()
                         info["path"] = path_key
                         return info
                 return None
             for k in keys:
-                if k.get("path") == rel_path or k.get("path", "").replace("\\", "/") == rel_path.replace("\\", "/"):
+                if k.get("path") == rel_path or k.get("path", "").replace(
+                    "\\", "/"
+                ) == rel_path.replace("\\", "/"):
                     return k
                 if "keys" in k:
                     for sub in k["keys"]:
@@ -165,10 +175,15 @@ def wechat_work_mode_feed(per_contact: int = Query(default=1, ge=1, le=100)) -> 
         enc_key = bytes.fromhex(session_key_info["enc_key"])
         session_db = os.path.join(copy_db_dir, "session", "session.db")
         if not os.path.exists(session_db):
-            return {"items": [], "per_contact": per_contact, "error": "session.db not found in raw_db, run sync_raw_db.py first"}
+            return {
+                "items": [],
+                "per_contact": per_contact,
+                "error": "session.db not found in raw_db, run sync_raw_db.py first",
+            }
 
         decrypted_data = full_decrypt(session_db, enc_key)
         import tempfile
+
         tmp_path = os.path.join(tempfile.gettempdir(), "wechat_work_mode_feed.db")
         with open(tmp_path, "wb") as f:
             f.write(decrypted_data)
@@ -194,9 +209,12 @@ def wechat_work_mode_feed(per_contact: int = Query(default=1, ge=1, le=100)) -> 
         zstd_dctx = None
         try:
             import zstandard as zstd  # type: ignore[import-untyped]
+
             zstd_dctx = zstd.ZstdDecompressor()
         except ImportError:
-            logger.warning("wechat_work_mode_feed: zstandard not installed; install with `pip install zstandard` for session summary text")
+            logger.warning(
+                "wechat_work_mode_feed: zstandard not installed; install with `pip install zstandard` for session summary text"
+            )
         try:
             with closing(sqlite3.connect(tmp_path)) as conn:
                 conn.row_factory = sqlite3.Row

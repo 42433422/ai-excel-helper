@@ -102,7 +102,9 @@ def persist_session_account_meta(
             row.market_is_admin = bool(market_is_admin)
             row.market_is_enterprise = bool(market_is_enterprise)
             row.impersonating_market_user_id = (
-                int(impersonating_market_user_id) if impersonating_market_user_id is not None else None
+                int(impersonating_market_user_id)
+                if impersonating_market_user_id is not None
+                else None
             )
             row.impersonating_username = (impersonating_username or "").strip()[:128]
             db.commit()
@@ -128,7 +130,8 @@ def load_session_account_meta(session_id: str) -> dict[str, Any] | None:
 def session_row_to_meta_dict(row: UserSession) -> dict[str, Any]:
     imp_uid = getattr(row, "impersonating_market_user_id", None)
     return {
-        "account_kind": str(getattr(row, "account_kind", None) or "enterprise").strip() or "enterprise",
+        "account_kind": str(getattr(row, "account_kind", None) or "enterprise").strip()
+        or "enterprise",
         "company_brand": str(getattr(row, "company_brand", None) or "").strip(),
         "market_user_id": getattr(row, "market_user_id", None),
         "market_is_admin": bool(getattr(row, "market_is_admin", False)),

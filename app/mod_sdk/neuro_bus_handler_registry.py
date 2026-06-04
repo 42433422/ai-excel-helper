@@ -108,7 +108,9 @@ def list_neuro_bus_handler_registry() -> dict[str, Any]:
         "ok": True,
         "mod_id": NEURO_BUS_BRIDGE_MOD_ID,
         "handlers_via_mod": via,
-        "execution_path": f"mod:{NEURO_BUS_BRIDGE_MOD_ID}" if via else "host.register_domain_handlers_only",
+        "execution_path": (
+            f"mod:{NEURO_BUS_BRIDGE_MOD_ID}" if via else "host.register_domain_handlers_only"
+        ),
         "delegate": "host.neuro_bus.domains.*_domain_handlers",
         "phase": "N",
         "catalog": catalog_summary,

@@ -87,7 +87,7 @@ def publish_route_event(
                     if custom:
                         payload.update(custom)
                 except Exception:
-                    logger.debug('suppressed exception', exc_info=True)
+                    logger.debug("suppressed exception", exc_info=True)
 
             # 发布开始事件
             if is_neuro_stack_enabled():
@@ -245,7 +245,7 @@ def publish_route_event(
             except (AttributeError, TypeError):
                 pass
         except Exception:
-            logger.debug('suppressed exception', exc_info=True)
+            logger.debug("suppressed exception", exc_info=True)
 
         return wrapper  # type: ignore[return-value]
 

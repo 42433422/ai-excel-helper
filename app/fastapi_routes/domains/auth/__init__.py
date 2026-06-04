@@ -11,6 +11,7 @@
   4. legacy 文件加 deprecation banner
   5. 全部路由迁完后，删除 legacy_*.py
 """
+
 from . import routes as _routes  # noqa: F401  (re-exported for type checkers)
 
 __all__ = ["auth", "routes"]

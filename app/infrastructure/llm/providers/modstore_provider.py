@@ -1,4 +1,5 @@
 """包装 ModstorePlatformAdapter。"""
+
 from __future__ import annotations
 
 import time

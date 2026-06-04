@@ -26,7 +26,9 @@ def resolve_client_erp_mod_for_request(active_mod_id: str | None = None) -> str:
     return ""
 
 
-def _sqlite_customers_list(db_path, *, page: int, per_page: int, keyword: str | None) -> dict[str, Any]:
+def _sqlite_customers_list(
+    db_path, *, page: int, per_page: int, keyword: str | None
+) -> dict[str, Any]:
     if not db_path.exists():
         return {"success": True, "data": [], "total": 0}
     conn = sqlite3.connect(str(db_path))
@@ -36,9 +38,7 @@ def _sqlite_customers_list(db_path, *, page: int, per_page: int, keyword: str | 
     args: list[Any] = []
     kw = (keyword or "").strip()
     if kw:
-        cond.append(
-            "(customer_name LIKE ? OR contact_person LIKE ? OR contact_phone LIKE ?)"
-        )
+        cond.append("(customer_name LIKE ? OR contact_person LIKE ? OR contact_phone LIKE ?)")
         args.extend([f"%{kw}%", f"%{kw}%", f"%{kw}%"])
     where = " AND ".join(cond) if cond else "1=1"
     cur.execute(f"SELECT COUNT(*) FROM customers WHERE {where}", args)

@@ -46,7 +46,9 @@ class AITool(Base):
     created_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
-    category: Mapped[Optional[AIToolCategory]] = relationship("AIToolCategory", back_populates="tools")
+    category: Mapped[Optional[AIToolCategory]] = relationship(
+        "AIToolCategory", back_populates="tools"
+    )
 
 
 class AIConversation(Base):

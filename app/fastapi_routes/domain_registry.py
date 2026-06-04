@@ -5,6 +5,7 @@ v10.0.3 已删除全部 legacy_/xcagi_compat_* shim；运行时路由由 domains
 ``register_legacy_gap_routers``（内联于 ``app/fastapi_routes/__init__.py``）承载。
 本模块仅登记业务域 → 目标模块映射，供 CI 与迁移文档使用。
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -156,7 +157,9 @@ if __name__ == "__main__":  # pragma: no cover
         raise SystemExit(1)
 
     pending = get_pending_domains()
-    print(f"✅ 域注册表完整 · {len(BUSINESS_DOMAINS)} 业务域 · 文档表 {len(LEGACY_ROUTE_REGISTRY)} 条")
+    print(
+        f"✅ 域注册表完整 · {len(BUSINESS_DOMAINS)} 业务域 · 文档表 {len(LEGACY_ROUTE_REGISTRY)} 条"
+    )
     print(f"📋 待迁移业务域（{len(pending)}/{len(BUSINESS_DOMAINS)}）:")
     for d in pending:
         print(f"  - {d:14}  ({len(get_routes_by_domain(d))} 条文档)")

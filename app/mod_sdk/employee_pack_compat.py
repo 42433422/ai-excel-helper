@@ -95,8 +95,12 @@ def list_installed_employee_packs() -> dict[str, Any]:
     except Exception:
         logger.debug("list_installed_employee_packs failed", exc_info=True)
     catalog_ids = set(_load_catalog_pack_ids())
-    office_installed = [p for p in installed if str(p.get("pack_id") or p.get("id") or "") in catalog_ids]
-    other_installed = [p for p in installed if str(p.get("pack_id") or p.get("id") or "") not in catalog_ids]
+    office_installed = [
+        p for p in installed if str(p.get("pack_id") or p.get("id") or "") in catalog_ids
+    ]
+    other_installed = [
+        p for p in installed if str(p.get("pack_id") or p.get("id") or "") not in catalog_ids
+    ]
     return {
         "install_root": "mods/_employees",
         "total_installed": len(installed),

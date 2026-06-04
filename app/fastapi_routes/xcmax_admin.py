@@ -819,7 +819,10 @@ async def ops_duty_health(request: Request):
     remote = await _remote_duty_health(request)
     closure = build_ops_closure_status(remote if isinstance(remote, dict) else {})
     if not isinstance(remote, dict):
-        return closure.get("remote_health") or {"ok": False, "staffing": closure.get("staffing") or {}}
+        return closure.get("remote_health") or {
+            "ok": False,
+            "staffing": closure.get("staffing") or {},
+        }
     merged = {**remote, "staffing": closure.get("staffing") or remote.get("staffing") or {}}
     merged["planned_employee_ids"] = closure.get("planned_employee_ids")
     merged["registered_employee_ids"] = closure.get("registered_employee_ids")

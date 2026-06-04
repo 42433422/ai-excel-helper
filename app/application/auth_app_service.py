@@ -34,7 +34,7 @@ def _authenticate_failure_message(exc: BaseException) -> str:
     if "no such table: users" in blob:
         return (
             "本地 SQLite 缺少 users 表。请重启后端（将自动创建），"
-            "或在 FHD 目录执行：python -c \"from app.db.init_db import ensure_runtime_auth_bootstrap; ensure_runtime_auth_bootstrap()\""
+            '或在 FHD 目录执行：python -c "from app.db.init_db import ensure_runtime_auth_bootstrap; ensure_runtime_auth_bootstrap()"'
         )
     if 'relation "users"' in blob or ("users" in blob and "does not exist" in blob):
         return (

@@ -9,7 +9,9 @@ from pathlib import Path
 _HANDLER_MARK = "xcagi_desktop_rotating_file"
 
 
-def attach_desktop_file_logging(log_dir: str | Path, *, max_bytes: int = 10_485_760, backup_count: int = 5) -> None:
+def attach_desktop_file_logging(
+    log_dir: str | Path, *, max_bytes: int = 10_485_760, backup_count: int = 5
+) -> None:
     """Append a rotating file handler to the root logger (desktop only).
 
     Idempotent: safe if ``create_fastapi_app`` is invoked more than once (e.g. tests).

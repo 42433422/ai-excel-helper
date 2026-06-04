@@ -78,7 +78,7 @@ def merged_cell_value(ws, row: int, col: int) -> Any:
             except Exception:
                 continue
     except Exception:
-        logger.debug('suppressed exception', exc_info=True)
+        logger.debug("suppressed exception", exc_info=True)
 
     return ws.cell(row=row, column=col).value
 

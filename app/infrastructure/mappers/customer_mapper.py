@@ -40,4 +40,3 @@ def customer_to_domain(db_model: PurchaseUnitModel) -> Customer:
         created_at=db_model.created_at,
         updated_at=db_model.updated_at,
     )
-

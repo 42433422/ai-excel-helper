@@ -32,7 +32,7 @@ class AIConversationService(
             # 优先级1: 平台代理模式（修茈市场统一接口）
             from app.services.conversation.modstore_adapter import (
                 ModstorePlatformAdapter,
-                create_modstore_adapter_from_env
+                create_modstore_adapter_from_env,
             )
 
             modstore = create_modstore_adapter_from_env()
@@ -62,7 +62,7 @@ class AIConversationService(
                     provider=llm_provider,
                     model=llm_model,
                     api_key=llm_api_key,
-                    base_url=llm_base_url
+                    base_url=llm_base_url,
                 )
 
                 if self.llm_adapter.is_configured:
@@ -72,9 +72,7 @@ class AIConversationService(
                         f"{self.llm_adapter.model_name} (Key已配置)"
                     )
                 else:
-                    logger.warning(
-                        f"⚠️ 直连适配器已创建但 [{llm_provider}] API Key未配置"
-                    )
+                    logger.warning(f"⚠️ 直连适配器已创建但 [{llm_provider}] API Key未配置")
 
         except Exception as adapter_err:
             logger.error(f"❌ LLM适配器初始化失败: {adapter_err}")
@@ -104,13 +102,10 @@ class AIConversationService(
         if self.api_key and llm_init_mode == "none":
             llm_init_mode = "legacy"
             logger.info(
-                f"📦 [优先级3/降级] 使用旧版DeepSeek直连模式 "
-                f"(Key长度: {len(self.api_key)})"
+                f"📦 [优先级3/降级] 使用旧版DeepSeek直连模式 " f"(Key长度: {len(self.api_key)})"
             )
         elif self.api_key:
-            logger.info(
-                f"DeepSeek API Key 已配置（长度: {len(self.api_key)}）(作为降级备选)"
-            )
+            logger.info(f"DeepSeek API Key 已配置（长度: {len(self.api_key)}）(作为降级备选)")
         else:
             logger.warning("DeepSeek API Key 未配置（降级路径不可用）")
 

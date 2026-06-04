@@ -81,9 +81,7 @@ def apply_database_profile_to_env(
     if use_remote:
         os.environ["XCAGI_DESKTOP_KEEP_DATABASE_URL"] = "1"
         os.environ["DATABASE_URL"] = remote_url
-        os.environ["VECTOR_DB_URL"] = (
-            os.environ.get("XCAGI_DESKTOP_VECTOR_DB_URL") or remote_url
-        )
+        os.environ["VECTOR_DB_URL"] = os.environ.get("XCAGI_DESKTOP_VECTOR_DB_URL") or remote_url
         profile["mode"] = "remote"
     else:
         os.environ.pop("XCAGI_DESKTOP_KEEP_DATABASE_URL", None)

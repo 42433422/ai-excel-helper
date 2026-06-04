@@ -134,7 +134,7 @@ def redact_database_url(url: str) -> str:
             port = f":{p.port}" if p.port else ""
             return f"{p.scheme}://{user}:***@{host}{port}{p.path or ''}"
     except Exception:
-        logger.debug('suppressed exception', exc_info=True)
+        logger.debug("suppressed exception", exc_info=True)
     return url
 
 

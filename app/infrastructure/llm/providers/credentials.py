@@ -1,4 +1,5 @@
 """统一凭证解析：env → OPENAI/DEEPSEEK → 可选 resources 配置。"""
+
 from __future__ import annotations
 
 import os
@@ -22,9 +23,8 @@ def resolve_deepseek_credentials() -> LLMCredentials | None:
     if not key:
         return None
     url = (
-        (os.environ.get("DEEPSEEK_API_URL") or "").strip()
-        or "https://api.deepseek.com/v1/chat/completions"
-    )
+        os.environ.get("DEEPSEEK_API_URL") or ""
+    ).strip() or "https://api.deepseek.com/v1/chat/completions"
     model = (os.environ.get("DEEPSEEK_MODEL") or "").strip() or "deepseek-chat"
     return LLMCredentials(api_key=key, api_url=url, model=model)
 

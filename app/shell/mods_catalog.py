@@ -31,7 +31,13 @@ _BUILTIN_RAW: tuple[dict, ...] = (
     {"id": "客户管理", "name": "客户管理", "type": "template", "color": "green"},
     {"id": "汇总统计表", "name": "汇总统计表", "type": "template", "color": "green"},
     {"id": "销售报表", "name": "销售报表", "type": "template", "color": "green"},
-    {"id": "价格表", "name": "价格表", "type": "template", "color": "blue", "description": "Word 价格表模板"},
+    {
+        "id": "价格表",
+        "name": "价格表",
+        "type": "template",
+        "color": "blue",
+        "description": "Word 价格表模板",
+    },
     {
         "id": "价格表_excel",
         "name": "价格表(Excel)",
@@ -82,7 +88,9 @@ def list_mod_items() -> list[ModItem]:
     """
     discovered = read_manifest_dicts()
     seen: set[str] = {
-        str(x.get("id", "")).strip() for x in discovered if isinstance(x, dict) and str(x.get("id", "")).strip()
+        str(x.get("id", "")).strip()
+        for x in discovered
+        if isinstance(x, dict) and str(x.get("id", "")).strip()
     }
     rows = _load_json_rows()
     catalog: list[dict] = list(rows) if rows is not None else list(_BUILTIN_RAW)

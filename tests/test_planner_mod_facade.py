@@ -45,7 +45,10 @@ def test_list_planner_tools_registry():
 
 
 def test_planner_compat_service_importable():
-    from app.application.planner_compat_service import execute_compat_chat, execute_compat_chat_batch
+    from app.application.planner_compat_service import (
+        execute_compat_chat,
+        execute_compat_chat_batch,
+    )
 
     assert callable(execute_compat_chat)
     assert callable(execute_compat_chat_batch)

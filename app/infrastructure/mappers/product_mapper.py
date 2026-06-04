@@ -36,4 +36,3 @@ def product_to_db(product: Product) -> dict[str, Any]:
         "unit": product.unit,
         "is_active": 1 if product.is_active else 0,
     }
-

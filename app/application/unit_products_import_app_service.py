@@ -297,6 +297,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(UnitProductsImportService)
 
+
 def get_unit_products_import_app_service() -> UnitProductsImportService:
     """获取单位产品导入服务单例"""
     from app.di.registry import get_service_registry

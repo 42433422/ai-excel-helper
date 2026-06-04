@@ -98,7 +98,9 @@ def _node_query_for_user(node: ApprovalFlowNode, user_id: int) -> bool:
 def _ordered_nodes(db, flow_id: int) -> list[ApprovalFlowNode]:
     return (
         db.query(ApprovalFlowNode)
-        .filter(ApprovalFlowNode.flow_id == flow_id, ApprovalFlowNode.is_active == True)  # noqa: E712
+        .filter(
+            ApprovalFlowNode.flow_id == flow_id, ApprovalFlowNode.is_active == True
+        )  # noqa: E712
         .order_by(ApprovalFlowNode.node_order.asc())
         .all()
     )
@@ -881,7 +883,9 @@ def create_flow(
     with get_db() as db:
         existed = (
             db.query(ApprovalFlow)
-            .filter(ApprovalFlow.flow_key == flow_key, ApprovalFlow.is_deleted == False)  # noqa: E712
+            .filter(
+                ApprovalFlow.flow_key == flow_key, ApprovalFlow.is_deleted == False
+            )  # noqa: E712
             .first()
         )
         if existed:

@@ -171,8 +171,9 @@ def _require_self_or_admin(target_user_id: int, current_user: User) -> None:
 def _client_ip(request: Request) -> str:
     """获取客户端 IP（与项目其他端点保持一致）。"""
     return (
-        request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        or request.client.host if request.client else ""
+        request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or request.client.host
+        if request.client
+        else ""
     )
 
 

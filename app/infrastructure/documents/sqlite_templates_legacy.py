@@ -36,7 +36,9 @@ class Template(Base):
     metadata_json = Column("metadata", JSON)
 
     fields = relationship("TemplateField", back_populates="template", cascade="all, delete-orphan")
-    versions = relationship("TemplateVersion", back_populates="template", cascade="all, delete-orphan")
+    versions = relationship(
+        "TemplateVersion", back_populates="template", cascade="all, delete-orphan"
+    )
 
 
 class TemplateField(Base):

@@ -33,7 +33,9 @@ def _profile_or_legacy_mod_ids(sku: ProductSku, legacy: tuple[str, ...]) -> tupl
     return tuple(profile_ids) if profile_ids else legacy
 
 
-PERSONAL_HOST_MOD_IDS: tuple[str, ...] = _profile_or_legacy_mod_ids("personal", MINIMAL_HOST_MOD_IDS)
+PERSONAL_HOST_MOD_IDS: tuple[str, ...] = _profile_or_legacy_mod_ids(
+    "personal", MINIMAL_HOST_MOD_IDS
+)
 
 ENTERPRISE_HOST_MOD_IDS: tuple[str, ...] = _profile_or_legacy_mod_ids(
     "enterprise",

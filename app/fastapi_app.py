@@ -265,18 +265,10 @@ def _initialize_databases_sync(app: FastAPI):
         init_extract_logs_tables(engine)
         ensure_product_query_indexes(engine)
         cfg_db_url = str(getattr(app.state.config, "DATABASE_URL", "") or "").strip()
-        ensure_sessions_market_access_token_column(
-            engine, database_url=cfg_db_url or None
-        )
-        ensure_sessions_market_refresh_token_column(
-            engine, database_url=cfg_db_url or None
-        )
-        ensure_sessions_enterprise_entitlement_columns(
-            engine, database_url=cfg_db_url or None
-        )
-        ensure_sessions_account_meta_columns(
-            engine, database_url=cfg_db_url or None
-        )
+        ensure_sessions_market_access_token_column(engine, database_url=cfg_db_url or None)
+        ensure_sessions_market_refresh_token_column(engine, database_url=cfg_db_url or None)
+        ensure_sessions_enterprise_entitlement_columns(engine, database_url=cfg_db_url or None)
+        ensure_sessions_account_meta_columns(engine, database_url=cfg_db_url or None)
         try:
             init_approval_tables(engine)
         except Exception as approval_err:
@@ -399,6 +391,7 @@ def create_fastapi_app(
         config_object = get_config("default")
 
     from app.infrastructure.cache.wiring import wire_cache_port
+
     wire_cache_port()
 
     if not getattr(config_object, "SECRET_KEY", None):
@@ -613,4 +606,3 @@ def get_fastapi_app() -> FastAPI:
     if not hasattr(get_fastapi_app, "_app"):
         get_fastapi_app._app = create_fastapi_app()
     return get_fastapi_app._app
-

@@ -70,7 +70,9 @@ def build_support_bundle_zip(
                 "数据库文件默认不在包内；如需一并分析请单独发送 backups 下的 .db 备份。\n"
             ).encode("utf-8"),
         )
-        zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"))
+        zf.writestr(
+            "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
+        )
 
         for name in ("xcagi.log", "xcagi.log.1", "xcagi.log.2"):
             chunk = _tail_bytes(logs_dir / name)

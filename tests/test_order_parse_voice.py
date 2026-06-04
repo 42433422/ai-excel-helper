@@ -101,4 +101,3 @@ def test_parse_order_text_colloquial_qty_verbs_should_succeed(text):
     assert product["model_number"] == "9803"
     assert product["quantity_tins"] == 3
     assert float(product["tin_spec"]) == 12
-

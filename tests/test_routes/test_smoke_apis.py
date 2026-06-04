@@ -32,4 +32,3 @@ def test_smoke_endpoint(client: TestClient, path: str, method: str, payload):
         r = client.post(path, json=payload)
 
     assert r.status_code < 500, f"Endpoint {method} {path} returned {r.status_code}: {r.text}"
-

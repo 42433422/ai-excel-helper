@@ -121,7 +121,9 @@ def record_http_request(method: str, path: str, status_code: int, duration_secon
     endpoint = _normalize_endpoint(path)
     try:
         api_requests_total.labels(method=method, endpoint=endpoint, status=str(status_code)).inc()
-        api_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(duration_seconds)
+        api_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(
+            duration_seconds
+        )
     except Exception:
         pass
 

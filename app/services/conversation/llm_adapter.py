@@ -24,17 +24,13 @@ class BaseLLMAdapter(ABC):
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """同步聊天补全"""
         pass
 
     @abstractmethod
-    async def stream_chat_completion(
-        self,
-        messages: List[Dict[str, str]],
-        **kwargs
-    ):
+    async def stream_chat_completion(self, messages: List[Dict[str, str]], **kwargs):
         """流式聊天补全"""
         pass
 
@@ -54,7 +50,7 @@ class BaseLLMAdapter(ABC):
 class OpenAICompatibleAdapter(BaseLLMAdapter):
     """
     OpenAI兼容协议适配器
-    
+
     支持20+厂商的统一调用接口，自动处理API差异
     """
 
@@ -127,15 +123,11 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
     }
 
     def __init__(
-        self,
-        provider: str = "xiaomi",
-        model: str = None,
-        api_key: str = None,
-        base_url: str = None
+        self, provider: str = "xiaomi", model: str = None, api_key: str = None, base_url: str = None
     ):
         """
         初始化LLM适配器
-        
+
         Args:
             provider: LLM提供商标识 (默认 xiaomi)
             model: 模型名称 (可选，不设则用默认值)
@@ -145,11 +137,12 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
         self.provider = provider.lower().strip()
         self._api_key = api_key or self._resolve_api_key(self.provider)
         self._base_url = (
-            base_url.rstrip('/') if base_url 
+            base_url.rstrip("/")
+            if base_url
             else self.PROVIDER_DEFAULT_URLS.get(self.provider, "https://api.openai.com")
         )
         self._model = model or self.DEFAULT_MODELS.get(self.provider, "gpt-3.5-turbo")
-        
+
         self._client: Optional[httpx.AsyncClient] = None
         self._stream_client: Optional[httpx.AsyncClient] = None
 
@@ -160,17 +153,14 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
 
     def _resolve_api_key(self, provider: str) -> Optional[str]:
         """从环境变量解析API Key"""
-        env_names = self.ENV_KEY_MAPPING.get(
-            provider, 
-            [f"{provider.upper()}_API_KEY"]
-        )
-        
+        env_names = self.ENV_KEY_MAPPING.get(provider, [f"{provider.upper()}_API_KEY"])
+
         for env_name in env_names:
             key = os.environ.get(env_name, "").strip()
             if key:
                 logger.debug(f"从环境变量 {env_name} 读取到API Key")
                 return key
-        
+
         logger.warning(f"未找到 {provider} 的API Key (已检查: {env_names})")
         return None
 
@@ -192,10 +182,7 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(30.0, connect=10.0),
-                limits=httpx.Limits(
-                    max_keepalive_connections=10,
-                    max_connections=30
-                )
+                limits=httpx.Limits(max_keepalive_connections=10, max_connections=30),
             )
         return self._client
 
@@ -204,17 +191,17 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
         if self._stream_client is None or self._stream_client.is_closed:
             self._stream_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(connect=15.0, read=300.0, write=60.0, pool=30.0),
-                limits=httpx.Limits(max_keepalive_connections=200, max_connections=1000)
+                limits=httpx.Limits(max_keepalive_connections=200, max_connections=1000),
             )
         return self._stream_client
 
     def _normalize_base_url(self) -> str:
         """标准化基础URL，确保包含正确的版本路径"""
-        url = self._base_url.rstrip('/')
-        
+        url = self._base_url.rstrip("/")
+
         if any(url.endswith(f"/v{i}") for i in range(1, 5)):
             return url
-        
+
         return f"{url}/v1"
 
     async def chat_completion(
@@ -222,20 +209,20 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         执行OpenAI兼容的聊天补全（同步模式）
-        
+
         Args:
             messages: 对话消息列表 [{"role": "user/assistant/system", "content": "..."}]
             temperature: 温度参数 (0-2)
             max_tokens: 最大生成token数
             **kwargs: 其他OpenAI API参数
-            
+
         Returns:
             API响应字典 (标准OpenAI格式)
-            
+
         Raises:
             ValueError: API Key未配置
             httpx.HTTPStatusError: HTTP错误
@@ -251,13 +238,10 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            **kwargs
+            **kwargs,
         }
 
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
 
         logger.debug(
             f"调用 [{self.provider}/{self._model}] "
@@ -269,13 +253,13 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
         response.raise_for_status()
 
         result = response.json()
-        
+
         logger.debug(
             f"[{self.provider}] 响应成功, "
             f"choices={len(result.get('choices', []))}, "
             f"usage={result.get('usage', {})}"
         )
-        
+
         return result
 
     async def stream_chat_completion(
@@ -283,11 +267,11 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        **kwargs
+        **kwargs,
     ):
         """
         流式聊天补全（SSE）
-        
+
         Yields:
             SSE数据行 (data: {...})
         """
@@ -304,13 +288,10 @@ class OpenAICompatibleAdapter(BaseLLMAdapter):
             "max_tokens": max_tokens,
             "stream": True,
             "stream_options": {"include_usage": True},
-            **kwargs
+            **kwargs,
         }
 
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
 
         logger.info(f"启动流式请求 [{self.provider}/{self._model}]")
 

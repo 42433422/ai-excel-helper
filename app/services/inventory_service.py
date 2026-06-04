@@ -152,7 +152,9 @@ class InventoryService:
     def update_storage_location(self, location_id: int, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
-                location = db.query(StorageLocation).filter(StorageLocation.id == location_id).first()
+                location = (
+                    db.query(StorageLocation).filter(StorageLocation.id == location_id).first()
+                )
                 if not location:
                     return {"success": False, "message": "库位不存在"}
                 updatable = ["code", "name", "max_capacity", "status"]

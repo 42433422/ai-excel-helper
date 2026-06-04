@@ -7,6 +7,7 @@ for call sites under `app.services.*`.
 Do not add new logic here; update the authoritative implementation in
 `app.ai_engines.rasa.nlu_service`.
 """
+
 from __future__ import annotations
 
 from app.ai_engines.rasa.nlu_service import RasaNLUService, get_rasa_nlu_service

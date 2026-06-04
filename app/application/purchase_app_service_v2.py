@@ -56,7 +56,9 @@ class PurchaseAppServiceV2:
 
     # ── 供应商 ────────────────────────────────────────────────────
 
-    def get_suppliers(self, status: str | None = None, keyword: str | None = None) -> dict[str, Any]:
+    def get_suppliers(
+        self, status: str | None = None, keyword: str | None = None
+    ) -> dict[str, Any]:
         return self._purchase_svc().get_suppliers(status=status, keyword=keyword)
 
     def get_supplier(self, supplier_id: int) -> dict[str, Any]:
@@ -120,9 +122,7 @@ class PurchaseAppServiceV2:
     def update_purchase_order(self, order_id: int, data: dict[str, Any]) -> dict[str, Any]:
         result = self._purchase_svc().update_purchase_order(order_id, data)
         if result.get("success"):
-            self._try_publish(
-                "purchase.order.updated", {"order_id": order_id, "changes": data}
-            )
+            self._try_publish("purchase.order.updated", {"order_id": order_id, "changes": data})
         return result
 
     def approve_purchase_order(self, order_id: int, approver: str = "system") -> dict[str, Any]:

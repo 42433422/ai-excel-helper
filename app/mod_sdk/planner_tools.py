@@ -226,9 +226,7 @@ def execute_planner_tool_from_body(body: dict[str, Any] | None) -> dict[str, Any
 
     args = payload.get("arguments") or payload.get("args") or {}
     workspace_root = str(
-        payload.get("workspace_root")
-        or os.environ.get("WORKSPACE_ROOT")
-        or os.getcwd()
+        payload.get("workspace_root") or os.environ.get("WORKSPACE_ROOT") or os.getcwd()
     ).strip()
     db_write_token = payload.get("db_write_token")
     if db_write_token is not None:
@@ -298,9 +296,13 @@ def list_planner_tools_registry_detail() -> dict[str, Any]:
         "mod_extension_names": ext_names,
         "execution_via_mod_facade": via_mod,
         "native_planner_tools": native_summary,
-        "execution_path": "mod_facade+native" if via_mod and native_summary.get("enabled") else (
-            "mod_native" if native_summary.get("enabled") else (
-                "mod_facade" if via_mod else "host.workflow"
+        "execution_path": (
+            "mod_facade+native"
+            if via_mod and native_summary.get("enabled")
+            else (
+                "mod_native"
+                if native_summary.get("enabled")
+                else ("mod_facade" if via_mod else "host.workflow")
             )
         ),
         "mod_id": PLANNER_FACADE_MOD_ID if via_mod else None,

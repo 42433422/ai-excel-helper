@@ -84,7 +84,7 @@ def _is_trivial_customer_token(text: str) -> bool:
         float(t.replace(",", ""))
         return True
     except Exception:
-        logger.debug('suppressed exception', exc_info=True)
+        logger.debug("suppressed exception", exc_info=True)
     return False
 
 

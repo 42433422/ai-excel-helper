@@ -25,15 +25,33 @@ class AuthService(NeuroEventPublisherMixin):
                 user = db.query(User).filter(User.username == username).first()
 
                 if not user:
-                    audit_logger.audit_log("auth_failure", None, "", {"username": username, "reason": "user_not_found"}, success=False)
+                    audit_logger.audit_log(
+                        "auth_failure",
+                        None,
+                        "",
+                        {"username": username, "reason": "user_not_found"},
+                        success=False,
+                    )
                     return {"success": False, "message": "用户名或密码错误"}
 
                 if not user.is_active:
-                    audit_logger.audit_log("auth_failure", user.id, "", {"username": username, "reason": "account_disabled"}, success=False)
+                    audit_logger.audit_log(
+                        "auth_failure",
+                        user.id,
+                        "",
+                        {"username": username, "reason": "account_disabled"},
+                        success=False,
+                    )
                     return {"success": False, "message": "账户已被禁用"}
 
                 if not check_password_hash(user.password, password):
-                    audit_logger.audit_log("auth_failure", user.id, "", {"username": username, "reason": "wrong_password"}, success=False)
+                    audit_logger.audit_log(
+                        "auth_failure",
+                        user.id,
+                        "",
+                        {"username": username, "reason": "wrong_password"},
+                        success=False,
+                    )
                     return {"success": False, "message": "用户名或密码错误"}
 
                 user.last_login = utc_now_naive()
@@ -43,7 +61,9 @@ class AuthService(NeuroEventPublisherMixin):
                 if not session_result["success"]:
                     return {"success": False, "message": "会话创建失败"}
 
-                audit_logger.audit_log("auth_success", user.id, "", {"username": username, "role": user.role})
+                audit_logger.audit_log(
+                    "auth_success", user.id, "", {"username": username, "role": user.role}
+                )
 
                 return {
                     "success": True,
@@ -101,7 +121,13 @@ class AuthService(NeuroEventPublisherMixin):
                     return {"success": False, "message": "用户不存在"}
 
                 if not check_password_hash(user.password, old_password):
-                    audit_logger.audit_log("change_password_failure", user_id, "", {"reason": "wrong_old_password"}, success=False)
+                    audit_logger.audit_log(
+                        "change_password_failure",
+                        user_id,
+                        "",
+                        {"reason": "wrong_old_password"},
+                        success=False,
+                    )
                     return {"success": False, "message": "原密码错误"}
 
                 user.password = generate_password_hash(new_password)

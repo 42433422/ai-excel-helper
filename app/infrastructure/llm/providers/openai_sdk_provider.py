@@ -1,4 +1,5 @@
 """包装 infrastructure.llm.client OpenAI SDK 单例。"""
+
 from __future__ import annotations
 
 import time

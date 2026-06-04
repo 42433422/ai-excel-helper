@@ -9,7 +9,16 @@ import pytest
 pytest.importorskip("fastapi")
 
 
+def _isolate_catalog_db(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("MODSTORE_DB_PATH", str(tmp_path / "modstore.db"))
+    from modstore_server.models import init_db, reset_session_factory
+
+    reset_session_factory()
+    init_db()
+
+
 def test_catalog_index_empty(monkeypatch, tmp_path: Path):
+    _isolate_catalog_db(monkeypatch, tmp_path)
     monkeypatch.setenv("MODSTORE_CATALOG_DIR", str(tmp_path))
     from modstore_server.catalog_store import load_store, save_store
 
@@ -24,6 +33,7 @@ def test_catalog_index_empty(monkeypatch, tmp_path: Path):
 
 
 def test_catalog_upload_with_token(monkeypatch, tmp_path: Path):
+    _isolate_catalog_db(monkeypatch, tmp_path)
     monkeypatch.setenv("MODSTORE_CATALOG_DIR", str(tmp_path))
     monkeypatch.setenv("MODSTORE_CATALOG_UPLOAD_TOKEN", "secret-test")
     from modstore_server.catalog_store import save_store
@@ -95,6 +105,7 @@ def test_catalog_upload_with_token(monkeypatch, tmp_path: Path):
 
 
 def test_catalog_upload_blocked_when_employee_gate_on(monkeypatch, tmp_path: Path):
+    _isolate_catalog_db(monkeypatch, tmp_path)
     monkeypatch.setenv("MODSTORE_CATALOG_DIR", str(tmp_path))
     monkeypatch.setenv("MODSTORE_CATALOG_UPLOAD_TOKEN", "secret-test")
     monkeypatch.setenv("MODSTORE_CATALOG_REQUIRE_EMPLOYEE_SANDBOX", "1")
@@ -144,6 +155,7 @@ def test_catalog_upload_blocked_when_employee_gate_on(monkeypatch, tmp_path: Pat
 
 
 def test_catalog_upload_passes_employee_gate_with_stubs(monkeypatch, tmp_path: Path):
+    _isolate_catalog_db(monkeypatch, tmp_path)
     monkeypatch.setenv("MODSTORE_CATALOG_DIR", str(tmp_path))
     monkeypatch.setenv("MODSTORE_CATALOG_UPLOAD_TOKEN", "secret-test")
     monkeypatch.setenv("MODSTORE_CATALOG_REQUIRE_EMPLOYEE_SANDBOX", "1")

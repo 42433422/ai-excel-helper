@@ -17,7 +17,11 @@ from sqlalchemy.exc import OperationalError
 
 from app.infrastructure.auth.db_token import verify_db_read_token_header
 from app.infrastructure.db.sync_engine import get_sync_engine
-from app.shell.mod_row_scope import append_mod_scope_where, products_update_or_delete_mod_and, scoped_mod_id
+from app.shell.mod_row_scope import (
+    append_mod_scope_where,
+    products_update_or_delete_mod_and,
+    scoped_mod_id,
+)
 
 from app.fastapi_routes.domains.db.base import (
     _EXPORT_MAX_ROWS,
@@ -560,7 +564,9 @@ def products_price_list_template_preview(
     request: Request,
     template_id: str | None = Query(None, description="模板 slug（与 price-list-export 一致）"),
 ) -> dict:
-    from app.infrastructure.documents.price_list_export import build_price_list_template_preview_json
+    from app.infrastructure.documents.price_list_export import (
+        build_price_list_template_preview_json,
+    )
 
     verify_db_read_token_header(request)
     from app.shell.mod_business_scope import business_data_exposed, business_data_hidden_reason

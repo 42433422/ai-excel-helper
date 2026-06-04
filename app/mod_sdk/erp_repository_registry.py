@@ -80,7 +80,9 @@ def _host_products_repository():
 
 
 def _host_shipment_repository():
-    from app.infrastructure.repositories.shipment_repository_impl import SQLAlchemyShipmentRepository
+    from app.infrastructure.repositories.shipment_repository_impl import (
+        SQLAlchemyShipmentRepository,
+    )
 
     return SQLAlchemyShipmentRepository()
 
@@ -175,9 +177,14 @@ def list_erp_repository_registry() -> dict[str, Any]:
         "ok": True,
         "mod_id": ERP_DOMAIN_BRIDGE_MOD_ID,
         "repository_via_mod": via,
-        "repository_adapter": adapter_kind or ("mod_factory" if via and factory_resolver else ("mod_delegated" if via else None)),
+        "repository_adapter": adapter_kind
+        or ("mod_factory" if via and factory_resolver else ("mod_delegated" if via else None)),
         "adapter_classes": adapters,
-        "execution_path": "mod_factory_bundle" if via and factory_resolver else ("mod_delegated_adapter" if via else "host.wiring"),
+        "execution_path": (
+            "mod_factory_bundle"
+            if via and factory_resolver
+            else ("mod_delegated_adapter" if via else "host.wiring")
+        ),
         "domains": [dict(s) for s in REPOSITORY_SPECS],
         "resolver_count": len(resolvers) or len(REPOSITORY_SPECS),
         "resolvers": resolvers or [s["resolver"] for s in REPOSITORY_SPECS],

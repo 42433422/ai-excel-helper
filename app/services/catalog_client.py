@@ -174,7 +174,9 @@ async def iter_catalog_packages() -> AsyncIterator[dict[str, Any]]:
                         yield row
                 return
         except HTTPException:
-            logger.warning("market catalog unavailable, falling back to /v1/index.json", exc_info=True)
+            logger.warning(
+                "market catalog unavailable, falling back to /v1/index.json", exc_info=True
+            )
         except Exception as exc:
             logger.warning("market catalog failed: %s; fallback to index.json", exc)
 

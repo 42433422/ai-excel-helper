@@ -1,4 +1,5 @@
 """包装 services.conversation.llm_adapter.OpenAICompatibleAdapter。"""
+
 from __future__ import annotations
 
 import os
@@ -30,14 +31,19 @@ class OpenAICompatibleProvider:
 
         from app.services.conversation.llm_adapter import OpenAICompatibleAdapter
 
-        provider = (os.environ.get("LLM_PROVIDER") or os.environ.get("XCAGI_LLM_PROVIDER") or "deepseek").strip()
-        api_key = (os.environ.get("OPENAI_API_KEY") or os.environ.get("DEEPSEEK_API_KEY") or "").strip()
+        provider = (
+            os.environ.get("LLM_PROVIDER") or os.environ.get("XCAGI_LLM_PROVIDER") or "deepseek"
+        ).strip()
+        api_key = (
+            os.environ.get("OPENAI_API_KEY") or os.environ.get("DEEPSEEK_API_KEY") or ""
+        ).strip()
         if not api_key:
             return None
         self._adapter = OpenAICompatibleAdapter(
             provider=provider,
             api_key=api_key,
-            model=(os.environ.get("LLM_MODEL") or os.environ.get("DEEPSEEK_MODEL") or "").strip() or None,
+            model=(os.environ.get("LLM_MODEL") or os.environ.get("DEEPSEEK_MODEL") or "").strip()
+            or None,
             base_url=(os.environ.get("OPENAI_BASE_URL") or "").strip() or None,
         )
         return self._adapter

@@ -46,9 +46,19 @@ def route_normal_mode_message(message: str) -> dict[str, Any]:
     model_signal = bool(re.search(r"(?:型号|编号)\s*[:：]?\s*([0-9A-Za-z-]{2,})", text))
     unit_model_signal = bool(re.search(r"([^\s，,。]{2,})\s*的\s*([0-9A-Za-z-]{2,})", text))
     # 客户/购买单位查询
-    customer_keywords = ("客户", "购买单位", "买家", "客户列表", "客户信息", "有哪些客户", "客户名单")
+    customer_keywords = (
+        "客户",
+        "购买单位",
+        "买家",
+        "客户列表",
+        "客户信息",
+        "有哪些客户",
+        "客户名单",
+    )
     if any(k in text for k in customer_keywords):
-        keyword_match = re.search(r"(?:查询|查找|找到|搜索)?\s*([^\s，,。]{2,})\s*(?:的)?(?:客户|购买单位)", text)
+        keyword_match = re.search(
+            r"(?:查询|查找|找到|搜索)?\s*([^\s，,。]{2,})\s*(?:的)?(?:客户|购买单位)", text
+        )
         return {
             "intent": "customers_query",
             "slots": {"keyword": (keyword_match.group(1) if keyword_match else "").strip()},
@@ -330,7 +340,10 @@ def build_customers_query_response_dict(route_result: dict[str, Any]) -> dict[st
         if not customers:
             msg = f"未找到关键词「{keyword}」相关的客户。" if keyword else "暂无客户数据。"
         else:
-            lines = [f"- {c.get('customer_name', '')} {c.get('contact_person', '')}" for c in customers[:10]]
+            lines = [
+                f"- {c.get('customer_name', '')} {c.get('contact_person', '')}"
+                for c in customers[:10]
+            ]
             msg = f"共找到 {len(customers)} 位客户：\n" + "\n".join(lines)
         return {
             "success": True,
@@ -360,7 +373,10 @@ def build_inventory_alert_response_dict(route_result: dict[str, Any]) -> dict[st
         if not items:
             msg = "当前没有低库存原材料，库存状态正常。"
         else:
-            lines = [f"- {m.get('name', '')} 当前库存 {m.get('quantity', 0)} {m.get('unit', '')}" for m in items[:10]]
+            lines = [
+                f"- {m.get('name', '')} 当前库存 {m.get('quantity', 0)} {m.get('unit', '')}"
+                for m in items[:10]
+            ]
             msg = f"⚠️ 发现 {len(items)} 种低库存原材料：\n" + "\n".join(lines)
         return {
             "success": True,

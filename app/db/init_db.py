@@ -847,18 +847,26 @@ def ensure_postgresql_auth_bootstrap(
                         """
                     )
                 )
-                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_is_active ON users (is_active)"))
                 conn.execute(
-                    text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_wx_openid ON users (wx_openid)")
+                    text("CREATE INDEX IF NOT EXISTS idx_users_is_active ON users (is_active)")
                 )
-                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_users_wx_unionid ON users (wx_unionid)"))
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_wx_openid ON users (wx_openid)"
+                    )
+                )
+                conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS ix_users_wx_unionid ON users (wx_unionid)")
+                )
 
         insp = inspect(real_engine)
         tables = set(insp.get_table_names() or [])
 
         if "sessions" not in tables:
             if "users" not in tables:
-                logger.warning("ensure_postgresql_auth_bootstrap: users 仍不存在，跳过 sessions 创建")
+                logger.warning(
+                    "ensure_postgresql_auth_bootstrap: users 仍不存在，跳过 sessions 创建"
+                )
                 return
             logger.info("PostgreSQL 缺少 sessions 表，正在创建 …")
             with real_engine.begin() as conn:
@@ -880,7 +888,9 @@ def ensure_postgresql_auth_bootstrap(
 
         _seed_default_admin_user(real_engine)
     except Exception as exc:
-        logger.warning("ensure_postgresql_auth_bootstrap 失败（可改用手工 alembic）：%s", exc, exc_info=True)
+        logger.warning(
+            "ensure_postgresql_auth_bootstrap 失败（可改用手工 alembic）：%s", exc, exc_info=True
+        )
 
 
 def ensure_sessions_market_access_token_column(
@@ -906,7 +916,9 @@ def ensure_sessions_market_access_token_column(
 
             real_engine = _create_engine_for_url(url)
         except Exception as exc:
-            logger.warning("无法按 DATABASE_URL 创建引擎以补齐 sessions.market_access_token: %s", exc)
+            logger.warning(
+                "无法按 DATABASE_URL 创建引擎以补齐 sessions.market_access_token: %s", exc
+            )
     if real_engine is None and engine is not None:
         real_engine = engine
     if real_engine is None:
@@ -973,7 +985,9 @@ def ensure_sessions_market_refresh_token_column(
 
             real_engine = _create_engine_for_url(url)
         except Exception as exc:
-            logger.warning("无法按 DATABASE_URL 创建引擎以补齐 sessions.market_refresh_token: %s", exc)
+            logger.warning(
+                "无法按 DATABASE_URL 创建引擎以补齐 sessions.market_refresh_token: %s", exc
+            )
     if real_engine is None and engine is not None:
         real_engine = engine
     if real_engine is None:
@@ -1024,9 +1038,7 @@ def ensure_sessions_enterprise_entitlement_columns(
 
             real_engine = _create_engine_for_url(url)
         except Exception as exc:
-            logger.warning(
-                "无法按 DATABASE_URL 创建引擎以补齐 sessions 企业权益列: %s", exc
-            )
+            logger.warning("无法按 DATABASE_URL 创建引擎以补齐 sessions 企业权益列: %s", exc)
     if real_engine is None and engine is not None:
         real_engine = engine
     if real_engine is None:
@@ -1049,14 +1061,10 @@ def ensure_sessions_enterprise_entitlement_columns(
                 logger.info("sessions 缺少 market_user_id 列，正在补齐 …")
                 if dialect == "postgresql":
                     conn.execute(
-                        text(
-                            "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS market_user_id INTEGER"
-                        )
+                        text("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS market_user_id INTEGER")
                     )
                 else:
-                    conn.execute(
-                        text("ALTER TABLE sessions ADD COLUMN market_user_id INTEGER")
-                    )
+                    conn.execute(text("ALTER TABLE sessions ADD COLUMN market_user_id INTEGER"))
             if "entitled_mod_ids_json" not in cols:
                 logger.info("sessions 缺少 entitled_mod_ids_json 列，正在补齐 …")
                 if dialect == "postgresql":
@@ -1066,9 +1074,7 @@ def ensure_sessions_enterprise_entitlement_columns(
                         )
                     )
                 else:
-                    conn.execute(
-                        text("ALTER TABLE sessions ADD COLUMN entitled_mod_ids_json TEXT")
-                    )
+                    conn.execute(text("ALTER TABLE sessions ADD COLUMN entitled_mod_ids_json TEXT"))
     except Exception as exc:
         logger.warning(
             "sessions 企业权益列兼容补列失败（可执行 alembic upgrade head）：%s",

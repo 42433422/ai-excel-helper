@@ -7,6 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+import httpx  # noqa: F401  # tests: ``@patch("modstore_server.app.httpx.Client")``
+
+from modman.repo_config import load_config, save_config
+from modman.store import project_root
+from modstore_server.portal_wallet_sync import fetch_wallet_secret
 from modstore_server.constants import DEFAULT_API_PORT, DEFAULT_XCAGI_BACKEND_URL
 
 _TAGS = [

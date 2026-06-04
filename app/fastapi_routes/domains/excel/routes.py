@@ -1,4 +1,5 @@
 """Migrated from legacy_excel.py (v10)."""
+
 from __future__ import annotations
 
 import logging

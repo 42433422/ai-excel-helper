@@ -14,8 +14,9 @@ def test_publish_event_returns_event_id_when_bus_ok():
     mock_event = MagicMock()
     mock_event.metadata.event_id = "evt-123"
 
-    with patch("app.neuro_bus.event_publisher_mixin.get_neuro_bus", return_value=mock_bus), patch(
-        "app.neuro_bus.event_publisher_mixin.NeuroEvent", return_value=mock_event
+    with (
+        patch("app.neuro_bus.event_publisher_mixin.get_neuro_bus", return_value=mock_bus),
+        patch("app.neuro_bus.event_publisher_mixin.NeuroEvent", return_value=mock_event),
     ):
         eid = _Dummy()._publish_event("test.event", {"k": 1})
     assert eid == "evt-123"

@@ -139,15 +139,15 @@ def aux_employee_pack_catalog_row(*, pack_id: str, installed: bool) -> dict[str,
         "total_downloads": 0,
         "avg_rating": 0.0,
         "rating_count": 0,
-        "dependencies": manifest.get("dependencies") if isinstance(manifest.get("dependencies"), dict) else {},
+        "dependencies": (
+            manifest.get("dependencies") if isinstance(manifest.get("dependencies"), dict) else {}
+        ),
         "catalog_base_url": "",
         "commerce": {"price_label": "免费", "collection": STORE_COLLECTION_WORKFLOW_EMPLOYEE},
     }
 
 
-def inject_aux_employee_pack_rows(
-    available: list[dict[str, Any]], installed_ids: set[str]
-) -> None:
+def inject_aux_employee_pack_rows(available: list[dict[str, Any]], installed_ids: set[str]) -> None:
     """商店「AI 员工」展示触点/授权类扩展（非远端逐项 bridge）。"""
     seen = {str(r.get("id") or "").strip() for r in available}
     for pack_id in AUX_EMPLOYEE_PACK_MOD_IDS:
@@ -155,10 +155,14 @@ def inject_aux_employee_pack_rows(
             continue
         if not read_aux_employee_pack_manifest(pack_id):
             continue
-        available.append(aux_employee_pack_catalog_row(pack_id=pack_id, installed=pack_id in installed_ids))
+        available.append(
+            aux_employee_pack_catalog_row(pack_id=pack_id, installed=pack_id in installed_ids)
+        )
 
 
-def install_aux_employee_pack_from_repo_seed(pack_id: str, *, activate: bool = True) -> tuple[bool, str]:
+def install_aux_employee_pack_from_repo_seed(
+    pack_id: str, *, activate: bool = True
+) -> tuple[bool, str]:
     """无远端 zip 时，从仓库内置 mods/<pack_id> 复制到用户 mods 根。"""
     pid = str(pack_id or "").strip()
     if not is_aux_employee_pack_mod_id(pid):
@@ -210,10 +214,15 @@ def catalog_store_collection(row: dict[str, Any]) -> str:
 
 def materialize_host_foundation_bridges(edition: str | None = None) -> dict[str, Any]:
     """将内置 mods/ 种子复制到用户 mods 根并 load_all_mods。"""
-    from app.mod_sdk.edition_policy import Edition, edition_mod_ids, resolve_edition, seed_edition_mods_from_bundle
+    from app.mod_sdk.edition_policy import (
+        Edition,
+        edition_mod_ids,
+        resolve_edition,
+        seed_edition_mods_from_bundle,
+    )
     from app.infrastructure.mods.mod_manager import get_mod_manager
 
-    ed: Edition = (edition or resolve_edition() or "generic")  # type: ignore[assignment]
+    ed: Edition = edition or resolve_edition() or "generic"  # type: ignore[assignment]
     if ed not in ("minimal", "generic", "full"):
         ed = "generic"  # type: ignore[assignment]
 

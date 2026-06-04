@@ -145,7 +145,9 @@ def read_manifest_dicts() -> list[dict[str, Any]]:
             "name": name,
             "type": str(raw.get("type") or "mod").strip() or "mod",
             "color": raw.get("color") if isinstance(raw.get("color"), str) else None,
-            "description": raw.get("description") if isinstance(raw.get("description"), str) else None,
+            "description": (
+                raw.get("description") if isinstance(raw.get("description"), str) else None
+            ),
             "version": str(raw.get("version") or ""),
             "author": str(raw.get("author") or ""),
             "primary": bool(raw.get("primary")),
@@ -233,7 +235,10 @@ def read_manifest_dicts() -> list[dict[str, Any]]:
 
 def route_entries() -> list[dict[str, str]]:
     """供 GET /api/mods/routes：与 registerModRoutes 的 mod_id 对齐。"""
-    return [{"mod_id": row["id"], "routes_path": f"mods/{row['id']}/frontend/routes.js"} for row in read_manifest_dicts()]
+    return [
+        {"mod_id": row["id"], "routes_path": f"mods/{row['id']}/frontend/routes.js"}
+        for row in read_manifest_dicts()
+    ]
 
 
 def loading_status_extras() -> dict[str, Any]:

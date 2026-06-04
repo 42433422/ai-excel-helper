@@ -106,7 +106,7 @@ class DeepSeekIntentRecognizer:
                         spec.loader.exec_module(config_module)
                         key = getattr(config_module, "DEEPSEEK_API_KEY", "") or ""
             except Exception:
-                logger.debug('suppressed exception', exc_info=True)
+                logger.debug("suppressed exception", exc_info=True)
         return key
 
     async def recognize(
@@ -732,7 +732,7 @@ def get_deepseek_api_key() -> str:
                 spec.loader.exec_module(config_module)
                 return getattr(config_module, "DEEPSEEK_API_KEY", "") or ""
     except Exception:
-        logger.debug('suppressed exception', exc_info=True)
+        logger.debug("suppressed exception", exc_info=True)
     return ""
 
 

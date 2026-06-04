@@ -20,11 +20,7 @@ class TestMaterialCreate:
     def test_valid_material(self):
         """测试有效数据"""
         material = MaterialCreate(
-            name="测试原材料",
-            material_code="M-001",
-            quantity=100,
-            unit_price=50.0,
-            unit="kg"
+            name="测试原材料", material_code="M-001", quantity=100, unit_price=50.0, unit="kg"
         )
         assert material.name == "测试原材料"
         assert material.material_code == "M-001"
@@ -45,10 +41,7 @@ class TestMaterialCreate:
 
     def test_material_code_valid_format(self):
         """测试有效的编码格式"""
-        material = MaterialCreate(
-            name="测试",
-            material_code="M-001-ABC"
-        )
+        material = MaterialCreate(name="测试", material_code="M-001-ABC")
         assert material.material_code == "M-001-ABC"
 
     def test_material_code_invalid_characters_rejected(self):
@@ -89,12 +82,7 @@ class TestMaterialCreate:
 
     def test_optional_fields_can_be_none(self):
         """测试可选字段可以为 None"""
-        material = MaterialCreate(
-            name="测试",
-            category=None,
-            specification=None,
-            supplier=None
-        )
+        material = MaterialCreate(name="测试", category=None, specification=None, supplier=None)
         assert material.category is None
         assert material.specification is None
 

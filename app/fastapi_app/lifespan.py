@@ -115,9 +115,7 @@ def _run_ensure_ai_action_audit_table() -> None:
 
 def _initialize_databases_sync(app: FastAPI):
     """同步数据库初始化（在后台线程中执行）"""
-    database_url = resolve_effective_database_url(
-        getattr(app.state.config, "DATABASE_URL", None)
-    )
+    database_url = resolve_effective_database_url(getattr(app.state.config, "DATABASE_URL", None))
     try:
         if is_sqlite_url(database_url):
             initialize_databases()
@@ -147,18 +145,10 @@ def _initialize_databases_sync(app: FastAPI):
         from app.db.init_db import ensure_runtime_auth_bootstrap
 
         ensure_runtime_auth_bootstrap(engine, database_url=cfg_db_url or None)
-        ensure_sessions_market_access_token_column(
-            engine, database_url=cfg_db_url or None
-        )
-        ensure_sessions_market_refresh_token_column(
-            engine, database_url=cfg_db_url or None
-        )
-        ensure_sessions_enterprise_entitlement_columns(
-            engine, database_url=cfg_db_url or None
-        )
-        ensure_sessions_account_meta_columns(
-            engine, database_url=cfg_db_url or None
-        )
+        ensure_sessions_market_access_token_column(engine, database_url=cfg_db_url or None)
+        ensure_sessions_market_refresh_token_column(engine, database_url=cfg_db_url or None)
+        ensure_sessions_enterprise_entitlement_columns(engine, database_url=cfg_db_url or None)
+        ensure_sessions_account_meta_columns(engine, database_url=cfg_db_url or None)
         try:
             init_approval_tables(engine)
         except Exception as approval_err:

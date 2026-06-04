@@ -110,6 +110,8 @@ def get_file_analysis_service():
 
 
 def get_unit_products_import_service():
-    from app.application.unit_products_import_app_service import get_unit_products_import_app_service as g
+    from app.application.unit_products_import_app_service import (
+        get_unit_products_import_app_service as g,
+    )
 
     return g()

@@ -78,12 +78,15 @@ def test_seed_skips_existing(tmp_path, monkeypatch):
     bundle = tmp_path / "bundle"
     mods = bundle / "xcagi-planner-bridge"
     mods.mkdir(parents=True)
-    (mods / "manifest.json").write_text('{"id":"xcagi-planner-bridge","name":"p"}', encoding="utf-8")
+    (mods / "manifest.json").write_text(
+        '{"id":"xcagi-planner-bridge","name":"p"}', encoding="utf-8"
+    )
     target = tmp_path / "user-mods"
     target.mkdir()
     (target / "xcagi-planner-bridge").mkdir()
     monkeypatch.setenv("XCAGI_BUNDLED_MODS_DIR", str(bundle))
     from app.infrastructure.mods.mod_manager import ModManager
+
     mm = ModManager(mods_root=str(target))
     monkeypatch.setattr(
         "app.infrastructure.mods.mod_manager.get_mod_manager",

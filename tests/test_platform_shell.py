@@ -37,7 +37,10 @@ def test_build_platform_shell_payload(monkeypatch):
     bridges = {b["mod_id"]: b for b in data["bridge_mods"]}
     assert bridges["xcagi-approval-bridge"]["installed"] is True
     assert bridges["xcagi-planner-bridge"]["installed"] is False
-    assert bridges["xcagi-approval-bridge"]["host_api_prefixes"] == BRIDGE_MOD_HOST_APIS["xcagi-approval-bridge"]
+    assert (
+        bridges["xcagi-approval-bridge"]["host_api_prefixes"]
+        == BRIDGE_MOD_HOST_APIS["xcagi-approval-bridge"]
+    )
     assert "platform_shell_mode" in data
     assert "frontend_shell_hint" in data
     assert data.get("edition") == "full"

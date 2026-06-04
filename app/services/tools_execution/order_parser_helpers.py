@@ -105,9 +105,7 @@ def cleanup_unit_name(raw: str) -> str:
     return s
 
 
-def build_missing_prompt(
-    unit_name=None, model_number=None, tin_spec=None, quantity_tins=None
-):
+def build_missing_prompt(unit_name=None, model_number=None, tin_spec=None, quantity_tins=None):
     missing = []
     if not unit_name:
         missing.append("单位")

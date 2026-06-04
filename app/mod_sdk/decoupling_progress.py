@@ -45,24 +45,60 @@ def build_decoupling_progress_payload(installed_mod_ids: list[str] | None = None
     ]
 
     bridges = {
-        "erp": _safe(lambda: __import__("app.mod_sdk.erp_domain_compat", fromlist=["list_erp_domains_registry"]).list_erp_domains_registry()),
-        "approval": _safe(lambda: __import__("app.mod_sdk.approval_compat", fromlist=["list_approval_facade_registry"]).list_approval_facade_registry()),
-        "lan": _safe(lambda: __import__("app.mod_sdk.lan_compat", fromlist=["list_lan_facade_registry"]).list_lan_facade_registry()),
-        "model_payment": _safe(lambda: __import__("app.mod_sdk.model_payment_compat", fromlist=["list_model_payment_facade_registry"]).list_model_payment_facade_registry()),
-        "neuro_bus": _safe(lambda: __import__("app.mod_sdk.neuro_bus_compat", fromlist=["list_neuro_bus_facade_registry"]).list_neuro_bus_facade_registry()),
+        "erp": _safe(
+            lambda: __import__(
+                "app.mod_sdk.erp_domain_compat", fromlist=["list_erp_domains_registry"]
+            ).list_erp_domains_registry()
+        ),
+        "approval": _safe(
+            lambda: __import__(
+                "app.mod_sdk.approval_compat", fromlist=["list_approval_facade_registry"]
+            ).list_approval_facade_registry()
+        ),
+        "lan": _safe(
+            lambda: __import__(
+                "app.mod_sdk.lan_compat", fromlist=["list_lan_facade_registry"]
+            ).list_lan_facade_registry()
+        ),
+        "model_payment": _safe(
+            lambda: __import__(
+                "app.mod_sdk.model_payment_compat", fromlist=["list_model_payment_facade_registry"]
+            ).list_model_payment_facade_registry()
+        ),
+        "neuro_bus": _safe(
+            lambda: __import__(
+                "app.mod_sdk.neuro_bus_compat", fromlist=["list_neuro_bus_facade_registry"]
+            ).list_neuro_bus_facade_registry()
+        ),
         "neuro_bus_handlers": _safe(
             lambda: __import__(
                 "app.mod_sdk.neuro_bus_handler_registry",
                 fromlist=["list_neuro_bus_handler_registry"],
             ).list_neuro_bus_handler_registry()
         ),
-        "employee_pack": _safe(lambda: __import__("app.mod_sdk.employee_pack_compat", fromlist=["list_employee_pack_facade_registry"]).list_employee_pack_facade_registry()),
+        "employee_pack": _safe(
+            lambda: __import__(
+                "app.mod_sdk.employee_pack_compat", fromlist=["list_employee_pack_facade_registry"]
+            ).list_employee_pack_facade_registry()
+        ),
     }
 
     pages = {
-        "erp": _safe(lambda: __import__("app.mod_sdk.erp_pages_compat", fromlist=["list_erp_pages_registry"]).list_erp_pages_registry()),
-        "approval": _safe(lambda: __import__("app.mod_sdk.approval_pages_compat", fromlist=["list_approval_pages_registry"]).list_approval_pages_registry()),
-        "planner": _safe(lambda: __import__("app.mod_sdk.planner_pages_compat", fromlist=["list_planner_pages_registry"]).list_planner_pages_registry()),
+        "erp": _safe(
+            lambda: __import__(
+                "app.mod_sdk.erp_pages_compat", fromlist=["list_erp_pages_registry"]
+            ).list_erp_pages_registry()
+        ),
+        "approval": _safe(
+            lambda: __import__(
+                "app.mod_sdk.approval_pages_compat", fromlist=["list_approval_pages_registry"]
+            ).list_approval_pages_registry()
+        ),
+        "planner": _safe(
+            lambda: __import__(
+                "app.mod_sdk.planner_pages_compat", fromlist=["list_planner_pages_registry"]
+            ).list_planner_pages_registry()
+        ),
         "customer_service": _safe(
             lambda: __import__(
                 "app.mod_sdk.customer_service_pages_compat",
@@ -84,7 +120,9 @@ def build_decoupling_progress_payload(installed_mod_ids: list[str] | None = None
     }
 
     repositories = _safe(
-        lambda: __import__("app.mod_sdk.erp_repository_registry", fromlist=["list_erp_repository_registry"]).list_erp_repository_registry()
+        lambda: __import__(
+            "app.mod_sdk.erp_repository_registry", fromlist=["list_erp_repository_registry"]
+        ).list_erp_repository_registry()
     )
 
     physical_views = _safe(

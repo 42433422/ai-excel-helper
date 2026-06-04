@@ -568,6 +568,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(ShipmentApplicationService)
 
+
 def get_shipment_application_service() -> ShipmentApplicationService:
     """获取发货服务单例（与 ``app.bootstrap.get_shipment_application_service_core`` 同源）。"""
     from app.bootstrap import get_shipment_application_service_core

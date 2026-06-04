@@ -18,7 +18,11 @@ from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.xss_sanitizer import XSSSanitizerMiddleware
 from app.security import LanCidrGuard, LanLicenseGuard
 
-from .cors import lan_origin_regex_enabled, resolve_cors_allow_origin_regex, resolve_cors_allow_origins
+from .cors import (
+    lan_origin_regex_enabled,
+    resolve_cors_allow_origin_regex,
+    resolve_cors_allow_origins,
+)
 from .lifespan import lifespan
 from .middleware_extra import register_extra_middleware, register_prometheus_metrics
 from .static_mounts import mount_vue_dist_assets_dir, mount_vue_dist_public_static

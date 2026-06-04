@@ -278,7 +278,10 @@ class NeuroBus:
         # handler 异常时自动写入全局 DLQ（与 initializer 中 DLQ 实例一致）
         self._dlq_integration = None
         if _neuro_reliability_wanted("XCAGI_NEURO_BUS_DLQ_AUTO", staging_default=False):
-            from app.neuro_bus.dead_letter_queue import NeuroBusDLQIntegration, get_dead_letter_queue
+            from app.neuro_bus.dead_letter_queue import (
+                NeuroBusDLQIntegration,
+                get_dead_letter_queue,
+            )
 
             self._dlq_integration = NeuroBusDLQIntegration(get_dead_letter_queue())
 
@@ -646,7 +649,9 @@ class NeuroBus:
             "tracer": self._rel_tracer is not None,
             "sla_log": self._rel_sla_log,
             "dlq_auto": self._dlq_integration is not None,
-            "trace_sample_rate": _neuro_trace_sample_rate() if self._rel_tracer is not None else None,
+            "trace_sample_rate": (
+                _neuro_trace_sample_rate() if self._rel_tracer is not None else None
+            ),
         }
         if self._rel_circuit is not None:
             try:

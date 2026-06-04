@@ -21,4 +21,3 @@ class TestAIProductParser:
         assert result.get("unit")
         # 规格槽位
         assert result.get("specification")
-

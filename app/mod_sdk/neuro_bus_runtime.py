@@ -85,7 +85,9 @@ def _host_publish(event_type: str, payload: dict[str, Any], domain: str) -> bool
     return bool(bus.publish(ev))
 
 
-def publish_neuro_event_runtime(event_type: str, payload: dict[str, Any], domain: str = "global") -> bool:
+def publish_neuro_event_runtime(
+    event_type: str, payload: dict[str, Any], domain: str = "global"
+) -> bool:
     if not is_neuro_bus_runtime_via_mod_enabled():
         return _host_publish(event_type, payload, domain)
     bundle = _get_bundle()

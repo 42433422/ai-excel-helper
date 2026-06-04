@@ -57,10 +57,9 @@ def resolve_mod_private_sqlite_path(filename: str) -> Path:
         db_dir.mkdir(parents=True, exist_ok=True)
         return candidate
 
-    data_root = (
-        (os.environ.get("XCAGI_DATA_DIR") or "").strip()
-        or (os.environ.get("XCAGI_DESKTOP_DATA_DIR") or "").strip()
-    )
+    data_root = (os.environ.get("XCAGI_DATA_DIR") or "").strip() or (
+        os.environ.get("XCAGI_DESKTOP_DATA_DIR") or ""
+    ).strip()
     if data_root:
         base = Path(data_root).resolve()
         db_dir = base / "data" / "mod_dbs"

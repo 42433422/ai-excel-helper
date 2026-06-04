@@ -37,6 +37,7 @@ _NODE_ID = os.environ.get("XCMAX_NODE_ID", "local")
 # 公共变更记录入口（各业务路由均可调用）
 # ---------------------------------------------------------------------------
 
+
 def record_change(
     entity_type: str,
     entity_id: str,
@@ -54,6 +55,7 @@ def record_change(
     """
     try:
         from app.db.xcmax_sync import SyncDb
+
         db = SyncDb()
         return db.append_change(
             entity_type=entity_type,
@@ -73,6 +75,7 @@ def record_change(
 # ---------------------------------------------------------------------------
 # 推送 outbox → 远端
 # ---------------------------------------------------------------------------
+
 
 def push_outbox(
     remote_host: str | None = None,
@@ -128,6 +131,7 @@ def push_outbox(
 # 拉取远端变更 → inbox
 # ---------------------------------------------------------------------------
 
+
 def pull_from_remote(
     remote_host: str | None = None,
     remote_port: int | None = None,
@@ -167,9 +171,11 @@ _ENTITY_APPLIERS: dict[str, Any] = {}
 
 def register_entity_applier(entity_type: str):
     """装饰器：注册业务实体变更应用函数。"""
+
     def decorator(fn):
         _ENTITY_APPLIERS[entity_type] = fn
         return fn
+
     return decorator
 
 
@@ -184,6 +190,7 @@ def _apply_personnel(item: dict[str, Any]) -> None:
         from app.mod_sdk.private_sqlite import resolve_mod_private_sqlite_path
         import sqlite3
         from datetime import datetime
+
         db_path = resolve_mod_private_sqlite_path("taiyangniao_pro.db")
         conn = sqlite3.connect(str(db_path))
         now = datetime.now().isoformat(timespec="seconds")
@@ -195,16 +202,32 @@ def _apply_personnel(item: dict[str, Any]) -> None:
                  attendance_group, employee_no, position, user_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            ("xcmax_sync", name, dept, dept, payload.get("attendance_group") or "XCmax",
-             payload.get("employee_no") or "", payload.get("position") or "", payload.get("user_id") or ""),
+            (
+                "xcmax_sync",
+                name,
+                dept,
+                dept,
+                payload.get("attendance_group") or "XCmax",
+                payload.get("employee_no") or "",
+                payload.get("position") or "",
+                payload.get("user_id") or "",
+            ),
         )
         conn.execute(
             """
             INSERT INTO products (source_file, model_number, name, specification, price, unit, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            ("xcmax_sync", payload.get("employee_id") or name, name,
-             payload.get("position") or "", 0.0, dept, now, now),
+            (
+                "xcmax_sync",
+                payload.get("employee_id") or name,
+                name,
+                payload.get("position") or "",
+                0.0,
+                dept,
+                now,
+                now,
+            ),
         )
         conn.commit()
         conn.close()
@@ -223,6 +246,7 @@ def _apply_department(item: dict[str, Any]) -> None:
         from app.mod_sdk.private_sqlite import resolve_mod_private_sqlite_path
         import sqlite3
         from datetime import datetime
+
         db_path = resolve_mod_private_sqlite_path("taiyangniao_pro.db")
         conn = sqlite3.connect(str(db_path))
         now = datetime.now().isoformat(timespec="seconds")
@@ -257,6 +281,7 @@ def _apply_attendance(item: dict[str, Any]) -> None:
         from app.db import get_db
         from app.db.models.shipment import ShipmentRecord
         from datetime import datetime as _dt
+
         with get_db() as db:
             record_id = payload.get("id")
             if operation == "delete" and record_id:
@@ -266,8 +291,12 @@ def _apply_attendance(item: dict[str, Any]) -> None:
                     db.commit()
                 return
 
-            purchase_unit = str(payload.get("purchase_unit") or payload.get("employee_name") or "").strip()
-            product_name = str(payload.get("product_name") or payload.get("attendance_group") or "").strip()
+            purchase_unit = str(
+                payload.get("purchase_unit") or payload.get("employee_name") or ""
+            ).strip()
+            product_name = str(
+                payload.get("product_name") or payload.get("attendance_group") or ""
+            ).strip()
             if not purchase_unit or not product_name:
                 return
 
@@ -307,6 +336,7 @@ def _apply_approval(item: dict[str, Any]) -> None:
         from app.db import get_db
         from app.db.models.approval import ApprovalRequest
         from datetime import datetime as _dt
+
         with get_db() as db:
             record_id = payload.get("id")
             if not record_id:
@@ -334,6 +364,7 @@ def _apply_approval_flow(item: dict[str, Any]) -> None:
         from app.db import get_db
         from app.db.models.approval import ApprovalFlow
         from datetime import datetime as _dt
+
         with get_db() as db:
             flow_key = str(payload.get("flow_key") or "").strip()
             if not flow_key:
@@ -356,27 +387,36 @@ def _apply_print_job(item: dict[str, Any]) -> None:
     operation = item.get("operation", "sync")
     try:
         from app.db import get_db
+
         # 尝试写入打印作业表，若无此表则降级记录结构化日志
         with get_db() as db:
             from sqlalchemy import text
-            db.execute(text("""
+
+            db.execute(
+                text(
+                    """
                 INSERT INTO print_jobs (entity_id, template, status, payload_json, created_at)
                 VALUES (:eid, :tpl, :status, :payload, NOW())
                 ON CONFLICT (entity_id) DO UPDATE SET
                     status = EXCLUDED.status,
                     payload_json = EXCLUDED.payload_json
-            """), {
-                "eid": item.get("entity_id") or "",
-                "tpl": str(payload.get("template") or ""),
-                "status": str(payload.get("status") or operation),
-                "payload": json.dumps(payload, ensure_ascii=False, default=str),
-            })
+            """
+                ),
+                {
+                    "eid": item.get("entity_id") or "",
+                    "tpl": str(payload.get("template") or ""),
+                    "status": str(payload.get("status") or operation),
+                    "payload": json.dumps(payload, ensure_ascii=False, default=str),
+                },
+            )
             db.commit()
     except Exception:
         # 降级：仅写结构化日志
         logger.info(
             "print_job sync [%s] entity=%s status=%s",
-            operation, item.get("entity_id"), payload.get("status"),
+            operation,
+            item.get("entity_id"),
+            payload.get("status"),
         )
 
 
@@ -388,24 +428,32 @@ def _apply_template(item: dict[str, Any]) -> None:
     try:
         from app.db import get_db
         from sqlalchemy import text
+
         template_id = str(payload.get("template_id") or item.get("entity_id") or "").strip()
         if not template_id:
             return
         with get_db() as db:
             if operation == "delete":
-                db.execute(text("DELETE FROM document_templates WHERE slug = :s"), {"s": template_id})
+                db.execute(
+                    text("DELETE FROM document_templates WHERE slug = :s"), {"s": template_id}
+                )
             else:
-                db.execute(text("""
+                db.execute(
+                    text(
+                        """
                     INSERT INTO document_templates (slug, name, category, is_active, created_at)
                     VALUES (:slug, :name, :cat, true, NOW())
                     ON CONFLICT (slug) DO UPDATE SET
                         name = EXCLUDED.name,
                         category = EXCLUDED.category
-                """), {
-                    "slug": template_id,
-                    "name": str(payload.get("name") or template_id),
-                    "cat": str(payload.get("category") or "word"),
-                })
+                """
+                    ),
+                    {
+                        "slug": template_id,
+                        "name": str(payload.get("name") or template_id),
+                        "cat": str(payload.get("category") or "word"),
+                    },
+                )
             db.commit()
     except Exception as exc:
         logger.debug("apply_template non-fatal: %s", exc)
@@ -418,6 +466,7 @@ def _apply_model_config(item: dict[str, Any]) -> None:
     try:
         from app.db import get_db
         from app.db.models.user import User
+
         with get_db() as db:
             user_id = payload.get("user_id")
             if not user_id:
@@ -439,6 +488,7 @@ def _apply_ecosystem(item: dict[str, Any]) -> None:
     try:
         from app.db.xcmax_sync import SyncDb, _resolve_db_path
         import sqlite3 as _sqlite3
+
         conn = _sqlite3.connect(str(_resolve_db_path()))
         key = f"ecosystem:{item.get('entity_id','default')}"
         conn.execute(
@@ -462,6 +512,7 @@ def _apply_workflow_employee(item: dict[str, Any]) -> None:
     try:
         from app.db.xcmax_sync import _resolve_db_path
         import sqlite3 as _sqlite3
+
         conn = _sqlite3.connect(str(_resolve_db_path()))
         key = f"workflow_employee:{employee_id}"
         if operation == "delete":
@@ -486,6 +537,7 @@ def apply_inbox(limit: int = 200) -> dict[str, Any]:
     try:
         db_path = db._resolve_db_path() if hasattr(db, "_resolve_db_path") else None
         from app.db.xcmax_sync import _resolve_db_path
+
         path = _resolve_db_path()
         conn = sqlite3.connect(str(path))
         conn.row_factory = sqlite3.Row
@@ -504,7 +556,12 @@ def apply_inbox(limit: int = 200) -> dict[str, Any]:
         entity_type = row["entity_type"]
         try:
             payload = json.loads(row["payload_json"] or "{}")
-            item = {"entity_type": entity_type, "entity_id": row["entity_id"], "operation": row["operation"], "payload": payload}
+            item = {
+                "entity_type": entity_type,
+                "entity_id": row["entity_id"],
+                "operation": row["operation"],
+                "payload": payload,
+            }
             applier = _ENTITY_APPLIERS.get(entity_type)
             if applier:
                 applier(item)

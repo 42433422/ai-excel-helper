@@ -62,7 +62,9 @@ async def execute_compat_chat(request: Request, body: XcagiCompatChatBody) -> di
         logger.debug("kitten planner context enrich skipped", exc_info=True)
         kitten_extra = {}
     ok_read, read_req = _ensure_chat_db_read_authorized(
-        request, message=body.message, provided_token=body.db_read_token,
+        request,
+        message=body.message,
+        provided_token=body.db_read_token,
     )
     if not ok_read and read_req:
         return {
@@ -134,7 +136,9 @@ async def execute_compat_chat(request: Request, body: XcagiCompatChatBody) -> di
     return _xcagi_compat_reply_payload(reply, kitten_attachments=kitten_extra or None)
 
 
-async def execute_compat_chat_batch(request: Request, body: XcagiCompatChatBatchBody) -> dict[str, Any]:
+async def execute_compat_chat_batch(
+    request: Request, body: XcagiCompatChatBatchBody
+) -> dict[str, Any]:
     msgs = [str(x).strip() for x in (body.messages or []) if str(x).strip()]
     if not msgs:
         raise HTTPException(status_code=400, detail="messages 须为非空字符串数组")
@@ -151,7 +155,9 @@ async def execute_compat_chat_batch(request: Request, body: XcagiCompatChatBatch
         runtime_context, _ = _merge_runtime_context_with_message_paths(rolling_ctx, txt)
         runtime_context = runtime_context_with_tier(runtime_context, batch_tier)
         ok_read, read_req = _ensure_chat_db_read_authorized(
-            request, message=txt, provided_token=body.db_read_token,
+            request,
+            message=txt,
+            provided_token=body.db_read_token,
         )
         if not ok_read and read_req:
             results.append(
@@ -209,7 +215,9 @@ async def execute_compat_chat_batch(request: Request, body: XcagiCompatChatBatch
     return {"success": ok, "batch": True, "results": results, "count": len(results)}
 
 
-async def compat_chat_stream_async(request: Request, body: XcagiCompatChatBody, *, ai_tier: str | None = None):
+async def compat_chat_stream_async(
+    request: Request, body: XcagiCompatChatBody, *, ai_tier: str | None = None
+):
     tier = ai_tier or resolve_ai_tier(request)
     async for chunk in _xcagi_planner_stream_bytes_async(request, body, ai_tier=tier):
         yield chunk

@@ -458,9 +458,7 @@ def cache_decorator(
                 cache_key_parts = [str(arg) for i, arg in enumerate(args) if i not in skip_args]
                 cache_key_parts.extend(f"{k}={v}" for k, v in sorted(kwargs.items()))
                 cache_key_str = ":".join(cache_key_parts)
-                cache_key = (
-                    f"{key_prefix}{func.__name__}:{hashlib.sha256(cache_key_str.encode()).hexdigest()}"
-                )
+                cache_key = f"{key_prefix}{func.__name__}:{hashlib.sha256(cache_key_str.encode()).hexdigest()}"
 
                 cached = cache_instance.get(cache_key)
                 if cached is not None:

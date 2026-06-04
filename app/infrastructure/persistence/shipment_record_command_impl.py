@@ -14,6 +14,8 @@ from app.infrastructure.lookups import resolve_purchase_unit
 import logging
 
 logger = logging.getLogger(__name__)
+
+
 class SQLAlchemyShipmentRecordCommand(ShipmentRecordCommandPort):
     """shipment_records 的写操作实现（Command side）。"""
 
@@ -46,7 +48,7 @@ class SQLAlchemyShipmentRecordCommand(ShipmentRecordCommandPort):
                 if resolved:
                     purchase_unit = resolved.unit_name
             except Exception:
-                logger.debug('suppressed exception', exc_info=True)
+                logger.debug("suppressed exception", exc_info=True)
 
             with get_db() as db:
                 inspector = sa_inspect(db.bind)

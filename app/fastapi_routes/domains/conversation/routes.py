@@ -1,4 +1,5 @@
 """Migrated from legacy_conversation.py (v10)."""
+
 from __future__ import annotations
 
 import logging

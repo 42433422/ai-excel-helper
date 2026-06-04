@@ -42,6 +42,7 @@ def _resolve_product_sku() -> str | None:
                     return sku
     return None
 
+
 PROFILE_SCHEMA_VERSION = 1
 INDUSTRY_PRESETS_SCHEMA_VERSION = 1
 WORKFLOW_CATALOG_SCHEMA_VERSION = 1
@@ -128,7 +129,8 @@ _LEGACY_PLATFORM_PREFIXES: list[str] = [
 
 _LEGACY_SKU_BUNDLED: dict[str, tuple[str, ...]] = {
     "personal": _LEGACY_MINIMAL_HOST_MOD_IDS,
-    "enterprise": _LEGACY_GENERIC_HOST_MOD_IDS + ("xcagi-planner-excel-tools", "wechat-contacts-ai-employee"),
+    "enterprise": _LEGACY_GENERIC_HOST_MOD_IDS
+    + ("xcagi-planner-excel-tools", "wechat-contacts-ai-employee"),
 }
 
 _LEGACY_STAGE: dict[str, tuple[str, ...]] = {
@@ -193,7 +195,9 @@ def _validate_profile_schema(data: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     ver = data.get("schema_version")
     if ver is not None and int(ver) != PROFILE_SCHEMA_VERSION:
-        errors.append(f"PROFILE_SCHEMA_MISMATCH: expected schema_version {PROFILE_SCHEMA_VERSION}, got {ver}")
+        errors.append(
+            f"PROFILE_SCHEMA_MISMATCH: expected schema_version {PROFILE_SCHEMA_VERSION}, got {ver}"
+        )
     for key in ("sku", "package_stage_ids", "sku_bundled_mod_ids", "bridge_api_map"):
         if key not in data:
             errors.append(f"profile missing required key: {key}")
@@ -250,7 +254,9 @@ def _legacy_profile_for_sku(sku: str) -> dict[str, Any]:
         "workflow_monolith_mod_id": "xcagi-core-workflow-employees",
         "workflow_split_mod_ids": list(_LEGACY_GENERIC_HOST_MOD_IDS),
         "package_stage_ids": list(_LEGACY_STAGE.get(sku, _LEGACY_STAGE["enterprise"])),
-        "sku_bundled_mod_ids": list(_LEGACY_SKU_BUNDLED.get(sku, _LEGACY_SKU_BUNDLED["enterprise"])),
+        "sku_bundled_mod_ids": list(
+            _LEGACY_SKU_BUNDLED.get(sku, _LEGACY_SKU_BUNDLED["enterprise"])
+        ),
         "blocked_mod_ids": blocked,
         "excluded_from_bundle": list(
             {"taiyangniao-pro", "sz-qsm-pro", "_employees", "industry-solutions"}
@@ -294,7 +300,11 @@ def load_industry_presets_document() -> dict[str, Any]:
         doc = _load_json(cfg / "industry_presets.json")
         if doc and isinstance(doc.get("presets"), dict):
             return doc
-    return {"schema_version": INDUSTRY_PRESETS_SCHEMA_VERSION, "preset_ids": ["通用"], "presets": {}}
+    return {
+        "schema_version": INDUSTRY_PRESETS_SCHEMA_VERSION,
+        "preset_ids": ["通用"],
+        "presets": {},
+    }
 
 
 @lru_cache(maxsize=1)

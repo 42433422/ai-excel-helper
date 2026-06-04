@@ -4,8 +4,12 @@
 
 import pytest
 from app.services.intent_service import (
-    is_negation, is_greeting, is_goodbye, is_help_request,
-    is_confirmation, is_negation_intent
+    is_negation,
+    is_greeting,
+    is_goodbye,
+    is_help_request,
+    is_confirmation,
+    is_negation_intent,
 )
 
 

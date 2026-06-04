@@ -54,7 +54,9 @@ class TestShipmentApplicationService:
 
     def test_create_shipment_success(self):
         repo = DummyRepo()
-        app_service = ShipmentApplicationService(repository=repo, document_generator=None, record_store=None)
+        app_service = ShipmentApplicationService(
+            repository=repo, document_generator=None, record_store=None
+        )
 
         items = [
             {
@@ -82,7 +84,9 @@ class TestShipmentApplicationService:
 
     def test_create_shipment_invalid_no_items(self):
         repo = DummyRepo()
-        app_service = ShipmentApplicationService(repository=repo, document_generator=None, record_store=None)
+        app_service = ShipmentApplicationService(
+            repository=repo, document_generator=None, record_store=None
+        )
 
         result = app_service.create_shipment(
             unit_name="测试单位",
@@ -126,7 +130,9 @@ class TestLegacyShipmentDocumentGenerator:
     """Legacy 文档生成适配器测试（mock legacy 依赖）。"""
 
     @patch.object(LegacyShipmentDocumentGenerator, "_load_products_from_main_db", return_value=[])
-    @patch("app.infrastructure.documents.shipment_document_generator_impl.load_legacy_shipment_document_generator")
+    @patch(
+        "app.infrastructure.documents.shipment_document_generator_impl.load_legacy_shipment_document_generator"
+    )
     @patch("app.infrastructure.documents.shipment_document_generator_impl.resolve_purchase_unit")
     def test_generate_success_with_valid_products(
         self, mock_resolve_unit, mock_loader, _mock_products_db
@@ -212,4 +218,3 @@ class TestShipmentAppServiceGenerate:
         dummy_doc_gen.generate.assert_called_once()
         record_store.record_document_generation.assert_called_once()
         assert result["doc_name"] == "test.xlsx"
-

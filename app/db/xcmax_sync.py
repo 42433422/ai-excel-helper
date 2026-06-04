@@ -33,6 +33,7 @@ def _resolve_db_path() -> Path:
         return _db_path
     try:
         from app.mod_sdk.private_sqlite import resolve_mod_private_sqlite_path
+
         _db_path = resolve_mod_private_sqlite_path(_DB_FILENAME)
     except Exception:
         base = os.environ.get("DATABASE_PATH") or os.environ.get("XCAGI_DATA_DIR") or os.getcwd()
@@ -53,7 +54,8 @@ def _get_conn() -> Generator[sqlite3.Connection, None, None]:
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript("""
+    conn.executescript(
+        """
         CREATE TABLE IF NOT EXISTS sync_changes (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
             entity_type   TEXT NOT NULL,
@@ -114,7 +116,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
-    """)
+    """
+    )
     conn.commit()
 
 
@@ -175,15 +178,17 @@ class SyncDb:
         now = datetime.now().isoformat(timespec="seconds")
         rows = []
         for item in items:
-            rows.append((
-                remote_cursor,
-                str(item.get("entity_type") or ""),
-                str(item.get("entity_id") or ""),
-                str(item.get("operation") or "sync"),
-                json.dumps(item.get("payload") or {}, ensure_ascii=False, default=str),
-                str(item.get("origin_node") or "remote"),
-                now,
-            ))
+            rows.append(
+                (
+                    remote_cursor,
+                    str(item.get("entity_type") or ""),
+                    str(item.get("entity_id") or ""),
+                    str(item.get("operation") or "sync"),
+                    json.dumps(item.get("payload") or {}, ensure_ascii=False, default=str),
+                    str(item.get("origin_node") or "remote"),
+                    now,
+                )
+            )
         if not rows:
             return 0
         with _lock, _get_conn() as conn:
@@ -207,16 +212,24 @@ class SyncDb:
             local_cursor_row = conn.execute("SELECT MAX(id) FROM sync_changes").fetchone()
             local_cursor = local_cursor_row[0] if local_cursor_row else None
 
-            remote_cursor_row = conn.execute("SELECT value FROM sync_meta WHERE key='remote_cursor'").fetchone()
+            remote_cursor_row = conn.execute(
+                "SELECT value FROM sync_meta WHERE key='remote_cursor'"
+            ).fetchone()
             remote_cursor = int(remote_cursor_row[0]) if remote_cursor_row else None
 
-            last_sync_row = conn.execute("SELECT value FROM sync_meta WHERE key='last_sync_at'").fetchone()
+            last_sync_row = conn.execute(
+                "SELECT value FROM sync_meta WHERE key='last_sync_at'"
+            ).fetchone()
             last_sync_at = last_sync_row[0] if last_sync_row else None
 
-            outbox_count = conn.execute("SELECT COUNT(*) FROM sync_outbox WHERE status='pending'").fetchone()[0]
-            conflict_count = conn.execute("SELECT COUNT(*) FROM sync_inbox WHERE status='conflict'").fetchone()[0]
+            outbox_count = conn.execute(
+                "SELECT COUNT(*) FROM sync_outbox WHERE status='pending'"
+            ).fetchone()[0]
+            conflict_count = conn.execute(
+                "SELECT COUNT(*) FROM sync_inbox WHERE status='conflict'"
+            ).fetchone()[0]
 
-        healthy = (outbox_count == 0 and conflict_count == 0)
+        healthy = outbox_count == 0 and conflict_count == 0
         return {
             "healthy": healthy,
             "local_cursor": local_cursor,

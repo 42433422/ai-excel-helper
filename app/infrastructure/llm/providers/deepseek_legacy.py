@@ -1,4 +1,5 @@
 """DeepSeek 直连降级 Provider（httpx，OpenAI 兼容 JSON）。"""
+
 from __future__ import annotations
 
 import logging
@@ -16,7 +17,9 @@ logger = logging.getLogger(__name__)
 class DeepSeekLegacyProvider:
     provider_id = "deepseek_legacy"
 
-    def __init__(self, *, api_key: str | None = None, api_url: str | None = None, model: str | None = None):
+    def __init__(
+        self, *, api_key: str | None = None, api_url: str | None = None, model: str | None = None
+    ):
         creds = resolve_deepseek_credentials()
         self._api_key = (api_key or (creds.api_key if creds else "")).strip()
         self._api_url = (api_url or (creds.api_url if creds else "")).strip() or (

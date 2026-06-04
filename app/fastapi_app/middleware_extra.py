@@ -27,7 +27,9 @@ def register_http_sli_middleware(app: FastAPI) -> None:
         try:
             from app.utils.metrics import record_http_request
 
-            record_http_request(request.method, path, response.status_code, time.perf_counter() - started)
+            record_http_request(
+                request.method, path, response.status_code, time.perf_counter() - started
+            )
         except Exception:
             pass
         return response

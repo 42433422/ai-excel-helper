@@ -42,4 +42,3 @@ def shipment_to_db(shipment: Shipment) -> dict[str, Any]:
         "printer_name": shipment.printer_name,
         "raw_text": shipment.raw_text,
     }
-

@@ -40,7 +40,9 @@ def is_customer_service_pages_via_mod_enabled() -> bool:
     if not mod_dir:
         return False
     try:
-        cfg = json.loads((mod_dir / "manifest.json").read_text(encoding="utf-8")).get("config") or {}
+        cfg = (
+            json.loads((mod_dir / "manifest.json").read_text(encoding="utf-8")).get("config") or {}
+        )
         return isinstance(cfg, dict) and cfg.get("customer_service_pages_via_mod") is True
     except Exception:
         return False

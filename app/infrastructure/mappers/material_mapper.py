@@ -13,4 +13,3 @@ def material_to_domain(db_model: MaterialModel):
         "quantity": db_model.quantity,
         "unit_price": db_model.unit_price,
     }
-

@@ -61,25 +61,47 @@ class AppError(Exception):
 
 
 class AuthError(AppError):
-    def __init__(self, code: ErrorCode = ErrorCode.AUTH_TOKEN_INVALID, message: str = "", detail: dict | None = None):
+    def __init__(
+        self,
+        code: ErrorCode = ErrorCode.AUTH_TOKEN_INVALID,
+        message: str = "",
+        detail: dict | None = None,
+    ):
         super().__init__(code, message, status_code=401, detail=detail)
 
 
 class PermissionError(AppError):
-    def __init__(self, code: ErrorCode = ErrorCode.AUTH_PERMISSION_DENIED, message: str = "", detail: dict | None = None):
+    def __init__(
+        self,
+        code: ErrorCode = ErrorCode.AUTH_PERMISSION_DENIED,
+        message: str = "",
+        detail: dict | None = None,
+    ):
         super().__init__(code, message, status_code=403, detail=detail)
 
 
 class PaymentError(AppError):
-    def __init__(self, code: ErrorCode, message: str = "", status_code: int = 400, detail: dict | None = None):
+    def __init__(
+        self, code: ErrorCode, message: str = "", status_code: int = 400, detail: dict | None = None
+    ):
         super().__init__(code, message, status_code=status_code, detail=detail)
 
 
 class DatabaseError(AppError):
-    def __init__(self, code: ErrorCode = ErrorCode.DB_QUERY_FAILED, message: str = "", detail: dict | None = None):
+    def __init__(
+        self,
+        code: ErrorCode = ErrorCode.DB_QUERY_FAILED,
+        message: str = "",
+        detail: dict | None = None,
+    ):
         super().__init__(code, message, status_code=503, detail=detail)
 
 
 class LLMError(AppError):
-    def __init__(self, code: ErrorCode = ErrorCode.LLM_SERVICE_UNAVAILABLE, message: str = "", detail: dict | None = None):
+    def __init__(
+        self,
+        code: ErrorCode = ErrorCode.LLM_SERVICE_UNAVAILABLE,
+        message: str = "",
+        detail: dict | None = None,
+    ):
         super().__init__(code, message, status_code=503, detail=detail)

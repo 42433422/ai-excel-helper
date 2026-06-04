@@ -153,7 +153,9 @@ def _validate_production_secrets():
         logger.warning("SECRET_KEY is not set. This is insecure for production.")
     elif len(secret_key) < 32:
         if not Config.DEBUG:
-            raise RuntimeError("SECRET_KEY is too short (minimum 32 characters). Use a strong, randomly generated key.")
+            raise RuntimeError(
+                "SECRET_KEY is too short (minimum 32 characters). Use a strong, randomly generated key."
+            )
         logger.warning("SECRET_KEY is shorter than 32 characters. This is insecure for production.")
 
 

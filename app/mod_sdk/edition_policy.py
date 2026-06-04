@@ -10,7 +10,11 @@ from pathlib import Path
 from typing import Literal
 
 from app.mod_sdk.platform_shell import GENERIC_HOST_MOD_IDS, MINIMAL_HOST_MOD_IDS
-from app.mod_sdk.product_skus import bundled_mod_ids_for_sku, configure_sku_edition_env, resolve_product_sku
+from app.mod_sdk.product_skus import (
+    bundled_mod_ids_for_sku,
+    configure_sku_edition_env,
+    resolve_product_sku,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +178,13 @@ def seed_edition_mods_from_bundle(
             continue
         src = _resolve_mod_seed_source(mod_id, bundle)
         if src is None:
-            results.append({"mod_id": mod_id, "status": "missing", "message": f"not in bundle: {bundle / mod_id}"})
+            results.append(
+                {
+                    "mod_id": mod_id,
+                    "status": "missing",
+                    "message": f"not in bundle: {bundle / mod_id}",
+                }
+            )
             continue
         try:
             shutil.copytree(src, dst)

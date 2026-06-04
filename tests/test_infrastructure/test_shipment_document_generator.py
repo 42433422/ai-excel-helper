@@ -4,7 +4,9 @@
 
 import pytest
 from unittest.mock import MagicMock, patch
-from app.infrastructure.documents.shipment_document_generator_impl import LegacyShipmentDocumentGenerator
+from app.infrastructure.documents.shipment_document_generator_impl import (
+    LegacyShipmentDocumentGenerator,
+)
 
 
 class TestLegacyShipmentDocumentGenerator:
@@ -16,7 +18,9 @@ class TestLegacyShipmentDocumentGenerator:
         return_value=[{"name": "测试产品", "quantity": 1}],
     )
     @patch("app.infrastructure.documents.shipment_document_generator_impl.resolve_purchase_unit")
-    @patch("app.infrastructure.documents.shipment_document_generator_impl.load_legacy_shipment_document_generator")
+    @patch(
+        "app.infrastructure.documents.shipment_document_generator_impl.load_legacy_shipment_document_generator"
+    )
     def test_generate_success(self, mock_loader, mock_resolve, _mock_prepare, _mock_products_db):
         resolved = MagicMock()
         resolved.unit_name = "测试单位"

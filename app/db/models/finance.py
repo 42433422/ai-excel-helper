@@ -53,7 +53,9 @@ class FinancialTransaction(Base):
             "reference_type": self.reference_type,
             "reference_id": self.reference_id,
             "description": self.description,
-            "transaction_date": self.transaction_date.isoformat() if self.transaction_date else None,
+            "transaction_date": (
+                self.transaction_date.isoformat() if self.transaction_date else None
+            ),
             "due_date": self.due_date.isoformat() if self.due_date else None,
             "status": self.status,
             "counterparty_name": self.counterparty_name,

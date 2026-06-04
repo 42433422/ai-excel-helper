@@ -195,7 +195,9 @@ class MpFeedback(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    user: Mapped[Optional[User]] = relationship("User", foreign_keys=[user_id], overlaps="mp_feedbacks")
+    user: Mapped[Optional[User]] = relationship(
+        "User", foreign_keys=[user_id], overlaps="mp_feedbacks"
+    )
 
 
 from app.db.models.product import Product  # noqa: E402

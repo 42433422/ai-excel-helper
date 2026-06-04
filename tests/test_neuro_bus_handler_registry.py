@@ -12,7 +12,9 @@ MOD_DIR = REPO / "mods" / "xcagi-neuro-bus-bridge"
 
 
 def test_handler_catalog_has_core_domains():
-    data = json.loads((MOD_DIR / "config" / "neuro_handler_catalog.json").read_text(encoding="utf-8"))
+    data = json.loads(
+        (MOD_DIR / "config" / "neuro_handler_catalog.json").read_text(encoding="utf-8")
+    )
     ids = {h["domain_id"] for h in data.get("handlers", []) if isinstance(h, dict)}
     assert "product" in ids
     assert "shipment" in ids

@@ -69,9 +69,7 @@ def _discover_native_tool_mods() -> list[dict[str, Any]]:
                 continue
             tools = _native_tools_from_metadata(meta)
             if tools:
-                rows.append(
-                    {"mod_id": meta.id, "mod_path": meta.mod_path, "tool_names": tools}
-                )
+                rows.append({"mod_id": meta.id, "mod_path": meta.mod_path, "tool_names": tools})
     except Exception:
         logger.debug("discover native planner mods via disk failed", exc_info=True)
     return rows
@@ -137,10 +135,13 @@ def try_execute_native_planner_tool(
             return str(out), mod_id
         except Exception:
             logger.exception("native planner tool failed mod=%s tool=%s", mod_id, tool)
-            return json.dumps(
-                {"success": False, "error": "native_tool_failed", "mod_id": mod_id},
-                ensure_ascii=False,
-            ), mod_id
+            return (
+                json.dumps(
+                    {"success": False, "error": "native_tool_failed", "mod_id": mod_id},
+                    ensure_ascii=False,
+                ),
+                mod_id,
+            )
     return None, None
 
 

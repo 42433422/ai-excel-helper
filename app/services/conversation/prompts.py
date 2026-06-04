@@ -164,7 +164,7 @@ class PromptsMixin:
                     dumped = dumped[:4096] + "…"
                 blocks.append(f"【附加上下文】\n{dumped}")
             except Exception:
-                logger.debug('suppressed exception', exc_info=True)
+                logger.debug("suppressed exception", exc_info=True)
         merged = "\n\n".join(b for b in blocks if b)
         return merged
 
@@ -232,9 +232,7 @@ class PromptsMixin:
         if context.last_action:
             session_parts.append(f"最近操作：{context.last_action}")
         if session_parts:
-            blocks.append(
-                "【当前会话上下文】\n" + "\n".join(session_parts) + "\n【END会话上下文】"
-            )
+            blocks.append("【当前会话上下文】\n" + "\n".join(session_parts) + "\n【END会话上下文】")
         if not blocks:
             return ""
         return "\n\n".join(blocks)

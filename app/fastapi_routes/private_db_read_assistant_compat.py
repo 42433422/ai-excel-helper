@@ -65,7 +65,9 @@ def build_private_db_assistant_router() -> APIRouter:
 
     @router.get("/sources")
     def private_db_sources():
-        from app.fastapi_routes.domains.wechat.compat_routes import wechat_contacts_decrypt_status_compat
+        from app.fastapi_routes.domains.wechat.compat_routes import (
+            wechat_contacts_decrypt_status_compat,
+        )
 
         decrypt = wechat_contacts_decrypt_status_compat()
         return {

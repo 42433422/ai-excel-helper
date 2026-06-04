@@ -36,12 +36,16 @@ def test_protected_mod_present_or_documented(mod_id: str) -> None:
 
 
 def test_core_workflow_mod_four_employees() -> None:
-    m = json.loads((MODS_ROOT / "xcagi-core-workflow-employees" / "manifest.json").read_text(encoding="utf-8"))
+    m = json.loads(
+        (MODS_ROOT / "xcagi-core-workflow-employees" / "manifest.json").read_text(encoding="utf-8")
+    )
     ids = {e["id"] for e in m.get("workflow_employees") or []}
     assert ids == {"label_print", "shipment_mgmt", "receipt_confirm", "wechat_msg"}
 
 
-@pytest.mark.parametrize("mod_id", ("xcagi-approval-bridge", "xcagi-lan-license-bridge", "xcagi-model-payment-bridge"))
+@pytest.mark.parametrize(
+    "mod_id", ("xcagi-approval-bridge", "xcagi-lan-license-bridge", "xcagi-model-payment-bridge")
+)
 def test_bridge_mod_status_route_in_blueprint(mod_id: str) -> None:
     bp = (MODS_ROOT / mod_id / "backend" / "blueprints.py").read_text(encoding="utf-8")
     assert "host_api_bridge" in bp or "register_fastapi_routes" in bp

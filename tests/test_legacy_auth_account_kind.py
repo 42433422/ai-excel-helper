@@ -66,17 +66,35 @@ def auth_matrix_client(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr("app.mod_sdk.product_skus.resolve_product_sku", lambda: "enterprise")
     monkeypatch.setattr("app.application.auth_app_service.get_auth_app_service", lambda: fake_auth)
-    monkeypatch.setattr("app.fastapi_routes.market_account.login_market_with_password", fake_market_login)
-    monkeypatch.setattr("app.fastapi_routes.market_account.save_session_market_token", fake_save_session_market_token)
-    monkeypatch.setattr("app.application.session_account_meta.persist_session_account_meta", fake_persist_session_account_meta)
+    monkeypatch.setattr(
+        "app.fastapi_routes.market_account.login_market_with_password", fake_market_login
+    )
+    monkeypatch.setattr(
+        "app.fastapi_routes.market_account.save_session_market_token",
+        fake_save_session_market_token,
+    )
+    monkeypatch.setattr(
+        "app.application.session_account_meta.persist_session_account_meta",
+        fake_persist_session_account_meta,
+    )
     monkeypatch.setattr(
         "app.enterprise.mod_entitlements.refresh_session_entitlements_from_market",
         fake_refresh_session_entitlements_from_market,
     )
-    monkeypatch.setattr("app.enterprise.mod_entitlements.persist_entitlements_to_session_row", lambda *args: None)
-    monkeypatch.setattr("app.enterprise.mod_entitlements.reload_enterprise_mods_after_login", fake_reload_enterprise_mods_after_login)
-    monkeypatch.setattr("app.enterprise.mod_entitlements.get_cached_entitled_client_mod_ids", lambda: set())
-    monkeypatch.setattr("app.enterprise.account_mod_binding.augment_entitled_client_mod_ids_for_username", lambda *args: set())
+    monkeypatch.setattr(
+        "app.enterprise.mod_entitlements.persist_entitlements_to_session_row", lambda *args: None
+    )
+    monkeypatch.setattr(
+        "app.enterprise.mod_entitlements.reload_enterprise_mods_after_login",
+        fake_reload_enterprise_mods_after_login,
+    )
+    monkeypatch.setattr(
+        "app.enterprise.mod_entitlements.get_cached_entitled_client_mod_ids", lambda: set()
+    )
+    monkeypatch.setattr(
+        "app.enterprise.account_mod_binding.augment_entitled_client_mod_ids_for_username",
+        lambda *args: set(),
+    )
 
     return {
         "client": TestClient(app, raise_server_exceptions=False),

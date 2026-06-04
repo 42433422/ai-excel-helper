@@ -32,7 +32,7 @@ class ApiMixin(NeuroEventPublisherMixin):
                 try:
                     await self._deepseek_async_client.aclose()
                 except Exception:
-                    logger.debug('suppressed exception', exc_info=True)
+                    logger.debug("suppressed exception", exc_info=True)
                 self._deepseek_async_client = None
             self._deepseek_async_loop = loop
             self._deepseek_async_client = httpx.AsyncClient(
@@ -104,14 +104,18 @@ class ApiMixin(NeuroEventPublisherMixin):
             )
             if result:
                 try:
-                    from app.neuro_bus.application_neuro_bridge import neuro_notify_ai_model_roundtrip
+                    from app.neuro_bus.application_neuro_bridge import (
+                        neuro_notify_ai_model_roundtrip,
+                    )
 
                     usage = result.get("usage") or {}
                     neuro_notify_ai_model_roundtrip(
                         model=provider.provider_id,
                         latency_ms=(time.perf_counter() - t0) * 1000.0,
                         token_count=int(usage.get("total_tokens") or 0),
-                        user_id=str(getattr(getattr(self, "modstore_adapter", None), "user_id", "") or ""),
+                        user_id=str(
+                            getattr(getattr(self, "modstore_adapter", None), "user_id", "") or ""
+                        ),
                     )
                 except Exception:
                     pass
@@ -323,8 +327,8 @@ class ApiMixin(NeuroEventPublisherMixin):
             logger.debug("返回缓存的 AI 响应")
             # 获取当前使用的模型信息
             current_model = (
-                getattr(self.llm_adapter, 'model_name', None)
-                if hasattr(self, 'llm_adapter') and self.llm_adapter
+                getattr(self.llm_adapter, "model_name", None)
+                if hasattr(self, "llm_adapter") and self.llm_adapter
                 else self.model
             )
             return {
@@ -358,13 +362,13 @@ XCAGI 系统主要功能：
         messages.append({"role": "user", "content": message})
 
         # 获取当前LLM模式和信息（用于日志）
-        if hasattr(self, 'modstore_adapter') and self.modstore_adapter:
+        if hasattr(self, "modstore_adapter") and self.modstore_adapter:
             mode_tag = "🌐平台"
             provider_info = (
                 f"modstore:{self.modstore_adapter.default_provider}/"
                 f"{self.modstore_adapter.default_model}"
             )
-        elif hasattr(self, 'llm_adapter') and self.llm_adapter and self.llm_adapter.is_configured:
+        elif hasattr(self, "llm_adapter") and self.llm_adapter and self.llm_adapter.is_configured:
             mode_tag = "⚡直连"
             provider_info = f"{self.llm_adapter.provider_name}/{self.llm_adapter.model_name}"
         else:
@@ -389,10 +393,12 @@ XCAGI 系统主要功能：
             _ai_response_cache.set(cache_key, ai_reply)
 
             # 获取当前使用的模型和供应商信息
-            if hasattr(self, 'modstore_adapter') and self.modstore_adapter:
+            if hasattr(self, "modstore_adapter") and self.modstore_adapter:
                 current_model = f"modstore:{self.modstore_adapter.default_model}"
                 current_provider = "modstore-platform"
-            elif hasattr(self, 'llm_adapter') and self.llm_adapter and self.llm_adapter.is_configured:
+            elif (
+                hasattr(self, "llm_adapter") and self.llm_adapter and self.llm_adapter.is_configured
+            ):
                 current_model = self.llm_adapter.model_name
                 current_provider = self.llm_adapter.provider_name
             else:

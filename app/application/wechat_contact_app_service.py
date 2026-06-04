@@ -54,6 +54,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(WechatContactApplicationService)
 
+
 def get_wechat_contact_app_service() -> WechatContactApplicationService:
     """获取微信联系人服务单例"""
     from app.di.registry import get_service_registry

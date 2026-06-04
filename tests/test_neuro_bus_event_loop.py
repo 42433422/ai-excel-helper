@@ -34,4 +34,3 @@ async def test_neurobus_wakeup_latency():
     elapsed_ms = (time.perf_counter() - t0) * 1000
     # Expect wakeup + dispatch to complete within 100ms in normal CI environments
     assert elapsed_ms < 100, f"NeuroBus wakeup/dispatch too slow: {elapsed_ms:.1f}ms"
-

@@ -18,7 +18,11 @@ from app.application.facades.conversation_facade import (
 )
 from app.application.facades.excel_facade import get_ai_product_parser, get_product_import_service
 from app.application.facades.intent_facade import BertIntentClassifier
-from app.application.facades.inventory_facade import InventoryService, PurchaseService, ReportService
+from app.application.facades.inventory_facade import (
+    InventoryService,
+    PurchaseService,
+    ReportService,
+)
 from app.application.facades.kitten_facade import (
     KittenReportExportService,
     analysis_save_service,

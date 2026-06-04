@@ -142,7 +142,9 @@ class ApprovalService:
                         {
                             "rno": request.request_id,
                             "title": f"{request.tool_id}.{request.action}",
-                            "desc": _json.dumps(request.params or {}, ensure_ascii=False, default=str)[:500],
+                            "desc": _json.dumps(
+                                request.params or {}, ensure_ascii=False, default=str
+                            )[:500],
                             "created": (request.created_at or datetime.now()).isoformat(),
                         },
                     )

@@ -84,7 +84,9 @@ def is_mod_views_physical_enabled(mod_id: str) -> bool:
     if not mod_dir:
         return False
     try:
-        cfg = json.loads((mod_dir / "manifest.json").read_text(encoding="utf-8")).get("config") or {}
+        cfg = (
+            json.loads((mod_dir / "manifest.json").read_text(encoding="utf-8")).get("config") or {}
+        )
         return isinstance(cfg, dict) and cfg.get("views_physical") is True
     except Exception:
         return False

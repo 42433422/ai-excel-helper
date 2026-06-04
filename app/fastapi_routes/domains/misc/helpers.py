@@ -1,4 +1,5 @@
 """Migrated from legacy_helpers.py (v10)."""
+
 from __future__ import annotations
 
 from typing import Any

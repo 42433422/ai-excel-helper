@@ -415,8 +415,11 @@ class TestOCRServiceIntegration:
 
         assert len(analysis["missing_fields"]) > 0
         assert analysis["text_type"] == "unknown"
-        assert all(v is None for v in [
-            structured["purchase_unit"],
-            structured["contact_person"],
-            structured["order_number"]
-        ])
+        assert all(
+            v is None
+            for v in [
+                structured["purchase_unit"],
+                structured["contact_person"],
+                structured["order_number"],
+            ]
+        )

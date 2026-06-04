@@ -1227,9 +1227,11 @@ async def market_status():
         "data": {
             "market_base_url": _market_base_url(),
             "reachable": reachable,
-            "raw": payload.get("payload")
-            if isinstance(payload, dict) and payload.get("__proxy_error__")
-            else payload,
+            "raw": (
+                payload.get("payload")
+                if isinstance(payload, dict) and payload.get("__proxy_error__")
+                else payload
+            ),
         },
     }
 
@@ -1280,8 +1282,10 @@ async def market_dev_create_account(body: dict[str, Any] = Body(default_factory=
             "password": password,
             "token": token,
             "overview_ok": not (isinstance(overview, dict) and overview.get("__proxy_error__")),
-            "overview": overview.get("payload")
-            if isinstance(overview, dict) and overview.get("__proxy_error__")
-            else overview,
+            "overview": (
+                overview.get("payload")
+                if isinstance(overview, dict) and overview.get("__proxy_error__")
+                else overview
+            ),
         },
     }

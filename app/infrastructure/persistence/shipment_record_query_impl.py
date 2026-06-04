@@ -14,6 +14,8 @@ from app.infrastructure.lookups import resolve_purchase_unit
 import logging
 
 logger = logging.getLogger(__name__)
+
+
 class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
     """shipment_records 表的只读查询实现（Read side）。"""
 
@@ -219,7 +221,7 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                         if resolved:
                             canonical_unit = str(resolved.unit_name or "").strip()
                     except Exception:
-                        logger.debug('suppressed exception', exc_info=True)
+                        logger.debug("suppressed exception", exc_info=True)
 
                     records_exact = (
                         query.filter(ShipmentRecord.purchase_unit == canonical_unit)

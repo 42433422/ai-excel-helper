@@ -21,6 +21,7 @@ from app.utils.path_utils import get_base_dir
 
 logger = logging.getLogger(__name__)
 
+
 def _resolve_root_dir() -> str:
     raw = (os.environ.get("TRADITIONAL_MODE_ROOT") or "").strip()
     root = raw if raw else os.path.join(get_base_dir(), "bang")
@@ -105,7 +106,9 @@ def stat_response(rel_path: str = "") -> tuple[dict[str, Any], int]:
     }, 200
 
 
-def write_text_response(rel_file: str, content: str, append: bool = False) -> tuple[dict[str, Any], int]:
+def write_text_response(
+    rel_file: str, content: str, append: bool = False
+) -> tuple[dict[str, Any], int]:
     target = resolve_safe_path(rel_file)
     if target is None:
         return {"success": False, "error": "路径越权访问被拒绝"}, 403
@@ -115,7 +118,10 @@ def write_text_response(rel_file: str, content: str, append: bool = False) -> tu
     mode = "a" if append else "w"
     with open(target, mode, encoding="utf-8", newline="") as f:
         f.write(content)
-    return {"success": True, "data": {"path": _rel_from_root(target), "bytes": os.path.getsize(target)}}, 200
+    return {
+        "success": True,
+        "data": {"path": _rel_from_root(target), "bytes": os.path.getsize(target)},
+    }, 200
 
 
 def write_base64_response(rel_file: str, content_base64: str) -> tuple[dict[str, Any], int]:
@@ -134,7 +140,9 @@ def write_base64_response(rel_file: str, content_base64: str) -> tuple[dict[str,
     return {"success": True, "data": {"path": _rel_from_root(target), "bytes": len(data)}}, 200
 
 
-def move_response(src_rel: str, dst_rel: str, overwrite: bool = False) -> tuple[dict[str, Any], int]:
+def move_response(
+    src_rel: str, dst_rel: str, overwrite: bool = False
+) -> tuple[dict[str, Any], int]:
     src = resolve_safe_path(src_rel)
     dst = resolve_safe_path(dst_rel)
     if src is None or dst is None:
@@ -153,7 +161,9 @@ def move_response(src_rel: str, dst_rel: str, overwrite: bool = False) -> tuple[
     return {"success": True, "data": {"path": _rel_from_root(dst)}}, 200
 
 
-def copy_response(src_rel: str, dst_rel: str, overwrite: bool = False) -> tuple[dict[str, Any], int]:
+def copy_response(
+    src_rel: str, dst_rel: str, overwrite: bool = False
+) -> tuple[dict[str, Any], int]:
     src = resolve_safe_path(src_rel)
     dst = resolve_safe_path(dst_rel)
     if src is None or dst is None:

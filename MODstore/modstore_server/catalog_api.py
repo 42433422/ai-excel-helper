@@ -38,9 +38,13 @@ def _invalidate_catalog_list_caches(pkg_id: Any = None, version: Any = None) -> 
     key we can reliably delete is the per-package detail key.
     """
     from modstore_server import cache
+    from modstore_server.catalog_store import packages_path
 
     if pkg_id and version:
         cache.delete(f"catalog:v1:pkg:{pkg_id}:{version}")
+    p = packages_path()
+    mtime = int(p.stat().st_mtime) if p.is_file() else 0
+    cache.delete(f"catalog:v1:index:{mtime}")
 
 
 def _upload_token() -> str:
@@ -132,17 +136,23 @@ def api_promote_package(
 @router.get("/index.json", summary="轻量全量索引")
 def api_index_json():
     from modstore_server import cache
+    from modstore_server.catalog_public_index import build_public_index_packages
 
     p = packages_path()
     # Key includes file mtime so a new upload naturally produces a new cache key;
     # old key expires in 60 s, effectively rate-limiting filesystem reads.
     mtime = int(p.stat().st_mtime) if p.is_file() else 0
+    # When the market DB is available, visibility follows ``catalog_items.is_public``;
+    # do not serve a stale cached index across listing changes.
+    from modstore_server.catalog_public_index import _public_pkg_ids_from_db
+
+    if _public_pkg_ids_from_db() is not None:
+        return {"packages": build_public_index_packages()}
+
     ck = f"catalog:v1:index:{mtime}"
     cached = cache.get_json(ck)
     if cached is not None:
         return cached
-    from modstore_server.catalog_public_index import build_public_index_packages
-
     result = {"packages": build_public_index_packages()}
     cache.set_json(ck, result, ttl_seconds=60)
     return result
@@ -206,6 +216,38 @@ async def api_upload_package(
         raise HTTPException(400, "file 须为 .xcmod / .xcemp / .zip")
 
     raw_bytes = await file.read()
+
+    from modman.artifact_constants import ARTIFACT_MOD, normalize_artifact
+    from modman.employee_sandbox import (
+        assert_employee_sandbox_passes_for_catalog_zip,
+        catalog_require_employee_sandbox,
+        catalog_sandbox_probe_http,
+    )
+
+    if catalog_require_employee_sandbox() and normalize_artifact(rec) == ARTIFACT_MOD:
+        fd, gate_tmp = tempfile.mkstemp(suffix=".zip")
+        os.close(fd)
+        gate_path = Path(gate_tmp)
+        try:
+            gate_path.write_bytes(raw_bytes)
+            backend_base = None
+            if catalog_sandbox_probe_http():
+                try:
+                    from modman.repo_config import load_config, resolved_xcagi_backend_url
+
+                    backend_base = resolved_xcagi_backend_url(load_config()).strip() or None
+                except Exception:
+                    backend_base = None
+            assert_employee_sandbox_passes_for_catalog_zip(
+                gate_path,
+                probe_http=catalog_sandbox_probe_http() and bool(backend_base),
+                backend_base=backend_base,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        finally:
+            gate_path.unlink(missing_ok=True)
+
     audit_meta: Dict[str, Any] = {}
     art = str(rec.get("artifact") or "").strip().lower()
     if art in ("mod", "employee_pack"):
@@ -236,11 +278,10 @@ async def api_upload_package(
                 raise HTTPException(400, "员工包 metadata 与包内 manifest 不一致: " + "; ".join(align_errs))
         saved = append_package(rec, tmp)
 
-    if str(saved.get("artifact") or "").strip().lower() == "employee_pack":
-        sf2 = get_session_factory()
-        with sf2() as db:
-            upsert_catalog_item_from_xc_package_dict(db, saved, author_id=None)
-            db.commit()
+    sf2 = get_session_factory()
+    with sf2() as db:
+        upsert_catalog_item_from_xc_package_dict(db, saved, author_id=None)
+        db.commit()
 
     # Invalidate all list/index caches; individual detail keys expire on their own TTL.
     _invalidate_catalog_list_caches(saved.get("id"), saved.get("version"))

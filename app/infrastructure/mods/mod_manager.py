@@ -96,9 +96,7 @@ def _repo_layout_mods_candidates() -> list[str]:
     部署/桥接包仅含 xcagi-* 时，主 XCAGI_MODS_ROOT 可能缺客户 Mod（如 taiyangniao-pro）。
     """
     file_here = os.path.abspath(__file__)
-    repo_root = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.dirname(file_here)))
-    )
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(file_here))))
     out: list[str] = []
     for rel in ("mods", os.path.join("XCAGI", "mods")):
         p = os.path.abspath(os.path.join(repo_root, rel))
@@ -848,7 +846,9 @@ class ModManager:
             "artifact": art,
             "industry": dict(m.industry) if isinstance(m.industry, dict) else {},
             "ui_labels": dict(m.ui_labels) if isinstance(m.ui_labels, dict) else {},
-            "ui_starter_pack": list(m.ui_starter_pack) if isinstance(m.ui_starter_pack, list) else [],
+            "ui_starter_pack": (
+                list(m.ui_starter_pack) if isinstance(m.ui_starter_pack, list) else []
+            ),
             "menu": list(m.frontend_menu) if m.frontend_menu else [],
             "frontend": {
                 "pro_entry_path": str(getattr(m, "frontend_pro_entry_path", "") or "").strip(),
@@ -1043,7 +1043,9 @@ def load_employee_pack_routes(app, mod_manager: ModManager | None = None) -> Non
                 reg(app, pack_id)
                 logger.info("FastAPI routes registered for employee_pack: %s", pack_id)
         except Exception as e:
-            logger.error("employee_pack route registration failed %s: %s", pack_id, e, exc_info=True)
+            logger.error(
+                "employee_pack route registration failed %s: %s", pack_id, e, exc_info=True
+            )
             mod_manager.record_blueprint_failure(pack_id, str(e)[:500])
 
 

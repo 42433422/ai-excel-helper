@@ -8,7 +8,11 @@ from app.desktop_runtime.database_profile import (
     load_or_create_profile,
     resolve_storage_mode,
 )
-from app.desktop_runtime.paths import configure_desktop_environment, ensure_desktop_dirs, sqlite_database_url
+from app.desktop_runtime.paths import (
+    configure_desktop_environment,
+    ensure_desktop_dirs,
+    sqlite_database_url,
+)
 from app.desktop_runtime.model_downloader import load_manifest
 
 

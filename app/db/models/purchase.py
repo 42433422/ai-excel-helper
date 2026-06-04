@@ -53,7 +53,9 @@ class PurchaseOrder(Base):
     created_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
-    supplier: Mapped[Optional[Supplier]] = relationship("Supplier", back_populates="purchase_orders")
+    supplier: Mapped[Optional[Supplier]] = relationship(
+        "Supplier", back_populates="purchase_orders"
+    )
     items: Mapped[list[PurchaseOrderItem]] = relationship(
         "PurchaseOrderItem", back_populates="purchase_order", cascade="all, delete-orphan"
     )
@@ -92,12 +94,8 @@ class PurchaseInbound(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     inbound_no: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     order_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("purchase_orders.id"))
-    supplier_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("suppliers.id"), nullable=False
-    )
-    warehouse_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("warehouses.id"), nullable=False
-    )
+    supplier_id: Mapped[int] = mapped_column(Integer, ForeignKey("suppliers.id"), nullable=False)
+    warehouse_id: Mapped[int] = mapped_column(Integer, ForeignKey("warehouses.id"), nullable=False)
     inbound_date: Mapped[date] = mapped_column(Date, nullable=False)
     total_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 2), default=0)
     status: Mapped[str] = mapped_column(String(20), default="draft")
@@ -132,13 +130,13 @@ class PurchaseInboundItem(Base):
     unit: Mapped[str] = mapped_column(String(20), default="个")
     unit_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), default=0)
     amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 2), default=0)
-    location_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("storage_locations.id")
-    )
+    location_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("storage_locations.id"))
     remark: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
-    inbound: Mapped[Optional[PurchaseInbound]] = relationship("PurchaseInbound", back_populates="items")
+    inbound: Mapped[Optional[PurchaseInbound]] = relationship(
+        "PurchaseInbound", back_populates="items"
+    )
     product: Mapped[Optional[Product]] = relationship("Product")
     order_item: Mapped[Optional[PurchaseOrderItem]] = relationship("PurchaseOrderItem")
     location: Mapped[Optional[StorageLocation]] = relationship("StorageLocation")

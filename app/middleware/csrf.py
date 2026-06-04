@@ -23,7 +23,12 @@ def _csrf_exempt_public_auth(scope: Scope) -> bool:
     仍依赖用户名密码校验；与常见「登录 POST 不做 CSRF 双提交」一致。可用环境变量关闭：
     ``XCAGI_CSRF_EXEMPT_AUTH=0``。
     """
-    if (os.environ.get("XCAGI_CSRF_EXEMPT_AUTH") or "1").strip().lower() in {"0", "false", "no", "off"}:
+    if (os.environ.get("XCAGI_CSRF_EXEMPT_AUTH") or "1").strip().lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
         return False
     path = (scope.get("path") or "").rstrip("/")
     return path.endswith("/api/auth/login") or path.endswith("/api/auth/logout")
@@ -51,9 +56,7 @@ class CSRFMiddleware:
                         headers.append(
                             (
                                 b"set-cookie",
-                                f"csrf_token={new_token}; Path=/; SameSite=Lax".encode(
-                                    "latin-1"
-                                ),
+                                f"csrf_token={new_token}; Path=/; SameSite=Lax".encode("latin-1"),
                             )
                         )
                         message["headers"] = headers

@@ -34,7 +34,9 @@ class SecurityHeadersMiddleware:
                     }
                 scheme = scope.get("scheme", "http")
                 if scheme == "https":
-                    security_headers[b"strict-transport-security"] = b"max-age=31536000; includeSubDomains"
+                    security_headers[b"strict-transport-security"] = (
+                        b"max-age=31536000; includeSubDomains"
+                    )
                 for key, value in security_headers.items():
                     headers[key] = value
                 message["headers"] = list(headers.items())

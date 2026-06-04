@@ -25,4 +25,9 @@ def list_office_employee_pages_registry() -> dict[str, Any]:
     }
 
 
-__all__ = ["HOST_PAGES", "MOD_PAGE_PREFIX", "OFFICE_EMPLOYEE_PACK_BRIDGE_MOD_ID", "list_office_employee_pages_registry"]
+__all__ = [
+    "HOST_PAGES",
+    "MOD_PAGE_PREFIX",
+    "OFFICE_EMPLOYEE_PACK_BRIDGE_MOD_ID",
+    "list_office_employee_pages_registry",
+]

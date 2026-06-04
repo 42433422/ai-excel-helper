@@ -147,7 +147,10 @@ class EmployeeRegistry:
                             False,
                             f"员工包已安装，但宿主 bridge 未齐：{', '.join(missing[:8])}",
                         )
-                    return True, f"宿主基础能力员工包已安装，bridge {result.get('installed_count')}/{result.get('expected_count')} 就绪"
+                    return (
+                        True,
+                        f"宿主基础能力员工包已安装，bridge {result.get('installed_count')}/{result.get('expected_count')} 就绪",
+                    )
                 return True, f"员工包 {pack_id} 安装成功"
         except ModSignatureError as e:
             return False, f"签名验证失败：{e}"

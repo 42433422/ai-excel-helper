@@ -24,7 +24,9 @@ class Warehouse(Base):
     created_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
-    locations: Mapped[list[StorageLocation]] = relationship("StorageLocation", back_populates="warehouse")
+    locations: Mapped[list[StorageLocation]] = relationship(
+        "StorageLocation", back_populates="warehouse"
+    )
     inventory_ledgers: Mapped[list[InventoryLedger]] = relationship(
         "InventoryLedger", back_populates="warehouse"
     )
@@ -56,9 +58,7 @@ class InventoryLedger(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     product_id: Mapped[int] = mapped_column(Integer, ForeignKey("products.id"), nullable=False)
     warehouse_id: Mapped[int] = mapped_column(Integer, ForeignKey("warehouses.id"), nullable=False)
-    location_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("storage_locations.id")
-    )
+    location_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("storage_locations.id"))
     batch_no: Mapped[Optional[str]] = mapped_column(String(50))
     quantity: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), default=0)
     available_quantity: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), default=0)
@@ -90,9 +90,7 @@ class InventoryTransaction(Base):
     transaction_type: Mapped[str] = mapped_column(String(20), nullable=False)
     product_id: Mapped[int] = mapped_column(Integer, ForeignKey("products.id"), nullable=False)
     warehouse_id: Mapped[int] = mapped_column(Integer, ForeignKey("warehouses.id"), nullable=False)
-    location_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("storage_locations.id")
-    )
+    location_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("storage_locations.id"))
     batch_no: Mapped[Optional[str]] = mapped_column(String(50))
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     before_quantity: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4))

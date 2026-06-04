@@ -197,9 +197,7 @@ class TestShipmentApplicationServiceGenerate:
             record_store=record_store,
         )
 
-        products = [
-            {"product_name": "产品A", "quantity_tins": 1, "tin_spec": 20.0}
-        ]
+        products = [{"product_name": "产品A", "quantity_tins": 1, "tin_spec": 20.0}]
 
         result = app_service.generate_shipment_document(
             unit_name="测试单位",

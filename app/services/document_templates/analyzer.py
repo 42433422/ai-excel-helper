@@ -172,9 +172,7 @@ def _analyze_excel_template(
         merged_cells = analyze_result.get("merged_cells", [])
         structure = analyze_result.get("structure", {})
 
-        structured = _extract_structured_excel_preview(
-            file_path, sheet_name="出货", sample_limit=8
-        )
+        structured = _extract_structured_excel_preview(file_path, sheet_name="出货", sample_limit=8)
         grid_preview = _extract_excel_grid_preview(
             file_path, sheet_name="出货", max_rows=18, max_cols=12
         )
@@ -199,9 +197,7 @@ def _analyze_excel_template(
                 {
                     "success": False,
                     "message": "模板缺少必备词条，请补全后重试",
-                    "required_terms": _get_template_scope_required_terms().get(
-                        template_scope, []
-                    ),
+                    "required_terms": _get_template_scope_required_terms().get(template_scope, []),
                     "missing_terms": missing_terms,
                 },
                 400,
@@ -337,9 +333,7 @@ def _analyze_word_template(
                 {
                     "success": False,
                     "message": "模板缺少必备词条，请补全占位符后重试",
-                    "required_terms": _get_template_scope_required_terms().get(
-                        template_scope, []
-                    ),
+                    "required_terms": _get_template_scope_required_terms().get(template_scope, []),
                     "missing_terms": missing_terms,
                 },
                 400,

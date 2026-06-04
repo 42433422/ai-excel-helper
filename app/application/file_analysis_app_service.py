@@ -214,6 +214,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(FileAnalysisService)
 
+
 def get_file_analysis_app_service() -> FileAnalysisService:
     """获取文件分析服务单例"""
     from app.di.registry import get_service_registry

@@ -16,6 +16,8 @@ from app.infrastructure.repositories.product_repository import ProductRepository
 import logging
 
 logger = logging.getLogger(__name__)
+
+
 class SQLAlchemyProductRepository(ProductRepository):
     """产品仓储 SQLAlchemy 实现"""
 
@@ -279,7 +281,7 @@ class SQLAlchemyProductRepository(ProductRepository):
             finally:
                 cs.close()
         except Exception:
-            logger.debug('suppressed exception', exc_info=True)
+            logger.debug("suppressed exception", exc_info=True)
 
         if purchase_units_authoritative:
             return ordered
@@ -292,6 +294,6 @@ class SQLAlchemyProductRepository(ProductRepository):
                         if u and u[0] is not None:
                             add_label(u[0], from_products=True)
         except Exception:
-            logger.debug('suppressed exception', exc_info=True)
+            logger.debug("suppressed exception", exc_info=True)
 
         return ordered

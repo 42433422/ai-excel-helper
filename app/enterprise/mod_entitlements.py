@@ -389,9 +389,7 @@ async def reload_enterprise_mods_after_login() -> None:
         loaded = mm.load_all_mods()
         app = get_fastapi_app()
         load_mod_routes(app, mm)
-        if SUNBIRD_CLIENT_MOD_ID in loaded or is_mod_visible_for_enterprise(
-            SUNBIRD_CLIENT_MOD_ID
-        ):
+        if SUNBIRD_CLIENT_MOD_ID in loaded or is_mod_visible_for_enterprise(SUNBIRD_CLIENT_MOD_ID):
             ensure_mod_api_ready(SUNBIRD_CLIENT_MOD_ID)
     except Exception:
         logger.exception("reload_enterprise_mods_after_login failed")

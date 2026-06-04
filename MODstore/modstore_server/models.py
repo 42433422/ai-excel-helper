@@ -77,6 +77,7 @@ class CatalogItem(Base):
     stored_filename = Column(String(256), default="")
     sha256 = Column(String(64), default="")
     is_public = Column(Boolean, default=True)
+    compliance_status = Column(String(32), default="approved")
     created_at = Column(DateTime, default=_utc_now_naive)
 
 
@@ -88,6 +89,15 @@ class Purchase(Base):
     catalog_id = Column(Integer, ForeignKey("catalog_items.id"), nullable=False)
     amount = Column(Float, nullable=False)
     created_at = Column(DateTime, default=_utc_now_naive)
+
+
+class Workflow(Base):
+    """Minimal workflow row for ``employee_config_v2`` validation in tests."""
+
+    __tablename__ = "workflows"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=True)
 
 
 def default_db_path() -> Path:
@@ -116,6 +126,7 @@ def _migrate_sqlite_schema(engine) -> None:
         ("stored_filename", "VARCHAR(256) DEFAULT ''"),
         ("sha256", "VARCHAR(64) DEFAULT ''"),
         ("is_public", "BOOLEAN DEFAULT 1"),
+        ("compliance_status", "VARCHAR(32) DEFAULT 'approved'"),
         ("created_at", "DATETIME"),
     ]
     with engine.begin() as conn:
@@ -126,6 +137,13 @@ def _migrate_sqlite_schema(engine) -> None:
 
 _engine = None
 _SessionFactory = None
+
+
+def reset_session_factory() -> None:
+    """Clear cached engine (tests set ``MODSTORE_DB_PATH`` per case)."""
+    global _engine, _SessionFactory
+    _engine = None
+    _SessionFactory = None
 
 
 def get_engine(db_path: Optional[Path] = None):
@@ -143,6 +161,8 @@ def get_session_factory(db_path: Optional[Path] = None):
     global _SessionFactory
     if _SessionFactory is None:
         engine = get_engine(db_path)
+        Base.metadata.create_all(engine)
+        _migrate_sqlite_schema(engine)
         _SessionFactory = sessionmaker(bind=engine)
     return _SessionFactory
 

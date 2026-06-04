@@ -54,9 +54,8 @@ def _resolve_provider_override() -> dict[str, Any]:
     chat_url = base_url if "/chat/completions" in base_url else f"{base_url}/v1/chat/completions"
 
     if not model:
-        model = (
-            os.environ.get("XCAGI_EMPLOYEE_LLM_MODEL", "").strip()
-            or ("gpt-4o-mini" if provider == "openai" else "deepseek-chat")
+        model = os.environ.get("XCAGI_EMPLOYEE_LLM_MODEL", "").strip() or (
+            "gpt-4o-mini" if provider == "openai" else "deepseek-chat"
         )
 
     return {
@@ -132,7 +131,11 @@ async def mod_employee_complete(
             response_format=response_format,
         )
         if not raw:
-            return {"ok": False, "content": "", "error": "LLM 返回空（请检查密钥、BASE_URL 与网络）"}
+            return {
+                "ok": False,
+                "content": "",
+                "error": "LLM 返回空（请检查密钥、BASE_URL 与网络）",
+            }
         return _parse_chat_completions_response(raw)
 
     try:

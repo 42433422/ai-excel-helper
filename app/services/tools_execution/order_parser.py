@@ -366,7 +366,9 @@ def _parse_order_text(order_text: str) -> dict:
                     "仅返回 JSON，不要解释，不要 markdown。\n"
                     f"文本：{text}"
                 )
-                from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+                from app.infrastructure.llm.providers.credentials import (
+                    default_chat_completions_url,
+                )
 
                 with httpx.Client(timeout=8.0) as client:
                     resp = client.post(

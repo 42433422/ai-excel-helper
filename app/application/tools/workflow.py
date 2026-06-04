@@ -133,6 +133,7 @@ def run_natural_language_pandas(
 
     try:
         from app.legacy.excel_text_to_pandas import ExcelTextToPandas  # type: ignore
+
         converter = ExcelTextToPandas()
         code = converter.translate(natural_language, df)
         if code and code.strip():
@@ -145,7 +146,9 @@ def run_natural_language_pandas(
     except Exception as e:
         error_msg = str(e)
 
-    records = json.loads(result_df.head(200).replace({float("nan"): None}).to_json(orient="records"))
+    records = json.loads(
+        result_df.head(200).replace({float("nan"): None}).to_json(orient="records")
+    )
     return {
         "generated_code": generated_code,
         "result_kind": "dataframe",
@@ -219,7 +222,7 @@ def handle_excel_analysis(
             if customer_hint:
                 out["customer_hint"] = customer_hint
         except Exception:
-            logger.debug('suppressed exception', exc_info=True)
+            logger.debug("suppressed exception", exc_info=True)
         if header_1b is not None:
             out["header_row"] = header_1b
         return out
@@ -666,24 +669,55 @@ def execute_workflow_tool(
                 p = resolve_safe_excel_path(root, file_path)
                 df = _read_excel_dataframe(p)
                 if not value_col or value_col not in df.columns:
-                    num_cols = [c for c in df.columns if pd.to_numeric(df[c], errors="coerce").notna().sum() > 2]
+                    num_cols = [
+                        c
+                        for c in df.columns
+                        if pd.to_numeric(df[c], errors="coerce").notna().sum() > 2
+                    ]
                     value_col = num_cols[0] if num_cols else ""
-                y = pd.to_numeric(df[value_col], errors="coerce").dropna() if value_col else pd.Series([], dtype=float)
+                y = (
+                    pd.to_numeric(df[value_col], errors="coerce").dropna()
+                    if value_col
+                    else pd.Series([], dtype=float)
+                )
             else:
                 y = pd.Series([], dtype=float)
             if len(y) < 2:
-                return json.dumps({"action": "forecast", "future_forecast": [{"yhat": 0.0}] * periods, "note": "数据不足，使用零预测"}, ensure_ascii=False)
+                return json.dumps(
+                    {
+                        "action": "forecast",
+                        "future_forecast": [{"yhat": 0.0}] * periods,
+                        "note": "数据不足，使用零预测",
+                    },
+                    ensure_ascii=False,
+                )
             x = list(range(len(y)))
             # 简单线性回归预测
             n = len(x)
-            sx = sum(x); sy = float(y.sum()); sxy = sum(xi * yi for xi, yi in zip(x, y)); sxx = sum(xi ** 2 for xi in x)
+            sx = sum(x)
+            sy = float(y.sum())
+            sxy = sum(xi * yi for xi, yi in zip(x, y))
+            sxx = sum(xi**2 for xi in x)
             denom = n * sxx - sx * sx
             slope = (n * sxy - sx * sy) / denom if denom else 0
             intercept = (sy - slope * sx) / n
-            future = [{"period": i + 1, "yhat": round(intercept + slope * (len(y) + i), 4)} for i in range(periods)]
-            return json.dumps({"action": "forecast", "future_forecast": future, "model": "linear_regression", "periods": periods}, ensure_ascii=False)
+            future = [
+                {"period": i + 1, "yhat": round(intercept + slope * (len(y) + i), 4)}
+                for i in range(periods)
+            ]
+            return json.dumps(
+                {
+                    "action": "forecast",
+                    "future_forecast": future,
+                    "model": "linear_regression",
+                    "periods": periods,
+                },
+                ensure_ascii=False,
+            )
         except Exception as e:
-            return json.dumps({"action": "forecast", "future_forecast": [], "error": str(e)}, ensure_ascii=False)
+            return json.dumps(
+                {"action": "forecast", "future_forecast": [], "error": str(e)}, ensure_ascii=False
+            )
     if name == "excel_schema_understand":
         try:
             file_path = str(args.get("file_path") or "")
@@ -896,7 +930,7 @@ def _handle_import_excel_to_database(
                                 unit_name = str(hits[0]).strip()
                                 break
                 except Exception:
-                    logger.debug('suppressed exception', exc_info=True)
+                    logger.debug("suppressed exception", exc_info=True)
             if not unit_name:
                 try:
                     from app.routes.template_grid_core import _extract_customer_hint_from_excel
@@ -906,7 +940,7 @@ def _handle_import_excel_to_database(
                         or ""
                     ).strip()
                 except Exception:
-                    logger.debug('suppressed exception', exc_info=True)
+                    logger.debug("suppressed exception", exc_info=True)
 
         preview_only = bool(args.get("preview_only", False))
         confirm = bool(args.get("confirm", True))
@@ -1448,9 +1482,22 @@ def _import_orders_preview_or_execute(df, columns, unit_name, confirm, row_count
     sample_data = json.loads(df.head(5).replace({float("nan"): None}).to_json(orient="records"))
     # 推断列映射
     col_map: dict[str, str] = {}
-    name_hints = {"产品名称": "product_name", "product_name": "product_name", "名称": "product_name"}
-    model_hints = {"型号": "model_number", "model_number": "model_number", "产品型号": "model_number"}
-    qty_hints = {"数量": "quantity", "quantity": "quantity", "qty": "quantity", "数量(桶)": "quantity"}
+    name_hints = {
+        "产品名称": "product_name",
+        "product_name": "product_name",
+        "名称": "product_name",
+    }
+    model_hints = {
+        "型号": "model_number",
+        "model_number": "model_number",
+        "产品型号": "model_number",
+    }
+    qty_hints = {
+        "数量": "quantity",
+        "quantity": "quantity",
+        "qty": "quantity",
+        "数量(桶)": "quantity",
+    }
     unit_name_hints = {"购买单位": "unit_name", "客户": "unit_name", "purchase_unit": "unit_name"}
     for col in columns:
         col_lower = str(col).strip().lower()
@@ -1486,15 +1533,33 @@ def _import_orders_preview_or_execute(df, columns, unit_name, confirm, row_count
         failed = 0
         for _, row in df.iterrows():
             try:
-                effective_unit = unit_name or str(row.get(next((c for c, f in col_map.items() if f == "unit_name"), ""), "") or "").strip()
+                effective_unit = (
+                    unit_name
+                    or str(
+                        row.get(next((c for c, f in col_map.items() if f == "unit_name"), ""), "")
+                        or ""
+                    ).strip()
+                )
                 if not effective_unit:
                     failed += 1
                     continue
-                product_name = str(row.get(next((c for c, f in col_map.items() if f == "product_name"), ""), "") or "").strip()
-                model_number = str(row.get(next((c for c, f in col_map.items() if f == "model_number"), ""), "") or "").strip()
+                product_name = str(
+                    row.get(next((c for c, f in col_map.items() if f == "product_name"), ""), "")
+                    or ""
+                ).strip()
+                model_number = str(
+                    row.get(next((c for c, f in col_map.items() if f == "model_number"), ""), "")
+                    or ""
+                ).strip()
                 qty_raw = row.get(next((c for c, f in col_map.items() if f == "quantity"), ""), 1)
                 qty = max(1, int(float(qty_raw))) if qty_raw else 1
-                items = [{"product_name": product_name or model_number, "model_number": model_number, "quantity": qty}]
+                items = [
+                    {
+                        "product_name": product_name or model_number,
+                        "model_number": model_number,
+                        "quantity": qty,
+                    }
+                ]
                 result = svc.create_shipment(unit_name=effective_unit, items_data=items)
                 if result.get("success"):
                     imported += 1
@@ -1514,7 +1579,9 @@ def _import_orders_preview_or_execute(df, columns, unit_name, confirm, row_count
             ensure_ascii=False,
         )
     except Exception as e:
-        return json.dumps({"success": False, "error": f"订单导入失败: {str(e)}"}, ensure_ascii=False)
+        return json.dumps(
+            {"success": False, "error": f"订单导入失败: {str(e)}"}, ensure_ascii=False
+        )
 
 
 __all__ = [

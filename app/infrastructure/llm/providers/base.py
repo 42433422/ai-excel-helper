@@ -1,4 +1,5 @@
 """LLM Provider 协议与统一返回结构。"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -28,12 +29,10 @@ class LLMProvider(Protocol):
     """可插拔 LLM 提供方。"""
 
     @property
-    def provider_id(self) -> str:
-        ...
+    def provider_id(self) -> str: ...
 
     @property
-    def is_configured(self) -> bool:
-        ...
+    def is_configured(self) -> bool: ...
 
     async def chat_completion(
         self,
@@ -42,5 +41,4 @@ class LLMProvider(Protocol):
         temperature: float = 0.7,
         max_tokens: int = 2000,
         **kwargs: Any,
-    ) -> dict[str, Any] | None:
-        ...
+    ) -> dict[str, Any] | None: ...

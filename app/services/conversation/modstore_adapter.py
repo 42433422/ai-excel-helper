@@ -15,13 +15,13 @@
     # 方式1: 环境变量全局配置
     set MODSTORE_PLATFORM_URL=http://127.0.0.1:8765
     set MODSTORE_AUTH_TOKEN=your_token  (可选，不设则从session获取)
-    
+
     # 方式2: 代码中创建（推荐用于请求级别）
     adapter = ModstorePlatformAdapter.from_session(
         session_id="abc123",  # 从cookie或header获取
         request=request_obj   # FastAPI Request对象（可选）
     )
-    
+
     # 方式3: 从环境变量创建
     adapter = create_modstore_adapter_from_env()
 """
@@ -83,8 +83,7 @@ def _platform_stream_payload_to_openai_chunk(data: str) -> Dict[str, Any] | None
         return {
             **raw,
             "choices": [
-                _normalize_stream_choice(c if isinstance(c, dict) else {})
-                for c in choices
+                _normalize_stream_choice(c if isinstance(c, dict) else {}) for c in choices
             ],
         }
 
@@ -109,7 +108,7 @@ def _platform_stream_payload_to_openai_chunk(data: str) -> Dict[str, Any] | None
 class ModstorePlatformAdapter:
     """
     修茈市场平台代理适配器
-    
+
     将LLM调用请求转发给修茈市场平台，由平台统一处理：
     - 密钥解析和选择
     - 厂商路由
@@ -128,7 +127,7 @@ class ModstorePlatformAdapter:
     ):
         """
         初始化平台代理适配器
-        
+
         Args:
             platform_url: 修茈市场服务URL (如 http://localhost:8000)
                          环境变量: MODSTORE_PLATFORM_URL
@@ -141,25 +140,21 @@ class ModstorePlatformAdapter:
             timeout: 请求超时时间(秒)
         """
         self.platform_url = (
-            platform_url or 
-            os.environ.get("MODSTORE_PLATFORM_URL", "http://localhost:8000")
-        ).rstrip('/')
-        
+            platform_url or os.environ.get("MODSTORE_PLATFORM_URL", "http://localhost:8000")
+        ).rstrip("/")
+
         self.auth_token = _strip_bearer_prefix(
-            auth_token or 
-            os.environ.get("MODSTORE_AUTH_TOKEN", "")
+            auth_token or os.environ.get("MODSTORE_AUTH_TOKEN", "")
         )
-        
-        self.user_id = user_id or self._parse_user_id(
-            os.environ.get("MODSTORE_USER_ID", "")
-        )
-        
+
+        self.user_id = user_id or self._parse_user_id(os.environ.get("MODSTORE_USER_ID", ""))
+
         self.default_provider = os.environ.get("LLM_PROVIDER", default_provider).lower()
         self.default_model = os.environ.get("LLM_MODEL", default_model)
         self.timeout = timeout
-        
+
         self._client: Optional[httpx.AsyncClient] = None
-        
+
         logger.info(
             f"初始化修茈市场平台代理: {self.platform_url}, "
             f"default={self.default_provider}/{self.default_model}, "
@@ -178,10 +173,7 @@ class ModstorePlatformAdapter:
 
     @classmethod
     def from_session(
-        cls,
-        session_id: str = None,
-        request: Any = None,
-        **kwargs
+        cls, session_id: str = None, request: Any = None, **kwargs
     ) -> "ModstorePlatformAdapter":
         """
         从FHD登录Session创建适配器（自动获取平台Token）
@@ -212,10 +204,10 @@ class ModstorePlatformAdapter:
             )
         """
         platform_url = (
-            kwargs.get("platform_url") or 
-            os.environ.get("XCAGI_MARKET_BASE_URL") or 
-            os.environ.get("MODSTORE_PLATFORM_URL", "http://127.0.0.1:8765")
-        ).rstrip('/')
+            kwargs.get("platform_url")
+            or os.environ.get("XCAGI_MARKET_BASE_URL")
+            or os.environ.get("MODSTORE_PLATFORM_URL", "http://127.0.0.1:8765")
+        ).rstrip("/")
 
         request_auth = ""
         if request is not None:
@@ -270,10 +262,12 @@ class ModstorePlatformAdapter:
         instance = cls(
             platform_url=platform_url,
             auth_token=auth_token,
-            **{k: v for k, v in kwargs.items() if k not in ("platform_url", "auth_token")}
+            **{k: v for k, v in kwargs.items() if k not in ("platform_url", "auth_token")},
         )
 
-        instance._source = "session" if auth_token and not os.environ.get("MODSTORE_AUTH_TOKEN") else "env"
+        instance._source = (
+            "session" if auth_token and not os.environ.get("MODSTORE_AUTH_TOKEN") else "env"
+        )
 
         return instance
 
@@ -359,7 +353,7 @@ class ModstorePlatformAdapter:
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self.timeout, connect=10.0),
                 limits=httpx.Limits(max_keepalive_connections=10, max_connections=30),
-                headers=self._build_headers()
+                headers=self._build_headers(),
             )
         return self._client
 
@@ -369,10 +363,10 @@ class ModstorePlatformAdapter:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
-        
+
         if self.auth_token:
             headers["Authorization"] = f"Bearer {self.auth_token}"
-        
+
         return headers
 
     def _resolve_provider_model(
@@ -396,11 +390,11 @@ class ModstorePlatformAdapter:
         max_tokens: int = 2000,
         provider: str = None,
         model: str = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         通过修茈市场平台执行聊天补全
-        
+
         Args:
             messages: 对话消息列表
             temperature: 温度参数
@@ -408,10 +402,10 @@ class ModstorePlatformAdapter:
             provider: 供应商 (可选，不设则用默认)
             model: 模型名称 (可选，不设则用默认)
             **kwargs: 其他参数
-            
+
         Returns:
             标准OpenAI格式的响应字典
-            
+
         Raises:
             ValueError: 平台未配置或返回错误
             httpx.HTTPStatusError: HTTP错误
@@ -422,16 +416,16 @@ class ModstorePlatformAdapter:
         effective_provider, effective_model = self._resolve_provider_model(provider, model)
 
         url = f"{self.platform_url}/api/llm/chat"
-        
+
         payload: Dict[str, Any] = {
             "provider": effective_provider,
             "model": effective_model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            **kwargs
+            **kwargs,
         }
-        
+
         if self.user_id:
             payload["user_id"] = self.user_id
 
@@ -441,18 +435,16 @@ class ModstorePlatformAdapter:
         )
 
         t0 = time.perf_counter()
-        
+
         try:
             client = await self._get_client()
             response = await client.post(url, json=payload)
-            
+
             latency_ms = (time.perf_counter() - t0) * 1000.0
-            
+
             if response.status_code >= 400:
                 error_text = response.text[:500]
-                logger.error(
-                    f"[Modstore] 平台返回错误 {response.status_code}: {error_text}"
-                )
+                logger.error(f"[Modstore] 平台返回错误 {response.status_code}: {error_text}")
                 raise ValueError(f"平台错误({response.status_code}): {error_text}")
 
             result = response.json()
@@ -462,6 +454,7 @@ class ModstorePlatformAdapter:
                 from app.neuro_bus.application_neuro_bridge import (
                     neuro_notify_ai_model_roundtrip,
                 )
+
                 neuro_notify_ai_model_roundtrip(
                     model=f"modstore:{effective_provider}/{effective_model}",
                     latency_ms=latency_ms,
@@ -473,13 +466,13 @@ class ModstorePlatformAdapter:
 
             # 标准化响应格式为OpenAI兼容格式
             normalized = self._normalize_response(result, effective_provider, effective_model)
-            
+
             logger.info(
                 f"[Modstore] 调用成功 [{latency_ms:.0f}ms], "
                 f"key_source={result.get('key_source', 'unknown')}, "
                 f"billed={result.get('billed', False)}"
             )
-            
+
             return normalized
 
         except httpx.HTTPError as e:
@@ -496,11 +489,11 @@ class ModstorePlatformAdapter:
         max_tokens: int = 2000,
         provider: str = None,
         model: str = None,
-        **kwargs
+        **kwargs,
     ):
         """
         流式聊天补全（SSE）
-        
+
         Yields:
             SSE数据行
         """
@@ -518,7 +511,7 @@ class ModstorePlatformAdapter:
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": True,
-            **kwargs
+            **kwargs,
         }
 
         if self.user_id:
@@ -623,7 +616,9 @@ class ModstorePlatformAdapter:
             with client.stream("POST", url, json=payload) as response:
                 if response.status_code >= 400:
                     error_text = response.read().decode("utf-8", errors="ignore")[:500]
-                    logger.error("[Modstream] 平台同步流式返回错误 %s: %s", response.status_code, error_text)
+                    logger.error(
+                        "[Modstream] 平台同步流式返回错误 %s: %s", response.status_code, error_text
+                    )
                     raise ValueError(f"平台错误({response.status_code}): {error_text}")
                 current_event = ""
                 for line in response.iter_lines():
@@ -642,14 +637,11 @@ class ModstorePlatformAdapter:
                     yield text
 
     def _normalize_response(
-        self, 
-        raw_response: Dict[str, Any], 
-        provider: str, 
-        model: str
+        self, raw_response: Dict[str, Any], provider: str, model: str
     ) -> Dict[str, Any]:
         """
         将修茈市场响应标准化为OpenAI格式
-        
+
         修茈市场返回格式:
         {
             "ok": True,
@@ -661,7 +653,7 @@ class ModstorePlatformAdapter:
             "model": "mimo-v2.5-pro",
             ...
         }
-        
+
         OpenAI标准格式:
         {
             "choices": [{
@@ -678,7 +670,11 @@ class ModstorePlatformAdapter:
             normalized_choices: List[Dict[str, Any]] = []
             for idx, choice in enumerate(raw_choices):
                 choice_dict = choice if isinstance(choice, dict) else {}
-                message = choice_dict.get("message") if isinstance(choice_dict.get("message"), dict) else {}
+                message = (
+                    choice_dict.get("message")
+                    if isinstance(choice_dict.get("message"), dict)
+                    else {}
+                )
                 normalized_message: Dict[str, Any] = {
                     "role": message.get("role") or "assistant",
                     "content": message.get("content") or "",
@@ -713,9 +709,9 @@ class ModstorePlatformAdapter:
         content = raw_response.get("content", "")
         usage = raw_response.get("usage", {})
         tool_calls = raw_response.get("tool_calls")
-        
+
         # 处理usage对象（可能是dataclass或dict）
-        if hasattr(usage, '__dict__'):
+        if hasattr(usage, "__dict__"):
             usage_dict = usage.__dict__
         else:
             usage_dict = dict(usage) if isinstance(usage, dict) else {}
@@ -729,7 +725,7 @@ class ModstorePlatformAdapter:
                         **({"tool_calls": tool_calls} if tool_calls else {}),
                     },
                     "index": 0,
-                    "finish_reason": "stop"
+                    "finish_reason": "stop",
                 }
             ],
             "usage": usage_dict,
@@ -743,7 +739,7 @@ class ModstorePlatformAdapter:
                 "charge_amount": raw_response.get("charge_amount"),
                 "conversation_id": raw_response.get("conversation_id"),
                 "request_id": raw_response.get("request_id"),
-            }
+            },
         }
 
         return normalized
@@ -751,22 +747,22 @@ class ModstorePlatformAdapter:
     async def get_available_providers(self) -> List[Dict[str, Any]]:
         """
         获取当前可用的供应商列表（通过平台API）
-        
+
         Returns:
             供应商信息列表
         """
         url = f"{self.platform_url}/api/llm/providers"
-        
+
         try:
             client = await self._get_client()
             response = await client.get(url)
-            
+
             if response.status_code == 200:
                 return response.json().get("providers", [])
             else:
                 logger.warning(f"[Modstore] 获取供应商列表失败: {response.status_code}")
                 return []
-                
+
         except Exception as e:
             logger.error(f"[Modstore] 查询供应商异常: {e}")
             return []
@@ -774,25 +770,25 @@ class ModstorePlatformAdapter:
     async def get_credential_status(self, provider: str = None) -> Dict[str, Any]:
         """
         获取指定供应商的密钥状态
-        
+
         Args:
             provider: 供应商名称
-            
+
         Returns:
             密钥状态信息
         """
         effective_provider = provider or self.default_provider
         url = f"{self.platform_url}/api/llm/credential-status/{effective_provider}"
-        
+
         try:
             client = await self._get_client()
             response = await client.get(url)
-            
+
             if response.status_code == 200:
                 return response.json()
             else:
                 return {"error": f"HTTP {response.status_code}"}
-                
+
         except Exception as e:
             return {"error": str(e)}
 
@@ -803,8 +799,8 @@ class ModstorePlatformAdapter:
 
     def __repr__(self) -> str:
         configured = "✅" if self.is_configured else "❌"
-        source = getattr(self, '_source', 'unknown')
-        token_len = len(self.auth_token or '')
+        source = getattr(self, "_source", "unknown")
+        token_len = len(self.auth_token or "")
         return (
             f"<ModstorePlatformAdapter {configured} "
             f"url={self.platform_url}, "
@@ -818,21 +814,21 @@ class ModstorePlatformAdapter:
 def create_modstore_adapter_from_env() -> Optional[ModstorePlatformAdapter]:
     """
     从环境变量创建修茈市场适配器
-    
+
     环境变量：
     - MODSTORE_PLATFORM_URL: 平台服务地址 (必须)
     - MODSTORE_AUTH_TOKEN: 认证Token (推荐)
     - MODSTORE_USER_ID: 用户ID (可选)
-    
+
     Returns:
         配置好的适配器实例，如果未配置则返回None
     """
     platform_url = os.environ.get("MODSTORE_PLATFORM_URL", "").strip()
-    
+
     if not platform_url:
         logger.debug("未检测到 MODSTORE_PLATFORM_URL，跳过平台模式")
         return None
-    
+
     return ModstorePlatformAdapter()
 
 

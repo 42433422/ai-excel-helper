@@ -1,4 +1,5 @@
 """域注册表单元测试（domain_registry）"""
+
 from __future__ import annotations
 
 from app.fastapi_routes.domain_registry import (

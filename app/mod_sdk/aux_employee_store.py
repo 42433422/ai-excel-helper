@@ -88,15 +88,15 @@ def aux_employee_pack_catalog_row(*, pack_id: str, installed: bool) -> dict[str,
         "total_downloads": 0,
         "avg_rating": 0.0,
         "rating_count": 0,
-        "dependencies": manifest.get("dependencies") if isinstance(manifest.get("dependencies"), dict) else {},
+        "dependencies": (
+            manifest.get("dependencies") if isinstance(manifest.get("dependencies"), dict) else {}
+        ),
         "catalog_base_url": "",
         "commerce": {"price_label": "免费", "collection": STORE_COLLECTION_WORKFLOW_EMPLOYEE},
     }
 
 
-def inject_aux_employee_pack_rows(
-    available: list[dict[str, Any]], installed_ids: set[str]
-) -> None:
+def inject_aux_employee_pack_rows(available: list[dict[str, Any]], installed_ids: set[str]) -> None:
     index_by_id = {
         str(r.get("id") or r.get("pkg_id") or "").strip(): i
         for i, r in enumerate(available)
@@ -105,9 +105,7 @@ def inject_aux_employee_pack_rows(
     for pack_id in AUX_EMPLOYEE_PACK_MOD_IDS:
         if not read_aux_employee_pack_manifest(pack_id):
             continue
-        row = aux_employee_pack_catalog_row(
-            pack_id=pack_id, installed=pack_id in installed_ids
-        )
+        row = aux_employee_pack_catalog_row(pack_id=pack_id, installed=pack_id in installed_ids)
         if pack_id in index_by_id:
             i = index_by_id[pack_id]
             prev = available[i] if isinstance(available[i], dict) else {}
@@ -116,7 +114,9 @@ def inject_aux_employee_pack_rows(
         available.append(row)
 
 
-def install_aux_employee_pack_from_repo_seed(pack_id: str, *, activate: bool = True) -> tuple[bool, str]:
+def install_aux_employee_pack_from_repo_seed(
+    pack_id: str, *, activate: bool = True
+) -> tuple[bool, str]:
     pid = str(pack_id or "").strip()
     if not is_aux_employee_pack_mod_id(pid):
         return False, "非触点员工包"

@@ -20,7 +20,9 @@ MODS = REPO / "mods"
 
 
 def test_lan_bridge_manifest_has_no_sidebar_menu() -> None:
-    raw = json.loads((MODS / "xcagi-lan-license-bridge" / "manifest.json").read_text(encoding="utf-8"))
+    raw = json.loads(
+        (MODS / "xcagi-lan-license-bridge" / "manifest.json").read_text(encoding="utf-8")
+    )
     assert raw.get("frontend", {}).get("menu") == []
 
 

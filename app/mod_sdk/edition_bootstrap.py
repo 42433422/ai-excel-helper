@@ -6,7 +6,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.mod_sdk.edition_policy import Edition, edition_mod_ids, resolve_edition, seed_edition_mods_from_bundle
+from app.mod_sdk.edition_policy import (
+    Edition,
+    edition_mod_ids,
+    resolve_edition,
+    seed_edition_mods_from_bundle,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +20,10 @@ async def bootstrap_edition_pack(edition: Edition | None = None) -> dict[str, An
     """先通过宿主基础员工包 materialize bridge，再对行业 Mod 尝试 Catalog。"""
     ed = edition or resolve_edition()
     mod_ids = list(edition_mod_ids(ed))
-    from app.mod_sdk.host_foundation import is_host_bridge_mod_id, materialize_host_foundation_bridges
+    from app.mod_sdk.host_foundation import (
+        is_host_bridge_mod_id,
+        materialize_host_foundation_bridges,
+    )
 
     materialized = materialize_host_foundation_bridges(ed)
     seeded = materialized.get("seed") or seed_edition_mods_from_bundle(ed)
@@ -33,7 +41,11 @@ async def bootstrap_edition_pack(edition: Edition | None = None) -> dict[str, An
         if is_host_bridge_mod_id(mod_id):
             if mod_id in installed_ids:
                 catalog_results.append(
-                    {"mod_id": mod_id, "status": "installed", "message": "host bridge via foundation pack"}
+                    {
+                        "mod_id": mod_id,
+                        "status": "installed",
+                        "message": "host bridge via foundation pack",
+                    }
                 )
             else:
                 catalog_results.append(

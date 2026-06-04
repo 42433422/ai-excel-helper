@@ -15,39 +15,37 @@ class TestAIChatApplicationService:
 
     def test_process_chat_empty_message(self):
         """测试空消息处理"""
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
-            result = service.process_chat(
-                user_id="test_user",
-                message=""
-            )
+            result = service.process_chat(user_id="test_user", message="")
 
             assert result["success"] is False
             assert "不能为空" in result["message"]
 
     def test_process_chat_normal_message(self):
         """测试正常消息处理"""
+
         async def mock_chat(*args, **kwargs):
             return {
                 "success": True,
                 "text": "你好，有什么可以帮助你的？",
                 "action": "followup",
-                "data": {}
+                "data": {},
             }
 
         mock_ai_service = Mock()
         mock_ai_service.chat = mock_chat
 
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service', return_value=mock_ai_service):
+        with patch(
+            "app.application.ai_chat_app_service.get_ai_conversation_service",
+            return_value=mock_ai_service,
+        ):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
-            result = service.process_chat(
-                user_id="test_user",
-                message="你好"
-            )
+            result = service.process_chat(user_id="test_user", message="你好")
 
             assert result["success"] is True
             assert result["response"] == "你好，有什么可以帮助你的？"
@@ -58,7 +56,10 @@ class TestAIChatApplicationService:
         mock_ai_service = Mock()
         mock_ai_service.set_pending_confirmation = Mock()
 
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service', return_value=mock_ai_service):
+        with patch(
+            "app.application.ai_chat_app_service.get_ai_conversation_service",
+            return_value=mock_ai_service,
+        ):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
@@ -67,7 +68,7 @@ class TestAIChatApplicationService:
             file_context = {
                 "saved_name": "test_file.xlsx",
                 "unit_name_guess": "测试公司",
-                "suggested_use": "unit_products_db"
+                "suggested_use": "unit_products_db",
             }
 
             service._handle_confirmation_flow("test_user", "是", file_context)
@@ -78,7 +79,10 @@ class TestAIChatApplicationService:
         """测试确认流程 - 否定回复"""
         mock_ai_service = Mock()
 
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service', return_value=mock_ai_service):
+        with patch(
+            "app.application.ai_chat_app_service.get_ai_conversation_service",
+            return_value=mock_ai_service,
+        ):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
@@ -87,7 +91,7 @@ class TestAIChatApplicationService:
             file_context = {
                 "saved_name": "test_file.xlsx",
                 "unit_name_guess": "测试公司",
-                "suggested_use": "unit_products_db"
+                "suggested_use": "unit_products_db",
             }
 
             service._handle_confirmation_flow("test_user", "否", file_context)
@@ -96,16 +100,12 @@ class TestAIChatApplicationService:
 
     def test_build_response_followup(self):
         """测试构建 followup 响应"""
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
 
-            ai_result = {
-                "text": "请提供更多信息",
-                "action": "followup",
-                "data": {"key": "value"}
-            }
+            ai_result = {"text": "请提供更多信息", "action": "followup", "data": {"key": "value"}}
 
             result = service._build_response(ai_result, None, "")
 
@@ -114,7 +114,7 @@ class TestAIChatApplicationService:
 
     def test_build_response_auto_action(self):
         """测试构建 auto_action 响应"""
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
@@ -122,7 +122,7 @@ class TestAIChatApplicationService:
             ai_result = {
                 "text": "正在执行...",
                 "action": "auto_action",
-                "data": {"type": "print", "doc_id": 123}
+                "data": {"type": "print", "doc_id": 123},
             }
 
             result = service._build_response(ai_result, None, "")
@@ -135,14 +135,13 @@ class TestAIChatApplicationService:
         mock_customer_app_service = Mock()
         mock_customer_app_service.get_all.return_value = {
             "success": True,
-            "data": [
-                {"unit_name": "公司A"},
-                {"unit_name": "公司B"}
-            ]
+            "data": [{"unit_name": "公司A"}, {"unit_name": "公司B"}],
         }
 
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
-            with patch('app.bootstrap.get_customer_app_service', return_value=mock_customer_app_service):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
+            with patch(
+                "app.bootstrap.get_customer_app_service", return_value=mock_customer_app_service
+            ):
                 from app.application.ai_chat_app_service import AIChatApplicationService
 
                 service = AIChatApplicationService()
@@ -155,8 +154,8 @@ class TestAIChatApplicationService:
 
     def test_execute_customers_query_failure(self):
         """测试执行客户查询失败"""
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
-            with patch('app.bootstrap.get_customer_app_service', side_effect=Exception("查询失败")):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
+            with patch("app.bootstrap.get_customer_app_service", side_effect=Exception("查询失败")):
                 from app.application.ai_chat_app_service import AIChatApplicationService
 
                 service = AIChatApplicationService()
@@ -168,14 +167,14 @@ class TestAIChatApplicationService:
 
     def test_build_order_text_from_products(self):
         """测试根据产品列表构建订单文本"""
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
 
             products = [
                 {"model": "5003", "quantity_tins": 10, "spec": 25},
-                {"model": "5004", "quantity_tins": 5, "spec": 25}
+                {"model": "5004", "quantity_tins": 5, "spec": 25},
             ]
 
             result = service._build_order_text_from_products("测试公司", products)
@@ -186,7 +185,7 @@ class TestAIChatApplicationService:
 
     def test_build_order_text_empty_products(self):
         """测试空产品列表"""
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
@@ -197,7 +196,7 @@ class TestAIChatApplicationService:
 
     def test_build_order_text_empty_unit(self):
         """测试空单位名称"""
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
@@ -213,12 +212,15 @@ class TestAIChatApplicationService:
         mock_products_service = Mock()
         mock_products_service.get_products.return_value = {
             "success": True,
-            "data": [{"name": "产品A"}]
+            "data": [{"name": "产品A"}],
         }
 
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
-            with patch('app.bootstrap.get_products_service', return_value=mock_products_service):
-                with patch('app.infrastructure.lookups.purchase_unit_resolver.resolve_purchase_unit', return_value=None):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
+            with patch("app.bootstrap.get_products_service", return_value=mock_products_service):
+                with patch(
+                    "app.infrastructure.lookups.purchase_unit_resolver.resolve_purchase_unit",
+                    return_value=None,
+                ):
                     from app.application.ai_chat_app_service import AIChatApplicationService
 
                     service = AIChatApplicationService()
@@ -237,7 +239,7 @@ class TestAIChatApplicationService:
 
     def test_handle_confirmation_flow_no_context(self):
         """测试无文件上下文时不处理确认"""
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
@@ -249,7 +251,7 @@ class TestAIChatApplicationService:
 
     def test_build_response_with_tool_call_no_tool_key(self):
         """测试工具调用但无 tool_key"""
-        with patch('app.application.ai_chat_app_service.get_ai_conversation_service'):
+        with patch("app.application.ai_chat_app_service.get_ai_conversation_service"):
             from app.application.ai_chat_app_service import AIChatApplicationService
 
             service = AIChatApplicationService()
@@ -257,7 +259,7 @@ class TestAIChatApplicationService:
             ai_result = {
                 "text": "正在处理",
                 "action": "tool_call",
-                "data": {"params": {}, "slots": {}}
+                "data": {"params": {}, "slots": {}},
             }
 
             result = service._build_response(ai_result, None, "")

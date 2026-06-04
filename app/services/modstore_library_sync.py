@@ -83,7 +83,9 @@ async def sync_modstore_library_to_local(
     errors: list[str] = []
 
     for mid in id_list:
-        tmp = tempfile.NamedTemporaryFile(prefix="xcagi-modstore-sync-", suffix=".zip", delete=False)
+        tmp = tempfile.NamedTemporaryFile(
+            prefix="xcagi-modstore-sync-", suffix=".zip", delete=False
+        )
         tmp_path = tmp.name
         tmp.close()
         normalized_path = tmp_path

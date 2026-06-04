@@ -160,12 +160,16 @@ class ApprovalRequest(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     request_no: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
 
-    flow_id: Mapped[int] = mapped_column(Integer, ForeignKey("approval_flows.id"), nullable=False, index=True)
+    flow_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("approval_flows.id"), nullable=False, index=True
+    )
     business_type: Mapped[str] = mapped_column(String(64), nullable=False)
     business_id: Mapped[Optional[int]] = mapped_column(Integer)
     business_data: Mapped[Optional[str]] = mapped_column(Text)
 
-    applicant_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    applicant_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
     applicant_name: Mapped[Optional[str]] = mapped_column(String(64))
     applicant_department: Mapped[Optional[str]] = mapped_column(String(64))
 
@@ -176,7 +180,9 @@ class ApprovalRequest(Base):
     )
     current_node_order: Mapped[int] = mapped_column(Integer, default=1)
 
-    status: Mapped[str] = mapped_column(String(32), default=ApprovalStatus.PENDING.value, index=True)
+    status: Mapped[str] = mapped_column(
+        String(32), default=ApprovalStatus.PENDING.value, index=True
+    )
     priority: Mapped[str] = mapped_column(String(16), default="normal")
 
     submitted_at: Mapped[Optional[datetime]] = mapped_column(
@@ -248,11 +254,15 @@ class ApprovalRecord(Base):
     request_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("approval_requests.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    node_id: Mapped[int] = mapped_column(Integer, ForeignKey("approval_flow_nodes.id"), nullable=False)
+    node_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("approval_flow_nodes.id"), nullable=False
+    )
     node_name: Mapped[Optional[str]] = mapped_column(String(128))
     node_order: Mapped[Optional[int]] = mapped_column(Integer)
 
-    approver_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    approver_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
     approver_name: Mapped[Optional[str]] = mapped_column(String(64))
 
     action: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -301,8 +311,12 @@ class ApprovalDelegation(Base):
     __tablename__ = "approval_delegations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    delegator_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    delegate_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    delegator_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    delegate_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
 
     flow_ids: Mapped[Optional[str]] = mapped_column(Text)
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

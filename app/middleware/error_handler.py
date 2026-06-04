@@ -24,7 +24,10 @@ def register_exception_handlers(app: FastAPI) -> None:
         request_id = getattr(request.state, "request_id", "")
         logger.warning(
             "AppError %s: %s (request_id=%s, path=%s)",
-            exc.code.value, exc.message, request_id, request.url.path,
+            exc.code.value,
+            exc.message,
+            request_id,
+            request.url.path,
         )
         return JSONResponse(
             status_code=exc.status_code,

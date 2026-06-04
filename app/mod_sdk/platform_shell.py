@@ -101,5 +101,6 @@ def build_platform_shell_payload(installed_mod_ids: list[str] | None = None) -> 
             "workflow_delivery": prof.get("workflow_delivery"),
             "schema_version": prof.get("schema_version"),
         },
-        "profile_validation_errors": build_host_profile_api_payload().get("validation_errors") or [],
+        "profile_validation_errors": build_host_profile_api_payload().get("validation_errors")
+        or [],
     }

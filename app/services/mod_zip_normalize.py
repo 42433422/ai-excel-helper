@@ -20,7 +20,9 @@ def normalize_package_zip_path(src: str) -> str:
         names = [n for n in zf.namelist() if n and not n.endswith("/")]
         if "manifest.json" in names:
             return src
-        top_levels = {n.split("/", 1)[0] for n in names if "/" in n and n.split("/", 1)[0] != "META-INF"}
+        top_levels = {
+            n.split("/", 1)[0] for n in names if "/" in n and n.split("/", 1)[0] != "META-INF"
+        }
         if len(top_levels) != 1:
             return src
         root_name = next(iter(top_levels))

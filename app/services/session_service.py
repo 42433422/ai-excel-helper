@@ -83,9 +83,7 @@ class SessionService(NeuroEventPublisherMixin):
 
     def cleanup_expired_sessions(self) -> int:
         with get_db() as db:
-            count = (
-                db.query(UserSession).filter(UserSession.expires_at < utc_now_naive()).delete()
-            )
+            count = db.query(UserSession).filter(UserSession.expires_at < utc_now_naive()).delete()
             db.commit()
             return count
 

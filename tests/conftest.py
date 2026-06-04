@@ -156,9 +156,11 @@ def mock_file_system():
         "open": MagicMock(),
     }
 
-    with patch("os.path.exists", mocks["os_path_exists"]), patch(
-        "os.path.join", mocks["os_path_join"]
-    ), patch("builtins.open", mocks["open"]):
+    with (
+        patch("os.path.exists", mocks["os_path_exists"]),
+        patch("os.path.join", mocks["os_path_join"]),
+        patch("builtins.open", mocks["open"]),
+    ):
         yield mocks
 
     try:

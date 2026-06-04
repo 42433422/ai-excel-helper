@@ -393,7 +393,7 @@ def _list_excel_sheet_names(file_path: str):
         finally:
             wb.close()
     except Exception:
-        logger.debug('suppressed exception', exc_info=True)
+        logger.debug("suppressed exception", exc_info=True)
 
     try:
         from openpyxl import load_workbook
@@ -406,7 +406,7 @@ def _list_excel_sheet_names(file_path: str):
         finally:
             wb.close()
     except Exception:
-        logger.debug('suppressed exception', exc_info=True)
+        logger.debug("suppressed exception", exc_info=True)
 
     try:
         import pandas as pd

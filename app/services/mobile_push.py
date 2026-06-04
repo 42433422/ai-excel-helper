@@ -20,7 +20,10 @@ def _jpush_enabled() -> bool:
 
 
 def _fcm_enabled() -> bool:
-    return bool(os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON") or os.environ.get("FIREBASE_SERVICE_ACCOUNT"))
+    return bool(
+        os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+        or os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+    )
 
 
 def send_jpush(
@@ -150,7 +153,9 @@ def send_to_user_devices(
     }
 
 
-def notify_user(user_id: int, title: str, body: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, bool]:
+def notify_user(
+    user_id: int, title: str, body: str, data: Optional[Dict[str, Any]] = None
+) -> Dict[str, bool]:
     from app.db.models.mobile_device import MobileDeviceToken
     from app.db.session import get_db
 

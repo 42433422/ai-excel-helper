@@ -177,8 +177,12 @@ class TestNeuroBusPublishSubscribe:
         domain_a = []
         domain_b = []
 
-        bus.subscribe_to_domain("domain_a", "test.domain_evt", lambda e: domain_a.append(e), is_async=False)
-        bus.subscribe_to_domain("domain_b", "test.domain_evt", lambda e: domain_b.append(e), is_async=False)
+        bus.subscribe_to_domain(
+            "domain_a", "test.domain_evt", lambda e: domain_a.append(e), is_async=False
+        )
+        bus.subscribe_to_domain(
+            "domain_b", "test.domain_evt", lambda e: domain_b.append(e), is_async=False
+        )
 
         event = _make_event("test.domain_evt", domain="domain_a")
 

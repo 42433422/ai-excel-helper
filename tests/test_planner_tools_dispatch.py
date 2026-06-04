@@ -56,9 +56,7 @@ def test_execute_planner_tool_from_body_mod_native_path(monkeypatch):
     from app.mod_sdk.planner_tools import execute_planner_tool_from_body
 
     monkeypatch.setenv("XCAGI_PLANNER_TOOLS_VIA_MOD", "1")
-    out = execute_planner_tool_from_body(
-        {"tool_name": "excel_chart_recommend", "arguments": {}}
-    )
+    out = execute_planner_tool_from_body({"tool_name": "excel_chart_recommend", "arguments": {}})
     assert out.get("ok") is True
     assert out.get("execution_path") == "mod_native"
     assert out.get("mod_id") == "xcagi-planner-excel-tools"

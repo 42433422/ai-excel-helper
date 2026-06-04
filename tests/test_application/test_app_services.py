@@ -28,11 +28,7 @@ class TestProductApplicationService:
     def test_get_products(self):
         """测试获取产品列表"""
         mock_products_service = Mock()
-        mock_products_service.get_products.return_value = {
-            "success": True,
-            "data": [],
-            "total": 0
-        }
+        mock_products_service.get_products.return_value = {"success": True, "data": [], "total": 0}
 
         service = ProductApplicationService(products_service=mock_products_service)
         result = service.get_products()
@@ -67,11 +63,7 @@ class TestMaterialApplicationService:
     def test_get_materials(self):
         """测试获取原材料列表"""
         mock_repository = Mock()
-        mock_repository.find_all.return_value = {
-            "success": True,
-            "data": [],
-            "total": 0
-        }
+        mock_repository.find_all.return_value = {"success": True, "data": [], "total": 0}
 
         service = MaterialApplicationService(repository=mock_repository)
         result = service.get_materials()
@@ -144,9 +136,7 @@ class TestMaterialApplicationService:
     def test_get_low_stock_materials(self):
         """测试获取低库存原材料"""
         mock_repository = Mock()
-        mock_repository.find_low_stock.return_value = [
-            {"name": "原材料A", "quantity": 5}
-        ]
+        mock_repository.find_low_stock.return_value = [{"name": "原材料A", "quantity": 5}]
 
         service = MaterialApplicationService(repository=mock_repository)
         result = service.get_low_stock_materials(threshold=10)
@@ -161,11 +151,7 @@ class TestExtractLogApplicationService:
     def test_get_extract_logs(self):
         """测试获取提取日志列表"""
         mock_store = Mock()
-        mock_store.find_all.return_value = {
-            "success": True,
-            "data": [],
-            "total": 0
-        }
+        mock_store.find_all.return_value = {"success": True, "data": [], "total": 0}
 
         service = ExtractLogApplicationService(store=mock_store)
         result = service.get_extract_logs()
@@ -187,10 +173,7 @@ class TestExtractLogApplicationService:
     def test_create_extract_log(self):
         """测试创建提取日志"""
         mock_store = Mock()
-        mock_store.create.return_value = {
-            "success": True,
-            "log_id": 1
-        }
+        mock_store.create.return_value = {"success": True, "log_id": 1}
 
         service = ExtractLogApplicationService(store=mock_store)
         result = service.create_extract_log({"file_name": "test.xlsx"})
@@ -211,10 +194,7 @@ class TestExtractLogApplicationService:
     def test_clear_old_logs(self):
         """测试清理旧日志"""
         mock_store = Mock()
-        mock_store.clear_old.return_value = {
-            "success": True,
-            "deleted_count": 5
-        }
+        mock_store.clear_old.return_value = {"success": True, "deleted_count": 5}
 
         service = ExtractLogApplicationService(store=mock_store)
         result = service.clear_old_logs(days=30)
@@ -228,8 +208,8 @@ class TestCustomerApplicationService:
 
     def test_get_all_customers(self):
         """测试获取所有客户"""
-        with patch('app.application.customer_app_service._get_customers_engine'):
-            with patch('app.application.customer_app_service._CustomersSessionLocal'):
+        with patch("app.application.customer_app_service._get_customers_engine"):
+            with patch("app.application.customer_app_service._CustomersSessionLocal"):
                 service = CustomerApplicationService()
                 session_mock = MagicMock()
                 query_mock = MagicMock()
@@ -239,7 +219,7 @@ class TestCustomerApplicationService:
                 query_mock.limit.return_value = query_mock
                 query_mock.all.return_value = []
 
-                with patch.object(service, '_get_session', return_value=session_mock):
+                with patch.object(service, "_get_session", return_value=session_mock):
                     session_mock.query.return_value = query_mock
                     result = service.get_all()
 
@@ -279,10 +259,7 @@ class TestProductImportValidator:
     def test_validate_valid_products(self):
         """测试验证有效产品"""
         validator = ProductImportValidator()
-        products = [
-            {"name": "产品A", "price": 100},
-            {"name": "产品B", "price": 200}
-        ]
+        products = [{"name": "产品A", "price": 100}, {"name": "产品B", "price": 200}]
 
         result = validator.validate(products)
         assert result.is_valid is True
@@ -318,10 +295,7 @@ class TestShipmentRulesEngine:
     def test_validate_valid_shipment(self):
         """测试验证有效发货单"""
         engine = ShipmentRulesEngine()
-        data = {
-            "unit_name": "测试单位",
-            "items": [{"name": "产品", "quantity": 10, "price": 100}]
-        }
+        data = {"unit_name": "测试单位", "items": [{"name": "产品", "quantity": 10, "price": 100}]}
 
         result = engine.validate(data)
         assert result.is_valid is True
@@ -329,10 +303,7 @@ class TestShipmentRulesEngine:
     def test_validate_empty_unit(self):
         """测试验证空单位"""
         engine = ShipmentRulesEngine()
-        data = {
-            "unit_name": "",
-            "items": [{"name": "产品", "quantity": 10}]
-        }
+        data = {"unit_name": "", "items": [{"name": "产品", "quantity": 10}]}
 
         result = engine.validate(data)
         assert result.is_valid is False
@@ -340,10 +311,7 @@ class TestShipmentRulesEngine:
     def test_validate_empty_items(self):
         """测试验证空项目"""
         engine = ShipmentRulesEngine()
-        data = {
-            "unit_name": "测试单位",
-            "items": []
-        }
+        data = {"unit_name": "测试单位", "items": []}
 
         result = engine.validate(data)
         assert result.is_valid is False
@@ -351,12 +319,7 @@ class TestShipmentRulesEngine:
     def test_calculate_total(self):
         """测试计算总金额"""
         engine = ShipmentRulesEngine()
-        data = {
-            "items": [
-                {"quantity": 2, "price": 100},
-                {"quantity": 3, "price": 50}
-            ]
-        }
+        data = {"items": [{"quantity": 2, "price": 100}, {"quantity": 3, "price": 50}]}
 
         total = engine.calculate_total(data)
         assert total == 350

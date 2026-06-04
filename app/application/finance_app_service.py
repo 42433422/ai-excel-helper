@@ -68,19 +68,25 @@ class FinanceAppService:
             total_payable = _to_float(ap_q.scalar()) or 0.0
 
             # 手工凭证汇总
-            manual_receipt = _to_float(
-                db.query(func.sum(FinancialTransaction.amount))
-                .filter(FinancialTransaction.transaction_type == "receipt")
-                .filter(FinancialTransaction.status == "completed")
-                .scalar()
-            ) or 0.0
+            manual_receipt = (
+                _to_float(
+                    db.query(func.sum(FinancialTransaction.amount))
+                    .filter(FinancialTransaction.transaction_type == "receipt")
+                    .filter(FinancialTransaction.status == "completed")
+                    .scalar()
+                )
+                or 0.0
+            )
 
-            manual_payment = _to_float(
-                db.query(func.sum(FinancialTransaction.amount))
-                .filter(FinancialTransaction.transaction_type == "payment")
-                .filter(FinancialTransaction.status == "completed")
-                .scalar()
-            ) or 0.0
+            manual_payment = (
+                _to_float(
+                    db.query(func.sum(FinancialTransaction.amount))
+                    .filter(FinancialTransaction.transaction_type == "payment")
+                    .filter(FinancialTransaction.status == "completed")
+                    .scalar()
+                )
+                or 0.0
+            )
 
             gross_profit = total_revenue - total_cost
             gross_margin = (gross_profit / total_revenue * 100) if total_revenue else 0.0
@@ -151,9 +157,11 @@ class FinanceAppService:
     ) -> dict[str, Any]:
         """应付账款列表（来自采购订单 + FinancialTransaction payable 类型）。"""
         with get_db() as db:
-            q = db.query(PurchaseOrder).join(
-                Supplier, PurchaseOrder.supplier_id == Supplier.id, isouter=True
-            ).filter(PurchaseOrder.status.notin_(["cancelled"]))
+            q = (
+                db.query(PurchaseOrder)
+                .join(Supplier, PurchaseOrder.supplier_id == Supplier.id, isouter=True)
+                .filter(PurchaseOrder.status.notin_(["cancelled"]))
+            )
 
             if start_date:
                 q = q.filter(PurchaseOrder.order_date >= start_date)
@@ -172,17 +180,19 @@ class FinanceAppService:
 
             data = []
             for o in orders:
-                data.append({
-                    "id": o.id,
-                    "order_no": o.order_no,
-                    "supplier_name": o.supplier.name if o.supplier else None,
-                    "total_amount": _to_float(o.total_amount),
-                    "paid_amount": _to_float(o.paid_amount),
-                    "outstanding": _to_float(o.total_amount - (o.paid_amount or 0)),
-                    "status": o.status,
-                    "order_date": o.order_date.isoformat() if o.order_date else None,
-                    "delivery_date": o.delivery_date.isoformat() if o.delivery_date else None,
-                })
+                data.append(
+                    {
+                        "id": o.id,
+                        "order_no": o.order_no,
+                        "supplier_name": o.supplier.name if o.supplier else None,
+                        "total_amount": _to_float(o.total_amount),
+                        "paid_amount": _to_float(o.paid_amount),
+                        "outstanding": _to_float(o.total_amount - (o.paid_amount or 0)),
+                        "status": o.status,
+                        "order_date": o.order_date.isoformat() if o.order_date else None,
+                        "delivery_date": o.delivery_date.isoformat() if o.delivery_date else None,
+                    }
+                )
 
             return {
                 "success": True,
@@ -265,14 +275,23 @@ class FinanceAppService:
     def update_transaction(self, txn_id: int, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
-                txn = db.query(FinancialTransaction).filter(FinancialTransaction.id == txn_id).first()
+                txn = (
+                    db.query(FinancialTransaction).filter(FinancialTransaction.id == txn_id).first()
+                )
                 if not txn:
                     return {"success": False, "message": "凭证不存在"}
 
                 updatable = {
-                    "amount", "currency", "description", "status",
-                    "due_date", "transaction_date", "counterparty_name",
-                    "counterparty_id", "reference_type", "reference_id",
+                    "amount",
+                    "currency",
+                    "description",
+                    "status",
+                    "due_date",
+                    "transaction_date",
+                    "counterparty_name",
+                    "counterparty_id",
+                    "reference_type",
+                    "reference_id",
                 }
                 for k, v in data.items():
                     if k in updatable and v is not None:
@@ -293,7 +312,9 @@ class FinanceAppService:
     def delete_transaction(self, txn_id: int) -> dict[str, Any]:
         with get_db() as db:
             try:
-                txn = db.query(FinancialTransaction).filter(FinancialTransaction.id == txn_id).first()
+                txn = (
+                    db.query(FinancialTransaction).filter(FinancialTransaction.id == txn_id).first()
+                )
                 if not txn:
                     return {"success": False, "message": "凭证不存在"}
                 db.delete(txn)
@@ -319,30 +340,38 @@ class FinanceAppService:
                 last_day = calendar.monthrange(target_year, m)[1]
                 month_end = datetime(target_year, m, last_day, 23, 59, 59)
 
-                revenue = _to_float(
-                    db.query(func.sum(ShipmentRecord.amount))
-                    .filter(
-                        ShipmentRecord.created_at >= month_start,
-                        ShipmentRecord.created_at <= month_end,
+                revenue = (
+                    _to_float(
+                        db.query(func.sum(ShipmentRecord.amount))
+                        .filter(
+                            ShipmentRecord.created_at >= month_start,
+                            ShipmentRecord.created_at <= month_end,
+                        )
+                        .scalar()
                     )
-                    .scalar()
-                ) or 0.0
+                    or 0.0
+                )
 
-                cost = _to_float(
-                    db.query(func.sum(PurchaseOrder.paid_amount))
-                    .filter(
-                        PurchaseOrder.order_date >= month_start,
-                        PurchaseOrder.order_date <= month_end,
+                cost = (
+                    _to_float(
+                        db.query(func.sum(PurchaseOrder.paid_amount))
+                        .filter(
+                            PurchaseOrder.order_date >= month_start,
+                            PurchaseOrder.order_date <= month_end,
+                        )
+                        .scalar()
                     )
-                    .scalar()
-                ) or 0.0
+                    or 0.0
+                )
 
-                months.append({
-                    "month": f"{target_year}-{m:02d}",
-                    "revenue": revenue,
-                    "cost": cost,
-                    "profit": round(revenue - cost, 2),
-                })
+                months.append(
+                    {
+                        "month": f"{target_year}-{m:02d}",
+                        "revenue": revenue,
+                        "cost": cost,
+                        "profit": round(revenue - cost, 2),
+                    }
+                )
 
             return {"success": True, "data": months, "year": target_year}
 
