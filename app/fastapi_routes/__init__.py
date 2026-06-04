@@ -341,9 +341,7 @@ def _register_essential_compat_routes(app: FastAPI) -> None:
         logger.warning("essential system routes skipped: %s", e)
 
     try:
-        from app.fastapi_routes.domains.product.compat_routes import (
-            router as product_compat_router,
-        )
+        from app.fastapi_routes.domains.product.compat_routes import router as product_compat_router
 
         app.include_router(product_compat_router, prefix="/api")
         logger.info("Registered product compat (essential, /api/products/*)")
