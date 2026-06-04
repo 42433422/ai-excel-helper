@@ -1,1 +1,1 @@
-"""Isolated conftest for release contract tests (see release-android.yml).""
+# Isolated conftest for release contract tests (see release-android.yml).
