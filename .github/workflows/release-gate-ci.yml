@@ -1,4 +1,4 @@
-Enter file contents herename: Release gate CI
+name: Release gate CI
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
           cache: pip
       - name: Install test deps
         run: python -m pip install -U pip pytest pytest-mock
-      - name: Release contract tests
+      - name: Release contract tests (isolated conftest)
         run: python -m pytest tests/release/ --confcutdir=tests/release -q --tb=short
       - name: Release gate manifest
         run: python -m pytest tests/release_gate/ -q --tb=short
