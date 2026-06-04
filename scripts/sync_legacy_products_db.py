@@ -61,10 +61,7 @@ def _copy_table(
     if not rows:
         return 0
     cols = [d[0] for d in src.execute(f'SELECT * FROM "{table}" LIMIT 1').description]
-    dst_cols = {
-        r[1]
-        for r in dst.execute(f'PRAGMA table_info("{table}")').fetchall()
-    }
+    dst_cols = {r[1] for r in dst.execute(f'PRAGMA table_info("{table}")').fetchall()}
     use_cols = [c for c in cols if c in dst_cols]
     if not use_cols:
         return 0
@@ -72,10 +69,7 @@ def _copy_table(
     col_sql = ", ".join(f'"{c}"' for c in use_cols)
     verb = "INSERT OR REPLACE" if replace else "INSERT OR IGNORE"
     sql = f'{verb} INTO "{table}" ({col_sql}) VALUES ({placeholders})'
-    payload = [
-        tuple(row[cols.index(c)] for c in use_cols)
-        for row in rows
-    ]
+    payload = [tuple(row[cols.index(c)] for c in use_cols) for row in rows]
     dst.executemany(sql, payload)
     return len(payload)
 
@@ -123,9 +117,7 @@ def sync_postgres(source: Path, database_url: str) -> dict[str, int]:
                 src_cols = rows[0].keys()
                 col_defs = inspect(conn).get_columns(table)
                 tgt_cols = {c["name"] for c in col_defs}
-                bool_cols = {
-                    c["name"] for c in col_defs if isinstance(c.get("type"), Boolean)
-                }
+                bool_cols = {c["name"] for c in col_defs if isinstance(c.get("type"), Boolean)}
                 cols = [c for c in src_cols if c in tgt_cols]
                 if not cols:
                     counts[table] = 0
@@ -133,9 +125,7 @@ def sync_postgres(source: Path, database_url: str) -> dict[str, int]:
                 conn.execute(text(f'TRUNCATE TABLE "{table}" RESTART IDENTITY CASCADE'))
                 placeholders = ", ".join(f":{c}" for c in cols)
                 col_sql = ", ".join(f'"{c}"' for c in cols)
-                stmt = text(
-                    f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders})'
-                )
+                stmt = text(f'INSERT INTO "{table}" ({col_sql}) VALUES ({placeholders})')
                 payload = []
                 for row in rows:
                     item = {}

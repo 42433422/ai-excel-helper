@@ -161,7 +161,9 @@ def import_attendance(input_file: Path, db_file: Path, month: str | None = None)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Import DingTalk attendance workbook into taiyangniao mod SQLite DB.")
+    parser = argparse.ArgumentParser(
+        description="Import DingTalk attendance workbook into taiyangniao mod SQLite DB."
+    )
     parser.add_argument(
         "--input",
         default="e:/FHD/424/钉钉导出来的考勤数据.xlsx",
@@ -195,4 +197,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

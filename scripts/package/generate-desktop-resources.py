@@ -150,7 +150,9 @@ def _app_icon_master_512() -> Image.Image:
     return _draw_app_icon_rgba(512)
 
 
-def _paste_logo_on_rgb(bg: Image.Image, logo_rgba: Image.Image, box: tuple[int, int, int, int]) -> None:
+def _paste_logo_on_rgb(
+    bg: Image.Image, logo_rgba: Image.Image, box: tuple[int, int, int, int]
+) -> None:
     """将 RGBA logo 等比放入 box (l,t,r,b) 并 composite 回 RGB 背景。"""
     l, t, r, b = box
     bw, bh = r - l, b - t
@@ -252,7 +254,9 @@ def write_icns_darwin() -> None:
     if sys.platform != "darwin":
         return
     if not shutil.which("iconutil") or not shutil.which("sips"):
-        print("[generate-desktop-resources] 跳过 icon.icns（未找到 iconutil/sips）", file=sys.stderr)
+        print(
+            "[generate-desktop-resources] 跳过 icon.icns（未找到 iconutil/sips）", file=sys.stderr
+        )
         return
     png_master = OUT / "icon.png"
     if not png_master.exists():

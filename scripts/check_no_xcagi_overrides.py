@@ -86,10 +86,18 @@ SKIP_DIR_NAMES = {
 
 # 这些扩展名才参与对比（其他多半是数据/二进制/媒体）
 CODE_EXTENSIONS = {
-    ".py", ".pyi",
-    ".yaml", ".yml",
-    ".json", ".toml", ".ini", ".cfg",
-    ".sh", ".ps1", ".bat", ".cmd",
+    ".py",
+    ".pyi",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".sh",
+    ".ps1",
+    ".bat",
+    ".cmd",
 }
 
 # 故意保留的差异：键 = XCAGI 下的相对路径，值 = 原因
@@ -190,14 +198,22 @@ def _format_report(drifts: list[Drift]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--repo-root", type=Path, default=None,
-                        help="FHD 仓库根；默认相对脚本位置自动解析")
-    parser.add_argument("--allow", action="append", default=[],
-                        metavar="REL_PATH",
-                        help="额外允许差异的相对路径（追加到内置白名单）")
-    parser.add_argument("--list-newer", choices=["XCAGI", "FHD", "TIE"], default=None,
-                        help="只列出指定方向的漂移")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--repo-root", type=Path, default=None, help="FHD 仓库根；默认相对脚本位置自动解析"
+    )
+    parser.add_argument(
+        "--allow",
+        action="append",
+        default=[],
+        metavar="REL_PATH",
+        help="额外允许差异的相对路径（追加到内置白名单）",
+    )
+    parser.add_argument(
+        "--list-newer", choices=["XCAGI", "FHD", "TIE"], default=None, help="只列出指定方向的漂移"
+    )
     args = parser.parse_args(argv)
 
     here = Path(__file__).resolve()

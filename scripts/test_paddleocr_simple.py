@@ -8,13 +8,13 @@ import json
 import glob
 
 # 读取图片
-files = glob.glob(r'e:\FHD\26-0300001A*.png')
+files = glob.glob(r"e:\FHD\26-0300001A*.png")
 image_path = files[0]
 print(f"读取图片：{image_path}")
 
 # 初始化 PaddleOCR
 print("初始化 PaddleOCR...")
-ocr = PaddleOCR(lang='ch', use_angle_cls=True)
+ocr = PaddleOCR(lang="ch", use_angle_cls=True)
 
 print("执行表格 OCR...")
 result = ocr.ocr(image_path, cls=True)
@@ -40,8 +40,8 @@ for i, line in enumerate(result):
             print(f"  [{j}]: {item}")
 
 # 保存结果
-output_path = r'e:\FHD\paddleocr_standard_result.json'
-with open(output_path, 'w', encoding='utf-8') as f:
+output_path = r"e:\FHD\paddleocr_standard_result.json"
+with open(output_path, "w", encoding="utf-8") as f:
     json.dump(result, f, ensure_ascii=False, indent=2)
 
 print(f"\n✓ 结果已保存到：{output_path}")

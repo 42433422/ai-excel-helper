@@ -62,7 +62,9 @@ def run_probe(url: str, workers: int, total: int, timeout: float) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Concurrent GET probe for XCAGI API")
-    p.add_argument("--base", default="http://127.0.0.1:8000", help="API origin without trailing path")
+    p.add_argument(
+        "--base", default="http://127.0.0.1:8000", help="API origin without trailing path"
+    )
     p.add_argument("--url", default="", help="Full URL (overrides --base and --path)")
     p.add_argument("--path", default="/api/health", help="Path when using --base")
     p.add_argument(

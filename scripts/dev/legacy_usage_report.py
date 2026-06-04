@@ -105,9 +105,13 @@ def render_text(report: dict) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Summarise app.legacy.* usage from logs/legacy_usage.log")
+    ap = argparse.ArgumentParser(
+        description="Summarise app.legacy.* usage from logs/legacy_usage.log"
+    )
     ap.add_argument("--log", type=Path, default=None, help="override log path")
-    ap.add_argument("--since", type=int, default=24, help="only include events within last N hours (0=all)")
+    ap.add_argument(
+        "--since", type=int, default=24, help="only include events within last N hours (0=all)"
+    )
     ap.add_argument("--json", action="store_true", help="emit JSON instead of human-readable text")
     args = ap.parse_args(argv)
 

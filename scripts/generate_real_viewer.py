@@ -10,13 +10,14 @@ import json
 
 # 使用 glob 找到实际文件
 import glob
-files = glob.glob(r'e:\FHD\26-0300001A*.png')
+
+files = glob.glob(r"e:\FHD\26-0300001A*.png")
 image_path = files[0]
 
 print(f"读取图片：{image_path}")
 
 # 读取图片
-with open(image_path, 'rb') as f:
+with open(image_path, "rb") as f:
     file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
 img_array = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
@@ -65,6 +66,7 @@ for x in range(gray.shape[1]):
     if max_continuous_length > gray.shape[0] * 0.5:
         vertical_lines.append(x)
 
+
 # 合并线条
 def merge_very_close_lines(lines, threshold=5):
     if not lines:
@@ -77,6 +79,7 @@ def merge_very_close_lines(lines, threshold=5):
             merged[-1] = (merged[-1] + line) // 2
     return merged
 
+
 def merge_close_lines(lines, threshold=50):
     if not lines:
         return []
@@ -85,6 +88,7 @@ def merge_close_lines(lines, threshold=50):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 horizontal_lines = sorted(list(set(horizontal_lines)))
 vertical_lines = sorted(list(set(vertical_lines)))
@@ -100,7 +104,7 @@ print(f"  水平线：{horizontal_lines}")
 print(f"  垂直线：{vertical_lines}")
 
 # 生成 HTML
-html_content = f'''<!DOCTYPE html>
+html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -226,19 +230,19 @@ html_content = f'''<!DOCTYPE html>
 
                 <h3 style="margin-top: 20px;">📏 水平线 Y 坐标</h3>
                 <ul class="lines-list">
-'''
+"""
 for i, y in enumerate(horizontal_lines):
-    html_content += f'                    <li>[{i}] Y = {y}</li>\n'
+    html_content += f"                    <li>[{i}] Y = {y}</li>\n"
 
-html_content += '''                </ul>
+html_content += """                </ul>
 
                 <h3>📐 垂直线 X 坐标</h3>
                 <ul class="lines-list">
-'''
+"""
 for i, x in enumerate(vertical_lines):
-    html_content += f'                    <li>[{i}] X = {x}</li>\n'
+    html_content += f"                    <li>[{i}] X = {x}</li>\n"
 
-html_content += f'''                </ul>
+html_content += f"""                </ul>
             </div>
         </div>
     </div>
@@ -288,11 +292,11 @@ html_content += f'''                </ul>
     </script>
 </body>
 </html>
-'''
+"""
 
 # 保存 HTML
-output_path = r'e:\FHD\real_label_viewer.html'
-with open(output_path, 'w', encoding='utf-8') as f:
+output_path = r"e:\FHD\real_label_viewer.html"
+with open(output_path, "w", encoding="utf-8") as f:
     f.write(html_content)
 
 print(f"\n✓ HTML 预览已生成：{output_path}")

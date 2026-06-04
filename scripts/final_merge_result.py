@@ -9,10 +9,10 @@ import json
 import glob
 
 # 读取图片
-files = glob.glob(r'e:\FHD\26-0300001A*.png')
+files = glob.glob(r"e:\FHD\26-0300001A*.png")
 image_path = files[0]
 
-with open(image_path, 'rb') as f:
+with open(image_path, "rb") as f:
     file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
 img_array = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
@@ -56,6 +56,7 @@ for x in range(gray.shape[1]):
     if max_continuous > gray.shape[0] * 0.5:
         vertical_lines.append(x)
 
+
 # 合并线条
 def merge_very_close(lines, threshold=5):
     if not lines:
@@ -68,6 +69,7 @@ def merge_very_close(lines, threshold=5):
             merged[-1] = (merged[-1] + line) // 2
     return merged
 
+
 def merge_lines(lines, threshold=50):
     if not lines:
         return []
@@ -76,6 +78,7 @@ def merge_lines(lines, threshold=50):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 horizontal_lines = sorted(list(set(horizontal_lines)))
 vertical_lines = sorted(list(set(vertical_lines)))
@@ -97,13 +100,13 @@ for i in range(rows):
         h = horizontal_lines[i + 1] - horizontal_lines[i]
 
         cell = {
-            'row': i,
-            'col': j,
-            'x': x,
-            'y': y,
-            'width': w,
-            'height': h,
-            'should_merge_right': False
+            "row": i,
+            "col": j,
+            "x": x,
+            "y": y,
+            "width": w,
+            "height": h,
+            "should_merge_right": False,
         }
 
         # 检测右侧边框
@@ -116,7 +119,7 @@ for i in range(rows):
                         border_black_count += 1
 
             if border_black_count < h * 0.5:
-                cell['should_merge_right'] = True
+                cell["should_merge_right"] = True
 
         cells.append(cell)
 
@@ -130,38 +133,42 @@ for i in range(rows):
         if cell_id in visited:
             continue
 
-        cell = next((c for c in cells if c['row'] == i and c['col'] == j), None)
+        cell = next((c for c in cells if c["row"] == i and c["col"] == j), None)
         if not cell:
             continue
 
         merge_count = 1
-        while cell['should_merge_right'] and j + merge_count < cols:
+        while cell["should_merge_right"] and j + merge_count < cols:
             visited.add(f"{i},{j + merge_count}")
             merge_count += 1
             if j + merge_count < cols:
-                next_cell = next((c for c in cells if c['row'] == i and c['col'] == j + merge_count), None)
+                next_cell = next(
+                    (c for c in cells if c["row"] == i and c["col"] == j + merge_count), None
+                )
                 if next_cell:
                     cell = next_cell
                 else:
                     break
 
-        merged_cells.append({
-            'row': i,
-            'start_col': j,
-            'end_col': j + merge_count - 1,
-            'merge_cols': merge_count,
-            'x': vertical_lines[j],
-            'y': horizontal_lines[i],
-            'width': vertical_lines[j + merge_count] - vertical_lines[j],
-            'height': horizontal_lines[i + 1] - horizontal_lines[i],
-            'original_cols': list(range(j, j + merge_count)),
-            'is_merged': merge_count > 1
-        })
+        merged_cells.append(
+            {
+                "row": i,
+                "start_col": j,
+                "end_col": j + merge_count - 1,
+                "merge_cols": merge_count,
+                "x": vertical_lines[j],
+                "y": horizontal_lines[i],
+                "width": vertical_lines[j + merge_count] - vertical_lines[j],
+                "height": horizontal_lines[i + 1] - horizontal_lines[i],
+                "original_cols": list(range(j, j + merge_count)),
+                "is_merged": merge_count > 1,
+            }
+        )
 
         visited.add(cell_id)
 
 # 生成 HTML 报告
-html_content = f'''<!DOCTYPE html>
+html_content = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -217,22 +224,27 @@ html_content = f'''<!DOCTYPE html>
             <div class="result-panel">
                 <div class="section">
                     <h3>📊 合并单元格详情</h3>
-'''
+"""
 
 for mc in merged_cells:
-    css_class = "cell merged" if mc['is_merged'] else "cell"
-    merge_info = f"合并了 {mc['merge_cols']} 列 (原始列: {mc['original_cols']})" if mc['is_merged'] else "独立单元格"
+    css_class = "cell merged" if mc["is_merged"] else "cell"
+    merge_info = (
+        f"合并了 {mc['merge_cols']} 列 (原始列: {mc['original_cols']})"
+        if mc["is_merged"]
+        else "独立单元格"
+    )
 
-    html_content += f'''                    <div class="{css_class}">
+    html_content += f"""                    <div class="{css_class}">
                         <div class="cell-header">#[{mc['row']},{mc['start_col']}] {merge_info}</div>
                         <div class="cell-detail">
                             位置: ({mc['x']}, {mc['y']}) |
                             尺寸: {mc['width']} × {mc['height']}
                         </div>
                     </div>
-'''
+"""
 
-html_content += '''                </div>
+html_content += (
+    """                </div>
             </div>
         </div>
 
@@ -252,9 +264,15 @@ html_content += '''                </div>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
-        const mergedCells = ''' + json.dumps(merged_cells, ensure_ascii=False) + ''';
-        const horizontalLines = ''' + json.dumps(horizontal_lines) + ''';
-        const verticalLines = ''' + json.dumps(vertical_lines) + ''';
+        const mergedCells = """
+    + json.dumps(merged_cells, ensure_ascii=False)
+    + """;
+        const horizontalLines = """
+    + json.dumps(horizontal_lines)
+    + """;
+        const verticalLines = """
+    + json.dumps(vertical_lines)
+    + """;
 
         function draw() {
             // 清空
@@ -323,10 +341,11 @@ html_content += '''                </div>
     </script>
 </body>
 </html>
-'''
+"""
+)
 
-output_path = r'e:\FHD\final_merged_result.html'
-with open(output_path, 'w', encoding='utf-8') as f:
+output_path = r"e:\FHD\final_merged_result.html"
+with open(output_path, "w", encoding="utf-8") as f:
     f.write(html_content)
 
 print(f"✓ 最终合并结果报告已生成：{output_path}")

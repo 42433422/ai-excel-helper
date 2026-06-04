@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 
 # 读取空白网格图片
-image_path = r'e:\FHD\blank_grid_template.png'
+image_path = r"e:\FHD\blank_grid_template.png"
 img = Image.open(image_path)
 width, height = img.size
 
@@ -29,7 +29,7 @@ for y in range(gray.shape[0]):
     continuous_start = None
     max_continuous_length = 0
     current_length = 0
-    
+
     for x in range(len(row)):
         if row[x] > 0:
             if continuous_start is None:
@@ -40,10 +40,10 @@ for y in range(gray.shape[0]):
                 max_continuous_length = current_length
             continuous_start = None
             current_length = 0
-    
+
     if current_length > max_continuous_length:
         max_continuous_length = current_length
-    
+
     if max_continuous_length > gray.shape[1] * 0.5:
         horizontal_lines.append(y)
 
@@ -54,7 +54,7 @@ for x in range(gray.shape[1]):
     continuous_start = None
     max_continuous_length = 0
     current_length = 0
-    
+
     for y in range(len(col)):
         if col[y] > 0:
             if continuous_start is None:
@@ -65,16 +65,17 @@ for x in range(gray.shape[1]):
                 max_continuous_length = current_length
             continuous_start = None
             current_length = 0
-    
+
     if current_length > max_continuous_length:
         max_continuous_length = current_length
-    
+
     if max_continuous_length > gray.shape[0] * 0.5:
         vertical_lines.append(x)
 
 # 去重并排序
 horizontal_lines = sorted(list(set([int(y) for y in horizontal_lines])))
 vertical_lines = sorted(list(set([int(x) for x in vertical_lines])))
+
 
 # 合并相近的线条
 def merge_close_lines(lines, threshold=50):
@@ -85,6 +86,7 @@ def merge_close_lines(lines, threshold=50):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 # 先合并粗边框导致的相邻线条（距离 < 5 像素的）
 def merge_very_close_lines(lines, threshold=5):
@@ -98,6 +100,7 @@ def merge_very_close_lines(lines, threshold=5):
             # 取中间值作为合并后的位置
             merged[-1] = (merged[-1] + line) // 2
     return merged
+
 
 horizontal_lines = merge_very_close_lines(horizontal_lines, threshold=5)
 vertical_lines = merge_very_close_lines(vertical_lines, threshold=5)

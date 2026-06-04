@@ -107,3 +107,15 @@
 [routes->services] app/fastapi_routes/xcmax_admin.py:478
 [routes->services] app/fastapi_routes/xcmax_admin.py:492
 [routes->services] app/fastapi_routes/xcmax_admin.py:509
+[routes->services] app/fastapi_routes/xcmax_admin.py:1150
+[routes->services] app/fastapi_routes/xcmax_admin.py:1168
+[routes->services] app/fastapi_routes/xcmax_admin.py:1177
+[routes->services] app/fastapi_routes/private_db_read_assistant_compat.py:99
+[routes->services] app/fastapi_routes/private_db_read_assistant_compat.py:123
+[routes->services] app/fastapi_routes/domains/wechat/routes.py:20
+[routes->services] app/fastapi_routes/domains/wechat/routes.py:117
+[routes->services] app/fastapi_routes/domains/wechat/routes.py:189
+[routes->services] app/fastapi_routes/domains/wechat/routes.py:223
+[routes->services] app/fastapi_routes/domains/wechat/routes.py:151
+[routes->services] app/fastapi_routes/domains/wechat/routes.py:124
+[routes->services] app/fastapi_routes/domains/wechat/routes.py:306

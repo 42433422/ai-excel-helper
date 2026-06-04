@@ -127,8 +127,10 @@ def sync_version_anchors(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("version", help='Target semver, e.g. 9.0.1')
-    parser.add_argument("--dry-run", action="store_true", help="Print planned updates without writing files")
+    parser.add_argument("version", help="Target semver, e.g. 9.0.1")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print planned updates without writing files"
+    )
     args = parser.parse_args(argv)
     if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):
         print(f"invalid version: {args.version!r} (expected major.minor.patch)", file=sys.stderr)

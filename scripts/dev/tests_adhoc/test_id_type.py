@@ -6,13 +6,13 @@ response = requests.get(f"{url}?page=1&per_page=5")
 data = response.json()
 
 print("当前数据:")
-for m in data.get('data', []):
+for m in data.get("data", []):
     print(f"  ID={m['id']} (type={type(m['id']).__name__}), name={m['name']}")
 
 print("\n测试字符串ID vs 整数ID:")
 
-ids_int = [m['id'] for m in data.get('data', [])[:3]]
-ids_str = [str(m['id']) for m in data.get('data', [])[:3]]
+ids_int = [m["id"] for m in data.get("data", [])[:3]]
+ids_str = [str(m["id"]) for m in data.get("data", [])[:3]]
 
 print(f"  Integer IDs: {ids_int}")
 print(f"  String IDs: {ids_str}")

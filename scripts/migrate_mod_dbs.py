@@ -38,9 +38,16 @@ def _load_bootstrap_module():
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--skip", action="append", default=[], help="跳过的 mod id，可多次传")
-    parser.add_argument("--stamp-only", action="append", default=[], help="对该 mod 只做 alembic stamp head，可多次传")
+    parser.add_argument(
+        "--stamp-only",
+        action="append",
+        default=[],
+        help="对该 mod 只做 alembic stamp head，可多次传",
+    )
     args = parser.parse_args(argv)
 
     try:

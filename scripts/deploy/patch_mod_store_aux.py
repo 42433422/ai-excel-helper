@@ -21,10 +21,10 @@ def main() -> None:
         raise SystemExit("patch anchor missing: _combined_rows return")
     text = text.replace(combined_old, combined_new, 1)
 
-    install_marker = (
-        "async def _install_from_catalog(pkg_id: str, version: str, activate: bool = True) -> ModStoreInstallResult:\n"
-    )
-    install_block = install_marker + """    from app.mod_sdk.aux_employee_store import (
+    install_marker = "async def _install_from_catalog(pkg_id: str, version: str, activate: bool = True) -> ModStoreInstallResult:\n"
+    install_block = (
+        install_marker
+        + """    from app.mod_sdk.aux_employee_store import (
         install_aux_employee_pack_from_repo_seed,
         is_aux_employee_pack_mod_id,
     )
@@ -34,6 +34,7 @@ def main() -> None:
             return ModStoreInstallResult(success=True, message=message, data={"id": pkg_id})
 
 """
+    )
     if install_marker not in text:
         raise SystemExit("patch anchor missing: _install_from_catalog")
     text = text.replace(install_marker, install_block, 1)

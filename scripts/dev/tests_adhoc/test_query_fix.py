@@ -2,25 +2,28 @@
 import sys
 import os
 
-sys.path.insert(0, r'E:\FHD\XCAGI')
-sys.path.insert(0, r'E:\FHD\XCAGI\resources\wechat-decrypt')
+sys.path.insert(0, r"E:\FHD\XCAGI")
+sys.path.insert(0, r"E:\FHD\XCAGI\resources\wechat-decrypt")
 
 from app.utils.path_utils import get_resource_path
 from mcp_server import _decompress_content
+
 
 def decompress(raw, ct):
     if not raw:
         return ""
     result = _decompress_content(raw, ct)
     if isinstance(result, bytes):
-        return result.decode('utf-8', errors='replace')
+        return result.decode("utf-8", errors="replace")
     return result or ""
 
-msg_db_path = r'E:\FHD\XCAGI\resources\wechat-decrypt\decrypted\message\message_0.db'
-wechat_id = 'wxid_tfxzqdqt87oa22'
+
+msg_db_path = r"E:\FHD\XCAGI\resources\wechat-decrypt\decrypted\message\message_0.db"
+wechat_id = "wxid_tfxzqdqt87oa22"
 numeric_id = 26  # contact.db 中的 id
 
 import sqlite3
+
 all_messages = []
 
 conn = sqlite3.connect(msg_db_path)
@@ -36,9 +39,12 @@ for table in tables:
     try:
         cur.execute(f"PRAGMA table_info([{table}])")
         cols = [c[1] for c in cur.fetchall()]
-        if 'real_sender_id' not in cols:
+        if "real_sender_id" not in cols:
             continue
-        cur.execute(f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] WHERE real_sender_id = ? ORDER BY create_time DESC LIMIT 10", [numeric_id, 10])
+        cur.execute(
+            f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] WHERE real_sender_id = ? ORDER BY create_time DESC LIMIT 10",
+            [numeric_id, 10],
+        )
         rows = cur.fetchall()
         if rows:
             found = True
@@ -57,7 +63,9 @@ print(f"\nStep 2: Try content search with wxid='{wechat_id}'")
 found = False
 for table in tables:
     try:
-        cur.execute(f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] ORDER BY create_time DESC LIMIT 500")
+        cur.execute(
+            f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] ORDER BY create_time DESC LIMIT 500"
+        )
         rows = cur.fetchall()
         for row in rows:
             content = decompress(row[0], row[1]).strip()
@@ -76,7 +84,7 @@ for table in tables:
     try:
         cur.execute(f"PRAGMA table_info([{table}])")
         cols = [c[1] for c in cur.fetchall()]
-        if 'real_sender_id' not in cols:
+        if "real_sender_id" not in cols:
             continue
         cur.execute(f"SELECT real_sender_id, COUNT(DISTINCT real_sender_id) FROM [{table}]")
         row = cur.fetchone()
@@ -84,7 +92,10 @@ for table in tables:
             sender_id = row[0]
             print(f"  Table {table} has single sender_id={sender_id}")
             # Get messages from this table
-            cur.execute(f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] WHERE real_sender_id = ? ORDER BY create_time DESC LIMIT 10", [sender_id, 10])
+            cur.execute(
+                f"SELECT message_content, WCDB_CT_message_content, create_time FROM [{table}] WHERE real_sender_id = ? ORDER BY create_time DESC LIMIT 10",
+                [sender_id, 10],
+            )
             for msg_row in cur.fetchall():
                 content = decompress(msg_row[0], msg_row[1]).strip()
                 if content:

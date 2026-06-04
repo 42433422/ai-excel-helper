@@ -16,7 +16,9 @@ def main() -> None:
 
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-    tables = [t[0] for t in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+    tables = [
+        t[0] for t in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    ]
     msg_tables = [t for t in tables if str(t).startswith("Msg_")]
     print("msg_tables", msg_tables[:5], "count", len(msg_tables))
 
@@ -32,7 +34,7 @@ def main() -> None:
                 print("FOUND_IN_TABLE", t, "wxid", wxid)
                 # Print a small snippet around the keyword
                 idx = mc_str.find(keyword)
-                snippet = mc_str[max(0, idx - 40): idx + len(keyword) + 40]
+                snippet = mc_str[max(0, idx - 40) : idx + len(keyword) + 40]
                 print("snippet", snippet)
                 if found >= 3:
                     conn.close()
@@ -43,4 +45,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -16,115 +16,115 @@ from typing import List, Tuple
 
 class BatchMigrationFixer:
     """批量迁移修复器"""
-    
+
     def __init__(self, project_root: str = "e:/FHD"):
         self.project_root = Path(project_root)
         self.fixes_applied = []
-    
+
     def fix_event_imports(self) -> int:
         """修复事件定义文件的导入"""
         print("\n[FIX] 修复事件定义文件导入...")
-        
+
         events_dir = self.project_root / "app" / "neuro_bus" / "events"
         fixed_count = 0
-        
+
         for event_file in events_dir.glob("*_events.py"):
-            content = event_file.read_text(encoding='utf-8')
-            
+            content = event_file.read_text(encoding="utf-8")
+
             # 确保有正确的基类导入
             if "from app.neuro_bus.events.base import" not in content:
                 # 添加导入
                 new_import = "from app.neuro_bus.events.base import NeuroEvent, EventPriority\n"
                 content = new_import + content
-                event_file.write_text(content, encoding='utf-8')
+                event_file.write_text(content, encoding="utf-8")
                 fixed_count += 1
                 self.fixes_applied.append(f"Fixed imports: {event_file.name}")
-        
+
         print(f"  [OK] 修复了 {fixed_count} 个事件文件")
         return fixed_count
-    
+
     def fix_v2_service_imports(self) -> int:
         """修复 V2 服务文件的导入"""
         print("\n[FIX] 修复 V2 服务文件导入...")
-        
+
         app_dir = self.project_root / "app" / "application"
         fixed_count = 0
-        
+
         for v2_file in app_dir.glob("*_v2.py"):
-            content = v2_file.read_text(encoding='utf-8')
-            
+            content = v2_file.read_text(encoding="utf-8")
+
             # 检测领域
             domain = self._detect_domain(v2_file.name)
-            
+
             # 检查并修复事件导入
             expected_import = f"from app.neuro_bus.events.{domain}_events import *"
-            if expected_import not in content and domain != 'common':
+            if expected_import not in content and domain != "common":
                 # 在基础导入后添加
-                lines = content.split('\n')
+                lines = content.split("\n")
                 import_idx = -1
                 for i, line in enumerate(lines):
                     if line.startswith("from app.neuro_bus.events.base import"):
                         import_idx = i
                         break
-                
+
                 if import_idx >= 0:
                     lines.insert(import_idx + 1, expected_import)
-                    content = '\n'.join(lines)
-                    v2_file.write_text(content, encoding='utf-8')
+                    content = "\n".join(lines)
+                    v2_file.write_text(content, encoding="utf-8")
                     fixed_count += 1
                     self.fixes_applied.append(f"Fixed domain imports: {v2_file.name}")
-        
+
         print(f"  [OK] 修复了 {fixed_count} 个 V2 服务文件")
         return fixed_count
-    
+
     def _detect_domain(self, filename: str) -> str:
         """从文件名检测领域"""
         domain_map = {
-            'product': ['product', 'import'],
-            'shipment': ['shipment'],
-            'order': ['order'],
-            'customer': ['customer'],
-            'wechat': ['wechat'],
-            'print': ['print', 'template'],
-            'auth': ['auth', 'user'],
-            'ai': ['ai', 'chat', 'vector'],
-            'ocr': ['ocr'],
-            'conversation': ['conversation'],
-            'material': ['material'],
-            'log': ['log', 'extract'],
+            "product": ["product", "import"],
+            "shipment": ["shipment"],
+            "order": ["order"],
+            "customer": ["customer"],
+            "wechat": ["wechat"],
+            "print": ["print", "template"],
+            "auth": ["auth", "user"],
+            "ai": ["ai", "chat", "vector"],
+            "ocr": ["ocr"],
+            "conversation": ["conversation"],
+            "material": ["material"],
+            "log": ["log", "extract"],
         }
-        
+
         name_lower = filename.lower()
         for domain, keywords in domain_map.items():
             for keyword in keywords:
                 if keyword in name_lower:
                     return domain
-        
-        return 'common'
-    
+
+        return "common"
+
     def generate_route_patch(self) -> str:
         """生成路由层补丁代码"""
         print("\n[GEN] 生成路由层补丁...")
-        
+
         # 服务名到 V2 导入的映射
         service_mapping = {
-            'get_product_app_service': 'get_product_app_service_v2',
-            'get_shipment_application_service': 'get_shipment_app_service_v2',
-            'get_auth_app_service': 'get_auth_app_service_v2',
-            'get_user_app_service': 'get_user_app_service_v2',
-            'get_customer_app_service': 'get_customer_app_service_v2',
-            'get_print_app_service': 'get_print_app_service_v2',
-            'get_ocr_app_service': 'get_ocr_app_service_v2',
-            'get_ai_chat_app_service': 'get_ai_chat_app_service_v2',
-            'get_conversation_app_service': 'get_conversation_app_service_v2',
-            'get_wechat_task_app_service': 'get_wechat_task_app_service_v2',
-            'get_wechat_contact_app_service': 'get_wechat_contact_app_service_v2',
-            'get_material_app_service': 'get_material_app_service_v2',
+            "get_product_app_service": "get_product_app_service_v2",
+            "get_shipment_application_service": "get_shipment_app_service_v2",
+            "get_auth_app_service": "get_auth_app_service_v2",
+            "get_user_app_service": "get_user_app_service_v2",
+            "get_customer_app_service": "get_customer_app_service_v2",
+            "get_print_app_service": "get_print_app_service_v2",
+            "get_ocr_app_service": "get_ocr_app_service_v2",
+            "get_ai_chat_app_service": "get_ai_chat_app_service_v2",
+            "get_conversation_app_service": "get_conversation_app_service_v2",
+            "get_wechat_task_app_service": "get_wechat_task_app_service_v2",
+            "get_wechat_contact_app_service": "get_wechat_contact_app_service_v2",
+            "get_material_app_service": "get_material_app_service_v2",
         }
-        
+
         # 生成替换映射文件
         mapping_file = self.project_root / "scripts" / "v2_import_mapping.txt"
-        
+
         lines = [
             "# V2 服务导入映射",
             "# 使用方法: 在路由文件中替换这些导入",
@@ -132,24 +132,24 @@ class BatchMigrationFixer:
             "## 旧导入 -> 新导入",
             "",
         ]
-        
+
         for old, new in service_mapping.items():
-            service_name = old.replace('get_', '').replace('_app_service', '')
+            service_name = old.replace("get_", "").replace("_app_service", "")
             lines.append(f"# {service_name}")
             lines.append(f"from app.application.{service_name}_app_service import {old}")
             lines.append(f"->")
             lines.append(f"from app.application.{service_name}_app_service_v2 import {new}")
             lines.append("")
-        
-        mapping_file.write_text('\n'.join(lines), encoding='utf-8')
-        
+
+        mapping_file.write_text("\n".join(lines), encoding="utf-8")
+
         print(f"  [OK] 导入映射已保存到: {mapping_file}")
         return str(mapping_file)
-    
+
     def create_batch_router_updater(self) -> Path:
         """创建批量路由更新脚本"""
         print("\n[GEN] 创建批量路由更新脚本...")
-        
+
         script_content = '''#!/usr/bin/env python3
 """
 批量更新路由文件使用 V2 服务
@@ -280,17 +280,17 @@ if __name__ == "__main__":
     else:
         print("操作已取消")
 '''
-        
+
         script_path = self.project_root / "scripts" / "update_routes_to_v2.py"
-        script_path.write_text(script_content, encoding='utf-8')
-        
+        script_path.write_text(script_content, encoding="utf-8")
+
         print(f"  [OK] 路由更新脚本已创建: {script_path}")
         return script_path
-    
+
     def create_migration_validator(self) -> Path:
         """创建迁移验证脚本"""
         print("\n[GEN] 创建迁移验证脚本...")
-        
+
         script_content = '''#!/usr/bin/env python3
 """
 迁移验证脚本
@@ -345,49 +345,49 @@ def validate_migration():
 if __name__ == "__main__":
     validate_migration()
 '''
-        
+
         script_path = self.project_root / "scripts" / "validate_migration.py"
-        script_path.write_text(script_content, encoding='utf-8')
-        
+        script_path.write_text(script_content, encoding="utf-8")
+
         print(f"  [OK] 验证脚本已创建: {script_path}")
         return script_path
-    
+
     def apply_all_fixes(self):
         """应用所有修复"""
         print("=" * 60)
         print("开始批量修复")
         print("=" * 60)
-        
+
         # 1. 修复事件导入
         self.fix_event_imports()
-        
+
         # 2. 修复 V2 服务导入
         self.fix_v2_service_imports()
-        
+
         # 3. 生成路由补丁
         mapping_file = self.generate_route_patch()
-        
+
         # 4. 创建更新脚本
         updater_script = self.create_batch_router_updater()
-        
+
         # 5. 创建验证脚本
         validator_script = self.create_migration_validator()
-        
+
         # 打印总结
         print("\n" + "=" * 60)
         print("批量修复完成")
         print("=" * 60)
-        
+
         if self.fixes_applied:
             print("\n应用的修复:")
             for fix in self.fixes_applied:
                 print(f"  - {fix}")
-        
+
         print("\n生成的文件:")
         print(f"  - {mapping_file}")
         print(f"  - {updater_script}")
         print(f"  - {validator_script}")
-        
+
         print("\n下一步:")
         print("  1. 检查修复结果")
         print("  2. 运行: python scripts/validate_migration.py")

@@ -54,7 +54,9 @@ DEFAULT_CLONE_FROM_BASE_MOD_IDS = (
 
 
 def _normalize_mod_file_suffix(mod_id: str) -> str:
-    return "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").lower()
+    return (
+        "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").lower()
+    )
 
 
 def _discover_mod_ids() -> list[str]:
@@ -141,9 +143,7 @@ def _create_db_from_template(conn, new_db: str, template_db: str, owner: str | N
     if terminated:
         print(f"  -> terminated {terminated} existing connection(s) on {template_db}")
     owner_clause = f' OWNER "{owner}"' if owner else ""
-    conn.execute(
-        text(f'CREATE DATABASE "{new_db}" WITH TEMPLATE "{template_db}"{owner_clause}')
-    )
+    conn.execute(text(f'CREATE DATABASE "{new_db}" WITH TEMPLATE "{template_db}"{owner_clause}'))
 
 
 def _create_db_empty(conn, new_db: str, owner: str | None) -> None:
@@ -218,7 +218,9 @@ def _enable_pgvector(mod_url: str, dbname: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
         "--clone-from-base",
         default=",".join(DEFAULT_CLONE_FROM_BASE_MOD_IDS),

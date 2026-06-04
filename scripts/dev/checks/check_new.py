@@ -1,6 +1,8 @@
 from docx import Document
 
-doc = Document(r"e:\FHD\424\outputs\sales_contracts\销售合同_深圳市百木鼎家具有限公司_20260412_192103.docx")
+doc = Document(
+    r"e:\FHD\424\outputs\sales_contracts\销售合同_深圳市百木鼎家具有限公司_20260412_192103.docx"
+)
 
 print("=== 段落内容 ===")
 for i, para in enumerate(doc.paragraphs[:20]):

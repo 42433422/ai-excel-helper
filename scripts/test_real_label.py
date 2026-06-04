@@ -9,7 +9,7 @@ from PIL import Image
 import os
 
 # 直接使用找到的文件
-image_path = r'e:\FHD\26-0300001A_第 1 项_PE 封固底漆稀料.png'
+image_path = r"e:\FHD\26-0300001A_第 1 项_PE 封固底漆稀料.png"
 
 print(f"正在读取图片：{image_path}")
 img = Image.open(image_path)
@@ -43,7 +43,7 @@ for y in range(gray.shape[0]):
     continuous_start = None
     max_continuous_length = 0
     current_length = 0
-    
+
     for x in range(len(row)):
         if row[x] > 0:  # 黑色像素
             if continuous_start is None:
@@ -54,11 +54,11 @@ for y in range(gray.shape[0]):
                 max_continuous_length = current_length
             continuous_start = None
             current_length = 0
-    
+
     # 检查最后一段
     if current_length > max_continuous_length:
         max_continuous_length = current_length
-    
+
     # 如果最长连续线段超过图片宽度的 50%，认为是表格线
     if max_continuous_length > gray.shape[1] * 0.5:
         horizontal_lines.append(y)
@@ -70,7 +70,7 @@ for x in range(gray.shape[1]):
     continuous_start = None
     max_continuous_length = 0
     current_length = 0
-    
+
     for y in range(len(col)):
         if col[y] > 0:  # 黑色像素
             if continuous_start is None:
@@ -81,11 +81,11 @@ for x in range(gray.shape[1]):
                 max_continuous_length = current_length
             continuous_start = None
             current_length = 0
-    
+
     # 检查最后一段
     if current_length > max_continuous_length:
         max_continuous_length = current_length
-    
+
     # 如果最长连续线段超过图片高度的 50%，认为是表格线
     if max_continuous_length > gray.shape[0] * 0.5:
         vertical_lines.append(x)
@@ -98,6 +98,7 @@ print(f"\n原始检测:")
 print(f"  水平线：{len(horizontal_lines_raw)} 条")
 print(f"  垂直线：{len(vertical_lines_raw)} 条")
 
+
 # 合并相近的线条
 def merge_close_lines(lines, threshold=50):
     if not lines:
@@ -107,6 +108,7 @@ def merge_close_lines(lines, threshold=50):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 # 先合并粗边框导致的相邻线条（距离 < 5 像素的）
 def merge_very_close_lines(lines, threshold=5):
@@ -120,6 +122,7 @@ def merge_very_close_lines(lines, threshold=5):
             # 取中间值作为合并后的位置
             merged[-1] = (merged[-1] + line) // 2
     return merged
+
 
 horizontal_lines = merge_very_close_lines(horizontal_lines_raw, threshold=5)
 vertical_lines = merge_very_close_lines(vertical_lines_raw, threshold=5)
@@ -149,8 +152,8 @@ print(f"\n单元格尺寸:")
 if len(horizontal_lines_merged) > 1 and len(vertical_lines_merged) > 1:
     for i in range(rows):
         for j in range(cols):
-            cell_height = horizontal_lines_merged[i+1] - horizontal_lines_merged[i]
-            cell_width = vertical_lines_merged[j+1] - vertical_lines_merged[j]
+            cell_height = horizontal_lines_merged[i + 1] - horizontal_lines_merged[i]
+            cell_width = vertical_lines_merged[j + 1] - vertical_lines_merged[j]
             print(f"  单元格 [{i},{j}]: {cell_width} x {cell_height}")
 
 print("=" * 60)

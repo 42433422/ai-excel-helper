@@ -41,9 +41,7 @@ MOD_ROOTS = (
 )
 
 # 允许跨边界导入的前缀（严格匹配起始 token）
-ALLOWED_PREFIXES = (
-    "app.mod_sdk",
-)
+ALLOWED_PREFIXES = ("app.mod_sdk",)
 
 # 视为违规的前缀
 FORBIDDEN_PREFIXES = (
@@ -96,7 +94,9 @@ def _scan_file(path: Path) -> list[Violation]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if not _module_is_allowed(alias.name):
-                    violations.append(Violation(path, node.lineno, alias.name, [alias.asname or alias.name]))
+                    violations.append(
+                        Violation(path, node.lineno, alias.name, [alias.asname or alias.name])
+                    )
         elif isinstance(node, ast.ImportFrom):
             if node.level and node.level > 0:
                 # 相对 import（同 Mod 内部），允许

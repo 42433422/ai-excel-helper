@@ -2,8 +2,8 @@
 import sys
 import os
 
-sys.path.insert(0, r'E:\FHD\XCAGI\resources\wechat-decrypt')
-sys.path.insert(0, r'E:\FHD\XCAGI\resources\wechat-cv')
+sys.path.insert(0, r"E:\FHD\XCAGI\resources\wechat-decrypt")
+sys.path.insert(0, r"E:\FHD\XCAGI\resources\wechat-cv")
 
 from resources.wechat_cv.wechat_cv_send import search_and_send_by_cv
 

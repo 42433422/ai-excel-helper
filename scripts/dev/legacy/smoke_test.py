@@ -10,7 +10,7 @@ XCAGI 统一入口迁移 - 冒烟测试脚本
 使用方法：
     cd E:\FHD\XCAGI
     python run.py  # 在另一个终端启动服务
-    
+
     cd E:\FHD
     python smoke_test.py
 """
@@ -29,19 +29,14 @@ LEGACY_BASE = "http://127.0.0.1:8000"
 TEST_ENDPOINTS = [
     # 健康检查
     ("/api/health", "GET", None, "健康检查"),
-
     # 模板库（前端「模板库」页 /api/excel/templates）
     ("/api/excel/templates", "GET", None, "Excel模板列表"),
-    
     # LLM 模式
     ("/api/mode", "GET", None, "LLM模式查询"),
-    
     # 数据库模式
     ("/api/db/mode", "GET", None, "数据库模式查询"),
-    
     # Ollama 模型列表
     ("/api/ollama/models", "GET", None, "Ollama模型列表"),
-    
     # 系统配置
     ("/api/system/config", "GET", None, "系统配置"),
 ]
@@ -75,10 +70,10 @@ def test_endpoint(base_url, endpoint, method, data, description):
     try:
         req = urllib.request.Request(url, method=method)
         req.add_header("Content-Type", "application/json")
-        
+
         if data and method in ["POST", "PUT"]:
             req.data = json.dumps(data).encode("utf-8")
-        
+
         with urllib.request.urlopen(req, timeout=5) as resp:
             body = resp.read().decode("utf-8")
             try:
@@ -114,7 +109,7 @@ def run_tests():
     print("XCAGI 统一入口迁移 - 冒烟测试")
     print("=" * 60)
     print()
-    
+
     # 1. 检查 XCAGI 服务
     print("【步骤 1】检查 XCAGI 服务 (5000 端口)...")
     if not check_service_available(XCAGI_BASE, "XCAGI 服务"):
@@ -124,12 +119,12 @@ def run_tests():
         print_info("  python run.py")
         return False
     print()
-    
+
     # 2. 测试 XCAGI 端点
     print("【步骤 2】测试 XCAGI 关键端点 (5000 端口)...")
     passed = 0
     failed = 0
-    
+
     for endpoint, method, data, description in TEST_ENDPOINTS:
         ok, status, body = test_endpoint(XCAGI_BASE, endpoint, method, data, description)
         if ok:
@@ -139,11 +134,11 @@ def run_tests():
             print_error(f"{description}: {endpoint} (HTTP {status}, {body})")
             failed += 1
         time.sleep(0.1)  # 避免请求过快
-    
+
     print()
     print(f"  测试结果: {passed} 通过, {failed} 失败")
     print()
-    
+
     # 3. 检查旧服务是否已停止
     print("【步骤 3】确认旧服务 (8000 端口) 已停止...")
     try:
@@ -157,16 +152,18 @@ def run_tests():
                     print_info("建议停止旧服务，仅使用 XCAGI 服务")
                 else:
                     print_error("旧服务仍在运行且未标记弃用")
-                    print_info("请停止旧服务: 找到占用 8000 且使用 backend.http_app 的进程并停止（主栈为 XCAGI/run.py:5000）")
+                    print_info(
+                        "请停止旧服务: 找到占用 8000 且使用 backend.http_app 的进程并停止（主栈为 XCAGI/run.py:5000）"
+                    )
     except:
         print_success("旧服务 (8000 端口) 未运行或已停止 ✅")
     print()
-    
+
     # 4. 总结
     print("=" * 60)
     print("测试总结")
     print("=" * 60)
-    
+
     if failed == 0:
         print_success("所有测试通过！XCAGI 统一入口工作正常。")
         print()

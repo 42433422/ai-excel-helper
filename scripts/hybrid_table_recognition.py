@@ -10,11 +10,11 @@ import json
 import glob
 
 # 读取图片
-files = glob.glob(r'e:\FHD\26-0300001A*.png')
+files = glob.glob(r"e:\FHD\26-0300001A*.png")
 image_path = files[0]
 print(f"读取图片：{image_path}")
 
-with open(image_path, 'rb') as f:
+with open(image_path, "rb") as f:
     file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
 img_array = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
@@ -65,6 +65,7 @@ for x in range(gray.shape[1]):
     if max_continuous > gray.shape[0] * 0.5:
         vertical_lines.append(x)
 
+
 # 合并线条
 def merge_very_close(lines, threshold=5):
     if not lines:
@@ -77,6 +78,7 @@ def merge_very_close(lines, threshold=5):
             merged[-1] = (merged[-1] + line) // 2
     return merged
 
+
 def merge_lines(lines, threshold=50):
     if not lines:
         return []
@@ -85,6 +87,7 @@ def merge_lines(lines, threshold=50):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 horizontal_lines = sorted(list(set(horizontal_lines)))
 vertical_lines = sorted(list(set(vertical_lines)))
@@ -105,7 +108,7 @@ print("\n" + "=" * 70)
 print("第二步：PaddleOCR 文本检测")
 print("=" * 70)
 
-ocr = PaddleOCR(lang='ch')
+ocr = PaddleOCR(lang="ch")
 result = ocr.predict(img_array)
 
 if not result or len(result) == 0:
@@ -114,10 +117,10 @@ if not result or len(result) == 0:
 
 ocr_result = result[0]
 json_result = ocr_result.json
-res_data = json_result.get('res', {})
+res_data = json_result.get("res", {})
 
-rec_texts = res_data.get('rec_texts', [])
-rec_polys = res_data.get('rec_polys', [])
+rec_texts = res_data.get("rec_texts", [])
+rec_polys = res_data.get("rec_polys", [])
 
 print(f"检测到 {len(rec_texts)} 个文本框")
 
@@ -132,22 +135,25 @@ for i in range(len(rec_polys)):
     x2 = int(max(box[:, 0]))
     y2 = int(max(box[:, 1]))
 
-    text_boxes.append({
-        'text': text,
-        'x1': x1,
-        'y1': y1,
-        'x2': x2,
-        'y2': y2,
-        'width': x2 - x1,
-        'height': y2 - y1,
-        'center_x': (x1 + x2) / 2,
-        'center_y': (y1 + y2) / 2
-    })
+    text_boxes.append(
+        {
+            "text": text,
+            "x1": x1,
+            "y1": y1,
+            "x2": x2,
+            "y2": y2,
+            "width": x2 - x1,
+            "height": y2 - y1,
+            "center_x": (x1 + x2) / 2,
+            "center_y": (y1 + y2) / 2,
+        }
+    )
 
 # ============ 第三步：文本框分配到单元格 ============
 print("\n" + "=" * 70)
 print("第三步：文本框分配到单元格")
 print("=" * 70)
+
 
 # 根据网格线将文本框分配到单元格
 def find_cell(x, y, horizontal_lines, vertical_lines):
@@ -166,11 +172,12 @@ def find_cell(x, y, horizontal_lines, vertical_lines):
 
     return row, col
 
+
 # 分配每个文本框到单元格
 for box in text_boxes:
-    row, col = find_cell(box['center_x'], box['center_y'], horizontal_lines, vertical_lines)
-    box['cell_row'] = row
-    box['cell_col'] = col
+    row, col = find_cell(box["center_x"], box["center_y"], horizontal_lines, vertical_lines)
+    box["cell_row"] = row
+    box["cell_col"] = col
 
 # 构建单元格内容
 cells = {}
@@ -179,8 +186,8 @@ for row in range(rows):
         cells[(row, col)] = None
 
 for box in text_boxes:
-    row = box['cell_row']
-    col = box['cell_col']
+    row = box["cell_row"]
+    col = box["cell_col"]
     if 0 <= row < rows and 0 <= col < cols:
         if cells[(row, col)] is None:
             cells[(row, col)] = box
@@ -215,7 +222,7 @@ for row in range(rows):
             # 单元格[row,col]有内容，但右侧单元格[row,col+1]为空
             # 检查单元格[row,col]的右侧边框是否有线条
             cell = cells[(row, col)]
-            right_border_x = cell['x2']
+            right_border_x = cell["x2"]
             y_top = horizontal_lines[row]
             y_bottom = horizontal_lines[row + 1]
 
@@ -230,12 +237,9 @@ for row in range(rows):
             print(f"单元格[{row},{col}] '{cell['text']}' 右侧边框黑色占比：{border_ratio*100:.1f}%")
 
             if border_ratio < 0.5:
-                merged_horizontal.append({
-                    'row': row,
-                    'start_col': col,
-                    'end_col': col + 1,
-                    'cell': cell
-                })
+                merged_horizontal.append(
+                    {"row": row, "start_col": col, "end_col": col + 1, "cell": cell}
+                )
                 print(f"  → 水平合并！列{col}和列{col+1}合并")
 
 # ============ 第五步：生成最终结果 ============
@@ -245,7 +249,7 @@ print("=" * 70)
 
 final_table = []
 for row in range(rows):
-    row_data = {'row': row, 'cells': []}
+    row_data = {"row": row, "cells": []}
     col = 0
     while col < cols:
         cell_content = cells.get((row, col))
@@ -253,36 +257,36 @@ for row in range(rows):
         # 检查是否是合并单元格的起始
         merged = None
         for m in merged_horizontal:
-            if m['row'] == row and m['start_col'] == col:
+            if m["row"] == row and m["start_col"] == col:
                 merged = m
                 break
 
         if merged:
-            row_data['cells'].append({
-                'text': merged['cell']['text'],
-                'start_col': merged['start_col'],
-                'end_col': merged['end_col'],
-                'is_merged': True,
-                'merge_cols': merged['end_col'] - merged['start_col'] + 1
-            })
-            col = merged['end_col'] + 1
+            row_data["cells"].append(
+                {
+                    "text": merged["cell"]["text"],
+                    "start_col": merged["start_col"],
+                    "end_col": merged["end_col"],
+                    "is_merged": True,
+                    "merge_cols": merged["end_col"] - merged["start_col"] + 1,
+                }
+            )
+            col = merged["end_col"] + 1
         elif cell_content:
-            row_data['cells'].append({
-                'text': cell_content['text'],
-                'start_col': col,
-                'end_col': col,
-                'is_merged': False,
-                'merge_cols': 1
-            })
+            row_data["cells"].append(
+                {
+                    "text": cell_content["text"],
+                    "start_col": col,
+                    "end_col": col,
+                    "is_merged": False,
+                    "merge_cols": 1,
+                }
+            )
             col += 1
         else:
-            row_data['cells'].append({
-                'text': '',
-                'start_col': col,
-                'end_col': col,
-                'is_merged': False,
-                'merge_cols': 1
-            })
+            row_data["cells"].append(
+                {"text": "", "start_col": col, "end_col": col, "is_merged": False, "merge_cols": 1}
+            )
             col += 1
 
     final_table.append(row_data)
@@ -290,25 +294,27 @@ for row in range(rows):
 print("最终表格结构：")
 for row_data in final_table:
     print(f"\n行 {row_data['row']}:")
-    for cell in row_data['cells']:
-        if cell['is_merged']:
-            print(f"  [{cell['start_col']}-{cell['end_col']}] '{cell['text']}' (合并{cell['merge_cols']}列)")
+    for cell in row_data["cells"]:
+        if cell["is_merged"]:
+            print(
+                f"  [{cell['start_col']}-{cell['end_col']}] '{cell['text']}' (合并{cell['merge_cols']}列)"
+            )
         else:
             print(f"  [{cell['start_col']}] '{cell['text']}'")
 
 # 保存结果
 output_data = {
-    'image_size': {'width': width, 'height': height},
-    'horizontal_lines': horizontal_lines,
-    'vertical_lines': vertical_lines,
-    'grid': {'rows': rows, 'cols': cols},
-    'text_boxes': text_boxes,
-    'merged_horizontal': merged_horizontal,
-    'table': final_table
+    "image_size": {"width": width, "height": height},
+    "horizontal_lines": horizontal_lines,
+    "vertical_lines": vertical_lines,
+    "grid": {"rows": rows, "cols": cols},
+    "text_boxes": text_boxes,
+    "merged_horizontal": merged_horizontal,
+    "table": final_table,
 }
 
-output_path = r'e:\FHD\final_table_result.json'
-with open(output_path, 'w', encoding='utf-8') as f:
+output_path = r"e:\FHD\final_table_result.json"
+with open(output_path, "w", encoding="utf-8") as f:
     json.dump(output_data, f, ensure_ascii=False, indent=2)
 
 print(f"\n✓ 结果已保存到：{output_path}")

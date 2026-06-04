@@ -24,7 +24,12 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from app.neuro_bus.routing.policy_nn import FEATURE_DIM, NUM_ACTIONS, RoutingMLP, save_policy_state_dict
+from app.neuro_bus.routing.policy_nn import (
+    FEATURE_DIM,
+    NUM_ACTIONS,
+    RoutingMLP,
+    save_policy_state_dict,
+)
 
 
 def _action_to_idx(action: str) -> int:
@@ -97,7 +102,9 @@ def train(data: Path, out: Path, epochs: int, lr: float) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--init-only", action="store_true", help="Write random init policy_v0.pt")
-    ap.add_argument("--data", type=Path, default=Path("resources/routing_policies/routing_decisions.jsonl"))
+    ap.add_argument(
+        "--data", type=Path, default=Path("resources/routing_policies/routing_decisions.jsonl")
+    )
     ap.add_argument("--out", type=Path, default=Path("resources/routing_policies/policy_v1.pt"))
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--lr", type=float, default=1e-2)

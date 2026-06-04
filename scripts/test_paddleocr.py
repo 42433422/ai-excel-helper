@@ -5,7 +5,7 @@ import glob
 import pprint
 
 # 初始化 PaddleOCR (使用新 API)
-ocr = PaddleOCR(lang='ch')
+ocr = PaddleOCR(lang="ch")
 
 # 使用 glob 匹配
 png_files = glob.glob(r"E:\FHD\*PE*.png")
@@ -28,11 +28,11 @@ print(f"结果类型：{type(result)}")
 
 # 打印 rec_texts 和 rec_scores
 if isinstance(result, dict):
-    rec_texts = result.get('rec_texts', [])
-    rec_scores = result.get('rec_scores', [])
-    
+    rec_texts = result.get("rec_texts", [])
+    rec_scores = result.get("rec_scores", [])
+
     print(f"\n共识别到 {len(rec_texts)} 个字段\n")
-    
+
     for i, (text, score) in enumerate(zip(rec_texts, rec_scores), 1):
         print(f"{i}. {text} (置信度：{score:.4f})")
 else:

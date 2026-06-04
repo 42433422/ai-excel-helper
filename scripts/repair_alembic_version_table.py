@@ -87,7 +87,12 @@ def main() -> None:
     url = _database_url()
     engine = create_engine(url)
     with engine.connect() as conn:
-        rows = [str(r[0]) for r in conn.execute(text("SELECT version_num FROM alembic_version ORDER BY version_num"))]
+        rows = [
+            str(r[0])
+            for r in conn.execute(
+                text("SELECT version_num FROM alembic_version ORDER BY version_num")
+            )
+        ]
         if len(rows) <= 1:
             print(f"alembic_version: {len(rows)} row(s); nothing to repair.")
             return

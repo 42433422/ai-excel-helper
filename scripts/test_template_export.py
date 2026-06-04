@@ -12,8 +12,7 @@ import sys
 
 def main() -> int:
     print(
-        "test_template_export.py 已停用：backend 包已合并至 app/，"
-        "本脚本未迁移。退出码 2。",
+        "test_template_export.py 已停用：backend 包已合并至 app/，" "本脚本未迁移。退出码 2。",
         file=sys.stderr,
     )
     return 2

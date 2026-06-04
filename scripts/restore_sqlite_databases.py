@@ -133,7 +133,9 @@ def main() -> int:
     lines: list[str] = []
     try:
         if args.from_appdata:
-            lines.extend(restore_from_appdata(backup_root, include_units=not args.no_unit_databases))
+            lines.extend(
+                restore_from_appdata(backup_root, include_units=not args.no_unit_databases)
+            )
         elif args.source:
             src = Path(os.path.expandvars(os.path.expanduser(args.source))).resolve()
             if src.is_file():

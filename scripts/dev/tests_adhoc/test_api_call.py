@@ -2,7 +2,7 @@
 import sys
 import os
 
-sys.path.insert(0, r'E:\FHD\XCAGI')
+sys.path.insert(0, r"E:\FHD\XCAGI")
 
 from app.db.session import get_db
 from app.db.models import WechatContact
@@ -18,11 +18,15 @@ with get_db() as db:
         sync_result = _ensure_decrypted_db()
         print(f"Sync result: {sync_result}")
 
-        decrypted_msg_dir = os.path.join(get_resource_path("wechat-decrypt"), "decrypted", "message")
+        decrypted_msg_dir = os.path.join(
+            get_resource_path("wechat-decrypt"), "decrypted", "message"
+        )
         msg_db_path = os.path.join(decrypted_msg_dir, "message_0.db")
         print(f"msg_db_path: {msg_db_path}, exists: {os.path.exists(msg_db_path)}")
 
-        messages = _query_messages_from_hash_tables(msg_db_path, wechat_id, limit=50, search_in_content=True)
+        messages = _query_messages_from_hash_tables(
+            msg_db_path, wechat_id, limit=50, search_in_content=True
+        )
         print(f"Returned {len(messages)} messages")
 
         for i, msg in enumerate(messages[:3]):

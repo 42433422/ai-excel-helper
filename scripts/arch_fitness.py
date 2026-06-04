@@ -14,9 +14,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 APP_DIR = REPO_ROOT / "app"
-MODSTORE_SERVER_DIR = (
-    Path(r"e:\成都修茈科技有限公司\MODstore_deploy\modstore_server")
-)
+MODSTORE_SERVER_DIR = Path(r"e:\成都修茈科技有限公司\MODstore_deploy\modstore_server")
 
 MAX_FILE_LINES = 500
 BASELINE_FILE = Path(__file__).resolve().parent / "arch_fitness_baseline.txt"
@@ -126,8 +124,7 @@ def check_no_giant_files_in_app() -> None:
         if line_count > MAX_FILE_LINES:
             rel = py.relative_to(REPO_ROOT)
             VIOLATIONS.append(
-                f"[giant-file] {rel} — {line_count} lines "
-                f"(max {MAX_FILE_LINES} in app/)"
+                f"[giant-file] {rel} — {line_count} lines " f"(max {MAX_FILE_LINES} in app/)"
             )
 
 
@@ -161,7 +158,9 @@ def main() -> int:
     baselined = len(VIOLATIONS) - len(new_violations)
 
     if baselined:
-        print(f"  [baseline] {baselined} known violation(s) suppressed (see arch_fitness_baseline.txt)")
+        print(
+            f"  [baseline] {baselined} known violation(s) suppressed (see arch_fitness_baseline.txt)"
+        )
 
     if new_violations:
         print(f"FAIL {len(new_violations)} new violation(s) (total found {len(VIOLATIONS)}):\n")

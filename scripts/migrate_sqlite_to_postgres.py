@@ -21,7 +21,9 @@ def _copy_table(sqlite_conn: sqlite3.Connection, pg_engine, table_name: str) -> 
     rows = sqlite_conn.execute(f'SELECT * FROM "{table_name}"').fetchall()
     if not rows:
         return 0
-    source_columns = [desc[0] for desc in sqlite_conn.execute(f'SELECT * FROM "{table_name}" LIMIT 1').description]
+    source_columns = [
+        desc[0] for desc in sqlite_conn.execute(f'SELECT * FROM "{table_name}" LIMIT 1').description
+    ]
 
     payload = []
     for row in rows:
@@ -41,9 +43,7 @@ def _copy_table(sqlite_conn: sqlite3.Connection, pg_engine, table_name: str) -> 
         target_column_defs = inspect(conn).get_columns(table_name)
         target_columns = {col["name"] for col in target_column_defs}
         bool_columns = {
-            col["name"]
-            for col in target_column_defs
-            if isinstance(col.get("type"), Boolean)
+            col["name"] for col in target_column_defs if isinstance(col.get("type"), Boolean)
         }
         columns = [col for col in source_columns if col in target_columns]
         if not columns:

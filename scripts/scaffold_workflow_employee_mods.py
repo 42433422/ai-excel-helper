@@ -258,7 +258,7 @@ VIZ_BRIDGE_MANIFEST = {
     },
 }
 
-VIZ_BLUEPRINT = '''# -*- coding: utf-8 -*-
+VIZ_BLUEPRINT = """# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import logging
@@ -281,9 +281,9 @@ def register_fastapi_routes(app, mod_id: str) -> None:
 
 def mod_init():
     logger.info("%s mod_init", MOD_ID)
-'''
+"""
 
-ROUTES_JS = '''/**
+ROUTES_JS = """/**
  * 流程可视化 — 物理视图（无 workflow_employees）
  */
 import {{ modView }} from '@/router/modViews'
@@ -310,7 +310,7 @@ const modMenu = [
 ]
 
 export {{ modRoutes, modMenu }}
-'''
+"""
 
 
 def write_manifest(spec: dict) -> dict:
@@ -396,7 +396,9 @@ def scaffold_viz_bridge() -> None:
         encoding="utf-8",
     )
     shutil.copy2(VIZ_SRC_VIEW, mod_dir / "frontend" / "views" / "WorkflowVisualizationView.vue")
-    (mod_dir / "frontend" / "routes.js").write_text(ROUTES_JS.format(mod_id=mod_id), encoding="utf-8")
+    (mod_dir / "frontend" / "routes.js").write_text(
+        ROUTES_JS.format(mod_id=mod_id), encoding="utf-8"
+    )
     (mod_dir / "README.md").write_text(
         "# xcagi-workflow-visualization-bridge\n\n流程全景物理页；不含 workflow_employees。\n",
         encoding="utf-8",
@@ -415,7 +417,9 @@ def deprecate_legacy_core_mod() -> None:
     manifest_path = SRC / "manifest.json"
     mf = json.loads(manifest_path.read_text(encoding="utf-8"))
     mf["workflow_employees"] = []
-    mf["description"] = "【已废弃】请安装 6 个 xcagi-workflow-employee-* Mod 与 visualization-bridge。"
+    mf["description"] = (
+        "【已废弃】请安装 6 个 xcagi-workflow-employee-* Mod 与 visualization-bridge。"
+    )
     manifest_path.write_text(json.dumps(mf, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 

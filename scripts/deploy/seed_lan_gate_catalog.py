@@ -51,9 +51,7 @@ def main() -> int:
         load_dotenv(modstore_root / ".env", override=False)
         load_dotenv(modstore_root / ".env.production", override=True)
 
-    manifest: dict[str, Any] = json.loads(
-        (mod_dir / "manifest.json").read_text(encoding="utf-8")
-    )
+    manifest: dict[str, Any] = json.loads((mod_dir / "manifest.json").read_text(encoding="utf-8"))
     raw_zip = _zip_mod_dir(mod_dir)
 
     from modstore_server.catalog_store import append_package

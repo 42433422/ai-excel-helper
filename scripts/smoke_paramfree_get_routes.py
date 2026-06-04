@@ -76,7 +76,9 @@ def main() -> int:
         "bad5xx": bad5xx,
     }
     if args.json_out:
-        args.json_out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        args.json_out.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     if bad404 or bad405 or bad5xx:

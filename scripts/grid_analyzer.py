@@ -9,12 +9,13 @@ import json
 
 # 读取图片
 import glob
-files = glob.glob(r'e:\FHD\26-0300001A*.png')
+
+files = glob.glob(r"e:\FHD\26-0300001A*.png")
 image_path = files[0]
 
 print(f"读取图片：{image_path}")
 
-with open(image_path, 'rb') as f:
+with open(image_path, "rb") as f:
     file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
 img_array = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
@@ -74,6 +75,7 @@ print(f"\n原始线条：")
 print(f"  水平线：{len(horizontal_lines)} 条")
 print(f"  垂直线：{len(vertical_lines)} 条")
 
+
 # ============ 合并线条 ============
 def merge_very_close(lines, threshold=5):
     if not lines:
@@ -86,6 +88,7 @@ def merge_very_close(lines, threshold=5):
             merged[-1] = (merged[-1] + line) // 2
     return merged
 
+
 def merge_lines(lines, threshold=50):
     if not lines:
         return []
@@ -94,6 +97,7 @@ def merge_lines(lines, threshold=50):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 horizontal_lines = sorted(list(set(horizontal_lines)))
 vertical_lines = sorted(list(set(vertical_lines)))
@@ -113,6 +117,7 @@ print(f"\n" + "=" * 70)
 print("单元格分析")
 print("=" * 70)
 
+
 def analyze_cells(horizontal_lines, vertical_lines):
     """分析单元格，包括合并单元格"""
     rows = len(horizontal_lines) - 1
@@ -127,28 +132,28 @@ def analyze_cells(horizontal_lines, vertical_lines):
             h = horizontal_lines[i + 1] - y
 
             cell = {
-                'row': i,
-                'col': j,
-                'x': x,
-                'y': y,
-                'width': w,
-                'height': h,
-                'is_merged_horizontally': False,
-                'is_merged_vertically': False,
-                'merge_width': 1,
-                'merge_height': 1
+                "row": i,
+                "col": j,
+                "x": x,
+                "y": y,
+                "width": w,
+                "height": h,
+                "is_merged_horizontally": False,
+                "is_merged_vertically": False,
+                "merge_width": 1,
+                "merge_height": 1,
             }
             cells.append(cell)
 
     # 检测水平合并（跨多列）
     for cell in cells:
         # 检查是否水平延伸（检查右侧是否有边框缺失）
-        if cell['col'] < cols - 1:
+        if cell["col"] < cols - 1:
             # 计算该单元格右侧边框的连续黑色像素
-            right_border_x = cell['x'] + cell['width']
+            right_border_x = cell["x"] + cell["width"]
             border_continuous = 0
             max_continuous = 0
-            for y in range(cell['y'], cell['y'] + cell['height']):
+            for y in range(cell["y"], cell["y"] + cell["height"]):
                 if y < gray.shape[0] and right_border_x < gray.shape[1]:
                     if binary[y, right_border_x] > 0:
                         border_continuous += 1
@@ -160,16 +165,16 @@ def analyze_cells(horizontal_lines, vertical_lines):
                 max_continuous = border_continuous
 
             # 如果右侧边框大部分不是黑色，可能是合并单元格
-            if max_continuous < cell['height'] * 0.5:
-                cell['is_merged_horizontally'] = True
+            if max_continuous < cell["height"] * 0.5:
+                cell["is_merged_horizontally"] = True
 
     # 检测垂直合并（跨多行）
     for cell in cells:
-        if cell['row'] < rows - 1:
-            bottom_border_y = cell['y'] + cell['height']
+        if cell["row"] < rows - 1:
+            bottom_border_y = cell["y"] + cell["height"]
             border_continuous = 0
             max_continuous = 0
-            for x in range(cell['x'], cell['x'] + cell['width']):
+            for x in range(cell["x"], cell["x"] + cell["width"]):
                 if x < gray.shape[1] and bottom_border_y < gray.shape[0]:
                     if binary[bottom_border_y, x] > 0:
                         border_continuous += 1
@@ -180,10 +185,11 @@ def analyze_cells(horizontal_lines, vertical_lines):
             if border_continuous > max_continuous:
                 max_continuous = border_continuous
 
-            if max_continuous < cell['width'] * 0.5:
-                cell['is_merged_vertically'] = True
+            if max_continuous < cell["width"] * 0.5:
+                cell["is_merged_vertically"] = True
 
     return cells
+
 
 cells = analyze_cells(horizontal_lines, vertical_lines)
 
@@ -193,19 +199,21 @@ print(f"检测到 {len(cells)} 个单元格")
 print("\n单元格详情：")
 for i, cell in enumerate(cells):
     status = []
-    if cell['is_merged_horizontally']:
+    if cell["is_merged_horizontally"]:
         status.append("水平合并")
-    if cell['is_merged_vertically']:
+    if cell["is_merged_vertically"]:
         status.append("垂直合并")
     status_str = ", ".join(status) if status else "正常"
 
-    print(f"  [{i:2d}] 行{cell['row']} 列{cell['col']}: "
-          f"位置({cell['x']:3d},{cell['y']:3d}) "
-          f"尺寸{cell['width']:3d}x{cell['height']:3d} "
-          f"[{status_str}]")
+    print(
+        f"  [{i:2d}] 行{cell['row']} 列{cell['col']}: "
+        f"位置({cell['x']:3d},{cell['y']:3d}) "
+        f"尺寸{cell['width']:3d}x{cell['height']:3d} "
+        f"[{status_str}]"
+    )
 
 # ============ 生成 HTML 报告 ============
-html_content = f'''<!DOCTYPE html>
+html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -369,20 +377,20 @@ html_content = f'''<!DOCTYPE html>
                         <div class="lines-col">
                             <h4>水平线 Y</h4>
                             <ul class="lines-list">
-'''
+"""
 for i, y in enumerate(horizontal_lines):
-    html_content += f'                                <li>[{i}] Y = {y}</li>\n'
+    html_content += f"                                <li>[{i}] Y = {y}</li>\n"
 
-html_content += '''                            </ul>
+html_content += """                            </ul>
                         </div>
                         <div class="lines-col">
                             <h4>垂直线 X</h4>
                             <ul class="lines-list">
-'''
+"""
 for i, x in enumerate(vertical_lines):
-    html_content += f'                                <li>[{i}] X = {x}</li>\n'
+    html_content += f"                                <li>[{i}] X = {x}</li>\n"
 
-html_content += '''                            </ul>
+html_content += """                            </ul>
                         </div>
                     </div>
                 </div>
@@ -390,32 +398,33 @@ html_content += '''                            </ul>
                 <div class="section">
                     <h3>🔲 单元格详情</h3>
                     <div class="cell-grid" style="grid-template-columns: repeat(3, 1fr);">
-'''
+"""
 for cell in cells:
     status_class = ""
-    if cell['is_merged_horizontally'] and cell['is_merged_vertically']:
+    if cell["is_merged_horizontally"] and cell["is_merged_vertically"]:
         status_class = "merged-both"
-    elif cell['is_merged_horizontally']:
+    elif cell["is_merged_horizontally"]:
         status_class = "merged-h"
-    elif cell['is_merged_vertically']:
+    elif cell["is_merged_vertically"]:
         status_class = "merged-v"
 
     status_text = []
-    if cell['is_merged_horizontally']:
+    if cell["is_merged_horizontally"]:
         status_text.append("水平合并")
-    if cell['is_merged_vertically']:
+    if cell["is_merged_vertically"]:
         status_text.append("垂直合并")
     status_str = ", ".join(status_text) if status_text else "正常"
 
-    html_content += f'''                        <div class="cell {status_class}">
+    html_content += f"""                        <div class="cell {status_class}">
                             <div class="cell-num">#{cell['row']},{cell['col']}</div>
                             <div class="cell-pos">({cell['x']},{cell['y']})</div>
                             <div class="cell-size">{cell['width']}x{cell['height']}</div>
                             <div>{status_str}</div>
                         </div>
-'''
+"""
 
-html_content += '''                    </div>
+html_content += (
+    """                    </div>
                 </div>
             </div>
         </div>
@@ -425,9 +434,15 @@ html_content += '''                    </div>
         const canvas = document.getElementById('gridCanvas');
         const ctx = canvas.getContext('2d');
 
-        const horizontalLines = ''' + json.dumps(horizontal_lines) + ''';
-        const verticalLines = ''' + json.dumps(vertical_lines) + ''';
-        const cells = ''' + json.dumps(cells) + ''';
+        const horizontalLines = """
+    + json.dumps(horizontal_lines)
+    + """;
+        const verticalLines = """
+    + json.dumps(vertical_lines)
+    + """;
+        const cells = """
+    + json.dumps(cells)
+    + """;
 
         function drawCanvas() {
             // 清空画布
@@ -518,10 +533,11 @@ html_content += '''                    </div>
     </script>
 </body>
 </html>
-'''
+"""
+)
 
-output_path = r'e:\FHD\grid_analyzer_report.html'
-with open(output_path, 'w', encoding='utf-8') as f:
+output_path = r"e:\FHD\grid_analyzer_report.html"
+with open(output_path, "w", encoding="utf-8") as f:
     f.write(html_content)
 
 print(f"\n" + "=" * 70)
@@ -532,15 +548,15 @@ print("=" * 70)
 # 输出 JSON 数据供后端使用
 print("\nJSON 数据：")
 data = {
-    'width': width,
-    'height': height,
-    'horizontal_lines': horizontal_lines,
-    'vertical_lines': vertical_lines,
-    'cells': cells,
-    'grid': {
-        'rows': len(horizontal_lines) - 1,
-        'cols': len(vertical_lines) - 1,
-        'total_cells': len(cells)
-    }
+    "width": width,
+    "height": height,
+    "horizontal_lines": horizontal_lines,
+    "vertical_lines": vertical_lines,
+    "cells": cells,
+    "grid": {
+        "rows": len(horizontal_lines) - 1,
+        "cols": len(vertical_lines) - 1,
+        "total_cells": len(cells),
+    },
 }
 print(json.dumps(data, indent=2, ensure_ascii=False))

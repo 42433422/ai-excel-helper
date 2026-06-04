@@ -10,13 +10,13 @@ import json
 import glob
 
 # 读取图片
-files = glob.glob(r'e:\FHD\26-0300001A*.png')
+files = glob.glob(r"e:\FHD\26-0300001A*.png")
 image_path = files[0]
 print(f"读取图片：{image_path}")
 
 # 初始化 PaddleOCR（启用表格引擎）
 print("初始化 PaddleOCR 表格引擎...")
-ocr = PaddleOCR(lang='ch', use_angle_cls=True, table_engine=True, show_log=False)
+ocr = PaddleOCR(lang="ch", use_angle_cls=True, table_engine=True, show_log=False)
 
 print("执行表格 OCR 识别...")
 result = ocr.ocr(image_path, cls=True)
@@ -46,18 +46,18 @@ if isinstance(result, list):
         if isinstance(item, dict):
             print(f"包含 keys：{item.keys()}")
 
-            if 'table' in item:
+            if "table" in item:
                 print(f"\n表格结果：")
-                table_result = item['table']
+                table_result = item["table"]
                 print(f"  类型：{type(table_result)}")
 
                 if isinstance(table_result, list):
                     for j, row in enumerate(table_result):
                         print(f"  行 {j}: {row}")
 
-            if 'res' in item:
+            if "res" in item:
                 print(f"\nOCR 文本结果：")
-                res = item['res']
+                res = item["res"]
                 if isinstance(res, list):
                     for j, text in enumerate(res):
                         print(f"  {j}: {text}")
@@ -65,9 +65,9 @@ if isinstance(result, list):
 elif isinstance(result, dict):
     print(f"结果 keys：{result.keys()}")
 
-    if 'table' in result:
+    if "table" in result:
         print(f"\n表格结果：")
-        table_result = result['table']
+        table_result = result["table"]
         if isinstance(table_result, list):
             for j, row in enumerate(table_result):
                 print(f"  行 {j}: {row}")

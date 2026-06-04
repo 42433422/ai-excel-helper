@@ -174,15 +174,25 @@ def main() -> int:
             if not rel:
                 rel = _copy_into_storage(src)
 
-            ff = "docx" if t.type == "word" else ("xlsx" if t.type == "excel" else (src.suffix.lstrip(".")[:16] or "png"))
+            ff = (
+                "docx"
+                if t.type == "word"
+                else ("xlsx" if t.type == "excel" else (src.suffix.lstrip(".")[:16] or "png"))
+            )
             base_slug = f"excel-legacy-{legacy_id[:8]}-{_slugify(t.name)}"
             slug = base_slug[:63]
 
             with pg.begin() as conn:
-                existing = conn.execute(
-                    text("SELECT slug FROM document_templates WHERE legacy_sqlite_id = :lid LIMIT 1"),
-                    {"lid": legacy_id},
-                ).mappings().first()
+                existing = (
+                    conn.execute(
+                        text(
+                            "SELECT slug FROM document_templates WHERE legacy_sqlite_id = :lid LIMIT 1"
+                        ),
+                        {"lid": legacy_id},
+                    )
+                    .mappings()
+                    .first()
+                )
                 if existing:
                     slug = str(existing["slug"])
                     conn.execute(
@@ -203,7 +213,8 @@ def main() -> int:
                     for n in range(0, 50):
                         cand = slug if n == 0 else f"{base_slug[:50]}-{n}"[:63]
                         taken = conn.execute(
-                            text("SELECT 1 FROM document_templates WHERE slug = :s LIMIT 1"), {"s": cand}
+                            text("SELECT 1 FROM document_templates WHERE slug = :s LIMIT 1"),
+                            {"s": cand},
                         ).first()
                         if taken is None:
                             slug = cand

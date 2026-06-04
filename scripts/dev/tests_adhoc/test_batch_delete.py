@@ -8,11 +8,11 @@ response = requests.get("http://127.0.0.1:5000/api/materials?page=1&per_page=5")
 data = response.json()
 print("Materials before delete:")
 print(f"  Total: {data.get('total')}")
-for m in data.get('data', []):
+for m in data.get("data", []):
     print(f"  ID={m['id']}, name={m['name']}")
 
 # Get IDs
-ids = [m['id'] for m in data.get('data', [])[:3]]  # Take first 3
+ids = [m["id"] for m in data.get("data", [])[:3]]  # Take first 3
 print(f"\nAttempting to delete IDs: {ids}")
 
 # Now try batch delete
@@ -25,5 +25,5 @@ response = requests.get("http://127.0.0.1:5000/api/materials?page=1&per_page=5")
 data = response.json()
 print("\nMaterials after delete:")
 print(f"  Total: {data.get('total')}")
-for m in data.get('data', []):
+for m in data.get("data", []):
     print(f"  ID={m['id']}, name={m['name']}")

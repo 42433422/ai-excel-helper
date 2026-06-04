@@ -18,28 +18,28 @@ from pathlib import Path
 
 class MigrationTaskRunner:
     """迁移任务执行器"""
-    
+
     def __init__(self):
         self.project_root = Path("e:/FHD")
         self.results = {}
-    
+
     async def run_task(self, name: str, command: list, description: str) -> bool:
         """运行单个任务"""
         print(f"\n{'='*60}")
         print(f"[TASK] {name}")
         print(f"[DESC] {description}")
-        print('='*60)
-        
+        print("=" * 60)
+
         try:
             result = subprocess.run(
                 command,
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                encoding='utf-8',
-                errors='ignore'
+                encoding="utf-8",
+                errors="ignore",
             )
-            
+
             if result.returncode == 0:
                 print(f"[OK] {name} 完成")
                 if result.stdout:
@@ -52,50 +52,53 @@ class MigrationTaskRunner:
                     print(result.stderr[-1000:])
                 self.results[name] = False
                 return False
-                
+
         except Exception as e:
             print(f"[ERROR] {name} 异常: {e}")
             self.results[name] = False
             return False
-    
+
     async def run_all_tasks(self):
         """运行所有任务"""
-        print("="*60)
+        print("=" * 60)
         print("Neuro-DDD 迁移任务执行器")
-        print("="*60)
+        print("=" * 60)
         print(f"项目根目录: {self.project_root}")
-        
+
         tasks = [
-            ("检测迁移状态", 
-             [sys.executable, "scripts/detect_migration_status.py"],
-             "扫描所有服务，检测迁移状态"),
-            
-            ("清理分析", 
-             [sys.executable, "scripts/cleanup_legacy_code.py"],
-             "分析传统代码，识别未使用文件"),
+            (
+                "检测迁移状态",
+                [sys.executable, "scripts/detect_migration_status.py"],
+                "扫描所有服务，检测迁移状态",
+            ),
+            (
+                "清理分析",
+                [sys.executable, "scripts/cleanup_legacy_code.py"],
+                "分析传统代码，识别未使用文件",
+            ),
         ]
-        
+
         for name, command, desc in tasks:
             await self.run_task(name, command, desc)
-        
+
         # 打印总结
         self._print_summary()
-    
+
     def _print_summary(self):
         """打印任务总结"""
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("任务执行总结")
-        print("="*60)
-        
+        print("=" * 60)
+
         success_count = sum(1 for v in self.results.values() if v)
         total_count = len(self.results)
-        
+
         for name, success in self.results.items():
             status = "[OK]" if success else "[FAIL]"
             print(f"  {status} {name}")
-        
+
         print(f"\n总计: {success_count}/{total_count} 成功")
-        
+
         if success_count == total_count:
             print("\n[OK] 所有任务完成！")
             print("\n下一步:")
@@ -110,7 +113,7 @@ class MigrationTaskRunner:
 def main():
     """主函数"""
     runner = MigrationTaskRunner()
-    
+
     # 使用 asyncio 运行
     try:
         loop = asyncio.get_event_loop()

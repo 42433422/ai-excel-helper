@@ -110,9 +110,15 @@ def main() -> int:
                 conn.execute(text(stmt))
             else:
                 for t in todo:
-                    conn.execute(text(f'DELETE FROM "{t}"' if dialect == "sqlite" else f"DELETE FROM {t}"))
+                    conn.execute(
+                        text(f'DELETE FROM "{t}"' if dialect == "sqlite" else f"DELETE FROM {t}")
+                    )
             conn.commit()
-            print("OK:", "truncated" if dialect == "postgresql" else "deleted all rows in", ", ".join(todo))
+            print(
+                "OK:",
+                "truncated" if dialect == "postgresql" else "deleted all rows in",
+                ", ".join(todo),
+            )
             return 0
 
         # --mod
@@ -129,9 +135,7 @@ def main() -> int:
                 continue
             if args.also_null:
                 r = conn.execute(
-                    text(
-                        f"DELETE FROM {table} WHERE xcagi_mod_id = :m OR xcagi_mod_id IS NULL"
-                    ),
+                    text(f"DELETE FROM {table} WHERE xcagi_mod_id = :m OR xcagi_mod_id IS NULL"),
                     {"m": mid},
                 )
             else:
