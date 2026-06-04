@@ -1,9 +1,10 @@
-﻿"""
+"""
 Mod Manager - Core manager for scanning, loading, and managing mods
 """
 
 import importlib
 import importlib.util
+import json
 import logging
 import os
 import shutil
@@ -11,8 +12,7 @@ import sys
 import tempfile
 import time
 import zipfile
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from pathlib import Path
+from typing import Any
 
 from .artifact_constants import ARTIFACT_BUNDLE, ARTIFACT_EMPLOYEE_PACK, normalize_artifact
 from .artifact_package import (
@@ -20,8 +20,8 @@ from .artifact_package import (
     validate_employee_pack_manifest,
 )
 from .manifest import ModMetadata, parse_manifest, validate_dependencies
-from .registry import get_mod_registry
 from .package import ModPackage, ModPackageError, ModSignatureError
+from .registry import get_mod_registry
 
 logger = logging.getLogger(__name__)
 
@@ -46,19 +46,26 @@ def _default_mods_root() -> str:
         if os.path.isdir(p):
             logger.info("[_default_mods_root] Mods root from env: %s", p)
             return p
-        logger.warning("[_default_mods_root] XCAGI_MODS_ROOT / XCAGI_MODS_DIR is set but not a directory: %s", p)
+        logger.warning(
+            "[_default_mods_root] XCAGI_MODS_ROOT / XCAGI_MODS_DIR is set but not a directory: %s",
+            p,
+        )
 
     file_here = os.path.abspath(__file__)
     from_pkg_layout = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(file_here)))), "mods"
     )
-    logger.info(f"[_default_mods_root] Checking package-relative path: {from_pkg_layout}, exists: {os.path.isdir(from_pkg_layout)}")
+    logger.info(
+        f"[_default_mods_root] Checking package-relative path: {from_pkg_layout}, exists: {os.path.isdir(from_pkg_layout)}"
+    )
     if os.path.isdir(from_pkg_layout):
         logger.info("[_default_mods_root] Mods root (next to app package): %s", from_pkg_layout)
         return from_pkg_layout
 
     cwd_mods = os.path.join(os.getcwd(), "mods")
-    logger.info(f"[_default_mods_root] Checking CWD mods: {cwd_mods}, exists: {os.path.isdir(cwd_mods)}")
+    logger.info(
+        f"[_default_mods_root] Checking CWD mods: {cwd_mods}, exists: {os.path.isdir(cwd_mods)}"
+    )
     if os.path.isdir(cwd_mods):
         logger.info("[_default_mods_root] Mods root (./mods from cwd): %s", cwd_mods)
         return cwd_mods
@@ -124,7 +131,7 @@ def _register_mod_hooks(mod_id: str, metadata: ModMetadata) -> None:
     for event, handler_spec in metadata.hooks.items():
         spec = (handler_spec or "").strip()
         if spec.startswith("backend."):
-            spec = spec[len("backend."):]
+            spec = spec[len("backend.") :]
         try:
             module_name, _, attr = spec.rpartition(".")
             if not module_name or not attr:
@@ -133,9 +140,7 @@ def _register_mod_hooks(mod_id: str, metadata: ModMetadata) -> None:
             module = import_mod_backend_py(mod_fs_path, mod_id, module_name)
             handler = getattr(module, attr, None)
             if not callable(handler):
-                logger.error(
-                    "Hook handler not callable for mod %s: %r", mod_id, handler_spec
-                )
+                logger.error("Hook handler not callable for mod %s: %r", mod_id, handler_spec)
                 continue
             subscribe(event, handler)
             logger.info("Mod %s hook registered: %s -> %s", mod_id, event, spec)
@@ -149,16 +154,16 @@ def _short_exc_message(exc: BaseException, max_len: int = 480) -> str:
 
 
 class ModManager:
-    def __init__(self, mods_root: Optional[str] = None):
+    def __init__(self, mods_root: str | None = None):
         if mods_root is None:
             mods_root = _default_mods_root()
         self.mods_root = mods_root
-        self._loaded_mods: List[str] = []
+        self._loaded_mods: list[str] = []
         self._mod_import_cache: dict = {}
         # 最近一次 load_all_mods / load_mod_routes 的失败摘要，供 /api/mods/loading-status 展示
-        self._recent_load_failures: List[Dict[str, str]] = []
-        self._blueprint_failures: List[Dict[str, str]] = []
-        self._scan_manifest_errors: List[Dict[str, str]] = []
+        self._recent_load_failures: list[dict[str, str]] = []
+        self._blueprint_failures: list[dict[str, str]] = []
+        self._scan_manifest_errors: list[dict[str, str]] = []
         # ensure_mods_loaded：注册表为空但磁盘有 manifest 时重复尝试（节流，避免「只试一次」后永久失败）
         self._last_ensure_at: float = 0.0
         self._ensure_attempts: int = 0
@@ -169,12 +174,16 @@ class ModManager:
         若当前路径不存在则重新 _default_mods_root()。
         避免进程早期 import 顺序或 cwd 导致单例锁死在空目录，之后即使用户改环境变量也无法加载。
         """
-        env_raw = (os.environ.get("XCAGI_MODS_ROOT") or os.environ.get("XCAGI_MODS_DIR") or "").strip()
+        env_raw = (
+            os.environ.get("XCAGI_MODS_ROOT") or os.environ.get("XCAGI_MODS_DIR") or ""
+        ).strip()
         if env_raw:
             p = os.path.abspath(env_raw)
             if os.path.isdir(p):
                 if self.mods_root != p:
-                    logger.info("[ModManager] Updating mods_root from env: %s -> %s", self.mods_root, p)
+                    logger.info(
+                        "[ModManager] Updating mods_root from env: %s -> %s", self.mods_root, p
+                    )
                     self.mods_root = p
                     self._ensure_attempts = 0
                 return
@@ -202,13 +211,13 @@ class ModManager:
     def record_blueprint_failure(self, mod_id: str, message: str) -> None:
         self._blueprint_failures.append({"mod_id": mod_id, "message": message[:500]})
 
-    def get_recent_load_failures(self) -> List[Dict[str, str]]:
+    def get_recent_load_failures(self) -> list[dict[str, str]]:
         return list(self._recent_load_failures)
 
-    def get_blueprint_failures(self) -> List[Dict[str, str]]:
+    def get_blueprint_failures(self) -> list[dict[str, str]]:
         return list(self._blueprint_failures)
 
-    def get_scan_manifest_errors(self) -> List[Dict[str, str]]:
+    def get_scan_manifest_errors(self) -> list[dict[str, str]]:
         return list(self._scan_manifest_errors)
 
     def ensure_mods_loaded(self, app: Any) -> None:
@@ -245,7 +254,7 @@ class ModManager:
                 e,
             )
 
-    def scan_mods(self) -> List[ModMetadata]:
+    def scan_mods(self) -> list[ModMetadata]:
         self._refresh_mods_root_if_needed()
         logger.info(f"[ModManager] Scanning mods directory: {self.mods_root}")
         logger.info(f"[ModManager] CWD: {os.getcwd()}")
@@ -266,12 +275,16 @@ class ModManager:
                 continue
 
             manifest_path = os.path.join(mod_path, "manifest.json")
-            logger.info(f"[ModManager] Checking mod entry: {entry}, manifest exists: {os.path.isfile(manifest_path)}")
+            logger.info(
+                f"[ModManager] Checking mod entry: {entry}, manifest exists: {os.path.isfile(manifest_path)}"
+            )
 
             metadata = parse_manifest(mod_path)
             if metadata:
                 mods.append(metadata)
-                logger.info(f"[ModManager] Found mod: {metadata.id} ({metadata.name}) v{metadata.version}")
+                logger.info(
+                    f"[ModManager] Found mod: {metadata.id} ({metadata.name}) v{metadata.version}"
+                )
             else:
                 logger.warning(f"[ModManager] Failed to parse manifest for mod entry: {entry}")
                 self._scan_manifest_errors.append(
@@ -291,6 +304,14 @@ class ModManager:
 
         if registry.get_mod_metadata(mod_id):
             logger.info(f"[ModManager] Mod {mod_id} is already loaded")
+            # 与 load_mod_routes 对齐：历史上偶发「注册表已有元数据但 _loaded_mods 漏记」，
+            # 会导致该 Mod 的 /api/mod/<id>/... 永远不挂载（仅命中 SPA 兜底 404）。
+            if mod_id not in self._loaded_mods:
+                logger.warning(
+                    "[ModManager] Mod %s in registry but missing from _loaded_mods; syncing list",
+                    mod_id,
+                )
+                self._loaded_mods.append(mod_id)
             return True
 
         mod_path = os.path.join(self.mods_root, mod_id)
@@ -306,7 +327,9 @@ class ModManager:
             self._record_load_failure(mod_id, "manifest", "manifest.json 无效或缺少 id")
             return False
 
-        logger.info(f"[ModManager] Mod metadata parsed: id={metadata.id}, name={metadata.name}, version={metadata.version}")
+        logger.info(
+            f"[ModManager] Mod metadata parsed: id={metadata.id}, name={metadata.name}, version={metadata.version}"
+        )
 
         if normalize_artifact({"artifact": metadata.artifact}) == ARTIFACT_BUNDLE:
             if registry.get_mod_metadata(mod_id):
@@ -369,7 +392,7 @@ class ModManager:
         registry = get_mod_registry()
         instance = registry.get_mod_instance(mod_id)
 
-        if instance and hasattr(instance, 'cleanup'):
+        if instance and hasattr(instance, "cleanup"):
             try:
                 instance.cleanup()
             except Exception as e:
@@ -394,24 +417,24 @@ class ModManager:
         package_path: str,
         verify_signature: bool = True,
         activate: bool = True,
-    ) -> Tuple[bool, str, Optional[ModMetadata]]:
+    ) -> tuple[bool, str, ModMetadata | None]:
         """
         安装 MOD 包
-        
+
         Args:
             package_path: .xcmod 文件路径
             verify_signature: 是否验证签名
             activate: 安装后是否立即激活
-        
+
         Returns:
             (成功标志，消息，元数据)
         """
         try:
             self._refresh_mods_root_if_needed()
             os.makedirs(self.mods_root, exist_ok=True)
-            
+
             logger.info(f"Installing MOD package: {package_path}")
-            
+
             with tempfile.TemporaryDirectory() as temp_dir:
                 try:
                     extract_path, manifest = ModPackage.extract_package(
@@ -421,23 +444,25 @@ class ModManager:
                     return False, f"签名验证失败：{e}", None
                 except ModPackageError as e:
                     return False, f"MOD 包无效：{e}", None
-                
+
                 mod_id = manifest.get("id", "")
                 if not mod_id:
                     return False, "MOD 包缺少 id 字段", None
 
                 target_path = os.path.join(self.mods_root, mod_id)
-                
+
                 if os.path.exists(target_path):
                     existing_metadata = parse_manifest(target_path)
                     existing_version = existing_metadata.version if existing_metadata else "unknown"
                     new_version = manifest.get("version", "unknown")
-                    logger.info(f"MOD {mod_id} already exists (v{existing_version}), updating to v{new_version}")
+                    logger.info(
+                        f"MOD {mod_id} already exists (v{existing_version}), updating to v{new_version}"
+                    )
                     shutil.rmtree(target_path)
-                
+
                 shutil.copytree(extract_path, target_path)
                 logger.info(f"MOD installed to: {target_path}")
-                
+
                 if activate:
                     if self.load_mod(mod_id):
                         metadata = parse_manifest(target_path)
@@ -447,19 +472,19 @@ class ModManager:
                 else:
                     metadata = parse_manifest(target_path)
                     return True, f"MOD {mod_id} 安装成功（未激活）", metadata
-                    
+
         except Exception as e:
             logger.exception("MOD installation failed")
             return False, f"安装失败：{e}", None
 
-    def uninstall_mod(self, mod_id: str, remove_files: bool = True) -> Tuple[bool, str]:
+    def uninstall_mod(self, mod_id: str, remove_files: bool = True) -> tuple[bool, str]:
         """
         卸载 MOD
-        
+
         Args:
             mod_id: MOD ID
             remove_files: 是否删除文件
-        
+
         Returns:
             (成功标志，消息)
         """
@@ -476,20 +501,20 @@ class ModManager:
                     ok, msg = er.uninstall_pack(mod_id, remove_files=remove_files)
                     return ok, msg
                 return False, f"MOD {mod_id} 未加载或不存在"
-            
+
             logger.info(f"Uninstalling MOD: {mod_id}")
-            
+
             if mod_id in self._loaded_mods:
                 self.unload_mod(mod_id)
-            
+
             if remove_files:
                 mod_path = os.path.join(self.mods_root, mod_id)
                 if os.path.exists(mod_path):
                     shutil.rmtree(mod_path)
                     logger.info(f"MOD files removed: {mod_path}")
-            
+
             return True, f"MOD {mod_id} 卸载成功"
-            
+
         except Exception as e:
             logger.exception("MOD uninstallation failed")
             return False, f"卸载失败：{e}"
@@ -499,42 +524,42 @@ class ModManager:
         mod_id: str,
         package_path: str,
         verify_signature: bool = True,
-    ) -> Tuple[bool, str, Optional[ModMetadata]]:
+    ) -> tuple[bool, str, ModMetadata | None]:
         """
         更新 MOD
-        
+
         Args:
             mod_id: MOD ID
             package_path: .xcmod 文件路径
             verify_signature: 是否验证签名
-        
+
         Returns:
             (成功标志，消息，元数据)
         """
         try:
             registry = get_mod_registry()
             current_metadata = registry.get_mod_metadata(mod_id)
-            
+
             if not current_metadata:
                 return False, f"MOD {mod_id} 未安装，请先安装", None
-            
+
             new_package = ModPackage(package_path)
             new_manifest = new_package.manifest
-            
+
             current_version = current_metadata.version
             new_version = new_manifest.get("version", "unknown")
-            
+
             logger.info(f"Updating MOD {mod_id}: v{current_version} -> v{new_version}")
-            
+
             was_loaded = mod_id in self._loaded_mods
-            
+
             if was_loaded:
                 self.unload_mod(mod_id)
-            
+
             mod_path = os.path.join(self.mods_root, mod_id)
             if os.path.exists(mod_path):
                 shutil.rmtree(mod_path)
-            
+
             with tempfile.TemporaryDirectory() as temp_dir:
                 try:
                     extract_path, _ = ModPackage.extract_package(
@@ -546,7 +571,7 @@ class ModManager:
                     if was_loaded:
                         self.load_mod(mod_id)
                     return False, f"更新失败：{e}", None
-            
+
             if was_loaded:
                 if self.load_mod(mod_id):
                     metadata = parse_manifest(mod_path)
@@ -556,41 +581,41 @@ class ModManager:
             else:
                 metadata = parse_manifest(mod_path)
                 return True, f"MOD {mod_id} 更新成功 (v{new_version})", metadata
-                
+
         except Exception as e:
             logger.exception("MOD update failed")
             return False, f"更新失败：{e}", None
 
-    def validate_mod_package(self, package_path: str) -> Tuple[bool, str, Dict[str, Any]]:
+    def validate_mod_package(self, package_path: str) -> tuple[bool, str, dict[str, Any]]:
         """
         验证 MOD 包
-        
+
         Args:
             package_path: .xcmod 文件路径
-        
+
         Returns:
             (有效标志，消息，详细信息)
         """
         try:
             if not os.path.isfile(package_path):
                 return False, "文件不存在", {}
-            
+
             if not zipfile.is_zipfile(package_path):
                 return False, "不是有效的 ZIP 文件", {}
-            
+
             with tempfile.TemporaryDirectory() as temp_dir:
                 extract_path, manifest = ModPackage.extract_package(
                     package_path, temp_dir, verify_signature=False
                 )
-                
+
                 mod_id = manifest.get("id", "")
                 version = manifest.get("version", "")
-                
+
                 if not mod_id:
                     return False, "缺少必填字段 'id'", {}
-                
-                errors: List[str] = []
-                warnings: List[str] = []
+
+                errors: list[str] = []
+                warnings: list[str] = []
 
                 required_fields = ["id", "name", "version"]
                 for field in required_fields:
@@ -621,35 +646,39 @@ class ModManager:
 
                 is_valid = len(errors) == 0
 
-                return is_valid, "验证通过" if is_valid else "; ".join(errors), {
-                    "id": mod_id,
-                    "name": manifest.get("name", ""),
-                    "version": version,
-                    "author": manifest.get("author", ""),
-                    "artifact": art,
-                    "errors": errors,
-                    "warnings": warnings,
-                }
-                
+                return (
+                    is_valid,
+                    "验证通过" if is_valid else "; ".join(errors),
+                    {
+                        "id": mod_id,
+                        "name": manifest.get("name", ""),
+                        "version": version,
+                        "author": manifest.get("author", ""),
+                        "artifact": art,
+                        "errors": errors,
+                        "warnings": warnings,
+                    },
+                )
+
         except ModPackageError as e:
             return False, str(e), {}
         except Exception as e:
             logger.exception("MOD validation failed")
             return False, f"验证失败：{e}", {}
 
-    def get_mod(self, mod_id: str) -> Optional[ModMetadata]:
+    def get_mod(self, mod_id: str) -> ModMetadata | None:
         registry = get_mod_registry()
         return registry.get_mod_metadata(mod_id)
 
-    def list_loaded_mods(self) -> List[ModMetadata]:
+    def list_loaded_mods(self) -> list[ModMetadata]:
         registry = get_mod_registry()
         return registry.list_mods()
 
     @staticmethod
-    def _metadata_to_api_dict(m: ModMetadata) -> Dict[str, Any]:
+    def _metadata_to_api_dict(m: ModMetadata) -> dict[str, Any]:
         """与前端 /api/mods/ 列表项、侧栏 manifest 展示字段对齐。"""
         art = normalize_artifact({"artifact": m.artifact})
-        row: Dict[str, Any] = {
+        row: dict[str, Any] = {
             "id": m.id,
             "name": m.name,
             "version": m.version,
@@ -666,7 +695,7 @@ class ModManager:
             row["type"] = "bundle"
         return row
 
-    def list_mods(self) -> List[Dict[str, Any]]:
+    def list_mods(self) -> list[dict[str, Any]]:
         """
         已加载 Mod 元数据优先；否则回退磁盘扫描 manifest。
         供 GET /api/mods/、Neuro SAFETY_MODS_LIST 使用（前端读 result.data[]）。
@@ -687,7 +716,7 @@ class ModManager:
             logger.warning("employee registry merge skipped: %s", e)
         return rows
 
-    def list_all_mods(self) -> List[Dict[str, Any]]:
+    def list_all_mods(self) -> list[dict[str, Any]]:
         """
         始终返回磁盘扫描的全部 Mod 列表，不受已加载状态影响。
         供 GET /api/mods/?all=1 使用，返回所有可选的标准扩展包。
@@ -705,7 +734,7 @@ class ModManager:
             logger.warning("employee registry merge skipped: %s", e)
         return rows
 
-    def get_routes(self) -> List[Dict[str, str]]:
+    def get_routes(self) -> list[dict[str, str]]:
         """
         返回含 mod_id 的条目，供前端 registerModRoutes 匹配 Vite glob。
         manifest frontend.routes 非空即视为存在 frontend/routes.js（或约定路径）。
@@ -713,14 +742,14 @@ class ModManager:
         if is_mods_disabled():
             return []
         self._refresh_mods_root_if_needed()
-        out: List[Dict[str, str]] = []
+        out: list[dict[str, str]] = []
         for m in self.scan_mods():
             rp = (m.frontend_routes or "").strip()
             if rp:
                 out.append({"mod_id": m.id, "routes_path": rp})
         return out
 
-    def load_all_mods(self) -> List[str]:
+    def load_all_mods(self) -> list[str]:
         self._recent_load_failures = []
         self._blueprint_failures = []
         mods = self.scan_mods()
@@ -734,7 +763,9 @@ class ModManager:
             if metadata.dependencies:
                 deps_satisfied = validate_dependencies(metadata, loaded)
                 if not deps_satisfied:
-                    logger.warning(f"[ModManager] Skipping mod {metadata.id} due to unsatisfied dependencies")
+                    logger.warning(
+                        f"[ModManager] Skipping mod {metadata.id} due to unsatisfied dependencies"
+                    )
                     self._record_load_failure(
                         metadata.id,
                         "dependencies",
@@ -752,7 +783,7 @@ class ModManager:
         return loaded
 
 
-_mod_manager: Optional[ModManager] = None
+_mod_manager: ModManager | None = None
 
 
 def get_mod_manager() -> ModManager:
@@ -794,7 +825,52 @@ def _move_history_fallback_to_end(app) -> None:
         logger.warning("Failed to reorder history fallback routes: %s", e)
 
 
-def load_mod_routes(app, mod_manager: Optional[ModManager] = None) -> None:
+def load_employee_pack_routes(app, mod_manager: ModManager | None = None) -> None:
+    """为 ``mods/_employees/<pack_id>/`` 中带 ``backend.entry`` 的 employee_pack 挂载 FastAPI 路由。
+
+    扫描目录不经过 ``scan_mods``（其忽略 ``_`` 前缀），故在此单独注册。
+    """
+    if mod_manager is None:
+        mod_manager = get_mod_manager()
+    if is_mods_disabled():
+        return
+    root = mod_manager.mods_root
+    emp_root = os.path.join(root, "_employees")
+    if not os.path.isdir(emp_root):
+        return
+    for name in sorted(os.listdir(emp_root)):
+        pack_path = os.path.join(emp_root, name)
+        if not os.path.isdir(pack_path):
+            continue
+        mf = os.path.join(pack_path, "manifest.json")
+        if not os.path.isfile(mf):
+            continue
+        try:
+            with open(mf, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if normalize_artifact(data) != ARTIFACT_EMPLOYEE_PACK:
+            continue
+        backend = data.get("backend") or {}
+        entry = str(backend.get("entry") or "").strip()
+        if not entry:
+            continue
+        pack_id = str(data.get("id") or name).strip()
+        if not pack_id:
+            continue
+        try:
+            module = import_mod_backend_py(pack_path, pack_id, entry)
+            reg = getattr(module, "register_fastapi_routes", None)
+            if callable(reg):
+                reg(app, pack_id)
+                logger.info("FastAPI routes registered for employee_pack: %s", pack_id)
+        except Exception as e:
+            logger.error("employee_pack route registration failed %s: %s", pack_id, e, exc_info=True)
+            mod_manager.record_blueprint_failure(pack_id, str(e)[:500])
+
+
+def load_mod_routes(app, mod_manager: ModManager | None = None) -> None:
     """加载 Mod 路由到 FastAPI 应用"""
     if mod_manager is None:
         mod_manager = get_mod_manager()
@@ -802,8 +878,32 @@ def load_mod_routes(app, mod_manager: Optional[ModManager] = None) -> None:
     mod_manager._blueprint_failures = []
     registry = get_mod_registry()
 
+    # 以注册表为准挂载 HTTP 路由：仅依赖 _loaded_mods 时，若列表与「已成功 load_mod 并 register」的
+    # 集合不一致，会出现 OpenAPI 里缺少部分 /api/mod/<id>/hello、浏览器 404 的情况。
+    routable: list[str] = []
+    seen_ids: set[str] = set()
+    for meta in registry.list_mods():
+        mid = (meta.id or "").strip()
+        if not mid or not (meta.backend_entry or "").strip():
+            continue
+        if mid in seen_ids:
+            continue
+        seen_ids.add(mid)
+        routable.append(mid)
+    # 优先保持 load_all_mods 时的顺序（primary 优先等），再补上注册表里有但 _loaded_mods 漏掉的 id
+    ordered_ids: list[str] = []
+    seen2: set[str] = set()
+    for mid in mod_manager._loaded_mods:
+        if mid in seen2 or mid not in seen_ids:
+            continue
+        ordered_ids.append(mid)
+        seen2.add(mid)
+    for mid in routable:
+        if mid not in seen2:
+            ordered_ids.append(mid)
+            seen2.add(mid)
 
-    for mod_id in mod_manager._loaded_mods:
+    for mod_id in ordered_ids:
         metadata = registry.get_mod_metadata(mod_id)
         if not metadata or not metadata.backend_entry:
             continue
@@ -819,7 +919,7 @@ def load_mod_routes(app, mod_manager: Optional[ModManager] = None) -> None:
 
             # Preferred: native FastAPI route registration.
             if hasattr(module, "register_fastapi_routes"):
-                register_fastapi_fn = getattr(module, "register_fastapi_routes")
+                register_fastapi_fn = module.register_fastapi_routes
                 if callable(register_fastapi_fn):
                     register_fastapi_fn(app, mod_id)
                     logger.info(f"FastAPI routes registered for mod: {mod_id}")
@@ -827,7 +927,7 @@ def load_mod_routes(app, mod_manager: Optional[ModManager] = None) -> None:
 
             # Optional websocket hook for FastAPI mods.
             if hasattr(module, "register_websocket_routes"):
-                ws_register_fn = getattr(module, "register_websocket_routes")
+                ws_register_fn = module.register_websocket_routes
                 if callable(ws_register_fn):
                     ws_result = ws_register_fn(app)
                     if ws_result is False:
@@ -841,15 +941,14 @@ def load_mod_routes(app, mod_manager: Optional[ModManager] = None) -> None:
             logger.error(f"Failed to register routes for {mod_id}: {e}", exc_info=True)
             mod_manager.record_blueprint_failure(mod_id, _short_exc_message(e))
 
+    load_employee_pack_routes(app, mod_manager)
     _move_history_fallback_to_end(app)
 
 
-def load_mod_blueprints(app, mod_manager: Optional[ModManager] = None) -> None:
+def load_mod_blueprints(app, mod_manager: ModManager | None = None) -> None:
     """
     历史钩子名（兼容旧 Mod 文档/清单）。
 
     Mod 的 HTTP 面由 FastAPI ``load_mod_routes`` 注册；此函数为 no-op，避免重复挂载。
     """
-    logger.info(
-        "load_mod_blueprints: skipped (Mod routes use FastAPI load_mod_routes on main app)"
-    )
+    logger.info("load_mod_blueprints: skipped (Mod routes use FastAPI load_mod_routes on main app)")

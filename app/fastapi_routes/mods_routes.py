@@ -8,7 +8,7 @@ Provides endpoints for:
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -22,6 +22,7 @@ def get_mods_router() -> Any:
     global router
     if router is None:
         from fastapi import APIRouter
+
         router = APIRouter(prefix="/api/mods", tags=["mods"])
         _register_mods_endpoints(router)
     return router
@@ -48,7 +49,7 @@ def _register_mods_endpoints(router) -> None:
                         "blueprint_errors": [],
                         "partial_failure": False,
                         "mods_disabled": True,
-                    }
+                    },
                 }
 
             mm = get_mod_manager()
@@ -96,7 +97,7 @@ def _register_mods_endpoints(router) -> None:
                     "blueprint_errors": blueprint_errors,
                     "partial_failure": partial_failure,
                     "mods_disabled": False,
-                }
+                },
             }
         except Exception as e:
             logger.exception(f"get_loading_status failed: {e}")
@@ -114,13 +115,13 @@ def _register_mods_endpoints(router) -> None:
                     "partial_failure": True,
                     "mods_disabled": False,
                     "error": str(e),
-                }
+                },
             }
 
     @router.get("/")
-    async def list_mods(all: Optional[str] = None):
+    async def list_mods(all: str | None = None):
         """List all loaded or discovered mods
-        
+
         Args:
             all: 当传入 "1" 时，返回磁盘扫描的全部 Mod 列表（不受已加载状态影响）
         """
@@ -131,17 +132,10 @@ def _register_mods_endpoints(router) -> None:
             # 侧栏菜单/图标需要实时反映 manifest 变更，默认也走磁盘扫描。
             # 保留 ?all=1 兼容旧调用方；当前两者行为一致。
             mods = mm.list_all_mods()
-            return {
-                "success": True,
-                "data": mods
-            }
+            return {"success": True, "data": mods}
         except Exception as e:
             logger.exception(f"list_mods failed: {e}")
-            return {
-                "success": False,
-                "message": str(e),
-                "data": []
-            }
+            return {"success": False, "message": str(e), "data": []}
 
     @router.get("/routes")
     async def list_routes():
@@ -151,17 +145,10 @@ def _register_mods_endpoints(router) -> None:
 
             mm = get_mod_manager()
             routes = mm.get_routes()
-            return {
-                "success": True,
-                "data": routes
-            }
+            return {"success": True, "data": routes}
         except Exception as e:
             logger.exception(f"list_routes failed: {e}")
-            return {
-                "success": False,
-                "message": str(e),
-                "data": []
-            }
+            return {"success": False, "message": str(e), "data": []}
 
     @router.get("/comms/endpoints")
     async def list_comms_endpoints():
@@ -173,6 +160,42 @@ def _register_mods_endpoints(router) -> None:
         except Exception as e:
             logger.exception("list_comms_endpoints failed: %s", e)
             return {"success": False, "error": str(e)}
+
+    @router.get("/employee-packs/{pack_id}/config-preview")
+    async def employee_pack_config_preview(pack_id: str):
+        """返回已安装 employee_pack 的 ``employee_config_v2`` 摘要（供宿主/MODstore 联调）。"""
+        import json
+        import os
+
+        try:
+            from app.infrastructure.mods.mod_manager import _default_mods_root
+        except Exception as e:  # noqa: BLE001
+            return {"success": False, "error": str(e)}
+        root = os.path.join(_default_mods_root(), "_employees", (pack_id or "").strip(), "manifest.json")
+        if not os.path.isfile(root):
+            return {"success": False, "error": "员工包未安装或 manifest 不存在"}
+        try:
+            with open(root, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            return {"success": False, "error": str(e)}
+        v2 = data.get("employee_config_v2")
+        hp = data.get("xcagi_host_profile")
+        cog = (v2 or {}).get("cognition") if isinstance(v2, dict) else {}
+        agent = cog.get("agent") if isinstance(cog, dict) else {}
+        model = agent.get("model") if isinstance(agent, dict) else {}
+        return {
+            "success": True,
+            "data": {
+                "pack_id": data.get("id") or pack_id,
+                "has_employee_config_v2": isinstance(v2, dict),
+                "cognition_model": model if isinstance(model, dict) else {},
+                "system_prompt_preview": (
+                    str(agent.get("system_prompt") or "")[:400] if isinstance(agent, dict) else ""
+                ),
+                "xcagi_host_profile": hp if isinstance(hp, dict) else None,
+            },
+        }
 
     @router.get("/{mod_id}")
     async def get_mod_detail(mod_id: str, request: Request):

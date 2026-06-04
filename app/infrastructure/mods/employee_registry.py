@@ -7,7 +7,7 @@ import logging
 import os
 import shutil
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .artifact_constants import ARTIFACT_EMPLOYEE_PACK, normalize_artifact
 from .artifact_package import validate_employee_pack_manifest
@@ -29,11 +29,11 @@ class EmployeeRegistry:
     def _root(self) -> str:
         return employees_root(self.mods_root)
 
-    def list_packs(self) -> List[Dict[str, Any]]:
+    def list_packs(self) -> list[dict[str, Any]]:
         root = self._root()
         if not os.path.isdir(root):
             return []
-        out: List[Dict[str, Any]] = []
+        out: list[dict[str, Any]] = []
         for name in sorted(os.listdir(root)):
             p = os.path.join(root, name)
             if not os.path.isdir(p):
@@ -42,7 +42,7 @@ class EmployeeRegistry:
             if not os.path.isfile(mf):
                 continue
             try:
-                with open(mf, "r", encoding="utf-8") as f:
+                with open(mf, encoding="utf-8") as f:
                     data = json.load(f)
             except (OSError, json.JSONDecodeError):
                 continue
@@ -58,15 +58,24 @@ class EmployeeRegistry:
                     "author": data.get("author", ""),
                     "description": data.get("description", ""),
                     "employee": emp,
+                    "xcagi_host_profile": data.get("xcagi_host_profile"),
                 }
             )
         return out
 
-    def list_for_mods_api(self) -> List[Dict[str, Any]]:
+    def list_for_mods_api(self) -> list[dict[str, Any]]:
         """与 ModManager._metadata_to_api_dict 形状兼容，供 /api/mods/ 合并。"""
-        rows: List[Dict[str, Any]] = []
+        rows: list[dict[str, Any]] = []
         for p in self.list_packs():
-            emp = p.get("employee") or {}
+            emp = dict(p.get("employee") or {}) if isinstance(p.get("employee"), dict) else {}
+            hp = p.get("xcagi_host_profile")
+            if isinstance(hp, dict):
+                wer = hp.get("workflow_employee_row")
+                if isinstance(wer, dict):
+                    for k, v in wer.items():
+                        ks = str(k)
+                        if ks not in emp or emp.get(ks) in (None, ""):
+                            emp[ks] = v
             wf = [emp] if emp.get("id") else []
             rows.append(
                 {
@@ -88,7 +97,7 @@ class EmployeeRegistry:
         self,
         package_path: str,
         verify_signature: bool = True,
-    ) -> Tuple[bool, str]:
+    ) -> tuple[bool, str]:
         if not os.path.isfile(package_path):
             return False, "文件不存在"
         try:
@@ -122,7 +131,7 @@ class EmployeeRegistry:
             logger.exception("employee pack install failed")
             return False, str(e)
 
-    def uninstall_pack(self, pack_id: str, remove_files: bool = True) -> Tuple[bool, str]:
+    def uninstall_pack(self, pack_id: str, remove_files: bool = True) -> tuple[bool, str]:
         pack_id = (pack_id or "").strip()
         if not pack_id or "/" in pack_id or "\\" in pack_id:
             return False, "非法 pack id"
@@ -134,10 +143,10 @@ class EmployeeRegistry:
         return True, f"员工包 {pack_id} 已卸载"
 
 
-_registry: Dict[str, "EmployeeRegistry"] = {}
+_registry: dict[str, EmployeeRegistry] = {}
 
 
-def get_employee_registry(mods_root: Optional[str] = None) -> EmployeeRegistry:
+def get_employee_registry(mods_root: str | None = None) -> EmployeeRegistry:
     from .mod_manager import _default_mods_root
 
     root = mods_root or _default_mods_root()

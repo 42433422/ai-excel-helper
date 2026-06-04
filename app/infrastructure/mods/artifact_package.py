@@ -5,14 +5,14 @@ from __future__ import annotations
 import json
 import logging
 import zipfile
-from typing import Any, Dict
+from typing import Any
 
 from .artifact_constants import normalize_artifact
 
 logger = logging.getLogger(__name__)
 
 
-def peek_manifest_from_zip(package_path: str) -> Dict[str, Any]:
+def peek_manifest_from_zip(package_path: str) -> dict[str, Any]:
     """
     不解压到磁盘，从 zip 内读取 manifest.json（支持根级或唯一子目录/<id>/manifest.json）。
     """
@@ -47,7 +47,7 @@ def peek_artifact(package_path: str) -> str:
     return normalize_artifact(data)
 
 
-def validate_bundle_manifest(manifest: Dict[str, Any], depth: int = 0) -> list[str]:
+def validate_bundle_manifest(manifest: dict[str, Any], depth: int = 0) -> list[str]:
     from .artifact_constants import ARTIFACT_BUNDLE, BUNDLE_MAX_DEPTH
 
     errs: list[str] = []
@@ -82,7 +82,39 @@ def validate_bundle_manifest(manifest: Dict[str, Any], depth: int = 0) -> list[s
     return errs
 
 
-def validate_employee_pack_manifest(manifest: Dict[str, Any]) -> list[str]:
+def validate_xcagi_host_profile_extensions(manifest: dict[str, Any]) -> list[str]:
+    """可选 ``xcagi_host_profile``：与 MODstore 生成契约对齐的轻量校验（未知字段不报错）。"""
+    errs: list[str] = []
+    hp = manifest.get("xcagi_host_profile")
+    if hp is None:
+        return errs
+    if not isinstance(hp, dict):
+        errs.append("xcagi_host_profile 须为对象")
+        return errs
+    allowed_kinds = {"builtin_track", "mod_http", "placeholder"}
+    pk = str(hp.get("panel_kind") or "mod_http").strip()
+    if pk not in allowed_kinds:
+        errs.append(f"xcagi_host_profile.panel_kind 无效: {pk!r}")
+    builtin = str(hp.get("builtin_track_id") or "").strip()
+    allowed_builtin = {
+        "label_print",
+        "shipment_mgmt",
+        "receipt_confirm",
+        "wechat_msg",
+        "wechat_phone",
+        "real_phone",
+    }
+    if builtin and builtin not in allowed_builtin:
+        errs.append(f"xcagi_host_profile.builtin_track_id 不在宿主白名单: {builtin!r}")
+    if builtin and pk != "builtin_track":
+        errs.append("填写 builtin_track_id 时 panel_kind 应为 builtin_track")
+    row = hp.get("workflow_employee_row")
+    if row is not None and not isinstance(row, dict):
+        errs.append("xcagi_host_profile.workflow_employee_row 须为对象")
+    return errs
+
+
+def validate_employee_pack_manifest(manifest: dict[str, Any]) -> list[str]:
     from .artifact_constants import ARTIFACT_EMPLOYEE_PACK
 
     errs: list[str] = []
@@ -100,4 +132,5 @@ def validate_employee_pack_manifest(manifest: Dict[str, Any]) -> list[str]:
         errs.append("scope 仅支持 global 或 host（预留 host_mod 二期）")
     if scope == "host" and not (manifest.get("host_mod") or "").strip():
         errs.append("scope=host 时需填写 host_mod（二期启用）")
+    errs.extend(validate_xcagi_host_profile_extensions(manifest))
     return errs
