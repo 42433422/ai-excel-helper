@@ -31,6 +31,7 @@ collect_ignore = [
     "neuro/test_routing_policy.py",
     "test_coverage_ramp_phase41_routes.py",
     "test_legacy_auth_account_kind.py",
+    "test_routes/test_ai_chat.py",
 ]
 
 # CI 稳定子集：仅跑已验证可在 Linux/Windows 无顺序污染的用例（见 .github/workflows/*.yml）
@@ -53,7 +54,6 @@ _CI_STABLE_NODEID_FRAGMENTS = (
     "test_routes/test_mods_routes",
     "test_routes/test_health",
     "test_routes/test_smoke",
-    "test_routes/test_ai_chat",
     "test_routes/test_materials",
     # benchmarks/ 需 DB/完整意图栈，见 intent-benchmark.yml，勿纳入 CI_STABLE_ONLY
 )
