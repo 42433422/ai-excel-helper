@@ -4,11 +4,48 @@ FastAPI 路由注册模块
 集中注册所有 FastAPI 路由
 """
 
+import importlib
 import logging
 
 from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
+
+# Legacy "gap" domain routers, mounted directly from ``domains/<domain>/routes``
+# under full edition (or forced via ``XCAGI_REGISTER_LEGACY_ROUTES=1``).
+# Inlined here after physically removing ``legacy_host_routers.py`` (v10 shim 收口).
+_LEGACY_GAP_DOMAIN_MODULES: tuple[str, ...] = (
+    "app.fastapi_routes.domains.conversation.routes",
+    "app.fastapi_routes.domains.excel.routes",
+    "app.fastapi_routes.domains.product.routes",
+    "app.fastapi_routes.domains.static.routes",
+    "app.fastapi_routes.domains.system.routes",
+    "app.fastapi_routes.domains.wechat.routes",
+    "app.fastapi_routes.domains.shipment.routes",
+)
+
+
+def register_legacy_gap_routers(app: FastAPI) -> None:
+    """Mount legacy gap routers directly from ``domains/<domain>/routes``.
+
+    Semantics preserved from the removed
+    ``legacy_host_routers.register_legacy_gap_routers``: these routers use
+    absolute ``/api/...`` paths, so they are included WITHOUT an extra prefix.
+    Empty routers (e.g. inventory stub) are skipped.
+    """
+    for mod_path in _LEGACY_GAP_DOMAIN_MODULES:
+        mod = importlib.import_module(mod_path)
+        router = mod.router
+        if not router.routes:
+            logger.debug("Skipped empty legacy gap router: %s", mod_path)
+            continue
+        app.include_router(router)
+        logger.info(
+            "Registered %s (%d routes, deprecated=%s)",
+            mod_path,
+            len(router.routes),
+            getattr(router, "deprecated", False),
+        )
 
 
 def register_all_routes(app: FastAPI) -> None:
@@ -479,18 +516,17 @@ def _register_legacy_compat_routes(app: FastAPI) -> None:
     app.include_router(ai_qclaw_router)
     logger.info("Registered ai_qclaw (/api/ai/qclaw/*)")
 
-    from app.mod_sdk.edition_policy import should_register_host_legacy_routes
+    from app.mod_sdk.edition_policy import (
+        resolve_edition,
+        should_register_host_legacy_routes,
+    )
 
     if should_register_host_legacy_routes():
-        from app.fastapi_routes.legacy_host_routers import register_legacy_gap_routers
-
         register_legacy_gap_routers(app)
     else:
         logger.info(
             "Skipped legacy gap routers (edition=%s, set XCAGI_REGISTER_LEGACY_ROUTES=1 to force)",
-            __import__(
-                "app.mod_sdk.edition_policy", fromlist=["resolve_edition"]
-            ).resolve_edition(),
+            resolve_edition(),
         )
 
     from app.fastapi_routes.approval import router as approval_router

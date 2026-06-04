@@ -31,4 +31,4 @@ CI 门禁：`python scripts/dev/verify_no_legacy_shims.py`（见 `domain-registr
 ## 可选后续
 
 - 将 `LEGACY_ROUTE_REGISTRY` 精简为纯文档表（不再列已删 filename）
-- 物理删除 `legacy_host_routers.py`，改由 `register_all_routes` 统一挂 domains
+- ~~物理删除 `legacy_host_routers.py`，改由 `register_all_routes` 统一挂 domains~~ **（已完成：删除文件，gap 直挂逻辑内联至 `app/fastapi_routes/__init__.py:register_legacy_gap_routers`，CI 白名单仅余 `xcagi_compat.py`）**
