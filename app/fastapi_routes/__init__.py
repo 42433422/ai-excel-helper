@@ -83,6 +83,7 @@ def register_all_routes(app: FastAPI) -> None:
         "on",
     ):
         logger.info("Skipped legacy compat routes (XCAGI_SKIP_LEGACY_COMPAT_ROUTES)")
+        _register_essential_compat_routes(app)
     else:
         _register_legacy_compat_routes(app)
 
@@ -329,6 +330,27 @@ def _register_lan_routes(app: FastAPI) -> None:
         logger.warning("LAN settings routes skipped: %s", e)
 
 
+def _register_essential_compat_routes(app: FastAPI) -> None:
+    """CI/E2E 在跳过完整 legacy 栈时仍须可用的最小 API（避免 payment_sot 等重依赖）。"""
+    try:
+        from app.fastapi_routes.system_routes import router as system_router
+
+        app.include_router(system_router)
+        logger.info("Registered system_router (essential compat, /api/system/*)")
+    except Exception as e:
+        logger.warning("essential system routes skipped: %s", e)
+
+    try:
+        from app.fastapi_routes.domains.product.compat_routes import (
+            router as product_compat_router,
+        )
+
+        app.include_router(product_compat_router, prefix="/api")
+        logger.info("Registered product compat (essential, /api/products/*)")
+    except Exception as e:
+        logger.warning("essential product compat skipped: %s", e)
+
+
 def _register_legacy_compat_routes(app: FastAPI) -> None:
     """注册 XCAGI 前端依赖的历史兼容路由(原 backend.routers.*,2026-04-20 已全部迁至本包)。
 
@@ -481,10 +503,13 @@ def _register_legacy_compat_routes(app: FastAPI) -> None:
     app.include_router(state_router)
     logger.info("Registered state (/api/state/*)")
 
-    from app.fastapi_routes.model_payment import router as model_payment_router
+    try:
+        from app.fastapi_routes.model_payment import router as model_payment_router
 
-    app.include_router(model_payment_router)
-    logger.info("Registered model_payment (/api/model-payment/*)")
+        app.include_router(model_payment_router)
+        logger.info("Registered model_payment (/api/model-payment/*)")
+    except Exception as e:
+        logger.warning("model_payment routes skipped: %s", e)
 
     from app.fastapi_routes.payment_reconcile_internal_api import (
         router as payment_reconcile_internal_router,
