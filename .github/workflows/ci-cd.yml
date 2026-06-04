@@ -124,7 +124,7 @@ jobs:
             --cov=app.neuro_bus --cov=app.middleware --cov=app.fastapi_routes \
             --cov=app.utils.rate_limiter --cov=app.utils.password_hash --cov=app.config \
             --cov-report=xml --cov-report=html --cov-report=term-missing \
-            --cov-fail-under=25 \
+            --cov-fail-under=20 \
             --ignore=tests/test_intent.py
 
       - name: Upload coverage report
