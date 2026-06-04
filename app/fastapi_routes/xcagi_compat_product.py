@@ -15,14 +15,6 @@ from fastapi.responses import JSONResponse, Response
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import OperationalError
 
-from app.infrastructure.auth.db_token import verify_db_read_token_header
-from app.infrastructure.db.sync_engine import get_sync_engine
-from app.shell.mod_row_scope import (
-    append_mod_scope_where,
-    products_update_or_delete_mod_and,
-    scoped_mod_id,
-)
-
 from app.fastapi_routes.xcagi_compat_db_base import (
     _EXPORT_MAX_ROWS,
     _business_mod_json_block,
@@ -41,6 +33,13 @@ from app.fastapi_routes.xcagi_compat_db_queries import (
     _merged_purchase_unit_entries,
     _products_units_for_select,
 )
+from app.infrastructure.auth.db_token import verify_db_read_token_header
+from app.infrastructure.db.sync_engine import get_sync_engine
+from app.shell.mod_row_scope import (
+    append_mod_scope_where,
+    products_update_or_delete_mod_and,
+    scoped_mod_id,
+)
 
 router = APIRouter(tags=["xcagi-compat"])
 logger = logging.getLogger(__name__)
@@ -56,7 +55,6 @@ def _products_price_list_word_response(
         build_price_list_docx_bytes,
         resolve_price_list_docx_template,
     )
-
     from app.shell.mod_business_scope import business_data_exposed, business_data_hidden_reason
 
     if not business_data_exposed():
@@ -144,8 +142,8 @@ def products_list(
     try:
         from app.mod_sdk.erp_products_facade import (
             is_erp_products_via_service_enabled,
-            products_list as products_list_via_service,
         )
+        from app.mod_sdk.erp_products_facade import products_list as products_list_via_service
 
         if is_erp_products_via_service_enabled():
             return products_list_via_service(
@@ -183,8 +181,8 @@ def products_get_by_id(request: Request, product_id: int) -> dict | JSONResponse
     try:
         from app.mod_sdk.erp_products_facade import (
             is_erp_products_via_service_enabled,
-            products_get as products_get_via_service,
         )
+        from app.mod_sdk.erp_products_facade import products_get as products_get_via_service
 
         if is_erp_products_via_service_enabled():
             return products_get_via_service(request, product_id)
@@ -229,8 +227,8 @@ def products_update(request: Request, body: dict = Body(default_factory=dict)) -
     try:
         from app.mod_sdk.erp_products_facade import (
             is_erp_products_via_service_enabled,
-            products_update as products_update_via_service,
         )
+        from app.mod_sdk.erp_products_facade import products_update as products_update_via_service
 
         if is_erp_products_via_service_enabled():
             return products_update_via_service(request, body)
@@ -340,8 +338,8 @@ def products_add(request: Request, body: dict = Body(default_factory=dict)) -> d
     try:
         from app.mod_sdk.erp_products_facade import (
             is_erp_products_via_service_enabled,
-            products_add as products_add_via_service,
         )
+        from app.mod_sdk.erp_products_facade import products_add as products_add_via_service
 
         if is_erp_products_via_service_enabled():
             return products_add_via_service(request, body)
@@ -430,8 +428,8 @@ def products_delete(request: Request, body: dict = Body(default_factory=dict)) -
     try:
         from app.mod_sdk.erp_products_facade import (
             is_erp_products_via_service_enabled,
-            products_delete as products_delete_via_service,
         )
+        from app.mod_sdk.erp_products_facade import products_delete as products_delete_via_service
 
         if is_erp_products_via_service_enabled():
             return products_delete_via_service(request, body)
@@ -476,6 +474,8 @@ def products_batch_delete(request: Request, body: dict = Body(default_factory=di
     try:
         from app.mod_sdk.erp_products_facade import (
             is_erp_products_via_service_enabled,
+        )
+        from app.mod_sdk.erp_products_facade import (
             products_batch_delete as products_batch_delete_via_service,
         )
 
