@@ -13,6 +13,16 @@ from typing import Any, Dict, List, Tuple
 _lock = threading.Lock()
 
 
+def norm_pkg_id(value: object) -> str:
+    """Normalize package id for index lookups."""
+    return str(value or "").strip().lower()
+
+
+def norm_version(value: object) -> str:
+    """Normalize semver / version string."""
+    return str(value or "").strip()
+
+
 def default_catalog_dir() -> Path:
     raw = (os.environ.get("MODSTORE_CATALOG_DIR") or "").strip()
     if raw:

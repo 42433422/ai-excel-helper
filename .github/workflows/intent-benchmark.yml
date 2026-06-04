@@ -18,7 +18,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r XCAGI/requirements.lock.txt pytest
+          pip install -r deploy/requirements-server-api.txt pytest
 
       - name: Run intent golden set benchmark
         env:

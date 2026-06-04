@@ -27,6 +27,8 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
+      - name: Ensure gradlew executable
+        run: chmod +x ./gradlew
       - name: Assemble Debug (personal + enterprise)
         run: ./gradlew assemblePersonalDebug assembleEnterpriseDebug --no-daemon
       - name: Lint

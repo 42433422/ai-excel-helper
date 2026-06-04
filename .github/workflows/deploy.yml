@@ -58,7 +58,7 @@ jobs:
         with:
           # ⚠️ 已统一主入口至 XCAGI/，Dockerfile 指向 XCAGI/
           context: ./XCAGI
-          file: ./XCAGI/Dockerfile
+          file: ./Dockerfile
           target: production
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
