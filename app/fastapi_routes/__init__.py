@@ -6,6 +6,7 @@ FastAPI 路由注册模块
 
 import importlib
 import logging
+import os
 
 from fastapi import FastAPI
 
@@ -75,7 +76,15 @@ def register_all_routes(app: FastAPI) -> None:
 
     # 历史兼容路由(原 ``app.fastapi_compat_routes``,2026-04-20 起内联到此处),
     # 这批路由曾长期挂载在 ``backend/routers/*``,阶段 2–4 已迁至 ``app/fastapi_routes/``。
-    _register_legacy_compat_routes(app)
+    if os.environ.get("XCAGI_SKIP_LEGACY_COMPAT_ROUTES", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ):
+        logger.info("Skipped legacy compat routes (XCAGI_SKIP_LEGACY_COMPAT_ROUTES)")
+    else:
+        _register_legacy_compat_routes(app)
 
     logger.info("FastAPI routes registered successfully")
 

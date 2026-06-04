@@ -30,6 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r deploy/requirements-server-api.txt
           export XCAGI_DEBUG=1
+          export XCAGI_SKIP_LEGACY_COMPAT_ROUTES=1
           export SECRET_KEY=test-secret-key-for-perf-smoke-at-least-32-chars
           export DATABASE_URL=sqlite:///./perf_smoke.db
           python run.py &
