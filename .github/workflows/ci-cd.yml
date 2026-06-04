@@ -189,6 +189,7 @@ jobs:
           SECRET_KEY: ci-e2e-secret-key-minimum-32-characters-long
           DATABASE_URL: sqlite:///./e2e_ci.db
           XCAGI_SKIP_INTENT_LLM: "1"
+          XCAGI_SKIP_LEGACY_COMPAT_ROUTES: "1"
         run: |
           pip install -r deploy/requirements-server-api.txt
           python run.py &
