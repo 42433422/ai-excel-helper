@@ -7,7 +7,8 @@ Phase 3B 从 ``app.legacy.customers_excel_import`` 与
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 def _norm_header(raw: str) -> str:
@@ -26,9 +27,7 @@ def _pick_first(cols: Iterable[str], aliases: set[str]) -> str | None:
 def resolve_customer_excel_columns(columns: list[str]) -> dict[str, str | None]:
     cols = [str(c) for c in columns]
     return {
-        "customer_name_col": _pick_first(
-            cols, {"客户名称", "购买单位", "customername", "name"}
-        ),
+        "customer_name_col": _pick_first(cols, {"客户名称", "购买单位", "customername", "name"}),
         "contact_person_col": _pick_first(cols, {"联系人", "contactperson", "contact"}),
         "contact_phone_col": _pick_first(
             cols, {"电话", "手机号", "手机", "联系电话", "contactphone", "phone"}
@@ -62,11 +61,13 @@ __all__ = [
 ]
 
 
-_LOST_LEGACY_SYMBOLS = frozenset({
-    "_parse_price",
-    "_norm_model",
-    "run_customers_excel_import_bytes",
-})
+_LOST_LEGACY_SYMBOLS = frozenset(
+    {
+        "_parse_price",
+        "_norm_model",
+        "run_customers_excel_import_bytes",
+    }
+)
 
 
 def __getattr__(name: str):

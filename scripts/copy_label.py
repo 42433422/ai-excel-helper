@@ -7,12 +7,12 @@ import shutil
 
 # 源文件路径（使用 glob 找到的）
 src_files = [
-    r'e:\FHD\26-0300001A_第 1 项_PE 封固底漆稀料.png',
-    r'e:\FHD\XCAGI\resources\ai_assistant\商标导出\26-0300001A_第 1 项_PE 封固底漆稀料.png'
+    r"e:\FHD\26-0300001A_第 1 项_PE 封固底漆稀料.png",
+    r"e:\FHD\XCAGI\resources\ai_assistant\商标导出\26-0300001A_第 1 项_PE 封固底漆稀料.png",
 ]
 
 # 目标路径
-dst_path = r'e:\FHD\test_label.png'
+dst_path = r"e:\FHD\test_label.png"
 
 for src in src_files:
     try:

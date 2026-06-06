@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-# 钉钉→太阳鸟明细：与 ``taiyangniao_attendance.rules`` 默认值对齐；可在「流程规则」页修改。
+# 钉钉→太阳鸟明细：与 ``taiyangniao_attendance.rules`` 默认值对齐；在太阳鸟 Mod「考勤设置」页修改。
 DEFAULT_ATTENDANCE_POLICY: Dict[str, Any] = {
     "company_factory_group_keywords": [
         "公司-考勤",
@@ -15,21 +15,12 @@ DEFAULT_ATTENDANCE_POLICY: Dict[str, Any] = {
         "工厂正班",
     ],
     "weekday_segments": ["08:00-12:00", "13:30-17:30"],
-    "saturday_company_alt_segment": "13:30-16:00",
     "sunday_empty_schedule": True,
     "sunday_map_sqrt_to_star": True,
-    # 仅「公司员工」周六大小周（与工厂 13:30–16:00 半天窗分开）；锚点周六起算周序号，偶数周=大周六。
-    "company_alternate_saturday": {
-        "enabled": True,
-        "anchor_saturday": "2026-01-03",
-        "group_match_substrings": ["公司-考勤", "公司正班"],
-        "big_week_segments": ["09:00-12:00"],
-        "small_week_segments": ["09:00-12:00", "13:30-16:00"],
-    },
 }
 
 
-_NESTED_ATTENDANCE_KEYS = frozenset({"company_alternate_saturday"})
+_NESTED_ATTENDANCE_KEYS = frozenset()
 
 
 def _merge_attendance_policy(raw: Any) -> Dict[str, Any]:

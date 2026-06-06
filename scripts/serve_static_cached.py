@@ -13,7 +13,7 @@ used ``--no-api-proxy``, or the API process is not listening on ``--api-backend`
 
 Usage (from your frontend dist or public folder):
   python scripts/serve_static_cached.py --port 5001 --directory path/to/dist
-  # Terminal 2: python -m backend.http_app   (or uvicorn on 8000)
+  # Terminal 2: cd XCAGI && python run.py   (FastAPI on 5000)
 """
 
 from __future__ import annotations
@@ -103,7 +103,10 @@ class DevStaticHandler(CachedStaticHandler):
                 self.wfile.write(body)
         except urllib.error.URLError as e:
             reason = getattr(e.reason, "winerror", None) or e.reason
-            msg = f"API backend not reachable ({backend}): {reason!s}. Start the FastAPI app (e.g. python -m backend.http_app)."
+            msg = (
+                f"API backend not reachable ({backend}): {reason!s}. "
+                "Start the FastAPI app (e.g. cd XCAGI && python run.py)."
+            )
             self.send_response(502, "Bad Gateway")
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.end_headers()
@@ -142,11 +145,15 @@ class DevStaticHandler(CachedStaticHandler):
         if self._should_proxy():
             self._proxy_to_backend()
             return
+        if self._reject_api_without_proxy():
+            return
         self.send_error(405, "Method not allowed")
 
     def do_PUT(self) -> None:
         if self._should_proxy():
             self._proxy_to_backend()
+            return
+        if self._reject_api_without_proxy():
             return
         self.send_error(405, "Method not allowed")
 
@@ -154,11 +161,15 @@ class DevStaticHandler(CachedStaticHandler):
         if self._should_proxy():
             self._proxy_to_backend()
             return
+        if self._reject_api_without_proxy():
+            return
         self.send_error(405, "Method not allowed")
 
     def do_DELETE(self) -> None:
         if self._should_proxy():
             self._proxy_to_backend()
+            return
+        if self._reject_api_without_proxy():
             return
         self.send_error(405, "Method not allowed")
 

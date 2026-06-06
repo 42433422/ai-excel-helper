@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "execution": {
+    "via_mod_facade": true,
+    "facade_mod_id": "xcagi-planner-bridge",
+    "execute_endpoint": "/api/mod/xcagi-planner-bridge/tools/execute",
+    "registry_endpoint": "/api/mod/xcagi-planner-bridge/tools/registry",
+    "delegate": "mod_native_first"
+  },
+  "mod_native_tools": {
+    "mod_id": "xcagi-planner-excel-tools",
+    "tools": [
+      "excel_chart_recommend",
+      "excel_schema_understand",
+      "excel_analysis",
+      "excel_join_compare",
+      "import_excel_to_database",
+      "generate_office_document",
+      "products_bulk_import",
+      "excel_vector_index"
+    ]
+  },
+  "host_delegated_tools": ["excel_prophet"],
+  "note": "里程碑 F4：Planner 工具 handler 经 xcagi-planner-excel-tools；宿主 workflow 仅保留未迁移项。"
+}

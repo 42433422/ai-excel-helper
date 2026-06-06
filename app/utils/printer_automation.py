@@ -1,13 +1,13 @@
 import logging
 import subprocess
 import time
-from typing import Dict, List, Optional, Tuple
 
 try:
     import win32api
     import win32con
     import win32gui
     import win32print
+
     _WIN32_AUTOMATION_AVAILABLE = True
     _WIN32_AUTOMATION_ERROR = ""
 except Exception as _win32_import_error:
@@ -18,7 +18,9 @@ except Exception as _win32_import_error:
     _WIN32_AUTOMATION_AVAILABLE = False
     _WIN32_AUTOMATION_ERROR = str(_win32_import_error)
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -31,10 +33,10 @@ class PrinterAutomation:
     def _is_available() -> bool:
         return _WIN32_AUTOMATION_AVAILABLE
 
-    def _unavailable_result(self) -> Dict:
+    def _unavailable_result(self) -> dict:
         return {
             "success": False,
-            "message": f"当前环境不支持自动化打印（缺少 Windows 依赖）：{_WIN32_AUTOMATION_ERROR or 'unknown'}"
+            "message": f"当前环境不支持自动化打印（缺少 Windows 依赖）：{_WIN32_AUTOMATION_ERROR or 'unknown'}",
         }
 
     def move_mouse(self, x: int, y: int):
@@ -43,16 +45,16 @@ class PrinterAutomation:
         win32api.SetCursorPos((x, y))
         time.sleep(0.2)
 
-    def click_mouse(self, x: int, y: int, button: str = 'left'):
+    def click_mouse(self, x: int, y: int, button: str = "left"):
         if not self._is_available():
             return
         self.move_mouse(x, y)
 
-        if button == 'left':
+        if button == "left":
             win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
             time.sleep(0.1)
             win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-        elif button == 'right':
+        elif button == "right":
             win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
             time.sleep(0.1)
             win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
@@ -61,6 +63,7 @@ class PrinterAutomation:
     def find_window(self, title: str) -> int:
         if not self._is_available():
             return 0
+
         def callback(hwnd, hwnds):
             if win32gui.IsWindowVisible(hwnd):
                 window_title = win32gui.GetWindowText(hwnd)
@@ -72,7 +75,7 @@ class PrinterAutomation:
         win32gui.EnumWindows(callback, hwnds)
         return hwnds[0] if hwnds else 0
 
-    def get_window_position(self, hwnd: int) -> Tuple[int, int, int, int]:
+    def get_window_position(self, hwnd: int) -> tuple[int, int, int, int]:
         if not self._is_available():
             return (0, 0, 0, 0)
         rect = win32gui.GetWindowRect(hwnd)
@@ -85,10 +88,12 @@ class PrinterAutomation:
         try:
             logger.info(f"设置Windows默认打印机为: {printer_name}")
 
-            result = subprocess.run([
-                'rundll32', 'printui.dll,PrintUIEntry',
-                '/y', '/n', printer_name
-            ], capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                ["rundll32", "printui.dll,PrintUIEntry", "/y", "/n", printer_name],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
 
             if result.returncode == 0:
                 logger.info(f"成功设置默认打印机为: {printer_name}")
@@ -109,7 +114,7 @@ class PrinterAutomation:
         start_time = time.time()
 
         while (time.time() - start_time) < timeout:
-            hwnd = self.find_window('打印')
+            hwnd = self.find_window("打印")
             if hwnd:
                 logger.info(f"找到打印机对话框，窗口句柄: {hwnd}")
 
@@ -139,7 +144,7 @@ class PrinterAutomation:
         logger.info("未找到打印机对话框")
         return False
 
-    def print_with_automation(self, file_path: str, target_printer: str) -> Dict:
+    def print_with_automation(self, file_path: str, target_printer: str) -> dict:
         if not self._is_available():
             return self._unavailable_result()
         try:
@@ -153,14 +158,7 @@ class PrinterAutomation:
                 self.set_default_printer(target_printer)
 
             logger.info("使用ShellExecute打印文件")
-            result = win32api.ShellExecute(
-                0,
-                "print",
-                file_path,
-                f'/d:"{target_printer}"',
-                ".",
-                1
-            )
+            result = win32api.ShellExecute(0, "print", file_path, f'/d:"{target_printer}"', ".", 1)
 
             if result <= 32:
                 raise Exception(f"ShellExecute失败，错误代码: {result}")
@@ -181,7 +179,7 @@ class PrinterAutomation:
                 "success": True,
                 "message": f"自动化打印成功发送到 {target_printer}",
                 "printer": target_printer,
-                "file": file_path
+                "file": file_path,
             }
 
         except Exception as e:
@@ -193,30 +191,33 @@ class PrinterAutomation:
                 except:
                     pass
 
-            return {
-                "success": False,
-                "message": f"自动化打印失败: {str(e)}"
-            }
+            return {"success": False, "message": f"自动化打印失败: {str(e)}"}
 
 
 class EnhancedPrinterUtils:
     def __init__(self):
         self.automation = PrinterAutomation()
 
-    def print_file_enhanced(self, file_path: str, printer_name: str, use_automation: bool = True, use_default_printer: bool = False) -> Dict:
+    def print_file_enhanced(
+        self,
+        file_path: str,
+        printer_name: str,
+        use_automation: bool = True,
+        use_default_printer: bool = False,
+    ) -> dict:
         if use_automation and not self.automation._is_available():
             return self.automation._unavailable_result()
         try:
             if not use_automation:
                 from app.utils.print_utils import PrinterUtils
+
                 utils = PrinterUtils()
-                return utils.print_file(file_path, printer_name, use_default_printer=use_default_printer)
+                return utils.print_file(
+                    file_path, printer_name, use_default_printer=use_default_printer
+                )
             else:
                 return self.automation.print_with_automation(file_path, printer_name)
 
         except Exception as e:
             logger.error(f"增强打印失败: {e}")
-            return {
-                "success": False,
-                "message": f"增强打印失败: {str(e)}"
-            }
+            return {"success": False, "message": f"增强打印失败: {str(e)}"}

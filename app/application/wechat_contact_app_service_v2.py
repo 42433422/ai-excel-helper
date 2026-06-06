@@ -11,12 +11,10 @@ wechat_contact_app_service V2 - 事件驱动版本
 """
 
 import logging
-import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import EventPriority
 from app.neuro_bus.events.wechat_events import *
 
 if TYPE_CHECKING:
@@ -25,58 +23,60 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-
 class WechatContactAppServiceV2:
     """
     WechatContactAppService V2 - 事件驱动版本
     """
-    
+
     def __init__(self):
         self._bus = get_neuro_bus()
         self._correlation_prefix = "wechat"
-    
+
     def _create_correlation_id(self) -> str:
         """创建事件关联 ID"""
         return f"{self._correlation_prefix}-{datetime.now().strftime('%Y%m%d%H%M%S')}-{id(self)}"
-    
-    async def execute_command(self, command_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def execute_command(self, command_type: str, payload: dict[str, Any]) -> dict[str, Any]:
         """
         通用命令执行方法
-        
+
         Args:
             command_type: 命令类型 (对应事件类型)
             payload: 命令数据
-        
+
         Returns:
             执行结果
         """
         try:
             correlation_id = self._create_correlation_id()
-            
+
             # 构建事件类型
             event_type = f"wechat.{command_type}"
-            
+
             # 创建事件
             from app.neuro_bus.events.base import NeuroEvent
+
             event = NeuroEvent(
                 event_type=event_type,
                 payload=payload,
                 source="wechatcontactappservice_v2",
-                correlation_id=correlation_id
+                correlation_id=correlation_id,
             )
-            
+
             # 发布事件
             self._bus.publish(event)
-            
-            logger.info(f"[WechatContactAppServiceV2] 命令已发布: {command_type} (event_id={event.metadata.event_id})")
-            
+
+            logger.info(
+                f"[WechatContactAppServiceV2] 命令已发布: {command_type} (event_id={event.metadata.event_id})"
+            )
+
             return {
                 "success": True,
                 "event_id": event.metadata.event_id,
                 "correlation_id": correlation_id,
-                "message": f"{command_type} 命令已提交"
+                "message": f"{command_type} 命令已提交",
             }
-            
+
         except Exception as e:
             logger.exception(f"[WechatContactAppServiceV2] 执行命令失败: {e}")
             return {"success": False, "message": str(e)}
@@ -85,7 +85,9 @@ class WechatContactAppServiceV2:
 # 注册到 instrumentation
 from app.neuro_bus.neuro_application_instrumentation import instrument_application_service_class
 
-instrument_application_service_class(WechatContactAppServiceV2, service_name="WechatContactAppServiceV2")
+instrument_application_service_class(
+    WechatContactAppServiceV2, service_name="WechatContactAppServiceV2"
+)
 
 # 单例管理
 _wechatcontactappservice_v2_instance = None

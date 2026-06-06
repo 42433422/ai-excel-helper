@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
@@ -14,8 +14,8 @@ def _clamp01(x: float) -> float:
 
 def build_routing_features(
     text: str,
-    event: Optional[NeuroEvent] = None,
-    extra: Optional[Dict[str, Any]] = None,
+    event: NeuroEvent | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> list[float]:
     """
     Returns length-16 vector: normalized counts, priority, optional confidence from ``extra``.

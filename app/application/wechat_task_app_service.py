@@ -9,7 +9,7 @@ import os
 import re
 import sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
@@ -29,24 +29,27 @@ class WechatTaskApplicationService:
     def _insert_or_ignore_wechat_task(
         self,
         *,
-        contact_id: Optional[int] = None,
-        username: Optional[str] = None,
-        display_name: Optional[str] = None,
-        message_id: Optional[str] = None,
-        msg_timestamp: Optional[int] = None,
+        contact_id: int | None = None,
+        username: str | None = None,
+        display_name: str | None = None,
+        message_id: str | None = None,
+        msg_timestamp: int | None = None,
         raw_text: str,
         task_type: str = "unknown",
-    ) -> Optional[int]:
+    ) -> int | None:
         if not raw_text:
             return None
 
         try:
             with get_db() as db:
                 if message_id and username:
-                    existing = db.query(WechatTask).filter(
-                        WechatTask.message_id == message_id,
-                        WechatTask.username == username
-                    ).first()
+                    existing = (
+                        db.query(WechatTask)
+                        .filter(
+                            WechatTask.message_id == message_id, WechatTask.username == username
+                        )
+                        .first()
+                    )
                     if existing:
                         return existing.id
 
@@ -58,7 +61,7 @@ class WechatTaskApplicationService:
                     msg_timestamp=msg_timestamp,
                     raw_text=raw_text,
                     task_type=task_type,
-                    status="pending"
+                    status="pending",
                 )
                 db.add(task)
                 db.commit()
@@ -67,10 +70,13 @@ class WechatTaskApplicationService:
         except IntegrityError:
             with get_db() as db:
                 if message_id and username:
-                    existing = db.query(WechatTask).filter(
-                        WechatTask.message_id == message_id,
-                        WechatTask.username == username
-                    ).first()
+                    existing = (
+                        db.query(WechatTask)
+                        .filter(
+                            WechatTask.message_id == message_id, WechatTask.username == username
+                        )
+                        .first()
+                    )
                     if existing:
                         return existing.id
             return None
@@ -80,9 +86,9 @@ class WechatTaskApplicationService:
 
     def scan_messages(
         self,
-        contact_id: Optional[int] = None,
+        contact_id: int | None = None,
         limit: int = 200,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         try:
             logger.info("开始扫描微信消息，contact_id=%s, limit=%s", contact_id, limit)
 
@@ -115,7 +121,7 @@ class WechatTaskApplicationService:
             if not rows:
                 return []
 
-            new_tasks: List[Dict[str, Any]] = []
+            new_tasks: list[dict[str, Any]] = []
             for row in rows:
                 message_id = str(row.get("msgId") or row.get("localId") or "")
                 username = row.get("talker") or ""
@@ -140,15 +146,17 @@ class WechatTaskApplicationService:
                     task_type=task_type,
                 )
                 if task_id:
-                    new_tasks.append({
-                        "id": task_id,
-                        "username": username,
-                        "display_name": display_name,
-                        "message_id": message_id,
-                        "msg_timestamp": msg_timestamp,
-                        "raw_text": raw_text,
-                        "task_type": task_type,
-                    })
+                    new_tasks.append(
+                        {
+                            "id": task_id,
+                            "username": username,
+                            "display_name": display_name,
+                            "message_id": message_id,
+                            "msg_timestamp": msg_timestamp,
+                            "raw_text": raw_text,
+                            "task_type": task_type,
+                        }
+                    )
 
             logger.info("微信消息扫描完成，新任务数量：%d", len(new_tasks))
             return new_tasks
@@ -174,7 +182,7 @@ class WechatTaskApplicationService:
             return "shipment_order"
         return "unknown"
 
-    def process_message(self, task_id: int) -> Dict[str, Any]:
+    def process_message(self, task_id: int) -> dict[str, Any]:
         try:
             task = self._get_task(task_id)
             if not task:
@@ -200,22 +208,18 @@ class WechatTaskApplicationService:
             logger.exception(f"处理微信消息失败：{e}")
             return {"success": False, "message": f"处理失败：{str(e)}"}
 
-    def recognize_order(self, text: str) -> Optional[Dict[str, Any]]:
+    def recognize_order(self, text: str) -> dict[str, Any] | None:
         try:
             patterns = [
-                r'(?:买|要|需要|订购|下单)\s*(\d+)\s*(箱|件|个|盒|桶)\s*(.+)',
-                r'(\d+)\s*(箱|件|个|盒|桶)\s*(.+)',
-                r'(.+?)\s*(\d+)\s*(箱|件|个|盒|桶)',
+                r"(?:买|要|需要|订购|下单)\s*(\d+)\s*(箱|件|个|盒|桶)\s*(.+)",
+                r"(\d+)\s*(箱|件|个|盒|桶)\s*(.+)",
+                r"(.+?)\s*(\d+)\s*(箱|件|个|盒|桶)",
             ]
 
             for pattern in patterns:
                 match = re.search(pattern, text, re.IGNORECASE)
                 if match:
-                    if pattern.startswith(r'(?:'):
-                        quantity = int(match.group(1))
-                        unit = match.group(2)
-                        product = match.group(3)
-                    elif pattern.endswith(r'(.+)'):
+                    if pattern.startswith(r"(?:") or pattern.endswith(r"(.+)"):
                         quantity = int(match.group(1))
                         unit = match.group(2)
                         product = match.group(3)
@@ -229,7 +233,7 @@ class WechatTaskApplicationService:
                         "quantity": quantity,
                         "unit": unit,
                         "product": product.strip(),
-                        "raw_text": text
+                        "raw_text": text,
                     }
 
             return None
@@ -238,13 +242,13 @@ class WechatTaskApplicationService:
             logger.error(f"识别订单失败：{e}")
             return None
 
-    def recognize_shipment(self, text: str) -> Optional[Dict[str, Any]]:
+    def recognize_shipment(self, text: str) -> dict[str, Any] | None:
         try:
             patterns = [
-                r'发货[：:]\s*(.+)',
-                r'已发货\s*(.+)',
-                r'发出\s*(.+)',
-                r'安排发货[：:]\s*(.+)',
+                r"发货[：:]\s*(.+)",
+                r"已发货\s*(.+)",
+                r"发出\s*(.+)",
+                r"安排发货[：:]\s*(.+)",
             ]
 
             for pattern in patterns:
@@ -257,7 +261,7 @@ class WechatTaskApplicationService:
                         "type": "shipment",
                         "content": content,
                         "products": order_info if order_info else None,
-                        "raw_text": text
+                        "raw_text": text,
                     }
 
             return None
@@ -266,7 +270,7 @@ class WechatTaskApplicationService:
             logger.error(f"识别发货单失败：{e}")
             return None
 
-    def confirm_task(self, task_id: int) -> Dict[str, Any]:
+    def confirm_task(self, task_id: int) -> dict[str, Any]:
         try:
             if not self._task_exists(task_id):
                 return {"success": False, "message": "任务不存在"}
@@ -279,7 +283,7 @@ class WechatTaskApplicationService:
             logger.exception(f"确认任务失败：{e}")
             return {"success": False, "message": f"确认失败：{str(e)}"}
 
-    def ignore_task(self, task_id: int) -> Dict[str, Any]:
+    def ignore_task(self, task_id: int) -> dict[str, Any]:
         try:
             if not self._task_exists(task_id):
                 return {"success": False, "message": "任务不存在"}
@@ -293,11 +297,8 @@ class WechatTaskApplicationService:
             return {"success": False, "message": f"忽略失败：{str(e)}"}
 
     def get_tasks(
-        self,
-        contact_id: Optional[int] = None,
-        status: str = "pending",
-        limit: int = 20
-    ) -> List[Dict[str, Any]]:
+        self, contact_id: int | None = None, status: str = "pending", limit: int = 20
+    ) -> list[dict[str, Any]]:
         try:
             logger.info(f"查询任务列表，contact_id={contact_id}, status={status}")
 
@@ -307,7 +308,9 @@ class WechatTaskApplicationService:
                 if contact_id is not None:
                     query = query.filter(WechatTask.contact_id == contact_id)
 
-                query = query.order_by(WechatTask.msg_timestamp.desc(), WechatTask.id.desc()).limit(limit)
+                query = query.order_by(WechatTask.msg_timestamp.desc(), WechatTask.id.desc()).limit(
+                    limit
+                )
                 tasks = query.all()
 
                 return [
@@ -321,9 +324,11 @@ class WechatTaskApplicationService:
                         "raw_text": t.raw_text,
                         "task_type": t.task_type,
                         "status": t.status,
-                        "last_status_at": t.last_status_at.isoformat() if t.last_status_at else None,
+                        "last_status_at": (
+                            t.last_status_at.isoformat() if t.last_status_at else None
+                        ),
                         "created_at": t.created_at.isoformat() if t.created_at else None,
-                        "updated_at": t.updated_at.isoformat() if t.updated_at else None
+                        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
                     }
                     for t in tasks
                 ]
@@ -332,11 +337,7 @@ class WechatTaskApplicationService:
             logger.exception(f"查询任务列表失败：{e}")
             return []
 
-    def get_contacts(
-        self,
-        keyword: Optional[str] = None,
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    def get_contacts(self, keyword: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         try:
             logger.info(f"查询联系人列表，keyword={keyword}, limit={limit}")
 
@@ -346,37 +347,38 @@ class WechatTaskApplicationService:
                     WechatTask.display_name,
                     WechatTask.contact_id,
                     func.max(WechatTask.msg_timestamp).label("last_message_time"),
-                    func.count(WechatTask.id).label("message_count")
+                    func.count(WechatTask.id).label("message_count"),
                 )
 
                 if keyword:
                     pattern = f"%{keyword}%"
                     query = query.filter(
                         or_(
-                            WechatTask.username.like(pattern),
-                            WechatTask.display_name.like(pattern)
+                            WechatTask.username.like(pattern), WechatTask.display_name.like(pattern)
                         )
                     )
 
-                query = query.group_by(
-                    WechatTask.username,
-                    WechatTask.display_name,
-                    WechatTask.contact_id
-                ).order_by(
-                    func.max(WechatTask.msg_timestamp).desc()
-                ).limit(limit)
+                query = (
+                    query.group_by(
+                        WechatTask.username, WechatTask.display_name, WechatTask.contact_id
+                    )
+                    .order_by(func.max(WechatTask.msg_timestamp).desc())
+                    .limit(limit)
+                )
 
                 results = query.all()
 
                 contacts = []
                 for row in results:
-                    contacts.append({
-                        "username": row.username or "",
-                        "display_name": row.display_name or "",
-                        "contact_id": row.contact_id,
-                        "last_message_time": row.last_message_time,
-                        "message_count": row.message_count or 0
-                    })
+                    contacts.append(
+                        {
+                            "username": row.username or "",
+                            "display_name": row.display_name or "",
+                            "contact_id": row.contact_id,
+                            "last_message_time": row.last_message_time,
+                            "message_count": row.message_count or 0,
+                        }
+                    )
 
             logger.info(f"查询到 {len(contacts)} 个联系人")
             return contacts
@@ -385,7 +387,7 @@ class WechatTaskApplicationService:
             logger.exception(f"查询联系人列表失败：{e}")
             return []
 
-    def _get_task(self, task_id: int) -> Optional[Dict[str, Any]]:
+    def _get_task(self, task_id: int) -> dict[str, Any] | None:
         try:
             with get_db() as db:
                 task = db.query(WechatTask).filter(WechatTask.id == task_id).first()
@@ -402,7 +404,7 @@ class WechatTaskApplicationService:
                         "status": task.status,
                         "last_status_at": task.last_status_at,
                         "created_at": task.created_at,
-                        "updated_at": task.updated_at
+                        "updated_at": task.updated_at,
                     }
                 return None
         except Exception as e:
@@ -412,7 +414,9 @@ class WechatTaskApplicationService:
     def _task_exists(self, task_id: int) -> bool:
         try:
             with get_db() as db:
-                exists = db.query(WechatTask.id).filter(WechatTask.id == task_id).first() is not None
+                exists = (
+                    db.query(WechatTask.id).filter(WechatTask.id == task_id).first() is not None
+                )
                 return exists
         except Exception as e:
             logger.error(f"检查任务存在失败：{e}")
@@ -444,7 +448,7 @@ class WechatTaskApplicationService:
         else:
             return "unknown"
 
-    def _process_order_message(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    def _process_order_message(self, task: dict[str, Any]) -> dict[str, Any]:
         try:
             raw_text = task.get("raw_text", "")
             order_info = self.recognize_order(raw_text)
@@ -455,7 +459,9 @@ class WechatTaskApplicationService:
             quantity = order_info.get("quantity", 0)
             unit = order_info.get("unit", "")
 
-            logger.info(f"收到订单：产品={product_name}, 数量={quantity} {unit}, 原始消息={raw_text}")
+            logger.info(
+                f"收到订单：产品={product_name}, 数量={quantity} {unit}, 原始消息={raw_text}"
+            )
 
             return {"success": True, "message": "订单已记录", "order_info": order_info}
 
@@ -463,7 +469,7 @@ class WechatTaskApplicationService:
             logger.exception(f"处理订单消息失败：{e}")
             return {"success": False, "message": f"处理失败：{str(e)}"}
 
-    def _process_shipment_message(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    def _process_shipment_message(self, task: dict[str, Any]) -> dict[str, Any]:
         try:
             raw_text = task.get("raw_text", "")
             shipment_info = self.recognize_shipment(raw_text)
@@ -486,7 +492,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(WechatTaskApplicationService)
 
-_wechat_task_app_service: Optional[WechatTaskApplicationService] = None
+_wechat_task_app_service: WechatTaskApplicationService | None = None
 
 
 def get_wechat_task_app_service() -> WechatTaskApplicationService:

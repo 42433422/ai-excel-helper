@@ -1,4 +1,5 @@
 import { apiFetch } from '@/utils/apiBase';
+import { clearDeliverableStatusCache } from '@/utils/platformShellApi';
 
 export interface ModInfo {
   id: string;
@@ -7,6 +8,10 @@ export interface ModInfo {
   author: string;
   description: string;
   package_file?: string;
+  pkg_id?: string;
+  download_url?: string;
+  source?: 'remote' | 'local' | string;
+  catalog_base_url?: string;
   is_installed: boolean;
   download_count?: number;
   total_downloads?: number;
@@ -185,15 +190,21 @@ export async function uploadModPackage(
 /**
  * 安装 MOD
  */
-export async function installMod(packageFile: string): Promise<InstallResult> {
-  const formData = new FormData();
-  formData.append('package_file', packageFile);
-  formData.append('activate', 'true');
-  formData.append('verify_signature', 'true');
+export async function installMod(mod: string | Pick<ModInfo, 'id' | 'pkg_id' | 'version' | 'package_file'>): Promise<InstallResult> {
+  const payload = typeof mod === 'string'
+    ? { package_file: mod, activate: true, verify_signature: false }
+    : {
+        pkg_id: mod.pkg_id || mod.id,
+        version: mod.version,
+        package_file: mod.package_file,
+        activate: true,
+        verify_signature: false,
+      };
   
   const response = await apiFetch('/api/mod-store/install', {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
   
   const data = await response.json();
@@ -234,14 +245,16 @@ export async function updateMod(
   modId: string,
   packageFile: string
 ): Promise<InstallResult> {
-  const formData = new FormData();
-  formData.append('mod_id', modId);
-  formData.append('package_file', packageFile);
-  formData.append('verify_signature', 'true');
+  const payload = {
+    mod_id: modId,
+    package_file: packageFile,
+    verify_signature: false,
+  };
   
   const response = await apiFetch('/api/mod-store/update', {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
   
   const data = await response.json();
@@ -385,5 +398,80 @@ export async function rebuildIndex(): Promise<{
     throw new Error(data.error || '重建索引失败');
   }
   
+  return data;
+}
+
+/** 使用修茈 PAT（mod:sync）从线上 /v1/mod-sync 拉 zip 并由本机后端安装到 mods/ */
+export async function syncModstoreLibraryFromRemote(payload: {
+  base_url?: string;
+  baseUrl?: string;
+  token: string;
+  mod_ids?: string[] | string;
+  all?: boolean;
+}): Promise<{
+  success: boolean;
+  message?: string;
+  data?: { installed: string[]; errors: string[] };
+}> {
+  const response = await apiFetch('/api/mod-store/sync-modstore-library', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const detail = (data && (data.detail || data.message)) || response.statusText;
+    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+  }
+  clearDeliverableStatusCache();
+  return data;
+}
+
+/** 一键装齐当前 edition 所需 Mod（先内置种子，再尝试 Catalog） */
+/**
+ * 安装「宿主基础能力（预装员工）」并 materialize 全部 bridge（非逐项 Mod）。
+ */
+export async function installHostFoundation(
+  edition?: 'minimal' | 'generic' | 'full',
+): Promise<{ success: boolean; message: string; data?: Record<string, unknown> }> {
+  const q = edition ? `?edition=${encodeURIComponent(edition)}` : '';
+  const response = await apiFetch(`/api/mod-store/install-host-foundation${q}`, {
+    method: 'POST',
+  });
+  let data: { success?: boolean; message?: string; detail?: string; error?: string; data?: Record<string, unknown> } =
+    {};
+  try {
+    data = (await response.json()) as typeof data;
+  } catch {
+    /* 非 JSON 响应 */
+  }
+  const errMsg =
+    (typeof data.message === 'string' && data.message) ||
+    (typeof data.detail === 'string' && data.detail) ||
+    (typeof data.error === 'string' && data.error) ||
+    '';
+  if (!response.ok) {
+    throw new Error(errMsg || response.statusText || '安装宿主基础员工包失败');
+  }
+  return {
+    success: Boolean(data.success),
+    message: errMsg || '安装完成',
+    data: data.data,
+  };
+}
+
+export async function bootstrapEditionPack(
+  edition: 'minimal' | 'generic' | 'full' = 'generic',
+): Promise<{ success: boolean; message?: string; data?: Record<string, unknown> }> {
+  const response = await apiFetch(
+    `/api/mod-store/bootstrap-edition-pack?edition=${encodeURIComponent(edition)}`,
+    { method: 'POST' },
+  );
+  const data = await response.json();
+  clearDeliverableStatusCache();
+  if (!response.ok) {
+    const detail = (data && (data.detail || data.message)) || response.statusText;
+    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+  }
   return data;
 }

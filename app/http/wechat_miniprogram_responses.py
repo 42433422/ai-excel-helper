@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-"""微信小程序风格 JSON 响应（Werkzeug），无 Flask。"""
+"""微信小程序风格 JSON 响应（基于 Werkzeug Response 工具）。"""
 
 from __future__ import annotations
 

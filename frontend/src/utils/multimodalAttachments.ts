@@ -3,8 +3,6 @@
  * 支持图片（jpeg/png/webp/gif）与 PDF（文本抽取由服务端 pdfplumber 完成）。
  */
 
-import { lookup } from 'mime-types'
-
 export type MultimodalAttachmentRow = {
   kind: 'image' | 'pdf'
   filename: string
@@ -21,11 +19,21 @@ function extOf(name: string): string {
   return i >= 0 ? name.slice(i).toLowerCase() : ''
 }
 
+/** 浏览器端不用 ``mime-types``（其依赖 Node ``path``，会被 Vite 外部化并告警）。 */
+const EXT_TO_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.pdf': 'application/pdf',
+}
+
 function resolveMime(file: File): string {
   const t = (file.type || '').trim().toLowerCase()
   if (t) return t
-  const guessed = lookup(file.name)
-  return typeof guessed === 'string' ? guessed : 'application/octet-stream'
+  const ext = extOf(file.name)
+  return EXT_TO_MIME[ext] || 'application/octet-stream'
 }
 
 function readAsDataURL(file: File): Promise<string> {

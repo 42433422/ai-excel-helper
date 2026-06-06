@@ -1,13 +1,16 @@
-# -*- coding: utf-8 -*-
 """
+import logging
+
+logger = logging.getLogger(__name__)
 Excel 模板网格与客户抬头解析（供聊天导入、工具链与 legacy 归档逻辑引用）。
 
 历史上此模块在迁移中遗漏，导致 ``_customer_hint_from_preview_grid`` 等逻辑静默失败。
 """
+
 from __future__ import annotations
 
 import re
-from typing import Any, List
+from typing import Any
 
 # XCAGI 测试 monkeypatch 兼容（可选）
 _TEMPLATE_SCOPE_REQUIRED_TERMS_CACHE = None
@@ -81,16 +84,16 @@ def _is_trivial_customer_token(text: str) -> bool:
         float(t.replace(",", ""))
         return True
     except Exception:
-        pass
+        logger.debug("suppressed exception", exc_info=True)
     return False
 
 
-def _extract_inline_customer_hits_from_cell(text: str) -> List[str]:
+def _extract_inline_customer_hits_from_cell(text: str) -> list[str]:
     """从合并单元格/抬头行文本中解析客户公司名，返回按出现顺序的去重列表。"""
     raw = str(text or "").strip()
     if len(raw) < 3:
         return []
-    hits: List[str] = []
+    hits: list[str] = []
     seen: set[str] = set()
 
     def _push(name: str) -> None:
@@ -140,7 +143,7 @@ def _extract_customer_hint_from_excel(file_path: str, sheet_name: str | None = N
                 return ""
 
             for r in range(1, max_r + 1):
-                parts: List[str] = []
+                parts: list[str] = []
                 for c in range(1, max_c + 1):
                     v = ws.cell(r, c).value
                     if v is None:
@@ -193,7 +196,7 @@ def _extract_rectangular_excel_preview(
                 {"label": get_column_letter(c), "value": "", "type": "dynamic"}
                 for c in range(1, col_end + 1)
             ]
-            sample_rows: List[dict[str, Any]] = []
+            sample_rows: list[dict[str, Any]] = []
             for r in range(1, row_end + 1):
                 row_data: dict[str, Any] = {}
                 for c in range(1, col_end + 1):
@@ -215,7 +218,9 @@ def _extract_structured_excel_preview(
 ) -> dict[str, Any]:
     """结构化预览：默认同 ``document_templates_service``；可强制指定表头行。"""
     if force_header_row_1based is None:
-        from app.services.document_templates_service import _extract_structured_excel_preview as _legacy
+        from app.application.facades.template_facade import (
+            _extract_structured_excel_preview as _legacy,
+        )
 
         return _legacy(file_path, sheet_name=sheet_name, sample_limit=sample_limit)
 
@@ -226,7 +231,9 @@ def _extract_structured_excel_preview(
 
     hdr = int(force_header_row_1based)
     if hdr < 1:
-        from app.services.document_templates_service import _extract_structured_excel_preview as _legacy
+        from app.application.facades.template_facade import (
+            _extract_structured_excel_preview as _legacy,
+        )
 
         return _legacy(file_path, sheet_name=sheet_name, sample_limit=sample_limit)
 
@@ -244,7 +251,7 @@ def _extract_structured_excel_preview(
             if max_col < 1:
                 return {"fields": [], "sample_rows": [], "sheet_name": ws.title}
 
-            header_entries: List[dict[str, Any]] = []
+            header_entries: list[dict[str, Any]] = []
             for c in range(1, max_col + 1):
                 value = ws.cell(hdr, c).value
                 text = str(value).strip() if value is not None else ""
@@ -255,7 +262,7 @@ def _extract_structured_excel_preview(
                 return {"fields": [], "sample_rows": [], "sheet_name": ws.title}
 
             fields = [{"label": h["name"], "value": "", "type": "dynamic"} for h in header_entries]
-            sample_rows: List[dict[str, Any]] = []
+            sample_rows: list[dict[str, Any]] = []
             max_row = ws.max_row or 0
             for r in range(hdr + 1, min(max_row, hdr + sample_limit + 40) + 1):
                 row_data: dict[str, Any] = {}
@@ -268,14 +275,6 @@ def _extract_structured_excel_preview(
                 if has_non_empty:
                     sample_rows.append(row_data)
                 if len(sample_rows) >= sample_limit:
-                    break
-
-            return {"fields": fields, "sample_rows": sample_rows, "sheet_name": ws.title}
-        finally:
-            wb.close()
-    except Exception:
-        return {"fields": [], "sample_rows": [], "sheet_name": sheet_name or ""}
-e_limit:
                     break
 
             return {"fields": fields, "sample_rows": sample_rows, "sheet_name": ws.title}

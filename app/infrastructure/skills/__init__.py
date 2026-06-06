@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Skills 注册与管理服务
 
@@ -17,10 +16,10 @@ class SkillRegistry:
     """技能注册表"""
 
     def __init__(self):
-        self._skills: Dict[str, Dict[str, Any]] = {}
+        self._skills: dict[str, dict[str, Any]] = {}
         self._initialized = False
 
-    def register(self, skill_id: str, skill_info: Dict[str, Any]) -> None:
+    def register(self, skill_id: str, skill_info: dict[str, Any]) -> None:
         """
         注册一个技能
 
@@ -37,11 +36,11 @@ class SkillRegistry:
         self._skills[skill_id] = skill_info
         logger.info(f"技能注册成功: {skill_id} - {skill_info.get('name', '')}")
 
-    def get(self, skill_id: str) -> Optional[Dict[str, Any]]:
+    def get(self, skill_id: str) -> dict[str, Any] | None:
         """获取技能信息"""
         return self._skills.get(skill_id)
 
-    def list_all(self) -> List[Dict[str, Any]]:
+    def list_all(self) -> list[dict[str, Any]]:
         """列出所有已注册的技能"""
         return [
             {
@@ -49,12 +48,12 @@ class SkillRegistry:
                 "name": info.get("name", ""),
                 "description": info.get("description", ""),
                 "keywords": info.get("keywords", []),
-                "category": info.get("category", "general")
+                "category": info.get("category", "general"),
             }
             for skill_id, info in self._skills.items()
         ]
 
-    def find_by_keyword(self, keyword: str) -> List[str]:
+    def find_by_keyword(self, keyword: str) -> list[str]:
         """根据关键词查找技能"""
         matched = []
         for skill_id, info in self._skills.items():
@@ -85,7 +84,7 @@ class SkillRegistry:
                 continue
 
             try:
-                with open(skill_md, 'r', encoding='utf-8') as f:
+                with open(skill_md, encoding="utf-8") as f:
                     content = f.read()
 
                 metadata = self._parse_skill_md(content)
@@ -98,15 +97,12 @@ class SkillRegistry:
 
         self._initialized = True
 
-    def _parse_skill_md(self, content: str) -> Optional[Dict[str, Any]]:
+    def _parse_skill_md(self, content: str) -> dict[str, Any] | None:
         """解析SKILL.md文件，提取元数据"""
-        lines = content.strip().split('\n')
-        metadata = {
-            "keywords": [],
-            "category": "general"
-        }
+        lines = content.strip().split("\n")
+        metadata = {"keywords": [], "category": "general"}
 
-        if not lines or not lines[0].startswith('---'):
+        if not lines or not lines[0].startswith("---"):
             return None
 
         in_frontmatter = True
@@ -114,7 +110,7 @@ class SkillRegistry:
 
         for line in lines[1:]:
             if in_frontmatter:
-                if line.strip() == '---':
+                if line.strip() == "---":
                     in_frontmatter = False
                     continue
                 frontmatter_lines.append(line)
@@ -122,32 +118,30 @@ class SkillRegistry:
                 break
 
         for line in frontmatter_lines:
-            if ':' in line:
-                key, value = line.split(':', 1)
+            if ":" in line:
+                key, value = line.split(":", 1)
                 key = key.strip().lower()
                 value = value.strip().strip('"').strip("'")
 
-                if key == 'name':
-                    metadata['name'] = value
-                elif key == 'description':
-                    metadata['description'] = value
+                if key == "name":
+                    metadata["name"] = value
+                elif key == "description":
+                    metadata["description"] = value
 
-        description_section = '\n'.join(lines[len(frontmatter_lines) + 2:])
-        if 'When to Use This Skill' in description_section:
-            section = description_section.split('When to Use This Skill')[1].split('#')[0]
+        description_section = "\n".join(lines[len(frontmatter_lines) + 2 :])
+        if "When to Use This Skill" in description_section:
+            section = description_section.split("When to Use This Skill")[1].split("#")[0]
             triggers = []
-            for line in section.split('\n'):
+            for line in section.split("\n"):
                 line = line.strip()
-                if line.startswith('- '):
+                if line.startswith("- ") or line.startswith("* "):
                     triggers.append(line[2:].strip())
-                elif line.startswith('* '):
-                    triggers.append(line[2:].strip())
-            metadata['keywords'] = triggers
+            metadata["keywords"] = triggers
 
-        return metadata if metadata.get('name') else None
+        return metadata if metadata.get("name") else None
 
 
-_skill_registry: Optional[SkillRegistry] = None
+_skill_registry: SkillRegistry | None = None
 
 
 def get_skill_registry() -> SkillRegistry:
@@ -159,7 +153,7 @@ def get_skill_registry() -> SkillRegistry:
     return _skill_registry
 
 
-def execute_skill(skill_id: str, **params) -> Dict[str, Any]:
+def execute_skill(skill_id: str, **params) -> dict[str, Any]:
     """
     执行指定技能
 
@@ -174,37 +168,31 @@ def execute_skill(skill_id: str, **params) -> Dict[str, Any]:
     skill_info = registry.get(skill_id)
 
     if not skill_info:
-        return {
-            "success": False,
-            "message": f"未找到技能: {skill_id}"
-        }
+        return {"success": False, "message": f"未找到技能: {skill_id}"}
 
     module_path = skill_info.get("module_path", "")
-    module_name = skill_id.replace('-', '_')
+    module_name = skill_id.replace("-", "_")
 
     try:
         if module_name == "excel_analyzer":
             from .excel_analyzer.excel_template_analyzer import get_excel_analyzer_skill
+
             skill = get_excel_analyzer_skill()
             return skill.execute(**params)
         elif module_name == "excel_toolkit":
             from .excel_toolkit.excel_toolkit import get_excel_toolkit_skill
+
             skill = get_excel_toolkit_skill()
             return skill.execute(**params)
         elif module_name == "label_template_generator":
             from .label_template_generator.label_template_generator import (
                 get_label_template_generator_skill,
             )
+
             skill = get_label_template_generator_skill()
             return skill.execute(**params)
         else:
-            return {
-                "success": False,
-                "message": f"未知技能类型：{skill_id}"
-            }
+            return {"success": False, "message": f"未知技能类型：{skill_id}"}
     except Exception as e:
         logger.error(f"执行技能失败 {skill_id}: {e}")
-        return {
-            "success": False,
-            "message": str(e)
-        }
+        return {"success": False, "message": str(e)}

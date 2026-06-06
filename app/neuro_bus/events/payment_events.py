@@ -5,19 +5,17 @@ Payment 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
-from decimal import Decimal
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class PaymentCreatedEvent(NeuroEvent):
     """支付创建事件"""
-    
+
     event_type: str = "payment.created"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["payment_id", "order_id", "amount", "payment_method"]
@@ -29,10 +27,10 @@ class PaymentCreatedEvent(NeuroEvent):
 @dataclass
 class PaymentCompletedEvent(NeuroEvent):
     """支付完成事件"""
-    
+
     event_type: str = "payment.completed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["payment_id", "transaction_id", "paid_amount"]
@@ -44,10 +42,10 @@ class PaymentCompletedEvent(NeuroEvent):
 @dataclass
 class PaymentFailedEvent(NeuroEvent):
     """支付失败事件"""
-    
+
     event_type: str = "payment.failed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["payment_id", "error_code", "error_message"]
@@ -59,10 +57,10 @@ class PaymentFailedEvent(NeuroEvent):
 @dataclass
 class PaymentRefundedEvent(NeuroEvent):
     """支付退款事件"""
-    
+
     event_type: str = "payment.refunded"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["payment_id", "refund_id", "refund_amount", "reason"]
@@ -74,10 +72,10 @@ class PaymentRefundedEvent(NeuroEvent):
 @dataclass
 class PaymentMethodChangedEvent(NeuroEvent):
     """支付方式变更事件"""
-    
+
     event_type: str = "payment.method_changed"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["payment_id", "old_method", "new_method"]
@@ -89,10 +87,10 @@ class PaymentMethodChangedEvent(NeuroEvent):
 @dataclass
 class PaymentNotificationSentEvent(NeuroEvent):
     """支付通知发送事件"""
-    
+
     event_type: str = "payment.notification_sent"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["payment_id", "notification_type", "recipient"]

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 意图识别模型训练器：基于预训练Transformer模型进行微调
 
@@ -14,19 +13,13 @@
 import argparse
 import json
 import logging
-import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
-import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from transformers import (
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
     AutoConfig,
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -39,6 +32,7 @@ from app.neuro_bus.events.base import NeuroEvent, EventPriority
 
 try:
     import yaml
+
     HAS_YAML = True
 except ImportError:
     HAS_YAML = False
@@ -85,7 +79,9 @@ class IntentExample:
 
 
 class IntentDataset(Dataset):
-    def __init__(self, examples: List[IntentExample], tokenizer: BertTokenizer, max_length: int = 64):
+    def __init__(
+        self, examples: list[IntentExample], tokenizer: BertTokenizer, max_length: int = 64
+    ):
         self.examples = examples
         self.tokenizer = tokenizer
         self.max_length = max_length
@@ -93,7 +89,7 @@ class IntentDataset(Dataset):
     def __len__(self) -> int:
         return len(self.examples)
 
-    def __getitem__(self, idx: int) -> Dict:
+    def __getitem__(self, idx: int) -> dict:
         example = self.examples[idx]
         encoding = self.tokenizer(
             example.text,
@@ -108,13 +104,13 @@ class IntentDataset(Dataset):
         return item
 
 
-def parse_nlu_yaml(yaml_path: str) -> List[IntentExample]:
+def parse_nlu_yaml(yaml_path: str) -> list[IntentExample]:
     """解析 RASA NLU YAML 训练数据"""
     if not HAS_YAML:
         raise ImportError("PyYAML is required to parse NLU data. Install with: pip install pyyaml")
 
     examples = []
-    with open(yaml_path, "r", encoding="utf-8") as f:
+    with open(yaml_path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     nlu_data = data.get("nlu", [])
@@ -135,13 +131,13 @@ def parse_nlu_yaml(yaml_path: str) -> List[IntentExample]:
     return examples
 
 
-def load_training_data(data_path: str) -> List[IntentExample]:
+def load_training_data(data_path: str) -> list[IntentExample]:
     """加载训练数据，支持多种格式"""
     path = Path(data_path)
     if path.suffix == ".yml" or path.suffix == ".yaml":
         return parse_nlu_yaml(str(path))
     elif path.suffix == ".json":
-        with open(str(path), "r", encoding="utf-8") as f:
+        with open(str(path), encoding="utf-8") as f:
             data = json.load(f)
         examples = []
         for item in data:
@@ -153,14 +149,15 @@ def load_training_data(data_path: str) -> List[IntentExample]:
 
 
 def split_data(
-    examples: List[IntentExample],
+    examples: list[IntentExample],
     train_ratio: float = 0.8,
     val_ratio: float = 0.1,
     test_ratio: float = 0.1,
     seed: int = 42,
-) -> Tuple[List[IntentExample], List[IntentExample], List[IntentExample]]:
+) -> tuple[list[IntentExample], list[IntentExample], list[IntentExample]]:
     """划分训练集/验证集/测试集"""
     import random
+
     random.seed(seed)
     shuffled = examples.copy()
     random.shuffle(shuffled)
@@ -170,10 +167,12 @@ def split_data(
     n_val = int(n * val_ratio)
 
     train_data = shuffled[:n_train]
-    val_data = shuffled[n_train:n_train + n_val]
-    test_data = shuffled[n_train + n_val:]
+    val_data = shuffled[n_train : n_train + n_val]
+    test_data = shuffled[n_train + n_val :]
 
-    logger.info(f"数据划分: 训练集 {len(train_data)}, 验证集 {len(val_data)}, 测试集 {len(test_data)}")
+    logger.info(
+        f"数据划分: 训练集 {len(train_data)}, 验证集 {len(val_data)}, 测试集 {len(test_data)}"
+    )
     return train_data, val_data, test_data
 
 
@@ -222,7 +221,7 @@ def train_intent_model(
         weight_decay: 权重衰减
         early_stopping_patience: 早停耐心值
     """
-    logger.info(f"开始训练意图识别模型...")
+    logger.info("开始训练意图识别模型...")
     logger.info(f"  数据: {data_path}")
     logger.info(f"  模型: {model_name}")
     logger.info(f"  轮数: {num_epochs}")
@@ -301,7 +300,12 @@ def train_intent_model(
     tokenizer.save_pretrained(str(final_model_path))
 
     with open(final_model_path / "intent_labels.json", "w", encoding="utf-8") as f:
-        json.dump({"labels": INTENT_LABELS, "id2label": ID_TO_LABEL, "label2id": LABEL_TO_ID}, f, ensure_ascii=False, indent=2)
+        json.dump(
+            {"labels": INTENT_LABELS, "id2label": ID_TO_LABEL, "label2id": LABEL_TO_ID},
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
     logger.info(f"模型已保存到: {final_model_path}")
     return final_model_path
@@ -311,6 +315,7 @@ def export_to_onnx(model_path: str, output_path: str, max_length: int = 64):
     """导出模型为 ONNX 格式"""
     try:
         import onnxruntime
+
         HAS_ONNX = True
     except ImportError:
         logger.warning("ONNXRuntime not installed, skipping ONNX export")

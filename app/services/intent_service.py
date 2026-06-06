@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 全流程意图层 v2 - 基于规则引擎
 
@@ -20,27 +19,24 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from app.domain.services.intent import get_intent_coordinator, reload_intent_coordinator
+from app.domain.neuro.reflex_arc import IntentReflexArc, ReflexResult, ReflexType, get_reflex_arc
 from app.services.rule_engine import get_rule_engine, reload_rule_engine
 from app.utils.cache_manager import get_intent_rule_cache
 from resources.config.intent_config import get_intent_config, reload_intent_config
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 _intent_cache = get_intent_rule_cache()
 
-_coordinator = get_intent_coordinator()
+_reflex_arc = get_reflex_arc()
 
 logger = logging.getLogger(__name__)
 
-_quick_command_map: Dict[str, str] = {}
-_quick_intent_patterns: List[tuple[str, str]] = []
-_context_inherit_patterns: List[tuple[str, str]] = []
-_append_keywords: List[str] = []
-_negation_action_keywords: Dict[str, List[str]] = {}
+_quick_command_map: dict[str, str] = {}
+_quick_intent_patterns: list[tuple[str, str]] = []
+_context_inherit_patterns: list[tuple[str, str]] = []
+_append_keywords: list[str] = []
+_negation_action_keywords: dict[str, list[str]] = {}
 
 
 def _load_intent_runtime_rules() -> None:
@@ -57,7 +53,7 @@ def _load_intent_runtime_rules() -> None:
     # - YAML:  [{pattern: "...", intent: "..."}]
     # - Python default: [(pattern, intent), ...]
     _quick_intent_patterns = []
-    for item in (quick_rules.get("intent_patterns", []) or []):
+    for item in quick_rules.get("intent_patterns", []) or []:
         if isinstance(item, dict):
             pattern = item.get("pattern")
             intent = item.get("intent")
@@ -70,7 +66,7 @@ def _load_intent_runtime_rules() -> None:
 
     # context_inherit_patterns: 同上（dict 或 tuple）
     _context_inherit_patterns = []
-    for item in (quick_rules.get("context_inherit_patterns", []) or []):
+    for item in quick_rules.get("context_inherit_patterns", []) or []:
         if isinstance(item, dict):
             pattern = item.get("pattern")
             action = item.get("action")
@@ -95,7 +91,7 @@ def _make_intent_cache_key(message: Any) -> str:
     return hashlib.md5(normalized.lower().encode()).hexdigest()
 
 
-def _normalize(msg: Optional[str]) -> str:
+def _normalize(msg: str | None) -> str:
     """标准化消息字符串"""
     if not isinstance(msg, str):
         return ""
@@ -107,40 +103,83 @@ def reload_intent_service() -> None:
     global _intent_cache
     _intent_cache.clear()
     reload_intent_config()
-    global _coordinator
-    _coordinator = reload_intent_coordinator()
+    global _reflex_arc
+    _reflex_arc = get_reflex_arc()
     reload_rule_engine()
     _load_intent_runtime_rules()
 
 
-def is_negation(message: str, action_keywords: Optional[List[str]] = None) -> bool:
+def _reflex_basic_intents(message: str) -> dict[str, bool]:
+    """通过 NeuroDDD 反射弧检测基础意图（问候/否定/确认/帮助/告别）"""
+    rr = _reflex_arc.process(message)
+    result = {
+        "is_greeting": rr.reflex_type == ReflexType.GREETING and rr.triggered,
+        "is_goodbye": rr.reflex_type == ReflexType.EMERGENCY_STOP and rr.triggered,
+        "is_help": rr.reflex_type == ReflexType.HELP and rr.triggered,
+        "is_confirmation": rr.reflex_type == ReflexType.CONFIRMATION and rr.triggered,
+        "is_negation_intent": rr.reflex_type == ReflexType.DENIAL and rr.triggered,
+        "is_negated": rr.reflex_type == ReflexType.DENIAL and rr.triggered,
+    }
+    return result
+
+
+def is_negation(message: str, action_keywords: list[str] | None = None) -> bool:
     """判断是否为否定式指令"""
-    return _coordinator.detect_negation(message, action_keywords)
+    rr = _reflex_arc.process(message)
+    if rr.reflex_type == ReflexType.DENIAL and rr.triggered:
+        if action_keywords:
+            msg_lower = message.lower()
+            return any(kw.lower() in msg_lower for kw in action_keywords)
+        return True
+    if action_keywords:
+        negation_words = ["不要", "别", "不用", "不需要", "no", "not", "别开", "不要开"]
+        msg_lower = message.lower()
+        has_neg = any(nw in msg_lower for nw in negation_words)
+        if has_neg:
+            return any(kw.lower() in msg_lower for kw in action_keywords)
+    msg_lower = message.lower()
+    return any(nw in msg_lower for nw in ("不要", "别", "不用", "不需要", "no", "not"))
 
 
 def is_greeting(message: str) -> bool:
     """判断是否为问候语"""
-    return _coordinator.detect_greeting(message)
+    rr = _reflex_arc.process(message)
+    return rr.reflex_type == ReflexType.GREETING and rr.triggered
 
 
 def is_goodbye(message: str) -> bool:
     """判断是否为告别语"""
-    return _coordinator.detect_goodbye(message)
+    rr = _reflex_arc.process(message)
+    if rr.reflex_type == ReflexType.EMERGENCY_STOP and rr.triggered:
+        return True
+    msg_lower = message.lower()
+    return any(w in msg_lower for w in ("再见", "拜拜", "bye", "先这样"))
 
 
 def is_help_request(message: str) -> bool:
     """判断是否为帮助请求"""
-    return _coordinator.detect_help(message)
+    rr = _reflex_arc.process(message)
+    if rr.reflex_type == ReflexType.HELP and rr.triggered:
+        return True
+    msg_lower = message.lower()
+    return any(w in msg_lower for w in ("你能做什么", "怎么用", "帮助", "help"))
 
 
 def is_confirmation(message: str) -> bool:
     """判断是否为确认意图"""
-    return _coordinator.detect_confirmation(message)
+    rr = _reflex_arc.process(message)
+    return rr.reflex_type == ReflexType.CONFIRMATION and rr.triggered
 
 
 def is_negation_intent(message: str) -> bool:
     """判断是否为否定意图"""
-    return _coordinator.detect_negation_intent(message)
+    rr = _reflex_arc.process(message)
+    if rr.reflex_type == ReflexType.DENIAL and rr.triggered:
+        return True
+    msg_lower = message.lower()
+    if any(w in msg_lower for w in ("算了", "取消", "不用了")):
+        return True
+    return is_negation(message)
 
 
 QUICK_COMMAND_MAP = {
@@ -201,13 +240,10 @@ _CONTEXT_INHERIT_PATTERNS = [
     (r"^和上次一样$", "repeat_last"),
 ]
 
-_APPEND_KEYWORDS = [
-    "再加", "还要", "再加1", "再来", "继续加", "再补",
-    "追加", "额外", "加上"
-]
+_APPEND_KEYWORDS = ["再加", "还要", "再加1", "再来", "继续加", "再补", "追加", "额外", "加上"]
 
 
-def recognize_intents(message: str) -> Dict[str, Any]:
+def recognize_intents(message: str) -> dict[str, Any]:
     """对外接口：全流程意图识别入口（带异常兜底）"""
     try:
         return _recognize_intents_impl(message)
@@ -229,7 +265,7 @@ def recognize_intents(message: str) -> Dict[str, Any]:
         }
 
 
-def _recognize_intents_impl(message: str) -> Dict[str, Any]:
+def _recognize_intents_impl(message: str) -> dict[str, Any]:
     """
     全流程意图识别入口
 
@@ -267,7 +303,18 @@ def _recognize_intents_impl(message: str) -> Dict[str, Any]:
         "all_matched_tools": [],
     }
 
-    basic_intents = _coordinator.detect_basic_intents(message)
+    try:
+        basic_intents = _reflex_basic_intents(message)
+    except Exception as exc:
+        logger.warning("reflex basic intents skipped: %s", exc)
+        basic_intents = {
+            "is_greeting": False,
+            "is_goodbye": False,
+            "is_help": False,
+            "is_confirmation": False,
+            "is_negation_intent": False,
+            "is_negated": False,
+        }
     result.update(basic_intents)
 
     engine = get_rule_engine()
@@ -283,7 +330,11 @@ def _recognize_intents_impl(message: str) -> Dict[str, Any]:
 
         result["primary_intent"] = intent_id
 
-        negated = is_negation(message, action_keywords=best.get("keywords")) if block_if_negated else False
+        negated = (
+            is_negation(message, action_keywords=best.get("keywords"))
+            if block_if_negated
+            else False
+        )
         result["is_negated"] = negated
 
         if not negated:
@@ -304,13 +355,19 @@ def _recognize_intents_impl(message: str) -> Dict[str, Any]:
         if h not in result["intent_hints"]:
             result["intent_hints"].append(h)
 
-    if ("模板" in msg or "template" in msg_lower) and "template_query" not in result["intent_hints"]:
+    if ("模板" in msg or "template" in msg_lower) and "template_query" not in result[
+        "intent_hints"
+    ]:
         result["intent_hints"].append("template_query")
 
-    if ("生成发货单" in msg or "开发货单" in msg) and "shipment_generate" not in result["intent_hints"]:
+    if ("生成发货单" in msg or "开发货单" in msg) and "shipment_generate" not in result[
+        "intent_hints"
+    ]:
         result["intent_hints"].append("shipment_generate")
 
-    if (msg.startswith("发货单") or msg.startswith("送货单") or msg.startswith("出货单")) and len(msg) > 5:
+    if (msg.startswith("发货单") or msg.startswith("送货单") or msg.startswith("出货单")) and len(
+        msg
+    ) > 5:
         order_patterns = ["桶", "规格", "公斤", "kg", "件", "箱"]
         has_order_info = any(pattern in msg for pattern in order_patterns)
         if has_order_info and not result["tool_key"]:
@@ -320,7 +377,7 @@ def _recognize_intents_impl(message: str) -> Dict[str, Any]:
                 result["intent_hints"].append("shipment_generate")
 
     if result["tool_key"] in (None, "products", "shipments"):
-        has_container_and_spec = ("桶" in msg and "规格" in msg)
+        has_container_and_spec = "桶" in msg and "规格" in msg
         has_number_like = re.search(r"(\d+|[一二三四五六七八九十零〇两]+)", msg) is not None
         if has_container_and_spec and has_number_like:
             negated = is_negation(
@@ -333,9 +390,13 @@ def _recognize_intents_impl(message: str) -> Dict[str, Any]:
                 if "shipment_generate" not in result["intent_hints"]:
                     result["intent_hints"].append("shipment_generate")
 
-    if result["tool_key"] == "products":
+    if result["tool_key"] in (None, "products", "print_label"):
         has_print_kw = ("打印" in msg) or msg.startswith("打印")
-        has_model_spec = re.search(r"(\d+)\s*规格\s*(\d+(?:\.\d+)?)", msg) is not None or re.search(r"(\d+)\s*的\s*规格\s*(\d+(?:\.\d+)?)", msg) is not None
+        has_model_spec = (
+            re.search(r"(\d+)\s*规格\s*(\d+(?:\.\d+)?)", msg) is not None
+            or re.search(r"(\d+)\s*的\s*规格\s*(\d+(?:\.\d+)?)", msg) is not None
+            or re.search(r"(\d+)规格(\d+(?:\.\d+)?)", msg) is not None
+        )
         has_container_qty = any(k in msg for k in ["桶", "箱", "件", "公斤", "kg"])
         if has_print_kw and has_model_spec and not has_container_qty and not result["is_negated"]:
             negated = is_negation(
@@ -349,13 +410,18 @@ def _recognize_intents_impl(message: str) -> Dict[str, Any]:
                     result["intent_hints"].append("shipment_generate")
 
     if result["tool_key"] is None:
-        has_order_action = any(k in msg for k in ["打印", "发货单", "送货单", "出货单", "开单", "打单"])
+        has_order_action = any(
+            k in msg for k in ["打印", "发货单", "送货单", "出货单", "开单", "打单"]
+        )
         signals = 0
         if ("编号" in msg or "型号" in msg) and re.search(r"\d{3,6}", msg):
             signals += 1
         if "规格" in msg and re.search(r"(\d+|[一二三四五六七八九十零〇两]+)", msg):
             signals += 1
-        if "桶" in msg and re.search(r"(\d+|[一二三四五六七八九十零〇两]+)\s*桶|桶\s*(\d+|[一二三四五六七八九十零〇两]+)", msg):
+        if "桶" in msg and re.search(
+            r"(\d+|[一二三四五六七八九十零〇两]+)\s*桶|桶\s*(\d+|[一二三四五六七八九十零〇两]+)",
+            msg,
+        ):
             signals += 1
         if has_order_action and signals >= 2 and not result["is_negated"]:
             if not is_negation(
@@ -367,7 +433,9 @@ def _recognize_intents_impl(message: str) -> Dict[str, Any]:
                 if "shipment_generate" not in result["intent_hints"]:
                     result["intent_hints"].append("shipment_generate")
 
-    if ("上传" in msg or "导入" in msg or "upload" in msg_lower) and "upload_file" not in result["intent_hints"]:
+    if ("上传" in msg or "导入" in msg or "upload" in msg_lower) and "upload_file" not in result[
+        "intent_hints"
+    ]:
         result["intent_hints"].append("upload_file")
 
     result["is_likely_unclear"] = (
@@ -378,23 +446,28 @@ def _recognize_intents_impl(message: str) -> Dict[str, Any]:
         and not result["intent_hints"]
     )
 
-    unit_model_match = re.search(r'([^\s的]{2,10})的(\d+[A-Z]?)', msg)
+    unit_model_match = re.search(r"([^\s的]{2,10})的(\d+[A-Z]?)", msg)
     if unit_model_match:
         potential_unit = unit_model_match.group(1)
         model = unit_model_match.group(2)
         from app.infrastructure.lookups.purchase_unit_resolver import resolve_purchase_unit
-        resolved = resolve_purchase_unit(potential_unit)
+
+        try:
+            resolved = resolve_purchase_unit(potential_unit)
+        except Exception as exc:
+            logger.warning("resolve_purchase_unit skipped: %s", exc)
+            resolved = None
         if resolved:
-            result["slots"] = {
-                "unit_name": resolved.unit_name,
-                "model_number": model
-            }
+            result["slots"] = {"unit_name": resolved.unit_name, "model_number": model}
         else:
-            result["slots"] = {
-                "unit_name": potential_unit,
-                "model_number": model
-            }
-        if result["tool_key"] is None and not result["primary_intent"] and not result["is_greeting"] and not result["is_goodbye"] and not result["is_help"]:
+            result["slots"] = {"unit_name": potential_unit, "model_number": model}
+        if (
+            result["tool_key"] is None
+            and not result["primary_intent"]
+            and not result["is_greeting"]
+            and not result["is_goodbye"]
+            and not result["is_help"]
+        ):
             result["primary_intent"] = "products"
             result["tool_key"] = "products"
     elif result["tool_key"] == "products":
@@ -406,20 +479,17 @@ def _recognize_intents_impl(message: str) -> Dict[str, Any]:
     return result
 
 
-def get_tool_key_with_negation_check(message: str) -> Optional[str]:
+def get_tool_key_with_negation_check(message: str) -> str | None:
     """对外接口：在考虑否定后，返回应触发的 tool_key"""
     r = recognize_intents(message)
     return r.get("tool_key")
 
 
-_MULTI_UNIT_PATTERN = r'([^\s，,、和]+)(?:[和、,]([^\s，,、]+))+'
+_MULTI_UNIT_PATTERN = r"([^\s，,、和]+)(?:[和、,]([^\s，,、]+))+"
 _MULTI_UNIT_SEPARATORS = ["和", "、", ",", "，"]
 
 
-def quick_recognize(
-    message: str,
-    context: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+def quick_recognize(message: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     快速意图识别通道
 
@@ -437,6 +507,7 @@ def quick_recognize(
         快速识别结果
     """
     import time
+
     start_time = time.time()
 
     msg = _normalize(message)
@@ -490,7 +561,9 @@ def quick_recognize(
 
                 last_intent = context.get("current_intent") or context.get("last_intent")
                 last_tool = context.get("current_tool_key") or context.get("last_tool_key")
-                last_slots = context.get("last_slots", {}).copy() if context.get("last_slots") else {}
+                last_slots = (
+                    context.get("last_slots", {}).copy() if context.get("last_slots") else {}
+                )
                 if last_intent or last_tool:
                     result["primary_intent"] = last_intent
                     result["tool_key"] = last_tool
@@ -533,7 +606,7 @@ def quick_recognize(
     return result
 
 
-def quick_slot_extraction(message: str, intent: str) -> Dict[str, Any]:
+def quick_slot_extraction(message: str, intent: str) -> dict[str, Any]:
     """
     快速槽位提取
 
@@ -557,44 +630,40 @@ def quick_slot_extraction(message: str, intent: str) -> Dict[str, Any]:
             else:
                 slots["unit_name"] = unit_names
 
-        quantity_match = re.search(r'(\d+|[一二三四五六七八九十零〇两]+)\s*[桶箱件个]', msg)
+        quantity_match = re.search(r"(\d+|[一二三四五六七八九十零〇两]+)\s*[桶箱件个]", msg)
         if quantity_match:
             slots["quantity"] = quantity_match.group(0)
 
-        spec_match = re.search(r'规格\s*(\d+)', msg)
+        spec_match = re.search(r"规格\s*(\d+)", msg)
         if spec_match:
             slots["spec"] = spec_match.group(1)
 
-        model_match = re.search(r'型号?\s*(\d+)', msg)
+        model_match = re.search(r"型号?\s*(\d+)", msg)
         if model_match:
             slots["model_number"] = model_match.group(1)
 
-    elif intent == "products":
-        if msg:
-            slots["keyword"] = msg
-
-    elif intent == "customers":
+    elif intent == "products" or intent == "customers":
         if msg:
             slots["keyword"] = msg
 
     return slots
 
 
-def _extract_multi_unit_names(msg: str) -> List[str]:
+def _extract_multi_unit_names(msg: str) -> list[str]:
     """提取多个客户名称"""
     prefixes = ["发货单", "送货单", "出货单", "开单", "生成"]
     clean_msg = msg
     for prefix in prefixes:
         if clean_msg.startswith(prefix):
-            clean_msg = clean_msg[len(prefix):].strip()
+            clean_msg = clean_msg[len(prefix) :].strip()
 
-    quantity_pattern = r'\d+[桶箱件个]|[一二三四五六七八九十零〇]+[桶箱件个]'
+    quantity_pattern = r"\d+[桶箱件个]|[一二三四五六七八九十零〇]+[桶箱件个]"
 
-    all_seps = ['和', '、', ',', '，']
+    all_seps = ["和", "、", ",", "，"]
     has_any_sep = any(sep in clean_msg for sep in all_seps)
 
     if has_any_sep:
-        sep_pattern = '|'.join(re.escape(s) for s in all_seps)
+        sep_pattern = "|".join(re.escape(s) for s in all_seps)
         parts = re.split(sep_pattern, clean_msg)
         names = []
         for part in parts:
@@ -614,16 +683,16 @@ def _extract_multi_unit_names(msg: str) -> List[str]:
     return []
 
 
-def _extract_name_before_quantity(text: str, quantity_pattern: str) -> Optional[str]:
+def _extract_name_before_quantity(text: str, quantity_pattern: str) -> str | None:
     """从文本中提取量词前的客户名"""
     q_match = re.search(quantity_pattern, text)
     if q_match:
-        name_part = text[:q_match.start()]
+        name_part = text[: q_match.start()]
     else:
         name_part = text
 
-    name_part = name_part.strip().rstrip('和的')
-    name_match = re.match(r'^([^\s\d]{2,10})', name_part)
+    name_part = name_part.strip().rstrip("和的")
+    name_match = re.match(r"^([^\s\d]{2,10})", name_part)
     if name_match:
         return name_match.group(1)
 

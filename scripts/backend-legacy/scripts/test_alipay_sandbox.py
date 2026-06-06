@@ -229,13 +229,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="支付宝沙箱自测：诊断 / 网站支付 / 订单码 / 离线验签",
     )
-    parser.add_argument("--precreate", action="store_true", help="发起一笔 0.01 元沙箱订单码下单（precreate）")
-    parser.add_argument("--pagepay", action="store_true", help="发起一笔 0.01 元沙箱电脑网站支付（page.pay）")
-    parser.add_argument("--wappay", action="store_true", help="发起一笔 0.01 元沙箱手机网站支付（wap.pay）")
-    parser.add_argument("--pay", action="store_true", help="使用自动识别 UA 的 create_pay_order 下单")
+    parser.add_argument(
+        "--precreate", action="store_true", help="发起一笔 0.01 元沙箱订单码下单（precreate）"
+    )
+    parser.add_argument(
+        "--pagepay", action="store_true", help="发起一笔 0.01 元沙箱电脑网站支付（page.pay）"
+    )
+    parser.add_argument(
+        "--wappay", action="store_true", help="发起一笔 0.01 元沙箱手机网站支付（wap.pay）"
+    )
+    parser.add_argument(
+        "--pay", action="store_true", help="使用自动识别 UA 的 create_pay_order 下单"
+    )
     parser.add_argument("--amount", default="0.01", help="金额（元），默认 0.01")
     parser.add_argument("--subject", default="沙箱自测", help="订单 subject")
-    parser.add_argument("--verify-notify", metavar="FILE", help="对 form-urlencoded 或 JSON 通知文本离线验签")
+    parser.add_argument(
+        "--verify-notify", metavar="FILE", help="对 form-urlencoded 或 JSON 通知文本离线验签"
+    )
     args = parser.parse_args(argv)
 
     loaded = _load_dotenvs()

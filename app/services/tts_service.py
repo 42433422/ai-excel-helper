@@ -4,18 +4,14 @@ import asyncio
 import base64
 import re
 import threading
-from dataclasses import dataclass
 from collections import OrderedDict
-from typing import Dict, Optional, Tuple
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
+from dataclasses import dataclass
 
 DEFAULT_EDGE_VOICE = "zh-CN-XiaoxiaoNeural"
 _CACHE_MAX_SIZE = 50
 
 _EDGE_VOICE_RE = re.compile(r"^[a-z]{2,3}-[A-Z]{2,3}-[A-Za-z]+Neural$")
-_TTS_CACHE: "OrderedDict[Tuple[str, str, str, str, str], Dict[str, str]]" = OrderedDict()
+_TTS_CACHE: OrderedDict[tuple[str, str, str, str, str], dict[str, str]] = OrderedDict()
 _CACHE_LOCK = threading.Lock()
 _WARMUP_STARTED = False
 _WARMUP_LOCK = threading.Lock()
@@ -112,11 +108,11 @@ class TtsRequest:
     text: str
     voice: str = DEFAULT_EDGE_VOICE
     lang: str = "zh"
-    rate: Optional[str] = None
-    pitch: Optional[str] = None
+    rate: str | None = None
+    pitch: str | None = None
 
 
-def _coalesce_voice(voice: Optional[str], speaker_id: Optional[str], lang: str) -> str:
+def _coalesce_voice(voice: str | None, speaker_id: str | None, lang: str) -> str:
     for candidate in (voice, speaker_id):
         v = (candidate or "").strip()
         if v and _EDGE_VOICE_RE.match(v):
@@ -127,8 +123,8 @@ def _coalesce_voice(voice: Optional[str], speaker_id: Optional[str], lang: str) 
 
 
 def _normalize_cache_key(
-    *, text: str, voice: str, lang: str, rate: Optional[str], pitch: Optional[str]
-) -> Tuple[str, str, str, str, str]:
+    *, text: str, voice: str, lang: str, rate: str | None, pitch: str | None
+) -> tuple[str, str, str, str, str]:
     return (
         text.strip(),
         voice.strip(),
@@ -138,7 +134,7 @@ def _normalize_cache_key(
     )
 
 
-def _get_cache(key: Tuple[str, str, str, str, str]) -> Optional[Dict[str, str]]:
+def _get_cache(key: tuple[str, str, str, str, str]) -> dict[str, str] | None:
     with _CACHE_LOCK:
         payload = _TTS_CACHE.get(key)
         if payload is None:
@@ -147,7 +143,7 @@ def _get_cache(key: Tuple[str, str, str, str, str]) -> Optional[Dict[str, str]]:
         return dict(payload)
 
 
-def _set_cache(key: Tuple[str, str, str, str, str], payload: Dict[str, str]) -> None:
+def _set_cache(key: tuple[str, str, str, str, str], payload: dict[str, str]) -> None:
     with _CACHE_LOCK:
         _TTS_CACHE[key] = dict(payload)
         _TTS_CACHE.move_to_end(key)
@@ -201,11 +197,11 @@ async def _synthesize_mp3_bytes(req: TtsRequest) -> bytes:
 def synthesize_to_data_uri(
     *,
     text: str,
-    voice: Optional[str] = None,
-    speaker_id: Optional[str] = None,
+    voice: str | None = None,
+    speaker_id: str | None = None,
     lang: str = "zh",
-    rate: Optional[str] = None,
-    pitch: Optional[str] = None,
+    rate: str | None = None,
+    pitch: str | None = None,
 ) -> dict:
     """
     Synthesize speech via Edge TTS and return a JSON-serializable payload:
@@ -221,12 +217,16 @@ def synthesize_to_data_uri(
 
     chosen_voice = _coalesce_voice(voice, speaker_id, lang)
     normalized_lang = (lang or "zh").strip().lower()
-    key = _normalize_cache_key(text=text_norm, voice=chosen_voice, lang=normalized_lang, rate=rate, pitch=pitch)
+    key = _normalize_cache_key(
+        text=text_norm, voice=chosen_voice, lang=normalized_lang, rate=rate, pitch=pitch
+    )
     cache_hit = _get_cache(key)
     if cache_hit:
         return cache_hit
 
-    req = TtsRequest(text=text_norm, voice=chosen_voice, lang=normalized_lang, rate=rate, pitch=pitch)
+    req = TtsRequest(
+        text=text_norm, voice=chosen_voice, lang=normalized_lang, rate=rate, pitch=pitch
+    )
 
     try:
         mp3_bytes = asyncio.run(_synthesize_mp3_bytes(req))
@@ -255,4 +255,3 @@ def synthesize_to_data_uri(
     }
     _set_cache(key, payload)
     return payload
-

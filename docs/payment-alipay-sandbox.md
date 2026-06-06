@@ -66,12 +66,23 @@ python -m backend.scripts.test_alipay_sandbox --precreate
 
 ## 4. 前端跑一次
 
-1. 浏览器打开 `模型支付` 页。
-2. 看「我的收款方式」是否显示 **已开通**。
-3. 点任意一档 **支付宝扫码**，页面下方会出二维码。
-4. 用沙箱买家扫码付款。
+> **注意（2026-05）**：`模型支付` 前端页面已改为外链模式，点击后跳转修茈市场套餐/钱包页，**不再在本机生成扫码订单**。
+> 若需测试本机下单闭环，请直接调后端接口（见步骤 2）或通过 `curl` 验证。
 
-付款成功后约数秒内，前端刷新或再下一单，卡片右上会出现 **「已购 ×N」**。
+1. 浏览器打开 `模型支付` 页，确认「套餐/钱包」外链能正常打开。
+2. 后端接口验证（替代前端二维码测试）：
+
+```bash
+# 下单（需先在 .env 配置 ALIPAY_DEBUG=true 与正确密钥）
+curl -X POST http://127.0.0.1:5000/api/model-payment/checkout \
+  -H "Content-Type: application/json" \
+  -d '{"plan_id":"basic","buyer_id":"test_user"}'
+
+# 查看权益
+curl http://127.0.0.1:5000/api/model-payment/entitlements
+```
+
+付款成功后约数秒内，`/api/model-payment/entitlements` 返回有效权益记录。
 
 也可直接调接口核对：
 

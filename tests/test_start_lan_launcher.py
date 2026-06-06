@@ -2,19 +2,27 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
+
+_PWSH = shutil.which("pwsh")
 
 
 REPO = Path(__file__).resolve().parents[1]
 PS1 = REPO / "scripts" / "launchers" / "start-lan.ps1"
 
 
+@pytest.mark.skipif(
+    not _PWSH, reason="start-lan.ps1 需 pwsh（UTF-8 BOM）；Windows PowerShell 5.1 会解析失败"
+)
 def test_stop_only_skip_kill_exits_quickly():
     """仅停止且跳过杀进程时应秒级退出（不进入长循环）。"""
     r = subprocess.run(
         [
-            "powershell",
+            _PWSH,
             "-NoProfile",
             "-ExecutionPolicy",
             "Bypass",

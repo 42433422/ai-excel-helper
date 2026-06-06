@@ -6,7 +6,7 @@
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.extensions import celery_app
 
@@ -15,14 +15,11 @@ logger = logging.getLogger(__name__)
 
 @celery_app.task(bind=True, max_retries=3)
 def generate_shipment_order(
-    self,
-    unit_name: str,
-    products: List[Dict[str, Any]],
-    date: Optional[str] = None
-) -> Dict[str, Any]:
+    self, unit_name: str, products: list[dict[str, Any]], date: str | None = None
+) -> dict[str, Any]:
     """
     生成发货单（异步任务）
-    
+
     Args:
         unit_name: 单位名称
         products: 产品列表，每个产品包含：
@@ -30,7 +27,7 @@ def generate_shipment_order(
             - quantity: 数量
             - price: 价格（可选）
         date: 发货日期（可选，默认今天）
-        
+
     Returns:
         结果字典：
             - success: 是否成功
@@ -40,19 +37,18 @@ def generate_shipment_order(
     """
     try:
         logger.info(f"开始生成发货单：{unit_name}, 产品数量：{len(products)}")
-        
+
         # 调用服务层生成发货单
         from app.bootstrap import get_shipment_app_service
+
         app_service = get_shipment_app_service()
         result = app_service.generate_shipment_document(
-            unit_name=unit_name,
-            products=products,
-            date=date
+            unit_name=unit_name, products=products, date=date
         )
-        
+
         logger.info(f"发货单生成完成：{result}")
         return result
-        
+
     except Exception as e:
         logger.exception(f"生成发货单失败：{e}")
         try:
@@ -63,24 +59,21 @@ def generate_shipment_order(
                 "success": False,
                 "message": f"生成失败：{str(e)}",
                 "doc_name": None,
-                "file_path": None
+                "file_path": None,
             }
 
 
 @celery_app.task(bind=True, max_retries=3)
-def generate_batch_shipment_orders(
-    self,
-    orders: List[Dict[str, Any]]
-) -> Dict[str, Any]:
+def generate_batch_shipment_orders(self, orders: list[dict[str, Any]]) -> dict[str, Any]:
     """
     批量生成发货单
-    
+
     Args:
         orders: 订单列表，每个订单包含：
             - unit_name: 单位名称
             - products: 产品列表
             - date: 发货日期（可选）
-            
+
     Returns:
         结果字典：
             - success: 是否成功
@@ -91,17 +84,17 @@ def generate_batch_shipment_orders(
     """
     try:
         logger.info(f"开始批量生成发货单，订单数：{len(orders)}")
-        
+
         results = []
         succeeded = 0
         failed = 0
-        
+
         for order in orders:
             try:
                 result = generate_shipment_order(
                     unit_name=order.get("unit_name"),
                     products=order.get("products", []),
-                    date=order.get("date")
+                    date=order.get("date"),
                 )
                 results.append(result)
                 if result.get("success"):
@@ -111,21 +104,18 @@ def generate_batch_shipment_orders(
             except Exception as e:
                 logger.exception(f"生成单个发货单失败：{e}")
                 failed += 1
-                results.append({
-                    "success": False,
-                    "message": str(e)
-                })
-        
+                results.append({"success": False, "message": str(e)})
+
         logger.info(f"批量生成完成：成功 {succeeded}, 失败 {failed}")
-        
+
         return {
             "success": failed == 0,
             "total": len(orders),
             "succeeded": succeeded,
             "failed": failed,
-            "results": results
+            "results": results,
         }
-        
+
     except Exception as e:
         logger.exception(f"批量生成发货单失败：{e}")
         try:
@@ -138,25 +128,22 @@ def generate_batch_shipment_orders(
                 "total": len(orders),
                 "succeeded": 0,
                 "failed": len(orders),
-                "results": []
+                "results": [],
             }
 
 
 @celery_app.task(bind=True, max_retries=3)
 def print_shipment_document(
-    self,
-    file_path: str,
-    printer_name: str | None = None,
-    copies: int = 1
-) -> Dict[str, Any]:
+    self, file_path: str, printer_name: str | None = None, copies: int = 1
+) -> dict[str, Any]:
     """
     打印发货单
-    
+
     Args:
         file_path: 文件路径
         printer_name: 打印机名称（可选，使用默认打印机）
         copies: 打印份数
-        
+
     Returns:
         结果字典：
             - success: 是否成功
@@ -164,35 +151,30 @@ def print_shipment_document(
     """
     try:
         logger.info(f"开始打印发货单：{file_path}, 打印机：{printer_name}, 份数：{copies}")
-        
+
         # 1. 验证文件存在
         import os
+
         if not os.path.exists(file_path):
-            return {
-                "success": False,
-                "message": f"文件不存在：{file_path}"
-            }
-        
+            return {"success": False, "message": f"文件不存在：{file_path}"}
+
         result = {
             "success": True,
             "message": "发货单已标记为已打印，请在客户端完成物理打印",
             "file_path": file_path,
-            "printed_at": None
+            "printed_at": None,
         }
-        
+
         logger.info(f"打印完成：{result}")
         return result
-        
+
     except Exception as e:
         logger.exception(f"打印发货单失败：{e}")
         try:
             self.retry(exc=e, countdown=30)
         except self.MaxRetriesExceededError:
             logger.error("打印发货单达到最大重试次数")
-            return {
-                "success": False,
-                "message": f"打印失败：{str(e)}"
-            }
+            return {"success": False, "message": f"打印失败：{str(e)}"}
 
 
 @celery_app.task
@@ -249,10 +231,10 @@ def cleanup_old_shipment_documents(days: int = 90) -> int:
 @celery_app.task(bind=True, max_retries=3, queue="normal")
 def export_shipment_records_task(
     self,
-    unit_name: Optional[str] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None
-) -> Dict[str, Any]:
+    unit_name: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     """
     导出出货记录（异步任务）
 
@@ -272,6 +254,7 @@ def export_shipment_records_task(
         logger.info(f"开始异步导出出货记录：unit={unit_name}, start={start_date}, end={end_date}")
 
         from app.bootstrap import get_shipment_app_service
+
         app_service = get_shipment_app_service()
         result = app_service.export_shipment_records(unit_name=unit_name)
 
@@ -289,17 +272,14 @@ def export_shipment_records_task(
                 "message": f"导出失败：{str(e)}",
                 "file_path": None,
                 "filename": None,
-                "count": 0
+                "count": 0,
             }
 
 
 @celery_app.task(bind=True, max_retries=3, queue="normal")
 def import_products_batch_task(
-    self,
-    products_data: List[Dict[str, Any]],
-    unit_name: str,
-    skip_duplicates: bool = True
-) -> Dict[str, Any]:
+    self, products_data: list[dict[str, Any]], unit_name: str, skip_duplicates: bool = True
+) -> dict[str, Any]:
     """
     批量导入产品（异步任务）
 
@@ -319,6 +299,7 @@ def import_products_batch_task(
         logger.info(f"开始异步批量导入产品：unit={unit_name}, 数量={len(products_data)}")
 
         from app.services import get_products_service
+
         service = get_products_service()
 
         imported = 0
@@ -328,7 +309,7 @@ def import_products_batch_task(
 
         batch_size = 100
         for i in range(0, len(products_data), batch_size):
-            batch = products_data[i:i + batch_size]
+            batch = products_data[i : i + batch_size]
             for item in batch:
                 try:
                     item["unit"] = unit_name
@@ -351,7 +332,7 @@ def import_products_batch_task(
             "imported": imported,
             "skipped_duplicates": skipped,
             "failed": failed,
-            "failed_items": failed_items[:10]
+            "failed_items": failed_items[:10],
         }
 
     except Exception as e:
@@ -366,15 +347,12 @@ def import_products_batch_task(
                 "imported": 0,
                 "skipped_duplicates": 0,
                 "failed": len(products_data),
-                "failed_items": []
+                "failed_items": [],
             }
 
 
 @celery_app.task(bind=True, max_retries=3, queue="normal")
-def generate_labels_batch_task(
-    self,
-    labels: List[Dict[str, Any]]
-) -> Dict[str, Any]:
+def generate_labels_batch_task(self, labels: list[dict[str, Any]]) -> dict[str, Any]:
     """
     批量生成标签（异步任务）
 
@@ -395,6 +373,7 @@ def generate_labels_batch_task(
         logger.info(f"开始异步批量生成标签：数量={len(labels)}")
 
         from app.services import get_printer_service
+
         service = get_printer_service()
 
         generated = 0
@@ -406,7 +385,7 @@ def generate_labels_batch_task(
                     product_name=label.get("product_name"),
                     model_number=label.get("model_number"),
                     specification=label.get("specification"),
-                    quantity=label.get("quantity", 1)
+                    quantity=label.get("quantity", 1),
                 )
                 if result.get("success"):
                     generated += 1
@@ -420,7 +399,7 @@ def generate_labels_batch_task(
             "success": generated > 0,
             "generated": generated,
             "total": len(labels),
-            "results": results[:20]
+            "results": results[:20],
         }
 
     except Exception as e:
@@ -434,15 +413,12 @@ def generate_labels_batch_task(
                 "message": f"生成失败：{str(e)}",
                 "generated": 0,
                 "total": len(labels),
-                "results": []
+                "results": [],
             }
 
 
 @celery_app.task(bind=True, max_retries=3, queue="urgent")
-def generate_parallel_shipment_orders(
-    self,
-    orders: List[Dict[str, Any]]
-) -> Dict[str, Any]:
+def generate_parallel_shipment_orders(self, orders: list[dict[str, Any]]) -> dict[str, Any]:
     """
     并行生成批量发货单（使用 group 并行执行）
 
@@ -464,9 +440,7 @@ def generate_parallel_shipment_orders(
 
         job = group(
             generate_shipment_order.s(
-                order.get("unit_name"),
-                order.get("products", []),
-                order.get("date")
+                order.get("unit_name"), order.get("products", []), order.get("date")
             )
             for order in orders
         )
@@ -481,7 +455,7 @@ def generate_parallel_shipment_orders(
             "total": len(orders),
             "task_ids": [t.id for t in task_ids],
             "group_id": result.id,
-            "message": "并行任务已提交"
+            "message": "并行任务已提交",
         }
 
     except Exception as e:
@@ -491,5 +465,5 @@ def generate_parallel_shipment_orders(
             "message": f"任务提交失败：{str(e)}",
             "total": len(orders),
             "succeeded": 0,
-            "failed": len(orders)
+            "failed": len(orders),
         }

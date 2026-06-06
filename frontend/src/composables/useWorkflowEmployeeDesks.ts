@@ -1,18 +1,12 @@
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useModsStore } from '@/stores/mods'
 import { useWorkflowAiEmployeesStore } from '@/stores/workflowAiEmployees'
-import { useWorkflowEmployeeSpaceStore, type WorkflowEmployeeSpaceSnapshot } from '@/stores/workflowEmployeeSpace'
-import { WORKFLOW_DOC_CORE_EMPLOYEE_IDS } from '@/constants/workflowEmployeeDocIds'
-import { buildModWorkflowPanelMeta, type ModWithWorkflowEmployees } from '@/utils/modWorkflowEmployees'
+import {
+  useWorkflowEmployeeSpaceStore,
+  type WorkflowEmployeeSession,
+  type WorkflowEmployeeSpaceSnapshot,
+} from '@/stores/workflowEmployeeSpace'
 import { shortNameFromPanelTitle } from '@/utils/workflowEmployeeDisplayName'
-
-const BUILTIN_PANEL_TITLE: Record<string, string> = {
-  label_print: '工作流 · 标签打印 AI 员工',
-  shipment_mgmt: '工作流 · 出货管理 AI 员工',
-  receipt_confirm: '工作流 · 收货确认 AI 员工',
-  wechat_msg: '工作流 · 微信消息处理 AI 员工',
-}
 
 export type WorkflowEmployeeDeskRow = {
   empId: string
@@ -20,41 +14,59 @@ export type WorkflowEmployeeDeskRow = {
   shortName: string
   enabled: boolean
   snapshot?: WorkflowEmployeeSpaceSnapshot
+  session?: WorkflowEmployeeSession
 }
 
-function collectEmployeeIds(mods: ModWithWorkflowEmployees[] | undefined): string[] {
-  const out: string[] = [...WORKFLOW_DOC_CORE_EMPLOYEE_IDS]
-  const seen = new Set(out)
-  for (const m of mods || []) {
-    for (const e of m.workflow_employees || []) {
-      const id = String(e?.id || '').trim()
-      if (!id || seen.has(id)) continue
-      seen.add(id)
-      out.push(id)
+export function formatWorkDurationShort(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0m'
+  const sec = Math.floor(ms / 1000)
+  if (sec < 60) return `${sec}s`
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min}m`
+  const hr = Math.floor(min / 60)
+  const mr = min % 60
+  if (hr < 24) return mr > 0 ? `${hr}h ${mr}m` : `${hr}h`
+  const day = Math.floor(hr / 24)
+  const hrr = hr % 24
+  return hrr > 0 ? `${day}d ${hrr}h` : `${day}d`
+}
+
+export function totalWorkMs(session: WorkflowEmployeeSession | undefined, nowMs: number): number {
+  if (!session) return 0
+  const live = session.enabledAt ? Math.max(0, nowMs - session.enabledAt) : 0
+  return Math.max(0, session.lifetimeMs) + live
+}
+
+export function useNowMsTicker(intervalMs = 30000) {
+  const nowMs = ref(Date.now())
+  let timer: number | null = null
+  onMounted(() => {
+    if (typeof window === 'undefined') return
+    nowMs.value = Date.now()
+    timer = window.setInterval(() => {
+      nowMs.value = Date.now()
+    }, Math.max(1000, intervalMs))
+  })
+  onBeforeUnmount(() => {
+    if (timer != null) {
+      window.clearInterval(timer)
+      timer = null
     }
-  }
-  return out
+  })
+  return nowMs
 }
 
-/**
- * 员工空间 / 拼接全景页共用的工位行数据（与副窗开关、任务快照同源）。
- */
 export function useWorkflowEmployeeDesks() {
-  const modsStore = useModsStore()
   const wfEmp = useWorkflowAiEmployeesStore()
   const spaceStore = useWorkflowEmployeeSpaceStore()
-  const { enabled: workflowEnabled } = storeToRefs(wfEmp)
-  const { snapshots } = storeToRefs(spaceStore)
+  const { enabled: workflowEnabled, registryEntries } = storeToRefs(wfEmp)
+  const { snapshots, sessions } = storeToRefs(spaceStore)
 
-  const employeeIds = computed(() => collectEmployeeIds(modsStore.modsForUi))
-
-  const modTitleMap = computed(() => buildModWorkflowPanelMeta(modsStore.modsForUi))
+  const employeeIds = computed(() => registryEntries.value.map((e) => e.id))
 
   function resolvePanelTitle(empId: string): string {
-    const b = BUILTIN_PANEL_TITLE[empId]
-    if (b) return b
-    const m = modTitleMap.value[empId]
-    if (m?.title) return m.title
+    const entry = registryEntries.value.find((e) => e.id === empId)
+    if (entry) return `工作流 · ${entry.label}`
     return `工作流 · ${empId}`
   }
 
@@ -63,15 +75,21 @@ export function useWorkflowEmployeeDesks() {
       const panelTitle = resolvePanelTitle(empId)
       const en = workflowEnabled.value[empId] === true
       const snap = snapshots.value[empId]
+      const sess = sessions.value[empId]
       return {
         empId,
         panelTitle,
         shortName: snap?.shortName || shortNameFromPanelTitle(panelTitle),
         enabled: en,
         snapshot: snap,
+        session: sess,
       }
     })
   })
+
+  const onDutyDesks = computed<WorkflowEmployeeDeskRow[]>(() =>
+    desks.value.filter((d) => d.enabled)
+  )
 
   function statusLine(row: WorkflowEmployeeDeskRow): string {
     if (!row.enabled) return '副窗未启用'
@@ -92,11 +110,17 @@ export function useWorkflowEmployeeDesks() {
     return s.visuallyBusy === true
   }
 
+  function processedCount(row: WorkflowEmployeeDeskRow): number {
+    return row.session?.processedCount ?? 0
+  }
+
   return {
     employeeIds,
     desks,
+    onDutyDesks,
     statusLine,
     ariaLabel,
     isBusy,
+    processedCount,
   }
 }

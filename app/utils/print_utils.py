@@ -1,12 +1,12 @@
 import logging
 import os
 import time
-from typing import Dict, List, Optional
 
 try:
     import pythoncom
     import win32api
     import win32print
+
     _PRINT_BACKEND_AVAILABLE = True
     _PRINT_BACKEND_ERROR = ""
 except Exception as _print_import_error:
@@ -16,7 +16,7 @@ except Exception as _print_import_error:
     _PRINT_BACKEND_AVAILABLE = False
     _PRINT_BACKEND_ERROR = str(_print_import_error)
 
-logging.basicConfig(level=logging.INFO, encoding='utf-8')
+logging.basicConfig(level=logging.INFO, encoding="utf-8")
 logger = logging.getLogger(__name__)
 
 
@@ -28,8 +28,10 @@ class PrinterUtils:
     def _is_print_backend_available() -> bool:
         return _PRINT_BACKEND_AVAILABLE
 
-    def _build_unavailable_result(self) -> Dict:
-        message = f"当前环境不支持打印功能（缺少 Windows 打印依赖）：{_PRINT_BACKEND_ERROR or 'unknown'}"
+    def _build_unavailable_result(self) -> dict:
+        message = (
+            f"当前环境不支持打印功能（缺少 Windows 打印依赖）：{_PRINT_BACKEND_ERROR or 'unknown'}"
+        )
         return {"success": False, "message": message}
 
     def _ensure_com_initialized(self):
@@ -42,7 +44,7 @@ class PrinterUtils:
             except Exception as e:
                 logger.warning(f"COM初始化警告: {e}")
 
-    def get_available_printers(self) -> List[Dict[str, str]]:
+    def get_available_printers(self) -> list[dict[str, str]]:
         if not self._is_print_backend_available():
             logger.warning(self._build_unavailable_result()["message"])
             return []
@@ -57,7 +59,9 @@ class PrinterUtils:
                 default_printer = None
                 logger.warning("无法获取默认打印机")
 
-            all_printers = win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)
+            all_printers = win32print.EnumPrinters(
+                win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
+            )
 
             logger.info(f"找到 {len(all_printers)} 个打印机")
 
@@ -79,13 +83,11 @@ class PrinterUtils:
 
                     status_text = self._get_printer_status(status)
 
-                is_default = (printer_name == default_printer)
+                is_default = printer_name == default_printer
 
-                printers.append({
-                    "name": printer_name,
-                    "status": status_text,
-                    "is_default": is_default
-                })
+                printers.append(
+                    {"name": printer_name, "status": status_text, "is_default": is_default}
+                )
 
                 logger.info(f"  - {printer_name} (默认: {is_default}, 状态: {status_text})")
 
@@ -162,25 +164,21 @@ class PrinterUtils:
             logger.error(f"监控打印任务时发生错误: {e}")
             return False
 
-    def print_file(self, file_path: str, printer_name: Optional[str] = None, use_default_printer: bool = False) -> Dict:
+    def print_file(
+        self, file_path: str, printer_name: str | None = None, use_default_printer: bool = False
+    ) -> dict:
         if not self._is_print_backend_available():
             return self._build_unavailable_result()
         try:
             if not os.path.exists(file_path):
-                return {
-                    "success": False,
-                    "message": f"文件不存在: {file_path}"
-                }
+                return {"success": False, "message": f"文件不存在: {file_path}"}
 
             _, ext = os.path.splitext(file_path)
             ext = ext.lower()
 
             if not printer_name:
                 logger.error("未指定打印机名称，拒绝打印")
-                return {
-                    "success": False,
-                    "message": "未指定打印机名称，无法打印"
-                }
+                return {"success": False, "message": "未指定打印机名称，无法打印"}
 
             logger.info(f"准备打印文件: {file_path}")
             logger.info(f"使用打印机: {printer_name}")
@@ -194,13 +192,14 @@ class PrinterUtils:
                     logger.info(f"目标打印机: {printer_name}")
 
                     if original_default_printer != printer_name:
-                        logger.info(f"正在修改默认打印机...")
+                        logger.info("正在修改默认打印机...")
                         try:
                             win32print.SetDefaultPrinter(printer_name)
-                            logger.info(f"SetDefaultPrinter 调用完成")
+                            logger.info("SetDefaultPrinter 调用完成")
                         except Exception as e:
                             logger.error(f"SetDefaultPrinter 调用失败: {e}")
                             import traceback
+
                             logger.error(traceback.format_exc())
 
                         time.sleep(0.5)
@@ -214,7 +213,9 @@ class PrinterUtils:
                         if new_default == printer_name:
                             logger.info(f"默认打印机修改成功: {new_default}")
                         else:
-                            logger.error(f"默认打印机修改失败！当前: {new_default}, 目标: {printer_name}")
+                            logger.error(
+                                f"默认打印机修改失败！当前: {new_default}, 目标: {printer_name}"
+                            )
                             try:
                                 win32print.SetDefaultPrinter(printer_name)
                                 time.sleep(0.5)
@@ -227,20 +228,21 @@ class PrinterUtils:
                 except Exception as e:
                     logger.error(f"修改默认打印机失败: {e}")
                     import traceback
+
                     logger.error(traceback.format_exc())
             else:
                 logger.info("已明确指定打印机，不使用系统默认打印机")
 
             print_result = None
             try:
-                if ext in ['.xlsx', '.xls']:
+                if ext in [".xlsx", ".xls"]:
                     print_result = self._print_excel(file_path, printer_name)
-                elif ext == '.pdf':
+                elif ext == ".pdf":
                     print_result = self._print_pdf(file_path, printer_name)
                 else:
                     print_result = self._print_default(file_path, printer_name)
 
-                if print_result.get('success', False):
+                if print_result.get("success", False):
                     logger.info("打印命令已发送，继续执行后续操作")
             finally:
                 if use_default_printer and original_default_printer:
@@ -256,12 +258,9 @@ class PrinterUtils:
 
         except Exception as e:
             logger.error(f"打印文件失败: {e}")
-            return {
-                "success": False,
-                "message": f"打印失败: {str(e)}"
-            }
+            return {"success": False, "message": f"打印失败: {str(e)}"}
 
-    def _print_excel(self, file_path: str, printer_name: str) -> Dict:
+    def _print_excel(self, file_path: str, printer_name: str) -> dict:
         if not self._is_print_backend_available():
             return self._build_unavailable_result()
         try:
@@ -276,21 +275,14 @@ class PrinterUtils:
                     "success": True,
                     "message": "打印任务已发送（os.startfile）",
                     "file": os.path.basename(file_path),
-                    "printer": printer_name
+                    "printer": printer_name,
                 }
             except Exception as e1:
                 logger.warning(f"方法1失败: {e1}")
 
                 try:
                     logger.info("方法2: 使用ShellExecute print")
-                    result = win32api.ShellExecute(
-                        0,
-                        "print",
-                        file_path,
-                        None,
-                        ".",
-                        1
-                    )
+                    result = win32api.ShellExecute(0, "print", file_path, None, ".", 1)
 
                     if result > 32:
                         logger.info(f"ShellExecute打印成功: {file_path}")
@@ -298,7 +290,7 @@ class PrinterUtils:
                             "success": True,
                             "message": "打印任务已发送到打印机",
                             "file": os.path.basename(file_path),
-                            "printer": printer_name
+                            "printer": printer_name,
                         }
                     else:
                         raise Exception(f"ShellExecute失败，错误代码: {result}")
@@ -315,7 +307,7 @@ class PrinterUtils:
                             "message": "文件已打开，请手动打印",
                             "file": os.path.basename(file_path),
                             "printer": printer_name,
-                            "manual": True
+                            "manual": True,
                         }
                     except Exception as e3:
                         logger.error(f"方法3也失败: {e3}")
@@ -323,12 +315,9 @@ class PrinterUtils:
 
         except Exception as e:
             logger.error(f"打印Excel文件失败: {e}")
-            return {
-                "success": False,
-                "message": f"打印失败: {str(e)}"
-            }
+            return {"success": False, "message": f"打印失败: {str(e)}"}
 
-    def _print_pdf(self, file_path: str, printer_name: str) -> Dict:
+    def _print_pdf(self, file_path: str, printer_name: str) -> dict:
         if not self._is_print_backend_available():
             return self._build_unavailable_result()
         try:
@@ -338,7 +327,7 @@ class PrinterUtils:
                 hprinter = win32print.OpenPrinter(printer_name)
 
                 try:
-                    with open(file_path, 'rb') as f:
+                    with open(file_path, "rb") as f:
                         file_data = f.read()
 
                     job_id = win32print.StartDocPrinter(hprinter, 1, ("PDF Job", None, "RAW"))
@@ -353,7 +342,7 @@ class PrinterUtils:
                         "message": "PDF文件已发送到打印机",
                         "file": os.path.basename(file_path),
                         "printer": printer_name,
-                        "method": "win32print"
+                        "method": "win32print",
                     }
                 finally:
                     win32print.ClosePrinter(hprinter)
@@ -374,20 +363,20 @@ class PrinterUtils:
                     if os.path.exists(adobe_path):
                         logger.info(f"使用Adobe Reader: {adobe_path}")
 
-                        result = subprocess.run([
-                            adobe_path,
-                            "/t",
-                            file_path,
-                            printer_name
-                        ], check=True, timeout=30, capture_output=True)
+                        result = subprocess.run(
+                            [adobe_path, "/t", file_path, printer_name],
+                            check=True,
+                            timeout=30,
+                            capture_output=True,
+                        )
 
-                        logger.info(f"PDF文件已通过Adobe Reader发送到打印机")
+                        logger.info("PDF文件已通过Adobe Reader发送到打印机")
                         return {
                             "success": True,
                             "message": "PDF文件已通过Adobe Reader发送到打印机",
                             "file": os.path.basename(file_path),
                             "printer": printer_name,
-                            "method": "adobe_cli"
+                            "method": "adobe_cli",
                         }
 
                 logger.warning("未找到Adobe Reader")
@@ -399,25 +388,15 @@ class PrinterUtils:
 
         except Exception as e:
             logger.error(f"打印PDF文件失败: {e}")
-            return {
-                "success": False,
-                "message": f"打印PDF失败: {str(e)}"
-            }
+            return {"success": False, "message": f"打印PDF失败: {str(e)}"}
 
-    def _print_default(self, file_path: str, printer_name: str, show_app: bool = False) -> Dict:
+    def _print_default(self, file_path: str, printer_name: str, show_app: bool = False) -> dict:
         if not self._is_print_backend_available():
             return self._build_unavailable_result()
         try:
             show_cmd = 1 if show_app else 0
 
-            win32api.ShellExecute(
-                0,
-                "print",
-                file_path,
-                f'/d:"{printer_name}"',
-                ".",
-                show_cmd
-            )
+            win32api.ShellExecute(0, "print", file_path, f'/d:"{printer_name}"', ".", show_cmd)
 
             app_status = "（显示应用窗口）" if show_app else "（隐藏应用窗口）"
             logger.info(f"文件已发送到打印机{app_status}: {file_path}")
@@ -426,17 +405,14 @@ class PrinterUtils:
                 "message": f"打印任务已发送到打印机{app_status}",
                 "file": os.path.basename(file_path),
                 "printer": printer_name,
-                "show_app": show_app
+                "show_app": show_app,
             }
 
         except Exception as e:
             logger.error(f"打印文件失败: {e}")
-            return {
-                "success": False,
-                "message": f"打印失败: {str(e)}"
-            }
+            return {"success": False, "message": f"打印失败: {str(e)}"}
 
-    def get_default_printer(self) -> Optional[str]:
+    def get_default_printer(self) -> str | None:
         if not self._is_print_backend_available():
             logger.warning(self._build_unavailable_result()["message"])
             return None
@@ -446,14 +422,14 @@ class PrinterUtils:
             logger.error(f"获取默认打印机失败: {e}")
             return None
 
-    def test_printer(self, printer_name: str) -> Dict:
+    def test_printer(self, printer_name: str) -> dict:
         if not self._is_print_backend_available():
             return self._build_unavailable_result()
         try:
             hprinter = win32print.OpenPrinter(printer_name)
 
             printer_info = win32print.GetPrinter(hprinter, 2)
-            status = printer_info['Status']
+            status = printer_info["Status"]
             status_text = self._get_printer_status(status)
 
             win32print.ClosePrinter(hprinter)
@@ -462,7 +438,7 @@ class PrinterUtils:
                 "success": True,
                 "available": True,
                 "printer": printer_name,
-                "status": status_text
+                "status": status_text,
             }
 
         except Exception as e:
@@ -471,10 +447,10 @@ class PrinterUtils:
                 "success": False,
                 "available": False,
                 "printer": printer_name,
-                "message": str(e)
+                "message": str(e),
             }
 
-    def get_document_printer(self) -> Optional[str]:
+    def get_document_printer(self) -> str | None:
         """获取发货单打印机"""
         if not self._is_print_backend_available():
             logger.warning(self._build_unavailable_result()["message"])
@@ -484,20 +460,30 @@ class PrinterUtils:
             if not printers:
                 return None
 
-            keywords = ['joli', '24-pin', 'dot matrix', 'impact', 'lq', '针式', 'hp', 'canon', 'epson']
+            keywords = [
+                "joli",
+                "24-pin",
+                "dot matrix",
+                "impact",
+                "lq",
+                "针式",
+                "hp",
+                "canon",
+                "epson",
+            ]
 
             for printer in printers:
-                name_lower = printer['name'].lower()
+                name_lower = printer["name"].lower()
                 if any(kw in name_lower for kw in keywords):
-                    return printer['name']
+                    return printer["name"]
 
-            return printers[0]['name'] if printers else None
+            return printers[0]["name"] if printers else None
 
         except Exception as e:
             logger.error(f"获取发货单打印机失败: {e}")
             return None
 
-    def get_label_printer(self) -> Optional[str]:
+    def get_label_printer(self) -> str | None:
         """获取标签打印机"""
         if not self._is_print_backend_available():
             logger.warning(self._build_unavailable_result()["message"])
@@ -507,14 +493,14 @@ class PrinterUtils:
             if not printers:
                 return None
 
-            keywords = ['tsc', 'ttp', 'label', '标签', 'thermal', 'barcode', 'zebra']
+            keywords = ["tsc", "ttp", "label", "标签", "thermal", "barcode", "zebra"]
 
             for printer in printers:
-                name_lower = printer['name'].lower()
+                name_lower = printer["name"].lower()
                 if any(kw in name_lower for kw in keywords):
-                    return printer['name']
+                    return printer["name"]
 
-            return printers[-1]['name'] if printers else None
+            return printers[-1]["name"] if printers else None
 
         except Exception as e:
             logger.error(f"获取标签打印机失败: {e}")

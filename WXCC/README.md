@@ -2,6 +2,8 @@
 
 一个现代化的商城购物类微信小程序，采用清新的蓝色主题和流畅的交互体验。
 
+**历史修复与路径/图片类笔记**已迁至仓库 [`docs/wxcc/`](../docs/wxcc/)，总索引见 [`docs/DOCUMENTATION_MAP.md`](../docs/DOCUMENTATION_MAP.md)。
+
 ## 项目特色
 
 ### 🎨 现代化 UI 设计

@@ -5,18 +5,17 @@ Code-first bounded context manifest: BC id, event prefixes, domain aggregates (p
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple
 
 
 @dataclass(frozen=True)
 class BoundedContextMeta:
     context_id: str
-    event_prefixes: Tuple[str, ...]
-    aggregate_paths: Tuple[str, ...]
+    event_prefixes: tuple[str, ...]
+    aggregate_paths: tuple[str, ...]
     handler_module: str
 
 
-BOUNDED_CONTEXTS: Tuple[BoundedContextMeta, ...] = (
+BOUNDED_CONTEXTS: tuple[BoundedContextMeta, ...] = (
     BoundedContextMeta(
         context_id="shipment",
         event_prefixes=("shipment.",),

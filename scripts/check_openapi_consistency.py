@@ -151,7 +151,7 @@ def collect_runtime_routes(app) -> list[RuntimeRoute]:
             if isinstance(r, APIRoute):
                 raw = prefix + str(r.path)
                 norm = _norm_path(normalize_path_template(raw))
-                for m in (r.methods or ()):
+                for m in r.methods or ():
                     method = _norm_method(m)
                     if method not in _DOC_METHODS:
                         continue
@@ -259,7 +259,11 @@ def diff_routes_vs_openapi(
     seen_runtime: dict[tuple[str, str], list[tuple[str, str, bool]]] = {}
     for r in routes:
         seen_runtime.setdefault((r.method, r.path), []).append(
-            (r.endpoint_name or "?", r.endpoint_qualname or r.endpoint_name or "?", bool(r.include_in_schema))
+            (
+                r.endpoint_name or "?",
+                r.endpoint_qualname or r.endpoint_name or "?",
+                bool(r.include_in_schema),
+            )
         )
     for (method, path), entries in seen_runtime.items():
         if len(entries) <= 1:
@@ -467,15 +471,20 @@ def render_markdown_report(
     lines.append("")
     lines.append(f"- 运行时路由（含隐藏）: **{counts_routes}**")
     lines.append(f"- OpenAPI 操作: **{counts_ops}**")
-    lines.append(f"- 发现: error **{counts['error']}** / warn **{counts['warn']}** / info **{counts['info']}**")
+    lines.append(
+        f"- 发现: error **{counts['error']}** / warn **{counts['warn']}** / info **{counts['info']}**"
+    )
     lines.append("")
 
     # 按严重度 → 分组输出
     level_order = ["error", "warn", "info"]
-    code_order = sorted(grouped.keys(), key=lambda c: (
-        level_order.index(grouped[c][0].level) if grouped[c][0].level in level_order else 99,
-        c,
-    ))
+    code_order = sorted(
+        grouped.keys(),
+        key=lambda c: (
+            level_order.index(grouped[c][0].level) if grouped[c][0].level in level_order else 99,
+            c,
+        ),
+    )
     for code in code_order:
         items = grouped[code]
         level = items[0].level

@@ -14,13 +14,13 @@ import json
 import logging
 import secrets
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from app.db.session import get_db
+from app.application.mobile_push_app_service import notify_mobile_user
 from app.db.models.approval import (
     ApprovalAction,
     ApprovalFlow,
@@ -29,6 +29,7 @@ from app.db.models.approval import (
     ApprovalRequest,
     ApprovalStatus,
 )
+from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,8 @@ router = APIRouter(prefix="/api/approval", tags=["approval"])
 # 工具函数
 # --------------------------------------------------------------------------- #
 
-def _resolve_actor(x_user_id: Optional[str], fallback: Optional[int] = None) -> Optional[int]:
+
+def _resolve_actor(x_user_id: str | None, fallback: int | None = None) -> int | None:
     """从 ``X-User-ID`` 请求头解析当前用户 ID。"""
     if x_user_id and str(x_user_id).strip().isdigit():
         return int(str(x_user_id).strip())
@@ -51,7 +53,7 @@ def _resolve_actor(x_user_id: Optional[str], fallback: Optional[int] = None) -> 
     return None
 
 
-def _audit(db, *, actor: Optional[int], action: str, payload: dict) -> None:
+def _audit(db, *, actor: int | None, action: str, payload: dict) -> None:
     """写入 ``ai_action_audit``：跨业务的 DB 操作轨迹。"""
     try:
         db.execute(
@@ -78,7 +80,11 @@ def _node_query_for_user(node: ApprovalFlowNode, user_id: int) -> bool:
     if not node or not node.approver_ids:
         return False
     try:
-        ids = json.loads(node.approver_ids) if isinstance(node.approver_ids, str) else node.approver_ids
+        ids = (
+            json.loads(node.approver_ids)
+            if isinstance(node.approver_ids, str)
+            else node.approver_ids
+        )
     except (ValueError, TypeError):
         return False
     if not isinstance(ids, list):
@@ -92,13 +98,15 @@ def _node_query_for_user(node: ApprovalFlowNode, user_id: int) -> bool:
 def _ordered_nodes(db, flow_id: int) -> list[ApprovalFlowNode]:
     return (
         db.query(ApprovalFlowNode)
-        .filter(ApprovalFlowNode.flow_id == flow_id, ApprovalFlowNode.is_active == True)  # noqa: E712
+        .filter(
+            ApprovalFlowNode.flow_id == flow_id, ApprovalFlowNode.is_active == True
+        )  # noqa: E712
         .order_by(ApprovalFlowNode.node_order.asc())
         .all()
     )
 
 
-def _next_node(nodes: list[ApprovalFlowNode], current_order: int) -> Optional[ApprovalFlowNode]:
+def _next_node(nodes: list[ApprovalFlowNode], current_order: int) -> ApprovalFlowNode | None:
     for n in nodes:
         if n.node_order > current_order:
             return n
@@ -110,7 +118,7 @@ def _request_to_dict(req: ApprovalRequest, *, include_records: bool = False) -> 
     base = req.to_dict()
     if include_records:
         records = (
-            sorted(req.records or [], key=lambda r: (r.action_time or datetime.min))
+            sorted(req.records or [], key=lambda r: r.action_time or datetime.min)
             if req.records
             else []
         )
@@ -122,12 +130,13 @@ def _request_to_dict(req: ApprovalRequest, *, include_records: bool = False) -> 
 # 审批请求
 # --------------------------------------------------------------------------- #
 
+
 @router.get("/requests")
 def list_requests(
-    approver_id: Optional[int] = Query(default=None),
-    applicant_id: Optional[int] = Query(default=None),
-    status: Optional[str] = Query(default=None),
-    business_type: Optional[str] = Query(default=None),
+    approver_id: int | None = Query(default=None),
+    applicant_id: int | None = Query(default=None),
+    status: str | None = Query(default=None),
+    business_type: str | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=500),
 ):
@@ -169,7 +178,10 @@ def list_requests(
                 node = req.current_node
                 if not node or not _node_query_for_user(node, approver_id):
                     continue
-                if req.status not in (ApprovalStatus.PENDING.value, ApprovalStatus.IN_PROGRESS.value):
+                if req.status not in (
+                    ApprovalStatus.PENDING.value,
+                    ApprovalStatus.IN_PROGRESS.value,
+                ):
                     continue
             result.append(data)
 
@@ -188,7 +200,7 @@ def list_requests(
 @router.post("/requests/cleanup")
 def cleanup_requests(
     body: dict = Body(default_factory=dict),
-    x_user_id: Optional[str] = Header(default=None, alias="X-User-ID"),
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
 ):
     """批量清理已完成的审批记录。
 
@@ -210,7 +222,7 @@ def cleanup_requests(
     dry_run = bool(body.get("dry_run", False))
 
     before_days_raw = body.get("before_days")
-    before_days: Optional[int]
+    before_days: int | None
     try:
         before_days = int(before_days_raw) if before_days_raw not in (None, "", 0) else None
     except (TypeError, ValueError):
@@ -298,7 +310,7 @@ def get_request_detail(request_id: int):
 @router.post("/requests")
 def submit_request(
     body: dict = Body(default_factory=dict),
-    x_user_id: Optional[str] = Header(default=None, alias="X-User-ID"),
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
 ):
     """提交一个新的审批请求；按 ``flow_key`` 找到流程并定位首个有效节点。"""
     flow_key = str(body.get("flow_key") or "").strip()
@@ -342,7 +354,11 @@ def submit_request(
             request_no=_generate_request_no(),
             flow_id=flow.id,
             business_type=business_type,
-            business_id=int(business_id) if isinstance(business_id, (int, str)) and str(business_id).isdigit() else None,
+            business_id=(
+                int(business_id)
+                if isinstance(business_id, (int, str)) and str(business_id).isdigit()
+                else None
+            ),
             business_data=json.dumps(business_data, ensure_ascii=False) if business_data else None,
             applicant_id=actor,
             applicant_name=applicant_name,
@@ -383,8 +399,8 @@ def _close_request_if_needed(
     req: ApprovalRequest,
     nodes: list[ApprovalFlowNode],
     approver_id: int,
-    approver_name: Optional[str],
-) -> tuple[str, Optional[int]]:
+    approver_name: str | None,
+) -> tuple[str, int | None]:
     """串行流程：推进到下一节点；若已到末节点则置为 ``approved``。"""
     next_node = _next_node(nodes, req.current_node_order or 0)
     if next_node is None:
@@ -405,7 +421,7 @@ def _close_request_if_needed(
 def approve_request(
     request_id: int,
     body: dict = Body(default_factory=dict),
-    x_user_id: Optional[str] = Header(default=None, alias="X-User-ID"),
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
 ):
     actor = _resolve_actor(x_user_id, fallback=body.get("approver_id"))
     if actor is None:
@@ -482,6 +498,13 @@ def approve_request(
 
         db.commit()
         db.refresh(req)
+        if req.applicant_id:
+            notify_mobile_user(
+                int(req.applicant_id),
+                "审批进度更新",
+                f"《{req.title or req.request_no}》已处理",
+                {"route": f"/app/approval/{req.id}", "request_id": str(req.id)},
+            )
         return {"success": True, "data": _request_to_dict(req, include_records=True)}
 
 
@@ -489,7 +512,7 @@ def approve_request(
 def reject_request(
     request_id: int,
     body: dict = Body(default_factory=dict),
-    x_user_id: Optional[str] = Header(default=None, alias="X-User-ID"),
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
 ):
     actor = _resolve_actor(x_user_id, fallback=body.get("approver_id"))
     if actor is None:
@@ -571,7 +594,7 @@ def reject_request(
 def withdraw_request(
     request_id: int,
     body: dict = Body(default_factory=dict),
-    x_user_id: Optional[str] = Header(default=None, alias="X-User-ID"),
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
 ):
     actor = _resolve_actor(x_user_id, fallback=body.get("user_id"))
     if actor is None:
@@ -669,7 +692,7 @@ def _normalize_statuses(raw: Any) -> list[str]:
 @router.delete("/requests/{request_id}")
 def delete_request(
     request_id: int,
-    x_user_id: Optional[str] = Header(default=None, alias="X-User-ID"),
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
 ):
     """物理删除单个审批申请（仅申请人本人，且必须处于终态）。
 
@@ -720,10 +743,95 @@ def delete_request(
 # 审批流程
 # --------------------------------------------------------------------------- #
 
+
+@router.get("/users")
+def get_approval_users():
+    """返回可选审批人列表（从用户/人员表拉取）。
+
+    供前端审批流程配置页的「审批人选择」下拉使用。
+    若无独立 User 表，则 fallback 到产品/人员 roster（考勤行业）。
+    """
+    users: list[dict] = []
+    try:
+        from app.db.models import User  # type: ignore
+
+        with get_db() as db:
+            rows = db.query(User).filter(User.is_active == True).all()  # noqa: E712
+            users = [
+                {
+                    "id": u.id,
+                    "name": getattr(u, "name", None) or getattr(u, "username", "") or f"用户{u.id}",
+                    "email": getattr(u, "email", None),
+                    "department": getattr(u, "department", None),
+                }
+                for u in rows
+            ]
+    except Exception:
+        pass
+
+    if not users:
+        try:
+            from app.application import get_product_app_service
+
+            products = get_product_app_service().get_all_products()
+            if isinstance(products, list):
+                for p in products[:50]:
+                    name = str(p.get("name") or p.get("product_name") or "").strip()
+                    if name:
+                        users.append({"id": p.get("id"), "name": name, "source": "roster"})
+        except Exception:
+            pass
+
+    return {"success": True, "data": users, "count": len(users)}
+
+
+@router.get("/users/{user_id}/orphan-check")
+def check_approver_orphan(user_id: int):
+    """检查某用户 ID 是否出现在激活流程的审批节点但在用户表中已不存在（孤儿检测）。"""
+    with get_db() as db:
+        active_flows = (
+            db.query(ApprovalFlow)
+            .filter(
+                ApprovalFlow.is_active == True,
+                ApprovalFlow.is_deleted == False,  # noqa: E712
+            )
+            .all()
+        )
+        orphan_flows: list[dict] = []
+        for flow in active_flows:
+            for node in flow.nodes or []:
+                ids = []
+                try:
+                    ids = json.loads(node.approver_ids or "[]")
+                except Exception:
+                    pass
+                if user_id in ids:
+                    orphan_flows.append(
+                        {"flow_id": flow.id, "flow_name": flow.flow_name, "node_id": node.id}
+                    )
+        is_orphan = len(orphan_flows) > 0
+        return {
+            "success": True,
+            "user_id": user_id,
+            "is_orphan_in_active_flows": is_orphan,
+            "orphan_flows": orphan_flows,
+            "message": f"用户 {user_id} {'出现在以下激活流程节点中但可能已不存在' if is_orphan else '未在任何激活流程节点中'}",
+        }
+
+
+@router.post("/process-timeouts")
+def process_approval_timeouts_endpoint():
+    """手动触发（或由定时任务调用）审批超时处理——扫描 expired_at < now 的待审批记录。"""
+    from app.application.workflow.approval_service import process_approval_timeouts
+
+    result = process_approval_timeouts()
+    return JSONResponse(result, status_code=200 if result.get("success") else 500)
+
+
 @router.get("/flows")
 def list_flows(
-    is_active: Optional[bool] = Query(default=None),
-    business_type: Optional[str] = Query(default=None),
+    is_active: bool | None = Query(default=None),
+    business_type: str | None = Query(default=None),
 ):
     with get_db() as db:
         query = db.query(ApprovalFlow).filter(ApprovalFlow.is_deleted == False)  # noqa: E712
@@ -754,7 +862,7 @@ def get_flow_detail(flow_id: int):
 @router.post("/flows")
 def create_flow(
     body: dict = Body(default_factory=dict),
-    x_user_id: Optional[str] = Header(default=None, alias="X-User-ID"),
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
 ):
     """创建审批流程；body 形如 ``{flow: {...}, nodes: [...]}``。"""
     flow_payload = body.get("flow") or {}
@@ -775,7 +883,9 @@ def create_flow(
     with get_db() as db:
         existed = (
             db.query(ApprovalFlow)
-            .filter(ApprovalFlow.flow_key == flow_key, ApprovalFlow.is_deleted == False)  # noqa: E712
+            .filter(
+                ApprovalFlow.flow_key == flow_key, ApprovalFlow.is_deleted == False
+            )  # noqa: E712
             .first()
         )
         if existed:
@@ -843,3 +953,114 @@ def create_flow(
         db.commit()
         db.refresh(flow)
         return {"success": True, "data": flow.to_dict()}
+
+
+@router.put("/flows/{flow_id}")
+def update_flow(
+    flow_id: int,
+    body: dict = Body(default_factory=dict),
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
+):
+    """更新审批流程基础信息（不含节点，节点暂由 POST /flows 重建）。"""
+    actor = _resolve_actor(x_user_id)
+    with get_db() as db:
+        flow = (
+            db.query(ApprovalFlow)
+            .filter(ApprovalFlow.id == flow_id, ApprovalFlow.is_deleted == False)  # noqa: E712
+            .first()
+        )
+        if not flow:
+            return JSONResponse({"success": False, "message": "审批流程不存在"}, status_code=404)
+
+        updatable = [
+            "flow_name",
+            "description",
+            "industry",
+            "business_type",
+            "node_type",
+            "allow_transfer",
+            "allow_delegate",
+            "allow_withdraw",
+            "timeout_hours",
+        ]
+        for field in updatable:
+            if field in body:
+                setattr(flow, field, body[field])
+
+        flow.updated_at = datetime.utcnow()
+        _audit(db, actor=actor, action="approval_flow_update", payload={"flow_id": flow_id, **body})
+        db.commit()
+        db.refresh(flow)
+        return {"success": True, "data": flow.to_dict()}
+
+
+@router.patch("/flows/{flow_id}/active")
+def toggle_flow_active(
+    flow_id: int,
+    body: dict = Body(default_factory=dict),
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
+):
+    """启用 / 停用审批流程。body: {is_active: bool}"""
+    actor = _resolve_actor(x_user_id)
+    is_active = bool(body.get("is_active", True))
+    with get_db() as db:
+        flow = (
+            db.query(ApprovalFlow)
+            .filter(ApprovalFlow.id == flow_id, ApprovalFlow.is_deleted == False)  # noqa: E712
+            .first()
+        )
+        if not flow:
+            return JSONResponse({"success": False, "message": "审批流程不存在"}, status_code=404)
+        flow.is_active = is_active
+        flow.updated_at = datetime.utcnow()
+        _audit(
+            db,
+            actor=actor,
+            action="approval_flow_toggle_active",
+            payload={"flow_id": flow_id, "is_active": is_active},
+        )
+        db.commit()
+        return {
+            "success": True,
+            "message": f"流程已{'启用' if is_active else '停用'}",
+            "is_active": is_active,
+        }
+
+
+@router.delete("/flows/{flow_id}")
+def delete_flow(
+    flow_id: int,
+    x_user_id: str | None = Header(default=None, alias="X-User-ID"),
+):
+    """软删除审批流程（is_deleted = True）。"""
+    actor = _resolve_actor(x_user_id)
+    with get_db() as db:
+        flow = (
+            db.query(ApprovalFlow)
+            .filter(ApprovalFlow.id == flow_id, ApprovalFlow.is_deleted == False)  # noqa: E712
+            .first()
+        )
+        if not flow:
+            return JSONResponse(
+                {"success": False, "message": "审批流程不存在或已删除"}, status_code=404
+            )
+        # 检查是否有进行中的审批请求
+        pending_count = (
+            db.query(ApprovalRequest)
+            .filter(
+                ApprovalRequest.flow_id == flow_id,
+                ApprovalRequest.status == ApprovalStatus.PENDING,
+            )
+            .count()
+        )
+        if pending_count > 0:
+            return JSONResponse(
+                {"success": False, "message": f"流程下有 {pending_count} 条待审批请求，无法删除"},
+                status_code=409,
+            )
+        flow.is_deleted = True
+        flow.is_active = False
+        flow.updated_at = datetime.utcnow()
+        _audit(db, actor=actor, action="approval_flow_delete", payload={"flow_id": flow_id})
+        db.commit()
+        return {"success": True, "message": "审批流程已删除"}

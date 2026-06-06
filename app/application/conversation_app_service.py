@@ -5,9 +5,6 @@
 """
 
 import logging
-import uuid
-from datetime import datetime
-from typing import Any, List, Optional, Tuple
 
 from app.db.models import AIConversation, AIConversationSession
 from app.db.session import get_db
@@ -28,7 +25,7 @@ class ConversationApplicationService:
         role: str,
         content: str,
         intent: str = "",
-        metadata: str = ""
+        metadata: str = "",
     ) -> int:
         with get_db() as db:
             message = AIConversation(
@@ -37,50 +34,49 @@ class ConversationApplicationService:
                 role=role,
                 content=content,
                 intent=intent,
-                metadata=metadata
+                metadata=metadata,
             )
             db.add(message)
             db.commit()
             db.refresh(message)
             try:
-                from app.neuro_bus.application_neuro_bridge import neuro_notify_conversation_message_saved
+                from app.neuro_bus.application_neuro_bridge import (
+                    neuro_notify_conversation_message_saved,
+                )
 
                 neuro_notify_conversation_message_saved(session_id, user_id, role, intent)
             except Exception:
                 logger.debug("neuro_notify_conversation_message_saved skipped", exc_info=True)
             return message.id
 
-    def get_session_messages(
-        self,
-        session_id: str,
-        limit: int = 50
-    ) -> List[Tuple]:
+    def get_session_messages(self, session_id: str, limit: int = 50) -> list[tuple]:
         with get_db() as db:
-            messages = db.query(AIConversation).filter(
-                AIConversation.session_id == session_id
-            ).order_by(
-                AIConversation.created_at.desc()
-            ).limit(limit).all()
+            messages = (
+                db.query(AIConversation)
+                .filter(AIConversation.session_id == session_id)
+                .order_by(AIConversation.created_at.desc())
+                .limit(limit)
+                .all()
+            )
 
             result = []
             for msg in messages:
-                result.append((
-                    msg.id,
-                    msg.role,
-                    msg.content,
-                    msg.intent,
-                    msg.metadata,
-                    msg.created_at.isoformat() if msg.created_at else None
-                ))
+                result.append(
+                    (
+                        msg.id,
+                        msg.role,
+                        msg.content,
+                        msg.intent,
+                        msg.metadata,
+                        msg.created_at.isoformat() if msg.created_at else None,
+                    )
+                )
 
             return list(reversed(result))
 
     def create_session(self, user_id: str = "default") -> str:
         with get_db() as db:
-            session = AIConversationSession(
-                user_id=user_id,
-                context={}
-            )
+            session = AIConversationSession(user_id=user_id, context={})
             db.add(session)
             db.commit()
             db.refresh(session)
@@ -88,61 +84,61 @@ class ConversationApplicationService:
 
     def get_or_create_session(self, user_id: str = "default") -> str:
         with get_db() as db:
-            session = db.query(AIConversationSession).filter(
-                AIConversationSession.user_id == user_id
-            ).order_by(
-                AIConversationSession.created_at.desc()
-            ).first()
+            session = (
+                db.query(AIConversationSession)
+                .filter(AIConversationSession.user_id == user_id)
+                .order_by(AIConversationSession.created_at.desc())
+                .first()
+            )
 
             if session:
                 return session.session_id
 
-            new_session = AIConversationSession(
-                user_id=user_id,
-                context={}
-            )
+            new_session = AIConversationSession(user_id=user_id, context={})
             db.add(new_session)
             db.commit()
             db.refresh(new_session)
             return new_session.session_id
 
-    def get_sessions(self, user_id: str = "default", limit: int = 10) -> List[dict]:
+    def get_sessions(self, user_id: str = "default", limit: int = 10) -> list[dict]:
         with get_db() as db:
-            sessions = db.query(AIConversationSession).filter(
-                AIConversationSession.user_id == user_id
-            ).order_by(
-                AIConversationSession.created_at.desc()
-            ).limit(limit).all()
+            sessions = (
+                db.query(AIConversationSession)
+                .filter(AIConversationSession.user_id == user_id)
+                .order_by(AIConversationSession.created_at.desc())
+                .limit(limit)
+                .all()
+            )
 
             return [
                 {
                     "session_id": s.session_id,
                     "user_id": s.user_id,
                     "created_at": s.created_at.isoformat() if s.created_at else None,
-                    "updated_at": s.updated_at.isoformat() if s.updated_at else None
+                    "updated_at": s.updated_at.isoformat() if s.updated_at else None,
                 }
                 for s in sessions
             ]
 
     def delete_session(self, session_id: str) -> bool:
         with get_db() as db:
-            session = db.query(AIConversationSession).filter(
-                AIConversationSession.session_id == session_id
-            ).first()
+            session = (
+                db.query(AIConversationSession)
+                .filter(AIConversationSession.session_id == session_id)
+                .first()
+            )
 
             if not session:
                 return False
 
-            db.query(AIConversation).filter(
-                AIConversation.session_id == session_id
-            ).delete()
+            db.query(AIConversation).filter(AIConversation.session_id == session_id).delete()
 
             db.delete(session)
             db.commit()
             return True
 
 
-_conversation_app_service: Optional[ConversationApplicationService] = None
+_conversation_app_service: ConversationApplicationService | None = None
 
 
 def get_conversation_app_service() -> ConversationApplicationService:

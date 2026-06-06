@@ -6,7 +6,7 @@
         type="text"
         v-model="localTemplateName"
         class="form-control"
-        placeholder="例如：运动鞋标签、出货单模板"
+        placeholder="例如：出货单模板、产品目录导出"
         @input="onTemplateNameChange"
       />
       <div class="muted" style="font-size:12px;margin-top:5px;">
@@ -27,7 +27,7 @@
         <input
           ref="fileInput"
           type="file"
-          accept=".xlsx,.xls,.png,.jpg,.jpeg,.gif,.bmp"
+          :accept="uploadAccept"
           style="display:none"
           @change="handleFileSelect"
         />
@@ -36,7 +36,7 @@
           <div style="font-size:48px;margin-bottom:10px;"><i class="fa fa-folder-open-o" aria-hidden="true"></i></div>
           <div>点击或拖拽上传文件</div>
           <div class="muted" style="font-size:12px;margin-top:5px;">
-            支持 Excel (.xlsx, .xls) 或图片 (.png, .jpg, .jpeg)
+            {{ uploadHint }}
           </div>
         </div>
 
@@ -59,8 +59,11 @@
     </div>
 
     <div v-if="recognizedType" class="recognized-type">
-      <span class="badge" :class="recognizedType === 'excel' ? 'badge-success' : 'badge-info'">
-        已识别类型：{{ recognizedType === 'excel' ? 'Excel 模板' : '标签模板' }}
+      <span
+        class="badge"
+        :class="recognizedType === 'word' ? 'badge-info' : 'badge-success'"
+      >
+        已识别类型：{{ recognizedTypeLabel }}
       </span>
       <span v-if="analyzing" class="muted" style="margin-left:10px;">分析中...</span>
     </div>
@@ -72,7 +75,13 @@
 </template>
 
 <script>
-import api from '../../api'
+import {
+  TEMPLATE_MEDIA_LABELS,
+  TEMPLATE_MEDIA_ACCEPT,
+  templateMediaKindFromFilename,
+  templateMediaUploadHint,
+  isTemplateMediaKind,
+} from '@/constants/templateMediaKinds'
 
 export default {
   name: 'FileUploadStep',
@@ -95,6 +104,18 @@ export default {
       analyzing: false,
       analyzeError: null
     }
+  },
+  computed: {
+    uploadAccept() {
+      return TEMPLATE_MEDIA_ACCEPT
+    },
+    uploadHint() {
+      return templateMediaUploadHint()
+    },
+    recognizedTypeLabel() {
+      if (!isTemplateMediaKind(this.recognizedType)) return '未知'
+      return `${TEMPLATE_MEDIA_LABELS[this.recognizedType]} 模板`
+    },
   },
   watch: {
     templateName(val) {
@@ -125,24 +146,16 @@ export default {
     },
 
     selectFile(file) {
-      const ext = file.name.split('.').pop().toLowerCase()
-      const validExts = ['xlsx', 'xls', 'png', 'jpg', 'jpeg', 'gif', 'bmp']
-
-      if (!validExts.includes(ext)) {
-        this.analyzeError = '不支持的文件类型，请上传 Excel 或图片文件'
+      const kind = templateMediaKindFromFilename(file?.name)
+      if (!kind) {
+        this.analyzeError = templateMediaUploadHint()
         return
       }
 
       this.localSelectedFile = file
       this.$emit('update:selected-file', file)
       this.analyzeError = null
-      this.recognizedType = null
-
-      if (ext === 'xlsx' || ext === 'xls') {
-        this.recognizedType = 'excel'
-      } else {
-        this.recognizedType = 'label'
-      }
+      this.recognizedType = kind
 
       this.$emit('file-selected', {
         selectedFile: this.localSelectedFile,
@@ -170,9 +183,12 @@ export default {
 
     getFileIconClass() {
       if (!this.localSelectedFile) return 'fa-folder-open-o'
-      const ext = this.localSelectedFile.name.split('.').pop().toLowerCase()
-      if (['xlsx', 'xls'].includes(ext)) return 'fa-file-excel-o'
-      if (['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext)) return 'fa-file-image-o'
+      const kind = templateMediaKindFromFilename(this.localSelectedFile.name)
+      if (kind === 'excel') return 'fa-file-excel-o'
+      if (kind === 'word') return 'fa-file-word-o'
+      if (kind === 'csv') return 'fa-file-text-o'
+      if (kind === 'ppt') return 'fa-file-powerpoint-o'
+      if (kind === 'pdf') return 'fa-file-pdf-o'
       return 'fa-file-o'
     },
 
@@ -258,30 +274,18 @@ export default {
 .upload-area.has-file {
   border-style: solid;
   border-color: #42b983;
-  background: #f0f7ff;
-}
-
-.file-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  background: #f8fff9;
 }
 
 .recognized-type {
-  margin-top: 15px;
-  padding: 10px;
-  background: #f0f7ff;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
+  margin-top: 10px;
 }
 
 .badge {
   display: inline-block;
   padding: 4px 8px;
-  border-radius: 4px;
   font-size: 12px;
-  font-weight: 500;
+  border-radius: 4px;
 }
 
 .badge-success {
@@ -290,23 +294,7 @@ export default {
 }
 
 .badge-info {
-  background: #cce5ff;
-  color: #004085;
-}
-
-.alert {
-  padding: 10px 15px;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-.alert-danger {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.muted {
-  color: #6c757d;
+  background: #d1ecf1;
+  color: #0c5460;
 }
 </style>

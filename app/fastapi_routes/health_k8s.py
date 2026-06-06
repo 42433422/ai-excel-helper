@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import psutil
@@ -80,24 +80,22 @@ def _check_pgvector() -> dict[str, Any]:
     try:
         from sqlalchemy import create_engine
 
-        db_url = (
-            os.environ.get("VECTOR_DB_URL")
-            or os.environ.get("DATABASE_URL")
-            or ""
-        ).strip()
+        db_url = (os.environ.get("VECTOR_DB_URL") or os.environ.get("DATABASE_URL") or "").strip()
         if not db_url:
             return {"status": "disabled", "reason": "no_vector_db_url"}
 
         if "postgres" not in db_url.lower():
             # SQLite fallback 不走 pgvector，视为 ``disabled`` 但不致命。
-            return {"status": "disabled", "reason": "not_postgres", "dialect": db_url.split("://", 1)[0]}
+            return {
+                "status": "disabled",
+                "reason": "not_postgres",
+                "dialect": db_url.split("://", 1)[0],
+            }
 
         engine = create_engine(db_url, pool_pre_ping=True, echo=False)
         with engine.connect() as conn:
             ext_row = conn.execute(
-                text(
-                    "SELECT extversion FROM pg_extension WHERE extname = 'vector'"
-                )
+                text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
             ).first()
 
             if not ext_row:
@@ -107,11 +105,12 @@ def _check_pgvector() -> dict[str, Any]:
                     "hint": "CREATE EXTENSION vector; (需要 superuser)",
                 }
 
-            index_count = conn.execute(
-                text(
-                    "SELECT COUNT(*) FROM pg_indexes WHERE indexdef ILIKE '%ivfflat%'"
-                )
-            ).scalar() or 0
+            index_count = (
+                conn.execute(
+                    text("SELECT COUNT(*) FROM pg_indexes WHERE indexdef ILIKE '%ivfflat%'")
+                ).scalar()
+                or 0
+            )
 
             chunk_tables = conn.execute(
                 text(
@@ -174,7 +173,7 @@ def liveness():
     return JSONResponse(
         {
             "status": "alive",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "python_version": sys.version,
         }
     )
@@ -195,7 +194,7 @@ def readiness():
     all_healthy = all(c["status"] in _ACCEPTABLE for c in checks.values())
     payload = {
         "status": "ready" if all_healthy else "not_ready",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "checks": checks,
     }
     return JSONResponse(payload, status_code=200 if all_healthy else 503)
@@ -214,7 +213,7 @@ def health_details():
     return JSONResponse(
         {
             "status": "healthy" if ok else "degraded",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "version": "3.0.0",
             "checks": checks,
             "system": _system_info(),
@@ -261,7 +260,7 @@ def capabilities_diagnostics():
 
     return JSONResponse(
         {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "rasa": rasa_check,
             "pgvector": pgvector_check,
             "intent_engines": intent_engines,

@@ -21,17 +21,16 @@ class Email:
         >>> email = Email("user@example.com")
         >>> email.domain  # "example.com"
     """
+
     address: str
 
     # 简单邮箱验证正则
-    _EMAIL_REGEX = re.compile(
-        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    )
+    _EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
     def __post_init__(self):
         # 标准化：小写并去除空格
         normalized = self.address.strip().lower()
-        object.__setattr__(self, 'address', normalized)
+        object.__setattr__(self, "address", normalized)
 
         # 验证格式
         if not self._EMAIL_REGEX.match(normalized):
@@ -40,12 +39,12 @@ class Email:
     @property
     def domain(self) -> str:
         """获取域名部分"""
-        return self.address.split('@')[1]
+        return self.address.split("@")[1]
 
     @property
     def local_part(self) -> str:
         """获取用户名部分"""
-        return self.address.split('@')[0]
+        return self.address.split("@")[0]
 
     @classmethod
     def is_valid(cls, address: str) -> bool:
@@ -55,11 +54,7 @@ class Email:
         return bool(cls._EMAIL_REGEX.match(address.strip().lower()))
 
     def to_dict(self) -> dict:
-        return {
-            "address": self.address,
-            "domain": self.domain,
-            "local_part": self.local_part
-        }
+        return {"address": self.address, "domain": self.domain, "local_part": self.local_part}
 
     @classmethod
     def from_dict(cls, data: dict) -> Email:

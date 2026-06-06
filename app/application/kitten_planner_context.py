@@ -48,7 +48,10 @@ async def enrich_kitten_analyzer_runtime(
             sk = _session_key_from_context(rc)
             result = await kitten_web_search((message or "").strip(), user_key=sk)
             rc["web_search_results"] = result.get("hits") if result.get("success") else []
-            rc["web_search_meta"] = {"provider": result.get("provider"), "query": result.get("query")}
+            rc["web_search_meta"] = {
+                "provider": result.get("provider"),
+                "query": result.get("query"),
+            }
             if not result.get("success"):
                 rc["web_search_error"] = result.get("message") or "search failed"
             else:

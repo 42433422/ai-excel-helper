@@ -1,0 +1,29 @@
+{
+  "id": "xcagi-planner-excel-tools",
+  "name": "Planner Excel 原生工具 Mod",
+  "version": "1.3.0",
+  "author": "成都修茈科技有限公司",
+  "description": "里程碑 F4：Planner 工作流工具集（8 项）均在 Mod backend 分派；向量/批量导入/DB 仍用宿主应用服务。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=8.0.0",
+    "xcagi-planner-bridge": ">=1.1.0"
+  },
+  "backend": { "entry": "blueprints", "init": "mod_init" },
+  "hooks": {},
+  "comms": { "exports": [] },
+  "config": {
+    "native_planner_tools": [
+      "excel_chart_recommend",
+      "excel_schema_understand",
+      "excel_analysis",
+      "excel_join_compare",
+      "import_excel_to_database",
+      "generate_office_document",
+      "products_bulk_import",
+      "excel_vector_index"
+    ],
+    "tools_execution_owner": "mod",
+    "phase": "F4"
+  }
+}

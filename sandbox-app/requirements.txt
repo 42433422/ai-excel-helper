@@ -1,0 +1,3 @@
+# 沙盒与主栈共用依赖（Mod 加载器 / auth / mod-store 等）。
+# 安装：在仓库根下 pip install -r sandbox-app/requirements.txt
+-r ../XCAGI/requirements.txt

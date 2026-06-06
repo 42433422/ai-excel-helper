@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 统一意图识别器
 
@@ -10,7 +9,7 @@
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ class UnifiedIntentRecognizer:
         self.distilled_recognizer = None
         self.rule_recognizer = None
         self._initialized = False
-        self._engine_errors: Dict[str, str] = {}
+        self._engine_errors: dict[str, str] = {}
 
     def load(self) -> bool:
         if self._initialized:
@@ -66,10 +65,16 @@ class UnifiedIntentRecognizer:
             # distilled_intent_service 当前只暴露工厂 get_distilled_recognizer，
             # 直接 import DistilledIntentClassifier 会失败；这里做兼容。
             try:
-                from app.services.distilled_intent_service import get_distilled_recognizer  # type: ignore
+                from app.services.distilled_intent_service import (
+                    get_distilled_recognizer,  # type: ignore
+                )
+
                 self.distilled_recognizer = get_distilled_recognizer()
             except Exception:
-                from app.services.distilled_intent_service import DistilledIntentClassifier  # type: ignore
+                from app.services.distilled_intent_service import (
+                    DistilledIntentClassifier,  # type: ignore
+                )
+
                 self.distilled_recognizer = DistilledIntentClassifier()
                 loader = getattr(self.distilled_recognizer, "load_model", None)
                 if callable(loader):
@@ -82,10 +87,12 @@ class UnifiedIntentRecognizer:
         try:
             # 兼容两套命名：ai_engines 用 DeepseekIntentClassifier；services 用 DeepSeekIntentRecognizer。
             try:
-                from app.ai_engines.deepseek.intent_service import DeepseekIntentClassifier as _DeepseekImpl  # type: ignore
+                from app.ai_engines.deepseek.intent_service import (
+                    DeepseekIntentClassifier as _DeepseekImpl,  # type: ignore
+                )
             except Exception:
-                from app.services.deepseek_intent_service import (  # type: ignore
-                    DeepSeekIntentRecognizer as _DeepseekImpl,
+                from app.services.deepseek_intent_service import (
+                    DeepSeekIntentRecognizer as _DeepseekImpl,  # type: ignore
                 )
             self.deepseek_recognizer = _DeepseekImpl()
             loader = getattr(self.deepseek_recognizer, "load_model", None)
@@ -113,7 +120,7 @@ class UnifiedIntentRecognizer:
         logger.info("混合意图服务已加载")
         return True
 
-    def recognize(self, text: str) -> Dict[str, Any]:
+    def recognize(self, text: str) -> dict[str, Any]:
         if not self._initialized:
             self.load()
 
@@ -121,10 +128,12 @@ class UnifiedIntentRecognizer:
             return {"intent": "unk", "confidence": 0.0, "source": "unified"}
 
         try:
-            from app.infrastructure.cache import get_intent_cache
+            from app.domain.ports.cache_port import get_intent_cache_port
             from app.request_active_mod_ctx import get_request_active_mod_id
 
-            cache = get_intent_cache()
+            cache = get_intent_cache_port()
+            if cache is None:
+                return self._recognize_uncached(text)
             mod_id = get_request_active_mod_id()
             return cache.get_or_compute(
                 text=text,
@@ -135,7 +144,7 @@ class UnifiedIntentRecognizer:
             logger.debug("IntentCache path failed, falling back: %s", e)
             return self._recognize_uncached(text)
 
-    def _recognize_uncached(self, text: str) -> Dict[str, Any]:
+    def _recognize_uncached(self, text: str) -> dict[str, Any]:
         if self.distilled_recognizer:
             try:
                 result = self.distilled_recognizer.predict(text)
@@ -198,13 +207,13 @@ class UnifiedIntentRecognizer:
         # 规则层始终可用；只要这里完成初始化即 ready。
         return self._initialized
 
-    def get_engine_status(self) -> Dict[str, Any]:
+    def get_engine_status(self) -> dict[str, Any]:
         """返回各子识别器的可用状态，供诊断/健康端点使用。"""
 
         if not self._initialized:
             self.load()
 
-        status: Dict[str, Any] = {
+        status: dict[str, Any] = {
             "rule": {"loaded": True},
             "distilled": {
                 "loaded": self.distilled_recognizer is not None,
@@ -222,8 +231,8 @@ class UnifiedIntentRecognizer:
         }
         return status
 
-    def _rasa_status_snapshot(self) -> Dict[str, Any]:
-        entry: Dict[str, Any] = {
+    def _rasa_status_snapshot(self) -> dict[str, Any]:
+        entry: dict[str, Any] = {
             "loaded": self.rasa_recognizer is not None,
             "error": self._engine_errors.get("rasa"),
         }
@@ -236,7 +245,7 @@ class UnifiedIntentRecognizer:
         return entry
 
 
-_unified_intent_recognizer: Optional[UnifiedIntentRecognizer] = None
+_unified_intent_recognizer: UnifiedIntentRecognizer | None = None
 
 
 def get_unified_intent_recognizer() -> UnifiedIntentRecognizer:

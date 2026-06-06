@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "collection": "neuro_domain_handlers",
+  "note": "处理器实现仍在宿主 app.neuro_bus.domains.*；Mod 负责启动时注册编排。",
+  "handlers": [
+    {
+      "domain_id": "product",
+      "host_module": "app.neuro_bus.domains.product_domain_handlers",
+      "register_fn": "register_product_domain_handlers"
+    },
+    {
+      "domain_id": "shipment",
+      "host_module": "app.neuro_bus.domains.shipment_domain_handlers",
+      "register_fn": "register_shipment_domain_handlers"
+    },
+    {
+      "domain_id": "order",
+      "host_module": "app.neuro_bus.domains.order_domain_handlers",
+      "register_fn": "register_order_domain_handlers",
+      "optional": true
+    },
+    {
+      "domain_id": "customer",
+      "host_module": "app.neuro_bus.domains.customer_domain_handlers",
+      "register_fn": "register_customer_domain_handlers",
+      "optional": true
+    },
+    {
+      "domain_id": "inventory",
+      "host_module": "app.neuro_bus.domains.inventory_domain_handlers",
+      "register_fn": "register_inventory_domain_handlers"
+    },
+    {
+      "domain_id": "payment",
+      "host_module": "app.neuro_bus.domains.payment_domain_handlers",
+      "register_fn": "register_payment_domain_handlers",
+      "optional": true
+    },
+    {
+      "domain_id": "ocr",
+      "host_module": "app.neuro_bus.domains.ocr_domain_handlers",
+      "register_fn": "register_ocr_domain_handlers"
+    },
+    {
+      "domain_id": "wechat",
+      "host_module": "app.neuro_bus.domains.wechat_domain_handlers",
+      "register_fn": "register_wechat_domain_handlers",
+      "optional": true
+    },
+    {
+      "domain_id": "print",
+      "host_module": "app.neuro_bus.domains.print_domain_handlers",
+      "register_fn": "register_print_domain_handlers"
+    },
+    {
+      "domain_id": "ai",
+      "host_module": "app.neuro_bus.domains.ai_domain_handlers",
+      "register_fn": "register_ai_domain_handlers",
+      "optional": true
+    },
+    {
+      "domain_id": "auth",
+      "host_module": "app.neuro_bus.domains.auth_domain_handlers",
+      "register_fn": "register_auth_domain_handlers",
+      "optional": true
+    },
+    {
+      "domain_id": "material",
+      "host_module": "app.neuro_bus.domains.material_domain_handlers",
+      "register_fn": "register_material_domain_handlers",
+      "optional": true
+    },
+    {
+      "domain_id": "conversation",
+      "host_module": "app.neuro_bus.domains.conversation_domain_handlers",
+      "register_fn": "register_conversation_domain_handlers",
+      "optional": true
+    }
+  ]
+}

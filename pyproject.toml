@@ -1,6 +1,6 @@
 [project]
 name = "xcagi"
-version = "7.0.0"
+version = "8.0.0"
 description = "XCAGI - 企业 AI 员工平台（桌面版 + Web 版并行交付）"
 requires-python = ">=3.11"
 dependencies = []
@@ -61,11 +61,15 @@ ensure_newline_before_comments = true
 skip_gitignore = true
 skip = [".venv", "venv", "node_modules", "frontend", "migrations", "alembic/versions"]
 
+# mypy 配置唯一真相源（2026-05-04 整合）：
+# - 旧 mypy.ini（strict=True 但拼错过 frontned，且 ignore_missing_imports=False 与本节冲突）已删除。
+# - 当前以 pyproject 的"宽松配置"为准，与 [FHD项目评估报告.md](FHD项目评估报告.md) §四 的认知一致。
+# - 后续严格化路线见 §四 P1 改进项（逐步关闭 ignore_missing_imports、引入 types-* 包）。
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
-ignore_missing_imports = true
+ignore_missing_imports = false
 exclude = [
     "venv",
     ".venv",
@@ -75,29 +79,93 @@ exclude = [
     "alembic/versions",
 ]
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+# pytest 配置唯一真相源（2026-05-04 整合）：
+# - 旧 pytest.ini 已删除；当前 addopts 保留为不含 --cov，与历史 pytest.ini 的有效行为一致，
+#   避免本地交互式运行因 fail_under=52 产生噪音。CI 通过显式 --cov=app 等参数生效（见
+#   .github/workflows/ci-cd.yml + test.yml）。
 [tool.pytest.ini_options]
+# 唯一默认后端套件：tests/（与 CI 一致）。勿与 XCAGI/xcagi_tests 同跑——模块名冲突且部分用例已迁移。
+# 遗留 xcagi 用例：pytest XCAGI/xcagi_tests --import-mode=importlib
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short --cov=app --cov-report=term-missing"
+addopts = "-v --tb=short -p no:xdist --import-mode=importlib"
+asyncio_mode = "auto"
+markers = [
+    "integration: 集成测试",
+    "e2e: 端到端测试",
+    "asyncio: 异步测试 (pytest-asyncio)",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
 ]
 
 [tool.coverage.run]
-source = ["app"]
+# 仅统计下列路径（勿与 source=app 并用，否则 include 不生效）
+include = [
+    "app/neuro_bus/*",
+    "app/middleware/*",
+    "app/fastapi_routes/*",
+    "app/infrastructure/templates/template_store_impl.py",
+    "app/utils/password_hash.py",
+    "app/utils/rate_limiter.py",
+    "app/config.py",
+]
 omit = [
     "*/tests/*",
+    "*/xcagi_tests/*",
     "*/__pycache__/*",
     "*/migrations/*",
     "*/alembic/*",
+    "*/venv/*",
+    "*/virtualenv/*",
+    # COVERAGE_RAMP：非关键路径分阶段纳入（见 docs/reports/COVERAGE_RAMP.md）
+    "app/shell/*",
+    "app/desktop_runtime/*",
+    "app/mod_sdk/*",
+    "app/routes/*",
+    "app/enterprise/*",
+    "app/contexts/*",
+    "app/control/*",
+    "app/http/*",
+    "app/models/*",
+    "app/neuro_domains/*",
+    "app/ai_engines/*",
+    "app/utils/performance_*.py",
+    "app/utils/performance_monitor.py",
+    "app/utils/performance_initializer.py",
+    "app/utils/query_optimizer.py",
+    "app/utils/redis_cache.py",
+    "app/utils/request_deduplicator.py",
+    "app/utils/excel_template_analyzer.py",
+    "app/utils/logging_utils.py",
+    "app/utils/openapi_path.py",
+    "app/utils/mobile_api.py",
+    "app/utils/template_export_utils.py",
 ]
 
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
+    "raise AssertionError",
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
+    "pass",
+    "@abstractmethod",
+    "if DEBUG:",
 ]
+# 分阶段上调见 docs/reports/COVERAGE_RAMP.md
+# 本地全量 --cov=app 时适用；CI 使用多包 --cov=app.neuro_bus 等（见 workflow）约 26%+
+fail_under = 25
+
+[tool.coverage.html]
+directory = "htmlcov"
+show_contexts = true

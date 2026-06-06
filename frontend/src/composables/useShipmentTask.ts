@@ -3,6 +3,8 @@ import type { ChatMessageExtras } from './useChatMessages'
 import { normalizeModel, toNumber, parseShipmentCommand, extractModelQtySpec } from '../utils/textParser'
 
 export interface ShipmentProduct {
+  quantity?: number
+  spec?: number
   model_number?: string
   quantity_tins?: number
   tin_spec?: number
@@ -226,8 +228,8 @@ export function useShipmentTask(
 
         return {
           name: String(best?.name || best?.product_name || '').trim(),
-          unit_price: toNumber(best?.price ?? best?.unit_price),
-          tin_spec: toNumber(best?.tin_spec ?? best?.specification ?? best?.spec)
+          unit_price: toNumber(best?.price ?? best?.unit_price) ?? undefined,
+          tin_spec: toNumber(best?.tin_spec ?? best?.specification ?? best?.spec) ?? undefined
         }
       } catch (_err) {
         // Ignore network/query errors in preview enrichment.

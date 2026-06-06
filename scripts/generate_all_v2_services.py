@@ -13,39 +13,39 @@ from typing import List, Dict, Tuple
 
 class V2ServiceGenerator:
     """V2 服务生成器"""
-    
+
     def __init__(self, project_root: str = "e:/FHD"):
         self.project_root = Path(project_root)
         self.app_dir = self.project_root / "app" / "application"
         self.generated_count = 0
-        
+
         # 领域映射
         self.domain_mapping = {
-            'product': ['product', 'import', 'unit_products_import'],
-            'shipment': ['shipment'],
-            'order': ['order'],
-            'customer': ['customer'],
-            'wechat': ['wechat_contact', 'wechat_task'],
-            'print': ['print', 'template'],
-            'auth': ['auth', 'user', 'user_preference', 'user_memory'],
-            'ai': ['ai_chat', 'file_analysis', 'excel_vector'],
-            'ocr': ['ocr'],
-            'conversation': ['conversation'],
-            'material': ['material'],
-            'log': ['extract_log'],
+            "product": ["product", "import", "unit_products_import"],
+            "shipment": ["shipment"],
+            "order": ["order"],
+            "customer": ["customer"],
+            "wechat": ["wechat_contact", "wechat_task"],
+            "print": ["print", "template"],
+            "auth": ["auth", "user", "user_preference", "user_memory"],
+            "ai": ["ai_chat", "file_analysis", "excel_vector"],
+            "ocr": ["ocr"],
+            "conversation": ["conversation"],
+            "material": ["material"],
+            "log": ["extract_log"],
         }
-    
+
     def detect_domain(self, service_name: str) -> str:
         """根据服务名检测领域"""
         service_lower = service_name.lower()
-        
+
         for domain, keywords in self.domain_mapping.items():
             for keyword in keywords:
                 if keyword in service_lower:
                     return domain
-        
-        return 'common'
-    
+
+        return "common"
+
     def generate_v2_header(self, service_name: str, domain: str) -> str:
         """生成 V2 文件头部"""
         return f'''"""
@@ -76,11 +76,11 @@ logger = logging.getLogger(__name__)
 
 
 '''
-    
+
     def generate_v2_class(self, service_name: str, domain: str) -> str:
         """生成 V2 类定义"""
-        class_name = service_name.replace('_', ' ').title().replace(' ', '')
-        
+        class_name = service_name.replace("_", " ").title().replace(" ", "")
+
         return f'''
 class {class_name}V2:
     """
@@ -137,11 +137,11 @@ class {class_name}V2:
             logger.exception(f"[{class_name}V2] 执行命令失败: {{e}}")
             return {{"success": False, "message": str(e)}}
 '''
-    
+
     def generate_v2_footer(self, service_name: str) -> str:
         """生成 V2 文件尾部"""
-        class_name = service_name.replace('_', ' ').title().replace(' ', '')
-        
+        class_name = service_name.replace("_", " ").title().replace(" ", "")
+
         return f'''
 
 # 注册到 instrumentation
@@ -160,59 +160,59 @@ def get_{service_name}_v2() -> {class_name}V2:
         _{class_name.lower()}_v2_instance = {class_name}V2()
     return _{class_name.lower()}_v2_instance
 '''
-    
+
     def generate_v2_service(self, original_file: Path) -> Path:
         """生成单个服务的 V2 版本"""
         service_name = original_file.stem  # e.g., "product_app_service"
         v2_file_name = f"{service_name}_v2.py"
         v2_file_path = original_file.parent / v2_file_name
-        
+
         # 检测领域
         domain = self.detect_domain(service_name)
-        
+
         # 生成内容
         content = (
-            self.generate_v2_header(service_name, domain) +
-            self.generate_v2_class(service_name, domain) +
-            self.generate_v2_footer(service_name)
+            self.generate_v2_header(service_name, domain)
+            + self.generate_v2_class(service_name, domain)
+            + self.generate_v2_footer(service_name)
         )
-        
+
         # 写入文件
-        v2_file_path.write_text(content, encoding='utf-8')
-        
+        v2_file_path.write_text(content, encoding="utf-8")
+
         self.generated_count += 1
         print(f"  [GENERATED] {v2_file_name}")
-        
+
         return v2_file_path
-    
+
     def generate_all_v2_services(self) -> List[Path]:
         """生成所有服务的 V2 版本"""
         print("=" * 60)
         print("开始生成所有 App Service V2 版本")
         print("=" * 60)
-        
+
         generated_files = []
-        
+
         # 遍历所有 App Service 文件
         for py_file in sorted(self.app_dir.glob("*_app_service.py")):
             # 跳过已有的 V2 文件
             if py_file.name.endswith("_v2.py"):
                 continue
-            
+
             # 跳过特殊文件
             if py_file.name in ["__init__.py", "ports.py"]:
                 continue
-            
+
             print(f"\n[PROCESSING] {py_file.name}")
-            
+
             try:
                 v2_file = self.generate_v2_service(py_file)
                 generated_files.append(v2_file)
             except Exception as e:
                 print(f"  [ERROR] 生成失败: {e}")
-        
+
         return generated_files
-    
+
     def print_summary(self, generated_files: List[Path]):
         """打印生成摘要"""
         print("\n" + "=" * 60)
@@ -222,7 +222,7 @@ def get_{service_name}_v2() -> {class_name}V2:
         print("\n生成的文件:")
         for f in generated_files:
             print(f"  - {f.name}")
-        
+
         print("\n下一步:")
         print("  1. 检查生成的 V2 服务文件")
         print("  2. 根据实际业务需求完善 execute_command 方法")

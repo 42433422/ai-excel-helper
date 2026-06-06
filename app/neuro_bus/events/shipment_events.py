@@ -5,18 +5,17 @@ Shipment 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class ShipmentCreatedEvent(NeuroEvent):
     """发货单创建事件"""
-    
+
     event_type: str = "shipment.created"
     priority: EventPriority = EventPriority.HIGH  # 创建是高频核心操作
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["shipment_id", "unit_name"]
@@ -28,10 +27,10 @@ class ShipmentCreatedEvent(NeuroEvent):
 @dataclass
 class ShipmentItemAddedEvent(NeuroEvent):
     """发货单添加产品事件"""
-    
+
     event_type: str = "shipment.item_added"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["shipment_id", "product_id", "quantity"]
@@ -43,10 +42,10 @@ class ShipmentItemAddedEvent(NeuroEvent):
 @dataclass
 class ShipmentPrintedEvent(NeuroEvent):
     """发货单打印事件"""
-    
+
     event_type: str = "shipment.printed"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "shipment_id" not in self.payload:
@@ -56,10 +55,10 @@ class ShipmentPrintedEvent(NeuroEvent):
 @dataclass
 class ShipmentCancelledEvent(NeuroEvent):
     """发货单取消事件"""
-    
+
     event_type: str = "shipment.cancelled"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "shipment_id" not in self.payload:
@@ -69,10 +68,10 @@ class ShipmentCancelledEvent(NeuroEvent):
 @dataclass
 class ShipmentDeletedEvent(NeuroEvent):
     """发货单删除事件"""
-    
+
     event_type: str = "shipment.deleted"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "shipment_id" not in self.payload:
@@ -82,10 +81,10 @@ class ShipmentDeletedEvent(NeuroEvent):
 @dataclass
 class ShipmentExportedEvent(NeuroEvent):
     """发货单导出事件"""
-    
+
     event_type: str = "shipment.exported"
     priority: EventPriority = EventPriority.LOW  # 导出是后台操作
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "file_path" not in self.payload:
@@ -96,10 +95,10 @@ class ShipmentExportedEvent(NeuroEvent):
 @dataclass
 class ShipmentInventoryDeductedEvent(NeuroEvent):
     """发货单库存扣减事件"""
-    
+
     event_type: str = "shipment.inventory_deducted"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["shipment_id", "items"]

@@ -1,12 +1,28 @@
 <template>
   <div class="field-editor">
-    <div class="editor-layout">
+    <div class="editor-layout" :style="editorPaneStyle">
       <div class="preview-section">
         <h4 style="margin-top:0;"><i class="fa fa-file-text-o" aria-hidden="true"></i> 预览</h4>
         <div class="preview-container">
           <ExcelPreview v-if="templateType === 'excel'" :fields="fields" />
+          <div v-else-if="templateType === 'word'" class="word-preview-box">
+            <p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.5;">
+              Word 模板以文档中的占位符为准；下列词条参与「必备词条」匹配与导出替换。
+            </p>
+            <div class="word-preview-chips">
+              <span v-for="(f, i) in fields" :key="i" class="word-chip">{{ f.label }}</span>
+              <span v-if="!fields.length" class="muted">暂无占位词条</span>
+            </div>
+          </div>
           <LabelPreview v-else-if="templateType === 'label'" :fields="fields" />
         </div>
+        <PaneResizeHandle
+          v-if="isEditorPaneResizable"
+          orientation="vertical"
+          label="调整预览区宽度"
+          @resize-start="onEditorPaneResizeStart"
+          @reset="resetEditorPaneWidth"
+        />
       </div>
 
       <div class="fields-section">
@@ -135,7 +151,10 @@
 </template>
 
 <script>
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { appConfirm } from '@/utils/appDialog'
+import PaneResizeHandle from '@/components/PaneResizeHandle.vue'
+import { useResizablePane } from '@/composables/useResizablePane'
 import ExcelPreview from './ExcelPreview.vue'
 import LabelPreview from './LabelPreview.vue'
 
@@ -143,7 +162,61 @@ export default {
   name: 'FieldEditor',
   components: {
     ExcelPreview,
-    LabelPreview
+    LabelPreview,
+    PaneResizeHandle
+  },
+  setup() {
+    const FIELD_EDITOR_MQ = '(max-width: 960px)'
+    const isEditorPaneResizable = ref(true)
+    let editorPaneViewportMedia = null
+    const {
+      paneStyle: editorPaneStyle,
+      startResize: onEditorPaneResizeStart,
+      resetSize: resetEditorPaneWidth,
+      stopResize: stopEditorPaneResize,
+    } = useResizablePane({
+      paneKey: 'template.field-editor.preview',
+      cssVarName: '--field-editor-preview-width',
+      orientation: 'vertical',
+      defaultSize: 420,
+      minSize: 320,
+      maxSize: 620,
+      enabled: () => isEditorPaneResizable.value,
+    })
+
+    const onEditorPaneViewportChange = (event) => {
+      isEditorPaneResizable.value = !event.matches
+      if (!isEditorPaneResizable.value) {
+        stopEditorPaneResize()
+      }
+    }
+
+    onMounted(() => {
+      editorPaneViewportMedia = window.matchMedia(FIELD_EDITOR_MQ)
+      onEditorPaneViewportChange(editorPaneViewportMedia)
+      if (typeof editorPaneViewportMedia.addEventListener === 'function') {
+        editorPaneViewportMedia.addEventListener('change', onEditorPaneViewportChange)
+      } else if (typeof editorPaneViewportMedia.addListener === 'function') {
+        editorPaneViewportMedia.addListener(onEditorPaneViewportChange)
+      }
+    })
+
+    onBeforeUnmount(() => {
+      stopEditorPaneResize()
+      if (!editorPaneViewportMedia) return
+      if (typeof editorPaneViewportMedia.removeEventListener === 'function') {
+        editorPaneViewportMedia.removeEventListener('change', onEditorPaneViewportChange)
+      } else if (typeof editorPaneViewportMedia.removeListener === 'function') {
+        editorPaneViewportMedia.removeListener(onEditorPaneViewportChange)
+      }
+    })
+
+    return {
+      editorPaneStyle,
+      isEditorPaneResizable,
+      onEditorPaneResizeStart,
+      resetEditorPaneWidth,
+    }
   },
   props: {
     fields: {
@@ -222,13 +295,16 @@ export default {
 }
 
 .editor-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 20px;
   min-height: 350px;
+  --field-editor-preview-width: 420px;
 }
 
 .preview-section {
+  position: relative;
+  flex: 0 0 var(--field-editor-preview-width);
+  width: var(--field-editor-preview-width);
   background: #f8f9fa;
   border-radius: 8px;
   padding: 15px;
@@ -242,7 +318,25 @@ export default {
   overflow: auto;
 }
 
+.word-preview-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.word-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: #e8f4fd;
+  border: 1px solid #b8daff;
+  font-size: 12px;
+  color: #1a5276;
+}
+
 .fields-section {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -521,5 +615,16 @@ export default {
 
 .btn-primary:hover {
   background: #359469;
+}
+
+@media (max-width: 960px) {
+  .editor-layout {
+    flex-direction: column;
+  }
+
+  .preview-section,
+  .fields-section {
+    width: 100%;
+  }
 }
 </style>

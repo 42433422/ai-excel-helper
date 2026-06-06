@@ -9,14 +9,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class PhoneType(Enum):
     """电话类型"""
-    MOBILE = "mobile"      # 手机号
+
+    MOBILE = "mobile"  # 手机号
     LANDLINE = "landline"  # 固定电话
-    UNKNOWN = "unknown"    # 未知
+    UNKNOWN = "unknown"  # 未知
 
 
 @dataclass(frozen=True)
@@ -32,28 +32,29 @@ class PhoneNumber:
         >>> phone.formatted  # "13812345678"
         >>> phone.masked    # "138****5678"
     """
+
     number: str
-    country_code: Optional[str] = None  # 国家码，如 "+86"
+    country_code: str | None = None  # 国家码，如 "+86"
 
     # 手机号正则
-    _MOBILE_REGEX = re.compile(r'^1[3-9]\d{9}$')
+    _MOBILE_REGEX = re.compile(r"^1[3-9]\d{9}$")
     # 固定电话正则（简化版）
-    _LANDLINE_REGEX = re.compile(r'^(0\d{2,3})?-?\d{7,8}$')
+    _LANDLINE_REGEX = re.compile(r"^(0\d{2,3})?-?\d{7,8}$")
 
     def __post_init__(self):
         # 标准化：去除所有非数字字符
-        cleaned = re.sub(r'\D', '', self.number)
+        cleaned = re.sub(r"\D", "", self.number)
 
         # 处理国家码
         country_code = self.country_code
-        if cleaned.startswith('86') and len(cleaned) == 13:
+        if cleaned.startswith("86") and len(cleaned) == 13:
             # 自动识别国家码
             country_code = "+86"
             cleaned = cleaned[2:]
 
-        object.__setattr__(self, 'number', cleaned)
+        object.__setattr__(self, "number", cleaned)
         if country_code:
-            object.__setattr__(self, 'country_code', country_code)
+            object.__setattr__(self, "country_code", country_code)
 
         # 验证长度
         if len(cleaned) not in [7, 8, 11]:
@@ -107,9 +108,9 @@ class PhoneNumber:
         """验证号码格式是否有效"""
         if not number:
             return False
-        cleaned = re.sub(r'\D', '', number)
+        cleaned = re.sub(r"\D", "", number)
         # 去除可能的国家码前缀
-        if cleaned.startswith('86') and len(cleaned) == 13:
+        if cleaned.startswith("86") and len(cleaned) == 13:
             cleaned = cleaned[2:]
         return bool(cls._MOBILE_REGEX.match(cleaned) or cls._LANDLINE_REGEX.match(cleaned))
 
@@ -119,15 +120,12 @@ class PhoneNumber:
             "country_code": self.country_code,
             "formatted": self.formatted,
             "type": self.phone_type.value,
-            "is_mobile": self.is_mobile
+            "is_mobile": self.is_mobile,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> PhoneNumber:
-        return cls(
-            number=data["number"],
-            country_code=data.get("country_code")
-        )
+        return cls(number=data["number"], country_code=data.get("country_code"))
 
     def __str__(self) -> str:
         return self.formatted

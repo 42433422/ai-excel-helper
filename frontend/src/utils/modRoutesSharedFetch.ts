@@ -1,4 +1,6 @@
-import { apiFetch, DEFAULT_MOD_API_TIMEOUT_MS } from '@/utils/apiBase'
+import { apiFetch } from '@/utils/apiBase'
+
+const MOD_ROUTES_TIMEOUT_MS = 25_000
 import type { ModRouteApiEntry } from '@/router/registerModRoutes'
 
 /**
@@ -12,7 +14,7 @@ export function fetchModRoutesPayloadShared(): Promise<ModRouteApiEntry[] | null
   inflight = (async () => {
     try {
       const response = await apiFetch('/api/mods/routes', {
-        timeoutMs: DEFAULT_MOD_API_TIMEOUT_MS,
+        timeoutMs: MOD_ROUTES_TIMEOUT_MS,
       })
       if (!response.ok) return null
       const data = await response.json()

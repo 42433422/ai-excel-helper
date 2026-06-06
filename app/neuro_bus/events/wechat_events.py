@@ -5,18 +5,17 @@ WeChat 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class WeChatMessageReceivedEvent(NeuroEvent):
     """微信消息接收事件"""
-    
+
     event_type: str = "wechat.message_received"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["message_id", "from_user", "message_type", "content"]
@@ -28,10 +27,10 @@ class WeChatMessageReceivedEvent(NeuroEvent):
 @dataclass
 class WeChatMessageSentEvent(NeuroEvent):
     """微信消息发送事件"""
-    
+
     event_type: str = "wechat.message_sent"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["message_id", "to_user", "message_type", "status"]
@@ -43,10 +42,10 @@ class WeChatMessageSentEvent(NeuroEvent):
 @dataclass
 class WeChatContactAddedEvent(NeuroEvent):
     """微信联系人添加事件"""
-    
+
     event_type: str = "wechat.contact_added"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["contact_id", "contact_name", "source"]
@@ -58,10 +57,10 @@ class WeChatContactAddedEvent(NeuroEvent):
 @dataclass
 class WeChatContactUpdatedEvent(NeuroEvent):
     """微信联系人更新事件"""
-    
+
     event_type: str = "wechat.contact_updated"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "contact_id" not in self.payload:
@@ -71,10 +70,10 @@ class WeChatContactUpdatedEvent(NeuroEvent):
 @dataclass
 class WeChatTaskCreatedEvent(NeuroEvent):
     """微信任务创建事件"""
-    
+
     event_type: str = "wechat.task_created"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["task_id", "task_type", "target_contacts", "content"]
@@ -86,10 +85,10 @@ class WeChatTaskCreatedEvent(NeuroEvent):
 @dataclass
 class WeChatTaskCompletedEvent(NeuroEvent):
     """微信任务完成事件"""
-    
+
     event_type: str = "wechat.task_completed"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["task_id", "success_count", "failed_count"]
@@ -101,10 +100,10 @@ class WeChatTaskCompletedEvent(NeuroEvent):
 @dataclass
 class WeChatLoginStatusChangedEvent(NeuroEvent):
     """微信登录状态变更事件"""
-    
+
     event_type: str = "wechat.login_status_changed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["account_id", "old_status", "new_status"]

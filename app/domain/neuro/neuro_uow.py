@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
 """NeuroUnitOfWork：单库 SQLAlchemy 会话边界，commit/rollback 与可选总线回调。"""
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Any, Callable, Iterator, Optional, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class NeuroUnitOfWork:
 
     def __init__(
         self,
-        session_factory: Optional[Callable[[], Any]] = None,
-        on_commit: Optional[Callable[[], None]] = None,
+        session_factory: Callable[[], Any] | None = None,
+        on_commit: Callable[[], None] | None = None,
     ):
         self._session_factory = session_factory
         self._on_commit = on_commit
@@ -60,8 +60,8 @@ class NeuroUnitOfWork:
 @contextmanager
 def neuro_uow_session(
     *,
-    session_factory: Optional[Callable[[], Any]] = None,
-    on_commit: Optional[Callable[[], None]] = None,
+    session_factory: Callable[[], Any] | None = None,
+    on_commit: Callable[[], None] | None = None,
 ) -> Iterator[Any]:
     """与 ``NeuroUnitOfWork`` 等价的 ``contextmanager`` 写法。"""
     uow = NeuroUnitOfWork(session_factory=session_factory, on_commit=on_commit)

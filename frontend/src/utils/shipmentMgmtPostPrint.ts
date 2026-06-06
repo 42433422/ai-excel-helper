@@ -95,7 +95,8 @@ export async function fetchShipmentRecordsForUnit(purchaseUnit: string): Promise
   if (!u) return []
   try {
     const q = encodeURIComponent(u)
-    const resp = await fetch(`/api/shipment/shipment-records/records?unit=${q}`)
+    const { resolveErpApiPath } = await import('@/utils/erpDomainPaths')
+    const resp = await fetch(resolveErpApiPath(`/api/shipment/shipment-records/records?unit=${q}`))
     const data = await resp.json().catch(() => ({}))
     if (!resp.ok || data?.success === false) return []
     const arr = data?.data

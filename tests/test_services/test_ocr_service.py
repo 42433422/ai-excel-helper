@@ -2,9 +2,10 @@
 OCR服务单元测试
 """
 
-import pytest
 import os
 import sys
+
+import pytest
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, PROJECT_ROOT)
@@ -415,8 +416,11 @@ class TestOCRServiceIntegration:
 
         assert len(analysis["missing_fields"]) > 0
         assert analysis["text_type"] == "unknown"
-        assert all(v is None for v in [
-            structured["purchase_unit"],
-            structured["contact_person"],
-            structured["order_number"]
-        ])
+        assert all(
+            v is None
+            for v in [
+                structured["purchase_unit"],
+                structured["contact_person"],
+                structured["order_number"],
+            ]
+        )

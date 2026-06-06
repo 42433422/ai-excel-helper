@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 RiskLevel = Literal["low", "medium", "high"]
 
@@ -26,7 +26,7 @@ class ApprovalRule:
     tool_id: str
     action: str
     trigger: ApprovalTrigger = ApprovalTrigger.NEVER
-    conditions: Dict[str, Any] = field(default_factory=dict)
+    conditions: dict[str, Any] = field(default_factory=dict)
     description: str = ""
 
 
@@ -37,11 +37,11 @@ class ApprovalRequest:
     node_id: str
     tool_id: str
     action: str
-    params: Dict[str, Any]
+    params: dict[str, Any]
     status: ApprovalStatus
     created_at: datetime
-    approved_at: Optional[datetime] = None
-    rejected_at: Optional[datetime] = None
+    approved_at: datetime | None = None
+    rejected_at: datetime | None = None
     approver_comment: str = ""
 
 
@@ -50,21 +50,21 @@ class WorkflowNode:
     node_id: str
     tool_id: str
     action: str
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
     risk: RiskLevel = "low"
     idempotent: bool = False
     description: str = ""
-    depends_on: List[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
 
 
 @dataclass
 class PlanGraph:
     plan_id: str
     intent: str
-    todo_steps: List[str] = field(default_factory=list)
-    nodes: List[WorkflowNode] = field(default_factory=list)
+    todo_steps: list[str] = field(default_factory=list)
+    nodes: list[WorkflowNode] = field(default_factory=list)
     risk_level: RiskLevel = "low"
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -73,7 +73,7 @@ class NodeExecutionResult:
     success: bool
     tool_id: str
     action: str
-    output: Dict[str, Any] = field(default_factory=dict)
+    output: dict[str, Any] = field(default_factory=dict)
     error: str = ""
     retries: int = 0
 
@@ -82,12 +82,12 @@ class NodeExecutionResult:
 class WorkflowRunResult:
     plan_id: str
     success: bool
-    node_results: List[NodeExecutionResult] = field(default_factory=list)
-    final_context: Dict[str, Any] = field(default_factory=dict)
+    node_results: list[NodeExecutionResult] = field(default_factory=list)
+    final_context: dict[str, Any] = field(default_factory=dict)
     message: str = ""
 
 
-def validate_plan_graph(plan: PlanGraph) -> Optional[str]:
+def validate_plan_graph(plan: PlanGraph) -> str | None:
     if not plan.plan_id:
         return "plan_id 不能为空"
     if not plan.intent:

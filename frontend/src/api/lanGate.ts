@@ -1,4 +1,7 @@
 import api from './core';
+import { resolveLanApiPath } from '@/utils/lanPaths';
+
+const lp = (path: string) => resolveLanApiPath(path);
 
 export interface LanHostInfo {
   enabled: boolean;
@@ -125,16 +128,16 @@ export interface LanSettingsUpdate {
 
 export const lanGateApi = {
   hostInfo(): Promise<LanHostInfo> {
-    return api.get<LanHostInfo>('/api/lan/host-info');
+    return api.get<LanHostInfo>(lp('/api/lan/host-info'));
   },
   status(): Promise<LanStatus> {
-    return api.get<LanStatus>('/api/lan/status');
+    return api.get<LanStatus>(lp('/api/lan/status'));
   },
   activate(key: string, label?: string): Promise<ActivateResponse> {
-    return api.post<ActivateResponse>('/api/lan/activate', { key, label });
+    return api.post<ActivateResponse>(lp('/api/lan/activate'), { key, label });
   },
   requestAccess(payload: { device_label?: string; note?: string }): Promise<{ success: boolean; ip: string; already_allowed?: boolean; request: AccessRequestEntry | null }> {
-    return api.post('/api/lan/access-requests', payload);
+    return api.post(lp('/api/lan/access-requests'), payload);
   },
   myAccessRequest(): Promise<{
     success: boolean;
@@ -145,16 +148,16 @@ export const lanGateApi = {
     in_dynamic_allowlist: boolean;
     request: AccessRequestEntry | null;
   }> {
-    return api.get('/api/lan/access-requests/mine');
+    return api.get(lp('/api/lan/access-requests/mine'));
   },
   logout(): Promise<{ success: boolean }> {
-    return api.post('/api/lan/logout');
+    return api.post(lp('/api/lan/logout'));
   },
   whoami(): Promise<{ success: boolean; ip: string; jti: string; key_id: number | null; is_admin_host: boolean; is_admin_key: boolean }> {
-    return api.get('/api/lan/admin/whoami');
+    return api.get(lp('/api/lan/admin/whoami'));
   },
   listKeys(includeRevoked = true): Promise<{ success: boolean; data: LicenseKey[] }> {
-    return api.get('/api/lan/admin/keys', { include_revoked: includeRevoked });
+    return api.get(lp('/api/lan/admin/keys'), { include_revoked: includeRevoked });
   },
   issueKey(payload: {
     label?: string;
@@ -162,45 +165,45 @@ export const lanGateApi = {
     expires_at?: number | null;
     plaintext?: string | null;
   }): Promise<IssueKeyResponse> {
-    return api.post<IssueKeyResponse>('/api/lan/admin/keys', payload);
+    return api.post<IssueKeyResponse>(lp('/api/lan/admin/keys'), payload);
   },
   revokeKey(keyId: number): Promise<{ success: boolean }> {
-    return api.delete(`/api/lan/admin/keys/${keyId}`);
+    return api.delete(lp(`/api/lan/admin/keys/${keyId}`));
   },
   listSessions(activeOnly = true, limit = 200): Promise<{ success: boolean; data: LicenseSession[] }> {
-    return api.get('/api/lan/admin/sessions', { active_only: activeOnly, limit });
+    return api.get(lp('/api/lan/admin/sessions'), { active_only: activeOnly, limit });
   },
   kickSession(jti: string): Promise<{ success: boolean }> {
-    return api.delete(`/api/lan/admin/sessions/${encodeURIComponent(jti)}`);
+    return api.delete(lp(`/api/lan/admin/sessions/${encodeURIComponent(jti)}`));
   },
   audit(limit = 200): Promise<{ success: boolean; data: AuditEntry[] }> {
-    return api.get('/api/lan/admin/audit', { limit });
+    return api.get(lp('/api/lan/admin/audit'), { limit });
   },
   listAccessRequests(status = 'pending', limit = 200): Promise<{ success: boolean; data: AccessRequestEntry[] }> {
-    return api.get('/api/lan/admin/access-requests', { status, limit });
+    return api.get(lp('/api/lan/admin/access-requests'), { status, limit });
   },
   approveAccessRequest(requestId: number, note = ''): Promise<{ success: boolean; data: AccessRequestEntry }> {
-    return api.post(`/api/lan/admin/access-requests/${requestId}/approve`, { note });
+    return api.post(lp(`/api/lan/admin/access-requests/${requestId}/approve`), { note });
   },
   rejectAccessRequest(requestId: number, note = ''): Promise<{ success: boolean; data: AccessRequestEntry }> {
-    return api.post(`/api/lan/admin/access-requests/${requestId}/reject`, { note });
+    return api.post(lp(`/api/lan/admin/access-requests/${requestId}/reject`), { note });
   },
   listAllowlist(activeOnly = true, limit = 200): Promise<{ success: boolean; data: AllowedClientEntry[] }> {
-    return api.get('/api/lan/admin/allowlist', { active_only: activeOnly, limit });
+    return api.get(lp('/api/lan/admin/allowlist'), { active_only: activeOnly, limit });
   },
   revokeAllowlist(clientId: number): Promise<{ success: boolean }> {
-    return api.delete(`/api/lan/admin/allowlist/${clientId}`);
+    return api.delete(lp(`/api/lan/admin/allowlist/${clientId}`));
   },
   getSettings(): Promise<LanSettingsView> {
-    return api.get<LanSettingsView>('/api/lan/admin/settings');
+    return api.get<LanSettingsView>(lp('/api/lan/admin/settings'));
   },
   async updateSettings(payload: LanSettingsUpdate): Promise<LanSettingsView> {
     try {
-      return await api.post<LanSettingsView>('/api/lan/admin/settings', payload);
+      return await api.post<LanSettingsView>(lp('/api/lan/admin/settings'), payload);
     } catch (error: any) {
       // 兼容旧服务端只接受 PUT 的情况，避免页面保存直接报 405。
       if (Number(error?.status) === 405) {
-        return api.put<LanSettingsView>('/api/lan/admin/settings', payload);
+        return api.put<LanSettingsView>(lp('/api/lan/admin/settings'), payload);
       }
       throw error;
     }

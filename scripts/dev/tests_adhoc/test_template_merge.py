@@ -1,12 +1,13 @@
 """测试模板合并单元格保留功能"""
+
 import sys
 from pathlib import Path
 from openpyxl import Workbook, load_workbook
 import pandas as pd
 
 # 创建一个带合并单元格的模板
-template_path = Path(r'e:\FHD\424\test_template_with_merge.xlsx')
-output_path = Path(r'e:\FHD\424\test_output.xlsx')
+template_path = Path(r"e:\FHD\424\test_template_with_merge.xlsx")
+output_path = Path(r"e:\FHD\424\test_output.xlsx")
 
 print("1. 创建带合并单元格的模板...")
 wb = Workbook()
@@ -14,22 +15,22 @@ ws = wb.active
 ws.title = "封面"
 
 # 添加合并单元格
-ws.merge_cells('A1:D1')
-ws.cell(row=1, column=1, value='考勤统计表封面')
-ws.cell(row=1, column=1).alignment = ws.cell(row=1, column=1).alignment.copy(horizontal='center')
+ws.merge_cells("A1:D1")
+ws.cell(row=1, column=1, value="考勤统计表封面")
+ws.cell(row=1, column=1).alignment = ws.cell(row=1, column=1).alignment.copy(horizontal="center")
 
-ws.merge_cells('A2:B2')
-ws.cell(row=2, column=1, value='公司名称')
-ws.cell(row=2, column=3, value='XXX 公司')
+ws.merge_cells("A2:B2")
+ws.cell(row=2, column=1, value="公司名称")
+ws.cell(row=2, column=3, value="XXX 公司")
 
-ws.cell(row=3, column=1, value='统计月份')
-ws.cell(row=3, column=3, value='2026-03')
+ws.cell(row=3, column=1, value="统计月份")
+ws.cell(row=3, column=3, value="2026-03")
 
 # 添加第二个工作表（作为参考表）
 ws2 = wb.create_sheet(title="参考表")
-ws2.cell(row=1, column=1, value='参考数据')
-ws2.merge_cells('A2:C2')
-ws2.cell(row=2, column=1, value='这是合并的单元格')
+ws2.cell(row=1, column=1, value="参考数据")
+ws2.merge_cells("A2:C2")
+ws2.cell(row=2, column=1, value="这是合并的单元格")
 
 wb.save(str(template_path))
 wb.close()
@@ -51,21 +52,21 @@ print("\n2. 模拟转换过程...")
 
 # 创建测试数据
 stats_data = {
-    '考勤组': ['考勤组 A', '考勤组 B'],
-    '工号': ['001', '002'],
-    '姓名': ['张三', '李四'],
-    '部门': ['销售部', '生产部'],
-    '日期': ['2026-03-01', '2026-03-01'],
-    '上班打卡': ['09:00', '08:30'],
-    '下班打卡': ['18:00', '17:30']
+    "考勤组": ["考勤组 A", "考勤组 B"],
+    "工号": ["001", "002"],
+    "姓名": ["张三", "李四"],
+    "部门": ["销售部", "生产部"],
+    "日期": ["2026-03-01", "2026-03-01"],
+    "上班打卡": ["09:00", "08:30"],
+    "下班打卡": ["18:00", "17:30"],
 }
 stats_df = pd.DataFrame(stats_data)
 
 detail_data = {
-    '姓名': ['张三', '李四'],
-    '日期': ['2026-03-01', '2026-03-01'],
-    '上班打卡': ['09:00', '08:30'],
-    '下班打卡': ['18:00', '17:30']
+    "姓名": ["张三", "李四"],
+    "日期": ["2026-03-01", "2026-03-01"],
+    "上班打卡": ["09:00", "08:30"],
+    "下班打卡": ["18:00", "17:30"],
 }
 detail_df = pd.DataFrame(detail_data)
 

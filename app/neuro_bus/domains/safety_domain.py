@@ -5,9 +5,9 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
 
-from app.neuro_bus.domains.base import NeuroDomain, DomainChannel, get_domain_registry
+from app.neuro_bus.domains.base import DomainChannel, NeuroDomain, get_domain_registry
 from app.neuro_bus.events.base import EventPriority
 from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class SafetyNeuroDomain(NeuroDomain):
     """
     安全神经域
-    
+
     事件：
     - security.login.anomaly
     - security.permission.changed
@@ -25,16 +25,16 @@ class SafetyNeuroDomain(NeuroDomain):
     - security.threat.detected
     - security.audit.log
     """
-    
+
     domain_name = "safety"
     default_channel = DomainChannel.CRITICAL
-    
+
     def __init__(self, bus=None):
         super().__init__(bus)
         self._threat_count = 0
         self._audit_count = 0
         self._setup_handlers()
-    
+
     def _setup_handlers(self):
         @self.on("security.threat.detected", priority=0, channel=DomainChannel.CRITICAL)
         async def on_threat(event):
@@ -43,7 +43,7 @@ class SafetyNeuroDomain(NeuroDomain):
             severity = event.payload.get("severity")
             logger.critical(f"SECURITY THREAT: type={threat_type}, severity={severity}")
             bump_domain_handler_metric("security.threat.detected")
-        
+
         @self.on("security.audit.log", priority=2, channel=DomainChannel.CRITICAL)
         async def on_audit(event):
             self._audit_count += 1
@@ -51,18 +51,18 @@ class SafetyNeuroDomain(NeuroDomain):
             user_id = event.payload.get("user_id")
             logger.info(f"Audit: user={user_id}, action={action}")
             bump_domain_handler_metric("security.audit.log")
-    
+
     async def initialize(self):
         logger.info("SafetyNeuroDomain initialized")
-    
+
     async def shutdown(self):
         logger.info("SafetyNeuroDomain shutdown")
-    
+
     def emit_login_anomaly(
         self,
         user_id: str,
         anomaly_type: str,
-        details: Dict[str, Any],
+        details: dict[str, Any],
     ) -> bool:
         return self.emit(
             "security.login.anomaly",
@@ -71,10 +71,10 @@ class SafetyNeuroDomain(NeuroDomain):
                 "user_id": user_id,
                 "anomaly_type": anomaly_type,
                 "details": details,
-                "timestamp": __import__('time').time(),
-            }
+                "timestamp": __import__("time").time(),
+            },
         )
-    
+
     def emit_permission_changed(
         self,
         user_id: str,
@@ -90,9 +90,9 @@ class SafetyNeuroDomain(NeuroDomain):
                 "changed_by": changed_by,
                 "old_roles": old_roles,
                 "new_roles": new_roles,
-            }
+            },
         )
-    
+
     def emit_threat_detected(
         self,
         threat_type: str,
@@ -108,16 +108,16 @@ class SafetyNeuroDomain(NeuroDomain):
                 "severity": severity,
                 "source": source,
                 "description": description,
-            }
+            },
         )
-    
+
     def emit_audit_log(
         self,
         user_id: str,
         action: str,
         resource: str,
         result: str,
-        metadata: Dict[str, Any] = None,
+        metadata: dict[str, Any] = None,
     ) -> bool:
         return self.emit(
             "security.audit.log",
@@ -128,10 +128,10 @@ class SafetyNeuroDomain(NeuroDomain):
                 "resource": resource,
                 "result": result,
                 "metadata": metadata or {},
-            }
+            },
         )
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         base = super().get_stats()
         return {
             **base,
@@ -140,7 +140,7 @@ class SafetyNeuroDomain(NeuroDomain):
         }
 
 
-_safety_domain: Optional[SafetyNeuroDomain] = None
+_safety_domain: SafetyNeuroDomain | None = None
 
 
 def get_safety_domain() -> SafetyNeuroDomain:

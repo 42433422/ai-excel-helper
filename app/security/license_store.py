@@ -19,8 +19,8 @@ import secrets
 import sqlite3
 import threading
 import time
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass
-from typing import Iterator, List, Optional
 
 from app.security.lan_config import get_lan_config
 from app.security.license_token import hash_secret
@@ -111,9 +111,9 @@ class LicenseKey:
     label: str
     created_at: int
     created_by: str
-    expires_at: Optional[int]
-    revoked_at: Optional[int]
-    last_used_at: Optional[int]
+    expires_at: int | None
+    revoked_at: int | None
+    last_used_at: int | None
     use_count: int
     is_admin: bool
 
@@ -122,14 +122,14 @@ class LicenseKey:
 class LicenseSession:
     id: int
     jti: str
-    key_id: Optional[int]
+    key_id: int | None
     kid: str
     ip: str
     user_agent: str
     issued_at: int
     expires_at: int
-    revoked_at: Optional[int]
-    last_seen_at: Optional[int]
+    revoked_at: int | None
+    last_seen_at: int | None
 
 
 @dataclass(frozen=True)
@@ -152,7 +152,7 @@ class AccessRequest:
     user_agent: str
     requested_at: int
     status: str
-    reviewed_at: Optional[int]
+    reviewed_at: int | None
     reviewed_by: str
     review_note: str
 
@@ -165,9 +165,9 @@ class AllowedClient:
     note: str
     approved_at: int
     approved_by: str
-    request_id: Optional[int]
-    revoked_at: Optional[int]
-    last_seen_at: Optional[int]
+    request_id: int | None
+    revoked_at: int | None
+    last_seen_at: int | None
 
 
 _lock = threading.Lock()
@@ -280,13 +280,14 @@ def _row_to_allowed_client(row: sqlite3.Row) -> AllowedClient:
 # 一级密钥
 # ---------------------------------------------------------------------------
 
+
 def issue_key(
     *,
     label: str = "",
     created_by: str = "",
-    expires_at: Optional[int] = None,
+    expires_at: int | None = None,
     is_admin: bool = False,
-    plaintext: Optional[str] = None,
+    plaintext: str | None = None,
 ) -> tuple[str, LicenseKey]:
     """
     生成（或登记给定明文）一把一级密钥；返回明文与对应记录。
@@ -310,7 +311,7 @@ def issue_key(
     return secret_text, _row_to_key(row)
 
 
-def list_keys(include_revoked: bool = True) -> List[LicenseKey]:
+def list_keys(include_revoked: bool = True) -> list[LicenseKey]:
     ensure_schema()
     sql = "SELECT * FROM lan_license_keys"
     if not include_revoked:
@@ -321,13 +322,11 @@ def list_keys(include_revoked: bool = True) -> List[LicenseKey]:
     return [_row_to_key(r) for r in rows]
 
 
-def find_key_by_plaintext(plaintext: str) -> Optional[LicenseKey]:
+def find_key_by_plaintext(plaintext: str) -> LicenseKey | None:
     ensure_schema()
     digest = hash_secret(plaintext)
     with _connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM lan_license_keys WHERE key_hash=?", (digest,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM lan_license_keys WHERE key_hash=?", (digest,)).fetchone()
     return _row_to_key(row) if row else None
 
 
@@ -382,10 +381,11 @@ def has_any_admin_key() -> bool:
 # 会话
 # ---------------------------------------------------------------------------
 
+
 def record_session(
     *,
     jti: str,
-    key_id: Optional[int],
+    key_id: int | None,
     kid: str,
     ip: str,
     user_agent: str,
@@ -405,7 +405,7 @@ def record_session(
     return _row_to_session(row)
 
 
-def get_active_session_by_jti(jti: str) -> Optional[LicenseSession]:
+def get_active_session_by_jti(jti: str) -> LicenseSession | None:
     ensure_schema()
     with _connect() as conn:
         row = conn.execute(
@@ -415,7 +415,7 @@ def get_active_session_by_jti(jti: str) -> Optional[LicenseSession]:
     return _row_to_session(row) if row else None
 
 
-def list_sessions(active_only: bool = True, limit: int = 200) -> List[LicenseSession]:
+def list_sessions(active_only: bool = True, limit: int = 200) -> list[LicenseSession]:
     ensure_schema()
     sql = "SELECT * FROM lan_license_sessions"
     if active_only:
@@ -458,6 +458,7 @@ def touch_session(jti: str) -> None:
 # 审计
 # ---------------------------------------------------------------------------
 
+
 def write_audit(
     *,
     action: str,
@@ -475,7 +476,7 @@ def write_audit(
         )
 
 
-def list_audit(limit: int = 200) -> List[AuditEntry]:
+def list_audit(limit: int = 200) -> list[AuditEntry]:
     ensure_schema()
     with _connect() as conn:
         rows = conn.execute(
@@ -487,6 +488,7 @@ def list_audit(limit: int = 200) -> List[AuditEntry]:
 # ---------------------------------------------------------------------------
 # 动态白名单 / 访问申请
 # ---------------------------------------------------------------------------
+
 
 def is_ip_explicitly_allowed(ip: str) -> bool:
     ensure_schema()
@@ -513,7 +515,7 @@ def touch_allowed_client(ip: str) -> None:
         )
 
 
-def list_allowed_clients(active_only: bool = True, limit: int = 200) -> List[AllowedClient]:
+def list_allowed_clients(active_only: bool = True, limit: int = 200) -> list[AllowedClient]:
     ensure_schema()
     sql = "SELECT * FROM lan_allowed_clients"
     params: tuple = ()
@@ -545,7 +547,7 @@ def revoke_allowed_client(client_id: int, *, actor: str = "", ip: str = "") -> b
     return ok
 
 
-def get_latest_access_request_by_ip(ip: str) -> Optional[AccessRequest]:
+def get_latest_access_request_by_ip(ip: str) -> AccessRequest | None:
     ensure_schema()
     norm = str(ip or "").strip()
     if not norm:
@@ -606,9 +608,9 @@ def create_access_request(
 
 def list_access_requests(
     *,
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 200,
-) -> List[AccessRequest]:
+) -> list[AccessRequest]:
     ensure_schema()
     sql = "SELECT * FROM lan_access_requests"
     params: tuple = ()
@@ -628,7 +630,7 @@ def approve_access_request(
     *,
     actor: str = "",
     review_note: str = "",
-) -> Optional[AccessRequest]:
+) -> AccessRequest | None:
     ensure_schema()
     now = _now()
     note = str(review_note or "").strip()[:500]
@@ -698,7 +700,7 @@ def reject_access_request(
     *,
     actor: str = "",
     review_note: str = "",
-) -> Optional[AccessRequest]:
+) -> AccessRequest | None:
     ensure_schema()
     now = _now()
     note = str(review_note or "").strip()[:500]

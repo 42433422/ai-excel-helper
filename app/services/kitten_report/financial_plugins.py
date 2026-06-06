@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any
 
-from sqlalchemy import func, case, extract
+from sqlalchemy import func
+
 from .plugins import AnalysisPlugin, PluginResult
 
 
@@ -23,7 +23,7 @@ class FinancialReportPlugin(AnalysisPlugin):
     key = "financial_report"
     title = "财务报表分析"
 
-    def run(self, payload: Dict[str, Any]) -> PluginResult:
+    def run(self, payload: dict[str, Any]) -> PluginResult:
         try:
             metrics = self._calculate_financial_metrics(payload)
             monthly_data = self._get_monthly_breakdown()
@@ -65,9 +65,9 @@ class FinancialReportPlugin(AnalysisPlugin):
                 details={"message": str(e)},
             )
 
-    def _calculate_financial_metrics(self, payload: Dict[str, Any]) -> FinancialMetrics:
-        from app.db.session import get_db
+    def _calculate_financial_metrics(self, payload: dict[str, Any]) -> FinancialMetrics:
         from app.db.models.shipment import ShipmentRecord
+        from app.db.session import get_db
 
         metrics = FinancialMetrics()
 
@@ -75,14 +75,18 @@ class FinancialReportPlugin(AnalysisPlugin):
             now = datetime.now()
             month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-            result = db.query(
-                func.coalesce(func.sum(ShipmentRecord.amount), 0).label("total_revenue"),
-                func.count(ShipmentRecord.id).label("order_count"),
-                func.coalesce(func.avg(ShipmentRecord.amount), 0).label("avg_order"),
-            ).filter(
-                ShipmentRecord.created_at >= month_start,
-                ShipmentRecord.status == "completed",
-            ).first()
+            result = (
+                db.query(
+                    func.coalesce(func.sum(ShipmentRecord.amount), 0).label("total_revenue"),
+                    func.count(ShipmentRecord.id).label("order_count"),
+                    func.coalesce(func.avg(ShipmentRecord.amount), 0).label("avg_order"),
+                )
+                .filter(
+                    ShipmentRecord.created_at >= month_start,
+                    ShipmentRecord.status == "completed",
+                )
+                .first()
+            )
 
             if result:
                 metrics.total_revenue = float(result.total_revenue or 0)
@@ -101,24 +105,32 @@ class FinancialReportPlugin(AnalysisPlugin):
 
     def _estimate_cost(self, db) -> float:
         try:
-            from app.db.models.material import Material
-            from sqlalchemy import Float as SAFloat, cast
+            from sqlalchemy import Float as SAFloat
+            from sqlalchemy import cast
 
-            inv_val = db.query(
-                func.coalesce(
-                    func.sum(cast(Material.quantity, SAFloat) * cast(Material.unit_price, SAFloat)),
-                    0.0,
+            from app.db.models.material import Material
+
+            inv_val = (
+                db.query(
+                    func.coalesce(
+                        func.sum(
+                            cast(Material.quantity, SAFloat) * cast(Material.unit_price, SAFloat)
+                        ),
+                        0.0,
+                    )
                 )
-            ).filter(Material.is_active == 1).scalar()
+                .filter(Material.is_active == 1)
+                .scalar()
+            )
 
             return float(inv_val or 0) * 0.3
         except Exception:
             return 0.0
 
-    def _get_monthly_breakdown(self) -> List[Dict[str, Any]]:
+    def _get_monthly_breakdown(self) -> list[dict[str, Any]]:
         try:
-            from app.db.session import get_db
             from app.db.models.shipment import ShipmentRecord
+            from app.db.session import get_db
 
             monthly_data = []
             with get_db() as db:
@@ -132,28 +144,34 @@ class FinancialReportPlugin(AnalysisPlugin):
                         next_month = month_start + timedelta(days=32)
                         month_end = next_month.replace(day=1)
 
-                    result = db.query(
-                        func.coalesce(func.sum(ShipmentRecord.amount), 0).label("revenue"),
-                        func.count(ShipmentRecord.id).label("count"),
-                    ).filter(
-                        ShipmentRecord.created_at >= month_start,
-                        ShipmentRecord.created_at < month_end,
-                    ).first()
+                    result = (
+                        db.query(
+                            func.coalesce(func.sum(ShipmentRecord.amount), 0).label("revenue"),
+                            func.count(ShipmentRecord.id).label("count"),
+                        )
+                        .filter(
+                            ShipmentRecord.created_at >= month_start,
+                            ShipmentRecord.created_at < month_end,
+                        )
+                        .first()
+                    )
 
-                    monthly_data.append({
-                        "month": month_start.strftime("%Y-%m"),
-                        "revenue": round(float(result.revenue or 0), 2),
-                        "order_count": int(result.count or 0),
-                    })
+                    monthly_data.append(
+                        {
+                            "month": month_start.strftime("%Y-%m"),
+                            "revenue": round(float(result.revenue or 0), 2),
+                            "order_count": int(result.count or 0),
+                        }
+                    )
 
             return list(reversed(monthly_data))
         except Exception:
             return []
 
-    def _get_product_profitability(self) -> List[Dict[str, Any]]:
+    def _get_product_profitability(self) -> list[dict[str, Any]]:
         try:
-            from app.db.session import get_db
             from app.db.models.shipment import ShipmentRecord
+            from app.db.session import get_db
 
             with get_db() as db:
                 now = datetime.now()
@@ -187,10 +205,10 @@ class FinancialReportPlugin(AnalysisPlugin):
         except Exception:
             return []
 
-    def _get_customer_analysis(self) -> List[Dict[str, Any]]:
+    def _get_customer_analysis(self) -> list[dict[str, Any]]:
         try:
-            from app.db.session import get_db
             from app.db.models.shipment import ShipmentRecord
+            from app.db.session import get_db
 
             with get_db() as db:
                 now = datetime.now()
@@ -227,7 +245,7 @@ class InventoryValuationPlugin(AnalysisPlugin):
     key = "inventory_valuation"
     title = "库存价值评估"
 
-    def run(self, payload: Dict[str, Any]) -> PluginResult:
+    def run(self, payload: dict[str, Any]) -> PluginResult:
         try:
             material_valuation = self._get_material_valuation()
             product_valuation = self._get_product_valuation()
@@ -262,27 +280,41 @@ class InventoryValuationPlugin(AnalysisPlugin):
                 details={"message": str(e)},
             )
 
-    def _get_material_valuation(self) -> Dict[str, Any]:
+    def _get_material_valuation(self) -> dict[str, Any]:
         try:
-            from app.db.session import get_db
+            from sqlalchemy import Float as SAFloat
+            from sqlalchemy import cast
+
             from app.db.models.material import Material
-            from sqlalchemy import Float as SAFloat, cast
+            from app.db.session import get_db
 
             with get_db() as db:
-                total_items = db.query(func.count(Material.id)).filter(Material.is_active == 1).scalar() or 0
+                total_items = (
+                    db.query(func.count(Material.id)).filter(Material.is_active == 1).scalar() or 0
+                )
 
-                total_value = db.query(
-                    func.coalesce(
-                        func.sum(cast(Material.quantity, SAFloat) * cast(Material.unit_price, SAFloat)),
-                        0.0,
+                total_value = (
+                    db.query(
+                        func.coalesce(
+                            func.sum(
+                                cast(Material.quantity, SAFloat)
+                                * cast(Material.unit_price, SAFloat)
+                            ),
+                            0.0,
+                        )
                     )
-                ).filter(Material.is_active == 1).scalar()
+                    .filter(Material.is_active == 1)
+                    .scalar()
+                )
 
                 category_breakdown = (
                     db.query(
                         Material.category,
                         func.coalesce(
-                            func.sum(cast(Material.quantity, SAFloat) * cast(Material.unit_price, SAFloat)),
+                            func.sum(
+                                cast(Material.quantity, SAFloat)
+                                * cast(Material.unit_price, SAFloat)
+                            ),
                             0.0,
                         ).label("value"),
                         func.count(Material.id).label("count"),
@@ -296,28 +328,42 @@ class InventoryValuationPlugin(AnalysisPlugin):
                     "total_items": int(total_items),
                     "total_value": round(float(total_value or 0), 2),
                     "categories": [
-                        {"category": c[0] or "未分类", "value": round(float(c[1] or 0), 2), "count": int(c[2] or 0)}
+                        {
+                            "category": c[0] or "未分类",
+                            "value": round(float(c[1] or 0), 2),
+                            "count": int(c[2] or 0),
+                        }
                         for c in category_breakdown
                     ],
                 }
         except Exception:
             return {"total_items": 0, "total_value": 0.0, "categories": []}
 
-    def _get_product_valuation(self) -> Dict[str, Any]:
+    def _get_product_valuation(self) -> dict[str, Any]:
         try:
-            from app.db.session import get_db
+            from sqlalchemy import Float as SAFloat
+            from sqlalchemy import cast
+
             from app.db.models.product import Product
-            from sqlalchemy import Float as SAFloat, cast
+            from app.db.session import get_db
 
             with get_db() as db:
-                total_items = db.query(func.count(Product.id)).filter(Product.is_active == 1).scalar() or 0
+                total_items = (
+                    db.query(func.count(Product.id)).filter(Product.is_active == 1).scalar() or 0
+                )
 
-                total_value = db.query(
-                    func.coalesce(
-                        func.sum(cast(Product.quantity, SAFloat) * cast(Product.price, SAFloat)),
-                        0.0,
+                total_value = (
+                    db.query(
+                        func.coalesce(
+                            func.sum(
+                                cast(Product.quantity, SAFloat) * cast(Product.price, SAFloat)
+                            ),
+                            0.0,
+                        )
                     )
-                ).filter(Product.is_active == 1).scalar()
+                    .filter(Product.is_active == 1)
+                    .scalar()
+                )
 
                 return {
                     "total_items": int(total_items),
@@ -326,14 +372,20 @@ class InventoryValuationPlugin(AnalysisPlugin):
         except Exception:
             return {"total_items": 0, "total_value": 0.0}
 
-    def _get_low_stock_items(self) -> Dict[str, Any]:
+    def _get_low_stock_items(self) -> dict[str, Any]:
         try:
-            from app.db.session import get_db
             from app.db.models.material import Material
+            from app.db.session import get_db
 
             with get_db() as db:
                 items = (
-                    db.query(Material.name, Material.category, Material.quantity, Material.min_stock, Material.unit_price)
+                    db.query(
+                        Material.name,
+                        Material.category,
+                        Material.quantity,
+                        Material.min_stock,
+                        Material.unit_price,
+                    )
                     .filter(
                         Material.is_active == 1,
                         Material.min_stock > 0,
@@ -358,4 +410,3 @@ class InventoryValuationPlugin(AnalysisPlugin):
                 }
         except Exception:
             return {"count": 0, "items": []}
-

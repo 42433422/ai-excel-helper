@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import date, datetime
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any
 
 from openpyxl import load_workbook
 
@@ -10,12 +11,12 @@ def _normalize_header(value: Any) -> str:
     return str(value or "").strip().replace(" ", "").lower()
 
 
-def _to_header_lookup(field_alias_map: Dict[str, Any]) -> List[Tuple[str, str, str]]:
+def _to_header_lookup(field_alias_map: dict[str, Any]) -> list[tuple[str, str, str]]:
     """
     Build a normalized lookup list:
     (normalized_header_text, display_header_text, record_key)
     """
-    lookup: List[Tuple[str, str, str]] = []
+    lookup: list[tuple[str, str, str]] = []
     for key, value in (field_alias_map or {}).items():
         record_key = str(key).strip()
         if not record_key:
@@ -49,8 +50,8 @@ def _format_cell_value(value: Any) -> Any:
 
 def fill_workbook_from_template(
     template_path: str,
-    records: List[Dict[str, Any]],
-    field_alias_map: Dict[str, Any],
+    records: list[dict[str, Any]],
+    field_alias_map: dict[str, Any],
     sheet_name: str | None = None,
     max_row_scan: int = 30,
     max_col_scan: int = 40,
@@ -82,12 +83,12 @@ def fill_workbook_from_template(
     alias_to_key = {normalized: key for normalized, _, key in alias_lookup}
 
     header_row = None
-    header_cols: List[Tuple[int, str]] = []
+    header_cols: list[tuple[int, str]] = []
     scanned_max_row = min(ws.max_row or 1, max_row_scan)
     scanned_max_col = min(ws.max_column or 1, max_col_scan)
 
     for row_idx in range(1, scanned_max_row + 1):
-        cols: List[Tuple[int, str]] = []
+        cols: list[tuple[int, str]] = []
         for col_idx in range(1, scanned_max_col + 1):
             raw_text = ws.cell(row_idx, col_idx).value
             normalized = _normalize_header(raw_text)
@@ -103,13 +104,16 @@ def fill_workbook_from_template(
     if not header_row:
         header_row = 1
         seen_keys = set()
-        ordered_headers: List[Tuple[str, str]] = []
+        ordered_headers: list[tuple[str, str]] = []
         for _, display_header, record_key in alias_lookup:
             if record_key in seen_keys:
                 continue
             seen_keys.add(record_key)
             ordered_headers.append((display_header, record_key))
-        header_cols = [(index + 1, _normalize_header(header)) for index, (header, _) in enumerate(ordered_headers)]
+        header_cols = [
+            (index + 1, _normalize_header(header))
+            for index, (header, _) in enumerate(ordered_headers)
+        ]
         for index, (header, _) in enumerate(ordered_headers, start=1):
             ws.cell(header_row, index, header)
 

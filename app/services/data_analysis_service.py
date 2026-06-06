@@ -1,45 +1,24 @@
-# -*- coding: utf-8 -*-
 """
 数据分析服务
 为 AI生态提供文件解析、统计分析和图表数据生成服务
 """
-import os
+
+import logging
 import uuid
-import pandas as pd
-import numpy as np
-from datetime import datetime
-from typing import Dict, Any, List, Optional
 from pathlib import Path
+from typing import Any
 
-from app.utils.path_utils import get_upload_dir
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+import pandas as pd
+
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
+
+logger = logging.getLogger(__name__)
 
 
-
-class DataAnalysisService:
+class DataAnalysisService(NeuroEventPublisherMixin):
     """数据分析核心服务"""
 
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
-    def analyze_file(self, file_path: str, query: str = "") -> Dict[str, Any]:
+    def analyze_file(self, file_path: str, query: str = "") -> dict[str, Any]:
         """分析上传的文件并根据查询生成结果"""
         try:
             df = self._load_file(file_path)
@@ -56,35 +35,35 @@ class DataAnalysisService:
                 "statistics": self._generate_statistics(df),
                 "chart_data": self._generate_chart_data(df, query),
                 "insights": self._generate_insights(df, query),
-                "download_url": f"/api/ai/analyze/export/{uuid.uuid4().hex[:12]}"
+                "download_url": f"/api/ai/analyze/export/{uuid.uuid4().hex[:12]}",
             }
             return result
         except Exception as e:
             return {"success": False, "message": f"分析失败: {str(e)}"}
 
-    def _load_file(self, file_path: str) -> Optional[pd.DataFrame]:
+    def _load_file(self, file_path: str) -> pd.DataFrame | None:
         """加载不同格式的文件"""
         path = Path(file_path)
         suffix = path.suffix.lower()
 
         try:
-            if suffix in ['.xlsx', '.xls']:
+            if suffix in [".xlsx", ".xls"]:
                 return pd.read_excel(file_path)
-            elif suffix == '.csv':
+            elif suffix == ".csv":
                 return pd.read_csv(file_path)
-            elif suffix == '.json':
+            elif suffix == ".json":
                 return pd.read_json(file_path)
-            elif suffix == '.txt':
+            elif suffix == ".txt":
                 # 尝试作为CSV读取
-                return pd.read_csv(file_path, sep='\t')
+                return pd.read_csv(file_path, sep="\t")
             else:
                 return None
         except Exception:
             return None
 
-    def _generate_statistics(self, df: pd.DataFrame) -> Dict:
+    def _generate_statistics(self, df: pd.DataFrame) -> dict:
         """生成基础统计信息"""
-        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
         stats = {}
 
         for col in numeric_cols[:5]:  # 限制数量
@@ -97,10 +76,10 @@ class DataAnalysisService:
 
         return stats
 
-    def _generate_chart_data(self, df: pd.DataFrame, query: str) -> Dict:
+    def _generate_chart_data(self, df: pd.DataFrame, query: str) -> dict:
         """生成适合 Chart.js 的图表数据"""
-        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-        
+        numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+
         if not numeric_cols:
             return {"type": "bar", "labels": [], "datasets": []}
 
@@ -113,34 +92,36 @@ class DataAnalysisService:
             return {
                 "type": "line",
                 "labels": labels,
-                "datasets": [{
-                    "label": col,
-                    "data": values,
-                    "borderColor": "#3b82f6",
-                    "backgroundColor": "rgba(59, 130, 246, 0.1)",
-                    "tension": 0.4
-                }]
+                "datasets": [
+                    {
+                        "label": col,
+                        "data": values,
+                        "borderColor": "#3b82f6",
+                        "backgroundColor": "rgba(59, 130, 246, 0.1)",
+                        "tension": 0.4,
+                    }
+                ],
             }
-        
+
         return {"type": "bar", "labels": [], "datasets": []}
 
-    def _generate_insights(self, df: pd.DataFrame, query: str) -> List[str]:
+    def _generate_insights(self, df: pd.DataFrame, query: str) -> list[str]:
         """生成分析洞察"""
         insights = ["数据已成功加载", f"共 {len(df)} 条记录"]
-        
-        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+
+        numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
         if numeric_cols:
             col = numeric_cols[0]
             insights.append(f"{col} 平均值: {df[col].mean():.2f}")
-        
+
         if "销量" in str(query) or "销售" in str(query):
             insights.append("检测到销量相关分析需求")
         if "ROI" in str(query) or "渠道" in str(query):
             insights.append("检测到ROI/渠道分析需求")
-            
+
         return insights
 
-    def export_to_excel(self, data: Dict, output_path: str) -> bool:
+    def export_to_excel(self, data: dict, output_path: str) -> bool:
         """导出分析结果为Excel"""
         try:
             # 这里简化实现，实际可根据data生成详细报告

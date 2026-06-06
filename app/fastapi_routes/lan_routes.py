@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import time
 from ipaddress import ip_address
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -45,7 +44,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/lan", tags=["lan"])
 
 
-def _ip_in_admin_hosts(ip: Optional[str], admin_hosts: tuple[str, ...]) -> bool:
+def _ip_in_admin_hosts(ip: str | None, admin_hosts: tuple[str, ...]) -> bool:
     if not ip:
         return False
     try:
@@ -64,7 +63,7 @@ def _ip_in_admin_hosts(ip: Optional[str], admin_hosts: tuple[str, ...]) -> bool:
     return False
 
 
-def _ip_in_cidrs(ip: Optional[str], cidrs) -> bool:
+def _ip_in_cidrs(ip: str | None, cidrs) -> bool:
     if not ip:
         return False
     try:
@@ -105,7 +104,7 @@ def _clear_token_cookie(response: Response) -> None:
 
 class ActivateRequest(BaseModel):
     key: str = Field(min_length=1, max_length=512)
-    label: Optional[str] = None
+    label: str | None = None
 
 
 class ActivateResponse(BaseModel):
@@ -118,14 +117,14 @@ class ActivateResponse(BaseModel):
 class StatusResponse(BaseModel):
     success: bool
     enabled: bool
-    ip: Optional[str]
+    ip: str | None
     in_whitelist: bool
     in_static_cidr: bool
     in_dynamic_allowlist: bool
     is_admin_host: bool
     authorized: bool
     is_admin: bool
-    expires_at: Optional[int]
+    expires_at: int | None
 
 
 class HostInfoResponse(BaseModel):
@@ -138,7 +137,7 @@ class HostInfoResponse(BaseModel):
     cookie_name: str
     token_ttl_seconds: int
     is_admin_host: bool
-    ip: Optional[str]
+    ip: str | None
 
 
 class AccessRequestPayload(BaseModel):
@@ -176,7 +175,7 @@ async def status(request: Request) -> StatusResponse:
 
     authorized = False
     is_admin = False
-    expires_at: Optional[int] = None
+    expires_at: int | None = None
     token = request.cookies.get(cfg.cookie_name) or request.headers.get("X-LAN-Token")
     if token and cfg.is_secret_ready():
         try:
@@ -276,10 +275,7 @@ async def activate(req: ActivateRequest, request: Request, response: Response) -
 
     # 首道门槛与 LanCidrGuard 一致：须在静态 CIDR 或动态白名单内（避免完全无关网段批量撞密钥）。
     # 非管理员密钥第二道门槛见下方：必须已在动态白名单（管理员批准访问申请）。
-    if not (
-        _ip_in_cidrs(ip, cfg.cidr_objects())
-        or is_ip_explicitly_allowed(ip)
-    ):
+    if not (_ip_in_cidrs(ip, cfg.cidr_objects()) or is_ip_explicitly_allowed(ip)):
         write_audit(action="activate.blocked", actor="anonymous", ip=ip, detail="allowlist_block")
         raise HTTPException(status_code=403, detail="lan_blocked")
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class ShipmentDocumentGeneratorPort(ABC):
@@ -15,10 +15,9 @@ class ShipmentDocumentGeneratorPort(ABC):
         self,
         *,
         unit_name: str,
-        products: List[Dict[str, Any]],
-        date: Optional[str] = None,
-        template_name: Optional[str] = None,
-        order_number: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        products: list[dict[str, Any]],
+        date: str | None = None,
+        template_name: str | None = None,
+        order_number: str | None = None,
+    ) -> dict[str, Any]:
         raise NotImplementedError
-

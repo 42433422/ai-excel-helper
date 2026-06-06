@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Sidebar Menu Manager Skill Module
 """
@@ -15,12 +14,12 @@ from .sidebar_menu_manager import (
 )
 
 __all__ = [
-    'get_sidebar_menu_manager_skill',
-    'get_sidebar_component_path',
-    'get_menu_items',
-    'get_sidebar_info',
-    'add_menu_item',
-    'remove_menu_item',
-    'update_menu_item',
-    'reorder_menu_items',
+    "get_sidebar_menu_manager_skill",
+    "get_sidebar_component_path",
+    "get_menu_items",
+    "get_sidebar_info",
+    "add_menu_item",
+    "remove_menu_item",
+    "update_menu_item",
+    "reorder_menu_items",
 ]

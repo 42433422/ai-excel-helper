@@ -17,7 +17,7 @@ app/infrastructure/mods/manifest.py::ModMetadata.industry。
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -32,7 +32,7 @@ class IndustryResponse(BaseModel):
     name: str
     code: str
     description: str = ""
-    config: Dict[str, Any] = {}
+    config: dict[str, Any] = {}
 
 
 class IndustriesListData(BaseModel):
@@ -41,14 +41,14 @@ class IndustriesListData(BaseModel):
 
 
 class IndustryData(BaseModel):
-    industry: Dict[str, Any]
+    industry: dict[str, Any]
 
 
 class SetIndustryRequest(BaseModel):
     industry_id: str
 
 
-def _build_industry_response(industry_id: str, profile: Any) -> Dict[str, Any]:
+def _build_industry_response(industry_id: str, profile: Any) -> dict[str, Any]:
     """Build industry response dict from profile object"""
     return {
         "id": industry_id,
@@ -61,7 +61,7 @@ def _build_industry_response(industry_id: str, profile: Any) -> Dict[str, Any]:
             "product_fields": profile.product_fields,
             "order_types": profile.order_types,
             "print_config": profile.print_config,
-        }
+        },
     }
 
 
@@ -88,7 +88,7 @@ async def get_industries():
             "data": {
                 "industries": result_industries,
                 "current": current,
-            }
+            },
         }
     except Exception as e:
         logger.error(f"Failed to get industries: {e}")
@@ -107,13 +107,18 @@ async def get_current_industry_endpoint():
         current_id = get_current_industry()
         profile = get_industry_profile(current_id)
 
-        return {
-            "success": True,
-            "data": _build_industry_response(current_id, profile)
-        }
+        return {"success": True, "data": _build_industry_response(current_id, profile)}
     except Exception as e:
-        logger.error(f"Failed to get current industry: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Failed to get current industry: %s", e)
+        # 避免 Mod manifest / YAML 异常时侧栏整页 500：回退到内置「涂料」档案
+        try:
+            from resources.config.industry_config import get_industry_profile
+
+            fid = "涂料"
+            profile = get_industry_profile(fid)
+            return {"success": True, "data": _build_industry_response(fid, profile)}
+        except Exception:
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/industry")
@@ -121,8 +126,8 @@ async def set_industry_endpoint(request: SetIndustryRequest):
     """Set current industry"""
     try:
         from resources.config.industry_config import (
-            set_current_industry,
             get_industry_profile,
+            set_current_industry,
         )
 
         success = set_current_industry(request.industry_id)
@@ -131,15 +136,83 @@ async def set_industry_endpoint(request: SetIndustryRequest):
 
         profile = get_industry_profile(request.industry_id)
 
-        return {
-            "success": True,
-            "data": _build_industry_response(request.industry_id, profile)
-        }
+        return {"success": True, "data": _build_industry_response(request.industry_id, profile)}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to set industry: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/host-profile")
+async def get_host_profile():
+    """宿主 SKU profile（bridge 列表、打包白名单、工作流交付形态等）。"""
+    try:
+        from app.mod_sdk.host_profile import build_host_profile_api_payload
+
+        return {"success": True, "data": build_host_profile_api_payload()}
+    except Exception as e:
+        logger.error("Failed to get host profile: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/industry-presets")
+async def get_industry_presets():
+    """跨行业 UI 预设（config/industry_presets.json），供前端与 MODstore 制作端共用。"""
+    try:
+        from app.mod_sdk.host_profile import load_industry_presets_document
+
+        doc = load_industry_presets_document()
+        return {
+            "success": True,
+            "data": {
+                "schema_version": doc.get("schema_version", 1),
+                "preset_ids": doc.get("preset_ids") or list((doc.get("presets") or {}).keys()),
+                "presets": doc.get("presets") or {},
+            },
+        }
+    except Exception as e:
+        logger.error("Failed to get industry presets: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/workflow-employee-catalog")
+async def get_workflow_employee_catalog():
+    """工作流员工目录（配置 + 扫描 mods 目录）。"""
+    try:
+        from app.mod_sdk.host_profile import (
+            load_host_profile,
+            load_workflow_employee_catalog,
+            scan_workflow_employee_catalog_from_mods,
+        )
+
+        catalog = scan_workflow_employee_catalog_from_mods()
+        prof = load_host_profile()
+        return {
+            "success": True,
+            "data": {
+                "catalog": catalog,
+                "workflow_delivery": prof.get("workflow_delivery"),
+                "workflow_monolith_mod_id": prof.get("workflow_monolith_mod_id"),
+                "workflow_split_mod_ids": prof.get("workflow_split_mod_ids"),
+                "static_catalog": load_workflow_employee_catalog(),
+            },
+        }
+    except Exception as e:
+        logger.error("Failed to get workflow employee catalog: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/employee-registry-rules")
+async def get_employee_registry_rules():
+    """副窗工作流员工注册规则（替代前端硬编码过滤）。"""
+    try:
+        from app.mod_sdk.host_profile import get_employee_registry_rules
+
+        return {"success": True, "data": get_employee_registry_rules()}
+    except Exception as e:
+        logger.error("Failed to get employee registry rules: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/industry/{industry_id}")
@@ -159,10 +232,7 @@ async def get_industry_detail(industry_id: str):
 
         profile = get_industry_profile(industry_id)
 
-        return {
-            "success": True,
-            "data": _build_industry_response(industry_id, profile)
-        }
+        return {"success": True, "data": _build_industry_response(industry_id, profile)}
     except HTTPException:
         raise
     except Exception as e:

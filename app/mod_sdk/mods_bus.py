@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """同 Mod 内 backend/ 目录下模块的文件路径式加载器（SDK re-export）。
 
 ``import_mod_backend_py(mod_path, mod_id, stem)`` 把 ``<mod_path>/backend/<stem>.py``

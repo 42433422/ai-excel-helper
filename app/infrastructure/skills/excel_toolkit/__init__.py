@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Excel Toolkit Skill Module
 """
@@ -13,10 +12,10 @@ from .excel_toolkit import (
 )
 
 __all__ = [
-    'ExcelToolkitSkill',
-    'get_excel_toolkit_skill',
-    'view_excel_content',
-    'get_merged_cells',
-    'get_cell_styles',
-    'analyze_structure'
+    "ExcelToolkitSkill",
+    "get_excel_toolkit_skill",
+    "view_excel_content",
+    "get_merged_cells",
+    "get_cell_styles",
+    "analyze_structure",
 ]

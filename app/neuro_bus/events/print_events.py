@@ -5,18 +5,17 @@ Print 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class PrintJobSubmittedEvent(NeuroEvent):
     """打印任务提交事件"""
-    
+
     event_type: str = "print.job_submitted"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["job_id", "document_id", "printer_id", "copies"]
@@ -28,10 +27,10 @@ class PrintJobSubmittedEvent(NeuroEvent):
 @dataclass
 class PrintJobStartedEvent(NeuroEvent):
     """打印任务开始事件"""
-    
+
     event_type: str = "print.job_started"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "job_id" not in self.payload:
@@ -41,10 +40,10 @@ class PrintJobStartedEvent(NeuroEvent):
 @dataclass
 class PrintJobCompletedEvent(NeuroEvent):
     """打印任务完成事件"""
-    
+
     event_type: str = "print.job_completed"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["job_id", "pages_printed", "print_time"]
@@ -56,10 +55,10 @@ class PrintJobCompletedEvent(NeuroEvent):
 @dataclass
 class PrintJobFailedEvent(NeuroEvent):
     """打印任务失败事件"""
-    
+
     event_type: str = "print.job_failed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["job_id", "error_code", "error_message"]
@@ -71,10 +70,10 @@ class PrintJobFailedEvent(NeuroEvent):
 @dataclass
 class PrinterStatusChangedEvent(NeuroEvent):
     """打印机状态变更事件"""
-    
+
     event_type: str = "print.printer_status_changed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["printer_id", "old_status", "new_status"]
@@ -86,10 +85,10 @@ class PrinterStatusChangedEvent(NeuroEvent):
 @dataclass
 class LabelPrintRequestEvent(NeuroEvent):
     """标签打印请求事件"""
-    
+
     event_type: str = "print.label_requested"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["label_id", "product_id", "quantity", "printer_id"]

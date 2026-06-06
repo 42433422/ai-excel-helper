@@ -73,15 +73,15 @@ def _probe_intent_engines() -> dict:
 def _probe_pgvector() -> dict:
     from sqlalchemy import create_engine, text
 
-    db_url = (
-        os.environ.get("VECTOR_DB_URL")
-        or os.environ.get("DATABASE_URL")
-        or ""
-    ).strip()
+    db_url = (os.environ.get("VECTOR_DB_URL") or os.environ.get("DATABASE_URL") or "").strip()
     if not db_url:
         return {"status": "disabled", "reason": "no_vector_db_url"}
     if "postgres" not in db_url.lower():
-        return {"status": "disabled", "reason": "not_postgres", "dialect": db_url.split("://", 1)[0]}
+        return {
+            "status": "disabled",
+            "reason": "not_postgres",
+            "dialect": db_url.split("://", 1)[0],
+        }
 
     try:
         engine = create_engine(db_url, pool_pre_ping=True, echo=False)
@@ -91,9 +91,12 @@ def _probe_pgvector() -> dict:
             ).first()
             if not ext_row:
                 return {"status": "unhealthy", "error": "vector extension missing"}
-            idx = conn.execute(
-                text("SELECT COUNT(*) FROM pg_indexes WHERE indexdef ILIKE '%ivfflat%'")
-            ).scalar() or 0
+            idx = (
+                conn.execute(
+                    text("SELECT COUNT(*) FROM pg_indexes WHERE indexdef ILIKE '%ivfflat%'")
+                ).scalar()
+                or 0
+            )
             tables = [
                 row[0]
                 for row in conn.execute(
@@ -134,7 +137,11 @@ def main() -> int:
 
     _print_section("summary")
     overall_ok = rasa["status"] in _ACCEPTABLE and pg["status"] in _ACCEPTABLE
-    print(json.dumps({"ok": overall_ok, "rasa": rasa["status"], "pgvector": pg["status"]}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {"ok": overall_ok, "rasa": rasa["status"], "pgvector": pg["status"]}, ensure_ascii=False
+        )
+    )
 
     return 0 if overall_ok else 1
 

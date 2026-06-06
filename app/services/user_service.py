@@ -1,54 +1,38 @@
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+"""用户 CRUD 服务：列表/查询/创建/更新/软删，不负责认证与权限策略。"""
 
-from app.utils.password_hash import generate_password_hash
+import logging
+import uuid
+from typing import Any
 
 from app.db.models import User
 from app.db.session import get_db
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
+from app.utils.password_hash import generate_password_hash
+from app.utils.time import utc_now_naive
+
+logger = logging.getLogger(__name__)
 
 
-
-class UserService:
+class UserService(NeuroEventPublisherMixin):
     def __init__(self):
         pass
 
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
-    def list_users(self, include_inactive: bool = False) -> List[Dict[str, Any]]:
+    def list_users(self, include_inactive: bool = False) -> list[dict[str, Any]]:
         with get_db() as db:
             query = db.query(User)
             if not include_inactive:
-                query = query.filter(User.is_active == True)
+                query = query.filter(User.is_active.is_(True))
             users = query.order_by(User.created_at.desc()).all()
             return [self._user_to_dict(u) for u in users]
 
-    def get_user(self, user_id: int) -> Optional[Dict[str, Any]]:
+    def get_user(self, user_id: int) -> dict[str, Any] | None:
         with get_db() as db:
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 return None
             return self._user_to_dict(user)
 
-    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+    def get_user_by_username(self, username: str) -> dict[str, Any] | None:
         with get_db() as db:
             user = db.query(User).filter(User.username == username).first()
             if not user:
@@ -62,8 +46,8 @@ class UserService:
         display_name: str = "",
         email: str = "",
         role: str = "viewer",
-        created_by: Optional[int] = None
-    ) -> Dict[str, Any]:
+        created_by: int | None = None,
+    ) -> dict[str, Any]:
         with get_db() as db:
             try:
                 existing = db.query(User).filter(User.username == username).first()
@@ -78,24 +62,30 @@ class UserService:
                     role=role,
                     is_active=True,
                     created_by=created_by,
-                    created_at=datetime.utcnow()
+                    created_at=utc_now_naive(),
                 )
                 db.add(user)
                 db.commit()
                 db.refresh(user)
                 return {"success": True, "user": self._user_to_dict(user)}
-            except Exception as e:
+            except Exception:
                 db.rollback()
-                return {"success": False, "message": str(e)}
+                err_id = uuid.uuid4().hex[:12]
+                logger.exception("create_user failed (error_id=%s username=%s)", err_id, username)
+                return {
+                    "success": False,
+                    "message": "创建用户失败，请稍后重试",
+                    "error_id": err_id,
+                }
 
     def update_user(
         self,
         user_id: int,
-        display_name: Optional[str] = None,
-        email: Optional[str] = None,
-        role: Optional[str] = None,
-        is_active: Optional[bool] = None
-    ) -> Dict[str, Any]:
+        display_name: str | None = None,
+        email: str | None = None,
+        role: str | None = None,
+        is_active: bool | None = None,
+    ) -> dict[str, Any]:
         with get_db() as db:
             try:
                 user = db.query(User).filter(User.id == user_id).first()
@@ -114,11 +104,17 @@ class UserService:
                 db.commit()
                 db.refresh(user)
                 return {"success": True, "user": self._user_to_dict(user)}
-            except Exception as e:
+            except Exception:
                 db.rollback()
-                return {"success": False, "message": str(e)}
+                err_id = uuid.uuid4().hex[:12]
+                logger.exception("update_user failed (error_id=%s user_id=%s)", err_id, user_id)
+                return {
+                    "success": False,
+                    "message": "更新用户失败，请稍后重试",
+                    "error_id": err_id,
+                }
 
-    def delete_user(self, user_id: int) -> Dict[str, Any]:
+    def delete_user(self, user_id: int) -> dict[str, Any]:
         with get_db() as db:
             try:
                 user = db.query(User).filter(User.id == user_id).first()
@@ -128,11 +124,17 @@ class UserService:
                 user.is_active = False
                 db.commit()
                 return {"success": True, "message": "用户已删除"}
-            except Exception as e:
+            except Exception:
                 db.rollback()
-                return {"success": False, "message": str(e)}
+                err_id = uuid.uuid4().hex[:12]
+                logger.exception("delete_user failed (error_id=%s user_id=%s)", err_id, user_id)
+                return {
+                    "success": False,
+                    "message": "删除用户失败，请稍后重试",
+                    "error_id": err_id,
+                }
 
-    def _user_to_dict(self, user: User) -> Dict[str, Any]:
+    def _user_to_dict(self, user: User) -> dict[str, Any]:
         return {
             "id": user.id,
             "username": user.username,
@@ -142,22 +144,17 @@ class UserService:
             "is_active": user.is_active,
             "created_by": user.created_by,
             "created_at": user.created_at.isoformat() if user.created_at else None,
-            "last_login": user.last_login.isoformat() if user.last_login else None
+            "last_login": user.last_login.isoformat() if user.last_login else None,
         }
 
 
-_user_service = None
-
-
 def get_user_service() -> UserService:
-    global _user_service
-    if _user_service is None:
-        _user_service = UserService()
-    return _user_service
+    from app.di.registry import get_service_registry
+
+    return get_service_registry().user_service
 
 
 # NEURO-DDD: 为 Services 层类添加 instrumentation
 from app.neuro_bus.neuro_service_instrumentation import instrument_service_layer_class
 
 instrument_service_layer_class(UserService, "app.services.user_service")
-

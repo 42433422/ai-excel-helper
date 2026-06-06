@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +29,11 @@ class RoutingMLP(nn.Module):  # type: ignore[misc]
             nn.Linear(hidden, out_dim),
         )
 
-    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
 
-_policy: Optional[RoutingMLP] = None
+_policy: RoutingMLP | None = None
 _policy_device: str = "cpu"
 
 
@@ -42,7 +41,7 @@ def _manifest_path() -> Path:
     return Path(__file__).resolve().parents[3] / "resources" / "routing_policies" / "manifest.json"
 
 
-def load_active_policy() -> Optional[RoutingMLP]:
+def load_active_policy() -> RoutingMLP | None:
     global _policy, _policy_device
     if torch is None or nn is None:
         return None
@@ -84,14 +83,14 @@ def load_active_policy() -> Optional[RoutingMLP]:
         return None
 
 
-def get_policy() -> Optional[RoutingMLP]:
+def get_policy() -> RoutingMLP | None:
     global _policy
     if _policy is None:
         _policy = load_active_policy()
     return _policy
 
 
-def predict_action_index(features: list[float], mask: Optional[list[bool]] = None) -> int:
+def predict_action_index(features: list[float], mask: list[bool] | None = None) -> int:
     pol = get_policy()
     if pol is None or torch is None:
         return -1

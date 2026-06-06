@@ -50,7 +50,9 @@ def _redact_url(url: str) -> str:
 
 
 def _inspect_sqlite(path: Path, needle: str) -> int:
-    print(f"SQLite file: {path} (exists={path.is_file()}, size={path.stat().st_size if path.is_file() else 0})")
+    print(
+        f"SQLite file: {path} (exists={path.is_file()}, size={path.stat().st_size if path.is_file() else 0})"
+    )
     if not path.is_file():
         return 1
     conn = sqlite3.connect(str(path))
@@ -63,7 +65,9 @@ def _inspect_sqlite(path: Path, needle: str) -> int:
         try:
             cur.execute("SELECT COUNT(*) FROM purchase_units")
             print("purchase_units count:", cur.fetchone()[0])
-            cur.execute("SELECT id, unit_name, IFNULL(xcagi_mod_id,'') FROM purchase_units ORDER BY id LIMIT 30")
+            cur.execute(
+                "SELECT id, unit_name, IFNULL(xcagi_mod_id,'') FROM purchase_units ORDER BY id LIMIT 30"
+            )
             print("purchase_units sample:", cur.fetchall())
         except sqlite3.Error as e:
             print("purchase_units:", e)
@@ -125,7 +129,9 @@ def _inspect_postgres(url: str, needle: str) -> int:
                     """
                 )
             else:
-                print("注意: purchase_units 无 xcagi_mod_id 列，请执行 scripts/pg_init_xcagi_core.sql")
+                print(
+                    "注意: purchase_units 无 xcagi_mod_id 列，请执行 scripts/pg_init_xcagi_core.sql"
+                )
                 cur.execute(
                     """
                     SELECT id, unit_name FROM purchase_units
@@ -187,7 +193,12 @@ def main() -> int:
         # sqlite:///C:/path or sqlite:////path
         path_part = url.split("sqlite:///", 1)[-1].split("?", 1)[0]
         path_part = unquote(path_part)
-        if os.name == "nt" and path_part.startswith("/") and len(path_part) > 2 and path_part[2] == ":":
+        if (
+            os.name == "nt"
+            and path_part.startswith("/")
+            and len(path_part) > 2
+            and path_part[2] == ":"
+        ):
             path_part = path_part[1:]
         db_path = Path(path_part)
         if not db_path.is_absolute():

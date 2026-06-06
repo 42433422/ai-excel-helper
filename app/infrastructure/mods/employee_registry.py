@@ -64,22 +64,33 @@ class EmployeeRegistry:
         return out
 
     def list_for_mods_api(self) -> list[dict[str, Any]]:
-        """与 ModManager._metadata_to_api_dict 形状兼容，供 /api/mods/ 合并。"""
+        """与 ModManager._metadata_to_api_dict 形状兼容，供 /api/mods/ 合并。
+
+        employee_pack（办公 CSV/PPT、宿主基础预装等）**不得**合成 workflow_employees，
+        否则会出现在副窗/员工空间，与「Mod 是 Mod、工作流员工是员工」混淆。
+        """
         rows: list[dict[str, Any]] = []
         for p in self.list_packs():
-            emp = dict(p.get("employee") or {}) if isinstance(p.get("employee"), dict) else {}
-            hp = p.get("xcagi_host_profile")
-            if isinstance(hp, dict):
-                wer = hp.get("workflow_employee_row")
-                if isinstance(wer, dict):
-                    for k, v in wer.items():
-                        ks = str(k)
-                        if ks not in emp or emp.get(ks) in (None, ""):
-                            emp[ks] = v
-            wf = [emp] if emp.get("id") else []
+            pack_id = str(p.get("id") or p.get("pack_id") or "")
+            wf: list[dict[str, Any]] = []
+            mf = os.path.join(self._root(), pack_id, "manifest.json")
+            if os.path.isfile(mf):
+                try:
+                    with open(mf, encoding="utf-8") as f:
+                        raw = json.load(f)
+                    if isinstance(raw, dict):
+                        cfg = raw.get("config") if isinstance(raw.get("config"), dict) else {}
+                        if cfg.get("host_foundation_pack"):
+                            wf = []
+                        else:
+                            raw_wf = raw.get("workflow_employees")
+                            if isinstance(raw_wf, list):
+                                wf = [x for x in raw_wf if isinstance(x, dict) and x.get("id")]
+                except (OSError, json.JSONDecodeError):
+                    wf = []
             rows.append(
                 {
-                    "id": str(p.get("id") or p.get("pack_id") or ""),
+                    "id": pack_id,
                     "name": str(p.get("name") or ""),
                     "version": str(p.get("version") or ""),
                     "author": str(p.get("author") or ""),
@@ -122,6 +133,24 @@ class EmployeeRegistry:
                     shutil.rmtree(dest)
                 shutil.copytree(extract_path, dest)
                 logger.info("Installed employee_pack to %s", dest)
+                cfg = manifest.get("config") if isinstance(manifest.get("config"), dict) else {}
+                if cfg.get("host_foundation_pack"):
+                    from app.mod_sdk.host_foundation import materialize_host_foundation_bridges
+
+                    edition = str(cfg.get("edition") or "generic").strip().lower()
+                    if edition not in ("minimal", "generic", "full"):
+                        edition = "generic"
+                    result = materialize_host_foundation_bridges(edition)
+                    if not result.get("ready"):
+                        missing = result.get("missing_mod_ids") or []
+                        return (
+                            False,
+                            f"员工包已安装，但宿主 bridge 未齐：{', '.join(missing[:8])}",
+                        )
+                    return (
+                        True,
+                        f"宿主基础能力员工包已安装，bridge {result.get('installed_count')}/{result.get('expected_count')} 就绪",
+                    )
                 return True, f"员工包 {pack_id} 安装成功"
         except ModSignatureError as e:
             return False, f"签名验证失败：{e}"

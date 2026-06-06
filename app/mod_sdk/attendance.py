@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """考勤转换相关能力（SDK re-export）。
 
 供 ``taiyangniao-pro`` Mod 使用。未来任务 B 会把 ``app.shell.taiyangniao_attendance.*``

@@ -2,9 +2,11 @@
 Task Agent 服务测试
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from app.services.task_agent import TaskAgent, _cn_number, SLOT_LABELS
+
+from app.services.task_agent import SLOT_LABELS, TaskAgent, _cn_number
 
 
 class TestCnNumber:

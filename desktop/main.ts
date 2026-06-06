@@ -1,12 +1,71 @@
 import { BrowserWindow, Menu, Tray, app, dialog, ipcMain, nativeImage, shell } from 'electron'
 import { ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import net from 'node:net'
+import { networkInterfaces } from 'node:os'
 import path from 'node:path'
 import { checkForUpdates, configureUpdater, installUpdate } from './updater'
 
 const APP_NAME = 'XCAGI'
 const DEFAULT_PORT = Number(process.env.XCAGI_DESKTOP_PORT || 5000)
+
+type ProductSku = 'personal' | 'enterprise'
+
+const SKU_RUNTIME_EDITION: Record<ProductSku, string> = {
+  personal: 'minimal',
+  enterprise: 'full'
+}
+
+const SKU_UPDATE_URL: Record<ProductSku, string> = {
+  personal: 'https://update.xcagi.com/releases/stable/personal/',
+  enterprise: 'https://update.xcagi.com/releases/stable/enterprise/'
+}
+
+function readPackagedProductSku(): ProductSku | null {
+  if (!app.isPackaged) return null
+  const candidates = [
+    path.join(process.resourcesPath, 'product-sku.json'),
+    path.join(process.resourcesPath, 'backend', 'product-sku.json')
+  ]
+  for (const filePath of candidates) {
+    try {
+      if (!fs.existsSync(filePath)) continue
+      const raw = JSON.parse(fs.readFileSync(filePath, 'utf8')) as { sku?: string }
+      const sku = String(raw.sku || '').trim().toLowerCase()
+      if (sku === 'personal' || sku === 'enterprise') {
+        return sku
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return null
+}
+
+function backendEditionEnv(): Record<string, string> {
+  const sku = readPackagedProductSku()
+  if (!sku) {
+    return {
+      XCAGI_GENERIC_EDITION: '1',
+      XCAGI_PLATFORM_SHELL: '1',
+      XCAGI_DEFAULT_EDITION: 'generic'
+    }
+  }
+  const edition = SKU_RUNTIME_EDITION[sku]
+  const env: Record<string, string> = {
+    XCAGI_PRODUCT_SKU: sku,
+    XCAGI_PLATFORM_SHELL: '1',
+    XCAGI_DEFAULT_EDITION: edition,
+    XCAGI_EDITION: edition
+  }
+  if (edition === 'minimal') {
+    env.XCAGI_MINIMAL_EDITION = '1'
+  } else if (edition === 'generic') {
+    env.XCAGI_GENERIC_EDITION = '1'
+  }
+  return env
+}
 
 let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcessWithoutNullStreams | null = null
@@ -88,20 +147,67 @@ function waitForPort(port: number, timeoutMs = 45_000): Promise<void> {
   })
 }
 
-async function waitForBackend(port: number, timeoutMs = 60_000): Promise<void> {
+type DesktopStartupMarks = {
+  backendSpawnMs?: number
+  tcp5000Ms?: number
+  desktopStatusMs?: number
+}
+
+const startupMarks: DesktopStartupMarks = {}
+
+function readPackagedAppVersion(): string {
+  if (!app.isPackaged) return 'dev'
+  const candidates = [
+    path.join(process.resourcesPath, 'backend', 'version.txt'),
+    path.join(process.resourcesPath, 'product-sku.json')
+  ]
+  for (const filePath of candidates) {
+    try {
+      if (!fs.existsSync(filePath)) continue
+      const raw = fs.readFileSync(filePath, 'utf8').trim()
+      if (filePath.endsWith('version.txt')) return raw || 'unknown'
+      const json = JSON.parse(raw) as { sku?: string; schema_version?: number }
+      return `${json.sku || 'enterprise'}-${json.schema_version ?? 1}`
+    } catch {
+      /* ignore */
+    }
+  }
+  return app.getVersion()
+}
+
+function shouldClearFrontendCache(): boolean {
+  const marker = path.join(app.getPath('userData'), 'frontend-cache-version.txt')
+  const current = readPackagedAppVersion()
+  try {
+    const prev = fs.readFileSync(marker, 'utf8').trim()
+    return prev !== current
+  } catch {
+    return true
+  }
+}
+
+function markFrontendCacheCleared(): void {
+  const marker = path.join(app.getPath('userData'), 'frontend-cache-version.txt')
+  fs.writeFileSync(marker, readPackagedAppVersion(), 'utf8')
+}
+
+/** 分阶段就绪：TCP 后即可出窗；desktop/status 软等待，不阻塞 60s 全量 Mod。 */
+async function waitForBackendStatus(port: number, timeoutMs = 15_000): Promise<boolean> {
   const started = Date.now()
   while (Date.now() - started <= timeoutMs) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/api/desktop/status`)
       if (response.ok) {
-        return
+        startupMarks.desktopStatusMs = Date.now() - (startupMarks.backendSpawnMs ?? started)
+        return true
       }
     } catch {
-      // Keep polling until FastAPI has finished importing all routers.
+      /* backend still importing routers */
     }
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise(resolve => setTimeout(resolve, 400))
   }
-  throw new Error(`后端服务在 ${timeoutMs}ms 内未通过健康检查`)
+  console.warn(`[xcagi-desktop] /api/desktop/status 未在 ${timeoutMs}ms 内就绪，仍加载前端`)
+  return false
 }
 
 function startBackend(): void {
@@ -115,12 +221,15 @@ function startBackend(): void {
     return
   }
 
+  startupMarks.backendSpawnMs = Date.now()
   backendProcess = spawn(executable.command, executable.args, {
     cwd: executable.cwd,
     env: {
       ...process.env,
       XCAGI_DESKTOP_MODE: '1',
       XCAGI_DATA_DIR: app.getPath('userData'),
+      XCAGI_UVICORN_RELOAD: '0',
+      ...backendEditionEnv(),
       PYTHONUTF8: '1'
     },
     windowsHide: true
@@ -151,6 +260,8 @@ function runBackendMigration(): Promise<void> {
         ...process.env,
         XCAGI_DESKTOP_MODE: '1',
         XCAGI_DATA_DIR: app.getPath('userData'),
+        XCAGI_GENERIC_EDITION: '1',
+        XCAGI_PLATFORM_SHELL: '1',
         PYTHONUTF8: '1'
       },
       windowsHide: true
@@ -170,6 +281,49 @@ function runBackendMigration(): Promise<void> {
       }
     })
   })
+}
+
+async function exportSupportBundleInteractive(): Promise<void> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${DEFAULT_PORT}/api/desktop/support-bundle`)
+    if (!res.ok) {
+      void dialog.showErrorBox(APP_NAME, `导出失败：HTTP ${res.status}`)
+      return
+    }
+    const buf = Buffer.from(await res.arrayBuffer())
+    const iso = new Date().toISOString().replace(/[:.]/g, '-')
+    const defaultPath = path.join(app.getPath('downloads'), `xcagi-support-${iso}.zip`)
+    const win = BrowserWindow.getFocusedWindow() ?? mainWindow
+    const saveOpts = {
+      title: '导出诊断包',
+      defaultPath,
+      filters: [{ name: 'ZIP', extensions: ['zip'] }]
+    }
+    const { canceled, filePath } = win
+      ? await dialog.showSaveDialog(win, saveOpts)
+      : await dialog.showSaveDialog(saveOpts)
+    if (canceled || !filePath) {
+      return
+    }
+    await fs.promises.writeFile(filePath, buf)
+    const parent = win ?? mainWindow
+    const saved = {
+      type: 'info' as const,
+      title: APP_NAME,
+      message: '诊断包已保存',
+      detail: filePath
+    }
+    if (parent) {
+      void dialog.showMessageBox(parent, saved)
+    } else {
+      void dialog.showMessageBox(saved)
+    }
+  } catch (error) {
+    void dialog.showErrorBox(
+      APP_NAME,
+      error instanceof Error ? error.message : String(error)
+    )
+  }
 }
 
 function stopBackend(): void {
@@ -199,15 +353,43 @@ async function createWindow(): Promise<void> {
   if (fs.existsSync(icon)) {
     winOpts.icon = icon
   }
+  winOpts.show = false
+  winOpts.backgroundColor = '#f4f7fb'
   mainWindow = new BrowserWindow(winOpts)
 
   mainWindow.on('closed', () => {
     mainWindow = null
   })
 
+  const bootStarted = Date.now()
   await waitForPort(DEFAULT_PORT)
-  await waitForBackend(DEFAULT_PORT)
-  await mainWindow.loadURL(`http://127.0.0.1:${DEFAULT_PORT}/`)
+  startupMarks.tcp5000Ms = Date.now() - bootStarted
+
+  if (shouldClearFrontendCache()) {
+    try {
+      await mainWindow.webContents.session.clearCache()
+      markFrontendCacheCleared()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  await mainWindow.loadURL(`http://127.0.0.1:${DEFAULT_PORT}/?shell=1`, {
+    extraHeaders: 'Cache-Control: no-cache\r\n'
+  })
+  mainWindow.show()
+  mainWindow.focus()
+
+  void waitForBackendStatus(DEFAULT_PORT).then(ok => {
+    console.info(
+      '[xcagi-desktop] startup',
+      JSON.stringify({
+        ...startupMarks,
+        desktopStatusOk: ok
+      })
+    )
+  })
+
   configureUpdater(mainWindow, runBackendMigration)
 }
 
@@ -217,6 +399,10 @@ function createMenu(): void {
       label: APP_NAME,
       submenu: [
         { label: '打开数据目录', click: () => void shell.openPath(app.getPath('userData')) },
+        {
+          label: '导出诊断包…',
+          click: () => void exportSupportBundleInteractive()
+        },
         { label: '检查更新', click: () => void checkForUpdates() },
         { type: 'separator' },
         { role: 'quit', label: '退出' }
@@ -264,7 +450,47 @@ if (!gotLock) {
   })
 
   app.whenReady().then(async () => {
+    const sku = readPackagedProductSku()
+    if (sku && !process.env.XCAGI_UPDATE_URL) {
+      process.env.XCAGI_UPDATE_URL = SKU_UPDATE_URL[sku]
+    }
+    function getLanIPv4(): string {
+      const nets = networkInterfaces()
+      for (const name of Object.keys(nets)) {
+        for (const iface of nets[name] || []) {
+          if (iface.family === 'IPv4' && !iface.internal) {
+            return iface.address
+          }
+        }
+      }
+      return '127.0.0.1'
+    }
+
+    ipcMain.handle('xcagi:pairing-qr', async () => {
+      const host = getLanIPv4()
+      const port = DEFAULT_PORT
+      const nonce = crypto.randomBytes(12).toString('base64url')
+      const exp = Math.floor(Date.now() / 1000) + 300
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/api/mobile/v1/pairing/issue`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ host, port })
+        })
+        if (res.ok) {
+          const json = (await res.json()) as { data?: { nonce?: string; exp?: number; host?: string; port?: number } }
+          if (json?.data?.nonce) {
+            return JSON.stringify(json.data)
+          }
+        }
+      } catch {
+        /* backend offline — return local payload */
+      }
+      return JSON.stringify({ host, port, nonce, exp })
+    })
+
     ipcMain.handle('xcagi:get-data-dir', () => app.getPath('userData'))
+    ipcMain.handle('xcagi:export-support-bundle', () => exportSupportBundleInteractive())
     ipcMain.handle('xcagi:check-for-updates', () => checkForUpdates())
     ipcMain.handle('xcagi:install-update', () => installUpdate(runBackendMigration))
 

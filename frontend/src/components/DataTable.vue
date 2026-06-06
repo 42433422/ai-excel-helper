@@ -202,27 +202,34 @@ defineExpose({
   overflow-y: auto;
   overflow-x: auto;
   max-height: v-bind(height);
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  border: 1px solid rgba(203, 213, 225, 0.82);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
 }
 
 .data-table th,
 .data-table td {
-  padding: 10px 12px;
+  padding: 12px 14px;
   text-align: left;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 /* 不使用 sticky 表头：粘性 th 叠在数据行上会拦截操作列点击（pointer-events 在部分环境下仍不可靠） */
 .data-table th {
-  background-color: #f8f9fa;
-  font-weight: 600;
-  color: #333;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.94));
+  font-weight: 800;
+  color: #334155;
+  white-space: nowrap;
 }
 
 .data-table-actions-cell {
@@ -246,29 +253,42 @@ defineExpose({
 }
 
 .data-table tbody tr:hover {
-  background-color: #f5f5f5;
+  background-color: rgba(219, 234, 254, 0.46);
 }
 
 .empty-state {
   text-align: center;
-  color: #999;
-  padding: 40px !important;
+  color: #64748b;
+  padding: 48px !important;
+  font-weight: 650;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(14, 116, 217, 0.08), transparent 35%),
+    rgba(248, 250, 252, 0.72);
 }
 
 .loading-state,
 .has-more-tip,
 .no-more-tip {
   text-align: center;
-  color: #999;
-  font-size: 14px;
-  padding: 12px !important;
+  color: #64748b;
+  font-size: 13px;
+  padding: 14px !important;
+  background: rgba(248, 250, 252, 0.72);
 }
 
 .has-more-tip {
-  color: #666;
+  color: #475569;
 }
 
 .no-more-tip {
-  color: #ccc;
+  color: #94a3b8;
+}
+
+.data-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  accent-color: var(--primary-color, #0b72d9);
+  cursor: pointer;
 }
 </style>

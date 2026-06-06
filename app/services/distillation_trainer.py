@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 蒸馏训练脚本 - 微调 BERT 模型用于意图识别
 
@@ -17,10 +16,7 @@ import argparse
 import json
 import logging
 import os
-import sys
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from sklearn.metrics import accuracy_score, classification_report
@@ -32,10 +28,8 @@ from transformers import (
     BertTokenizer,
     get_linear_schedule_with_warmup,
 )
-from app.utils.distillation_paths import (
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
 
+from app.utils.distillation_paths import (
     get_distillation_checkpoints_dir,
     get_distillation_logs_dir,
     get_distillation_root_dir,
@@ -47,10 +41,7 @@ DISTILL_DIR = get_distillation_root_dir()
 CHECKPOINT_DIR = get_distillation_checkpoints_dir()
 LOG_DIR = get_distillation_logs_dir()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 INTENT_LABELS = [
@@ -83,7 +74,9 @@ ID_TO_LABEL = {idx: label for label, idx in LABEL_TO_ID.items()}
 class DistillationDataset(Dataset):
     """蒸馏数据集"""
 
-    def __init__(self, texts: List[str], labels: List[int], tokenizer: BertTokenizer, max_length: int = 64):
+    def __init__(
+        self, texts: list[str], labels: list[int], tokenizer: BertTokenizer, max_length: int = 64
+    ):
         self.texts = texts
         self.labels = labels
         self.tokenizer = tokenizer
@@ -92,7 +85,7 @@ class DistillationDataset(Dataset):
     def __len__(self) -> int:
         return len(self.texts)
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         text = self.texts[idx]
         label = self.labels[idx]
 
@@ -123,7 +116,7 @@ class DistillationTrainer:
         batch_size: int = 16,
         epochs: int = 3,
         warmup_ratio: float = 0.1,
-        device: Optional[str] = None,
+        device: str | None = None,
     ):
         self.model_name = model_name
         self.num_labels = num_labels
@@ -148,13 +141,13 @@ class DistillationTrainer:
         self.train_loader = None
         self.val_loader = None
 
-    def load_data(self, data_path: str) -> Tuple[List[str], List[int]]:
+    def load_data(self, data_path: str) -> tuple[list[str], list[int]]:
         """加载训练数据"""
         texts = []
         labels = []
 
         if data_path.endswith(".jsonl"):
-            with open(data_path, "r", encoding="utf-8") as f:
+            with open(data_path, encoding="utf-8") as f:
                 for line in f:
                     data = json.loads(line)
                     text = data.get("text", "")
@@ -164,7 +157,7 @@ class DistillationTrainer:
                         texts.append(text)
                         labels.append(LABEL_TO_ID[label])
         elif data_path.endswith(".tsv"):
-            with open(data_path, "r", encoding="utf-8") as f:
+            with open(data_path, encoding="utf-8") as f:
                 next(f)
                 for line in f:
                     parts = line.strip().split("\t")
@@ -177,7 +170,7 @@ class DistillationTrainer:
         logger.info(f"加载数据: {len(texts)} 条")
         return texts, labels
 
-    def prepare_data(self, texts: List[str], labels: List[int], val_ratio: float = 0.2):
+    def prepare_data(self, texts: list[str], labels: list[int], val_ratio: float = 0.2):
         """准备训练和验证数据"""
         if len(set(labels)) >= 10 and len(texts) > 100:
             train_texts, val_texts, train_labels, val_labels = train_test_split(
@@ -192,7 +185,9 @@ class DistillationTrainer:
 
         self.tokenizer = BertTokenizer.from_pretrained(self.model_name)
 
-        train_dataset = DistillationDataset(train_texts, train_labels, self.tokenizer, self.max_length)
+        train_dataset = DistillationDataset(
+            train_texts, train_labels, self.tokenizer, self.max_length
+        )
         val_dataset = DistillationDataset(val_texts, val_labels, self.tokenizer, self.max_length)
 
         self.train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
@@ -237,7 +232,7 @@ class DistillationTrainer:
         return avg_loss, accuracy
 
     @torch.no_grad()
-    def evaluate(self) -> Dict[str, float]:
+    def evaluate(self) -> dict[str, float]:
         """评估模型"""
         self.model.eval()
         total_loss = 0
@@ -323,7 +318,9 @@ class DistillationTrainer:
             logger.info(f"训练损失: {train_loss:.4f}, 训练准确率: {train_acc:.4f}")
 
             eval_result = self.evaluate()
-            logger.info(f"验证损失: {eval_result['val_loss']:.4f}, 验证准确率: {eval_result['val_accuracy']:.4f}")
+            logger.info(
+                f"验证损失: {eval_result['val_loss']:.4f}, 验证准确率: {eval_result['val_accuracy']:.4f}"
+            )
 
             last_checkpoint = os.path.join(output_dir, "last.pt")
             self.save_checkpoint(last_checkpoint, epoch, best=False)
@@ -347,21 +344,30 @@ class DistillationTrainer:
 
         logger.info(f"\n训练完成! 最佳验证准确率: {best_accuracy:.4f} (Epoch {best_epoch})")
 
-        log_path = os.path.join(LOG_DIR, f"training_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        log_path = os.path.join(
+            LOG_DIR, f"training_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
         with open(log_path, "w", encoding="utf-8") as f:
-            json.dump({
-                "best_accuracy": best_accuracy,
-                "best_epoch": best_epoch,
-                "total_epochs": self.epochs,
-                "data_path": data_path,
-                "model_name": self.model_name,
-            }, f, ensure_ascii=False, indent=2)
+            json.dump(
+                {
+                    "best_accuracy": best_accuracy,
+                    "best_epoch": best_epoch,
+                    "total_epochs": self.epochs,
+                    "data_path": data_path,
+                    "model_name": self.model_name,
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
 
 
 def main():
     parser = argparse.ArgumentParser(description="蒸馏训练工具")
     parser.add_argument("--data", type=str, default=None, help="训练数据路径")
-    parser.add_argument("--model", type=str, default="hfl/chinese-bert-wwm-ext", help="预训练模型名称")
+    parser.add_argument(
+        "--model", type=str, default="hfl/chinese-bert-wwm-ext", help="预训练模型名称"
+    )
     parser.add_argument("--epochs", type=int, default=3, help="训练轮数")
     parser.add_argument("--batch_size", type=int, default=16, help="批大小")
     parser.add_argument("--lr", type=float, default=2e-5, help="学习率")
@@ -376,7 +382,9 @@ def main():
 
     if not os.path.exists(data_path):
         logger.error(f"训练数据不存在: {data_path}")
-        logger.info("请先运行数据采集脚本: python -m app.services.distillation_data_collector --generate --collect")
+        logger.info(
+            "请先运行数据采集脚本: python -m app.services.distillation_data_collector --generate --collect"
+        )
         return
 
     output_dir = args.output or CHECKPOINT_DIR

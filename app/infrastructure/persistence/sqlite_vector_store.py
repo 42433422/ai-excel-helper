@@ -4,7 +4,7 @@ import json
 import logging
 import sqlite3
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -79,7 +79,7 @@ class SQLiteVectorStore(VectorStorePort):
             )
             conn.commit()
 
-    def upsert_chunks(self, index_id: str, chunks: List[Dict[str, Any]]) -> int:
+    def upsert_chunks(self, index_id: str, chunks: list[dict[str, Any]]) -> int:
         if not chunks:
             return 0
 
@@ -121,13 +121,13 @@ class SQLiteVectorStore(VectorStorePort):
     def query(
         self,
         index_id: str,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         del filters  # 预留接口，当前轻量实现不做 DB 侧过滤
         query_arr = np.array(query_vector, dtype=np.float32)
-        rows: List[sqlite3.Row] = []
+        rows: list[sqlite3.Row] = []
         with self._get_conn() as conn:
             result = conn.execute(
                 "SELECT chunk_id, content, embedding, metadata FROM excel_vector_chunks WHERE index_id = ?",
@@ -135,7 +135,7 @@ class SQLiteVectorStore(VectorStorePort):
             )
             rows = result.fetchall()
 
-        scored: List[Dict[str, Any]] = []
+        scored: list[dict[str, Any]] = []
         for row in rows:
             try:
                 emb = np.array(json.loads(row["embedding"]), dtype=np.float32)
@@ -154,7 +154,7 @@ class SQLiteVectorStore(VectorStorePort):
         scored.sort(key=lambda item: item["score"], reverse=True)
         return scored[: max(top_k, 1)]
 
-    def list_indexes(self) -> List[Dict[str, Any]]:
+    def list_indexes(self) -> list[dict[str, Any]]:
         with self._get_conn() as conn:
             result = conn.execute(
                 """
@@ -169,6 +169,8 @@ class SQLiteVectorStore(VectorStorePort):
     def delete_index(self, index_id: str) -> bool:
         with self._get_conn() as conn:
             conn.execute("DELETE FROM excel_vector_chunks WHERE index_id = ?", (index_id,))
-            result = conn.execute("DELETE FROM excel_vector_indexes WHERE index_id = ?", (index_id,))
+            result = conn.execute(
+                "DELETE FROM excel_vector_indexes WHERE index_id = ?", (index_id,)
+            )
             conn.commit()
         return result.rowcount > 0

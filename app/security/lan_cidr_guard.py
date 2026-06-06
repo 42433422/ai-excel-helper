@@ -11,29 +11,14 @@ from __future__ import annotations
 import json
 import logging
 from ipaddress import ip_address
-from typing import Awaitable, Callable
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from app.security.lan_config import get_lan_config
+from app.security.lan_config import get_lan_config, lan_guard_path_is_bypassed
 from app.security.lan_ip import get_client_ip
 from app.security.license_store import is_ip_explicitly_allowed, touch_allowed_client
 
 logger = logging.getLogger(__name__)
-
-
-def _is_bypass(path: str, bypass_paths: tuple[str, ...], static_prefixes: tuple[str, ...]) -> bool:
-    if not path:
-        return False
-    for exact in bypass_paths:
-        if not exact:
-            continue
-        if path == exact or path.rstrip("/") == exact.rstrip("/"):
-            return True
-    for prefix in static_prefixes:
-        if prefix and path.startswith(prefix):
-            return True
-    return False
 
 
 def _ip_in_cidrs(ip: str, cidrs) -> bool:
@@ -86,7 +71,7 @@ class LanCidrGuard:
         method = (scope.get("method") or "GET").upper()
         path = scope.get("path") or "/"
 
-        if method == "OPTIONS" or _is_bypass(path, cfg.bypass_paths, cfg.static_prefixes):
+        if method == "OPTIONS" or lan_guard_path_is_bypassed(path, cfg):
             await self.app(scope, receive, send)
             return
 

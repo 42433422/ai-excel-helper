@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Label Template Generator Skill
 """
@@ -12,11 +11,11 @@ from .label_template_generator import (
 )
 
 __all__ = [
-    'analyze_image',
-    'generate_template_code',
-    'LabelTemplateGeneratorSkill',
-    'get_label_template_generator_skill',
-    'BarcodeGenerator',
-    'generate_barcode',
-    'save_barcode'
+    "analyze_image",
+    "generate_template_code",
+    "LabelTemplateGeneratorSkill",
+    "get_label_template_generator_skill",
+    "BarcodeGenerator",
+    "generate_barcode",
+    "save_barcode",
 ]

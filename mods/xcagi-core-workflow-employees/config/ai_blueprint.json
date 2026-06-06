@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "mod_id": "xcagi-core-workflow-employees",
+  "note": "Mod 级 AI 蓝图；每名员工（家具）的 panel 文案以 manifest.workflow_employees 为准。",
+  "employees": {
+    "label_print": {
+      "role": "标签打印工作流员工",
+      "host_events": ["xcagi:workflow-label-print-signal"],
+      "host_apis": ["/api/print/*"]
+    },
+    "shipment_mgmt": {
+      "role": "出货管理工作流员工",
+      "host_apis": ["/api/shipment/*", "/api/print/workflow/label-print/dispatch"]
+    },
+    "receipt_confirm": {
+      "role": "收货确认工作流员工",
+      "host_events": ["xcagi:workflow-receipt-feedback-signal"]
+    },
+    "wechat_msg": {
+      "role": "微信消息处理工作流员工",
+      "host_events": ["xcagi:wechat-ai-task-enqueue"],
+      "host_apis": ["/api/ai/intent/test"]
+    }
+  }
+}

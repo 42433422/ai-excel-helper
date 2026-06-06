@@ -7,26 +7,26 @@ NeuroBus 集成模块
 - FastAPI 生命周期
 """
 
-from app.neuro_bus.integrations.intent_integration import (
-    NeuroIntentRecognizer,
-    get_neuro_intent_recognizer,
-    integrate_with_intent_system,
-    is_neuro_stack_enabled,
-    try_neuro_reflex_intent,
+from app.domain.neuro.processors.coordinator import (
+    ProcessingReport,
+    ProcessorCoordinator,
+    ProcessorType,
+    get_processor_coordinator,
 )
 from app.neuro_bus.integrations.conversation_integration import (
     NeuroConversationCoordinator,
     integrate_with_conversation_coordinator,
 )
 from app.neuro_bus.integrations.fastapi_integration import (
-    setup_neurobus_lifespan,
     get_neurobus_health,
+    setup_neurobus_lifespan,
 )
-from app.domain.neuro.processors.coordinator import (
-    ProcessorCoordinator,
-    get_processor_coordinator,
-    ProcessingReport,
-    ProcessorType,
+from app.neuro_bus.integrations.intent_integration import (
+    NeuroIntentRecognizer,
+    get_neuro_intent_recognizer,
+    integrate_with_intent_system,
+    is_neuro_stack_enabled,
+    try_neuro_reflex_intent,
 )
 
 __all__ = [

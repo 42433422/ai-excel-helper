@@ -12,6 +12,7 @@ from .mapper import (
     EmployeeMonthTemplateData,
     TemplateEmployeeProfile,
     build_template_profiles,
+    iter_detail_sheet_block_base_rows,
     open_output_workbook,
     rebuild_detail_sheet_person_blocks,
     write_detail_sheet,
@@ -88,6 +89,16 @@ def _round_half_hour(value: float) -> float:
     return round(round(value * 2) / 2, 2)
 
 
+def _round_half_hour_with_25_minute_grace(value: float) -> float:
+    if value <= 0:
+        return 0.0
+    whole_half_hours = math.floor(value * 2)
+    remainder_hours = value - (whole_half_hours / 2)
+    if remainder_hours * 60 >= 25:
+        whole_half_hours += 1
+    return round(whole_half_hours / 2, 2)
+
+
 def _round_whole_hour(value: float) -> float:
     if value <= 0:
         return 0.0
@@ -133,7 +144,6 @@ def _default_profile(record: AttendanceDayRecord) -> TemplateEmployeeProfile:
         block_values=(2.0, 2.0, 2.0, 2.0),
         overtime_start=time(18, 0),
         morning_work_start=None,
-        size_week_anchor=None,
     )
 
 
@@ -170,7 +180,7 @@ def _clip_work_intervals_to_schedule(
     work_intervals: list[tuple[datetime, datetime]],
     schedule_ranges: tuple[TimeRange, ...],
 ) -> list[tuple[datetime, datetime]]:
-    """把实际上班区间与「应计正班的日历时段」求交（如公司/工厂大小周周六仅 13:30–16:00）。"""
+    """把实际上班区间与「应计正班的日历时段」求交（如周六配置班段仅 13:30–16:00）。"""
     clipped: list[tuple[datetime, datetime]] = []
     for wi_start, wi_end in work_intervals:
         for sr in schedule_ranges:
@@ -256,6 +266,24 @@ def _night_overtime_entry(
         return None
     if rounded < 1:
         rounded = 1.0
+    return DayBandEntry(symbol=symbol, value=rounded)
+
+
+def _fixed_night_overtime_entry(
+    work_date: date,
+    last_punch: datetime | None,
+    *,
+    symbol: str,
+) -> DayBandEntry | None:
+    """晚上加班固定从 18:00 起，按最后一次打卡时间结算；零头满 25 分钟进 0.5 小时。"""
+    if last_punch is None:
+        return None
+    base_dt = datetime.combine(work_date, time(18, 0))
+    if last_punch <= base_dt:
+        return None
+    rounded = _round_half_hour_with_25_minute_grace(_hours_between(base_dt, last_punch))
+    if rounded <= 0:
+        return None
     return DayBandEntry(symbol=symbol, value=rounded)
 
 
@@ -378,7 +406,6 @@ def _build_day_template_data(
                 group_name=record.attendance_group,
                 shift_name=record.shift_name,
                 has_any_punch=True,
-                alternate_saturday_anchor=profile.size_week_anchor,
             )
             effective_intervals = (
                 _clip_work_intervals_to_schedule(record.work_date, work_intervals, schedule_ranges)
@@ -395,26 +422,13 @@ def _build_day_template_data(
         day_payload.afternoon.extend(afternoon)
 
         night_symbol = "★" if symbol == "★" else "☆"
-        night_entry = _night_overtime_entry(
+        night_entry = _fixed_night_overtime_entry(
             record.work_date,
             punches[-1],
             symbol=night_symbol,
-            overtime_start=profile.overtime_start,
         )
-        extra_sat_ot = _round_half_hour(
-            _saturday_factory_outside_regular_hours(
-                record.work_date,
-                work_intervals,
-                schedule_ranges,
-                group_name=record.attendance_group,
-                shift_name=record.shift_name,
-            )
-        )
-        night_base = night_entry.value if night_entry is not None else 0.0
-        night_total = _round_half_hour(night_base + extra_sat_ot)
+        night_total = night_entry.value if night_entry is not None else 0.0
         if night_total > 0:
-            if night_total < 1.0 and night_entry is not None and extra_sat_ot == 0.0:
-                night_total = 1.0
             day_payload.night.append(DayBandEntry(symbol=night_symbol, value=night_total))
 
     metrics = {
@@ -470,15 +484,91 @@ def _employee_absent_streaks(records: list[AttendanceDayRecord]) -> dict[tuple[s
     return streaks
 
 
+def _lookup_employee(
+    employees: dict[str, EmployeeMonthTemplateData], name: str
+) -> EmployeeMonthTemplateData | None:
+    key = (name or "").strip()
+    if not key:
+        return None
+    if key in employees:
+        return employees[key]
+    for ek, ev in employees.items():
+        if str(ek).strip() == key:
+            return ev
+    return None
+
+
+def _monthly_row_dict_from_payload(payload: EmployeeMonthTemplateData) -> dict[str, object]:
+    return {
+        "姓名": payload.employee_name,
+        "考勤组": payload.attendance_group,
+        "部门": payload.department,
+        "工号": payload.employee_no,
+        "正常上班": round(payload.normal_hours, 2),
+        "平常加班": round(payload.weekday_overtime_hours, 2),
+        "星期天加班": round(payload.sunday_overtime_hours, 2),
+        "请假": round(payload.leave_hours, 2),
+        "旷工": round(payload.absent_hours, 2),
+        "迟到": round(payload.late_count, 2),
+        "早退": round(payload.early_count, 2),
+        "警告": "；".join(sorted(set(payload.warnings))),
+    }
+
+
+def _empty_monthly_row(name: str, dept: str = "", group: str = "") -> dict[str, object]:
+    return {
+        "姓名": name,
+        "考勤组": group,
+        "部门": dept,
+        "工号": "",
+        "正常上班": 0.0,
+        "平常加班": 0.0,
+        "星期天加班": 0.0,
+        "请假": 0.0,
+        "旷工": 0.0,
+        "迟到": 0.0,
+        "早退": 0.0,
+        "警告": "",
+    }
+
+
+def _build_monthly_rows_for_template(
+    employees: dict[str, EmployeeMonthTemplateData],
+    personnel_roster: list[tuple[str, str, str]] | None,
+    detail_ws,
+) -> list[dict[str, object]]:
+    """与「明细」每人块顺序一致：按人员管理名单或模板块自上而下；无钉钉汇总仍输出一行（零值），避免月度统计主表与夜班侧栏断行。"""
+    if personnel_roster:
+        out: list[dict[str, object]] = []
+        for dept, _nature, name in personnel_roster:
+            raw_name = str(name).strip() if name is not None else ""
+            p = _lookup_employee(employees, raw_name)
+            if p is not None:
+                out.append(_monthly_row_dict_from_payload(p))
+            else:
+                out.append(_empty_monthly_row(raw_name, dept=str(dept or "").strip()))
+        return out
+
+    out: list[dict[str, object]] = []
+    for br in iter_detail_sheet_block_base_rows(detail_ws):
+        raw = detail_ws.cell(br, 3).value
+        raw_name = str(raw).strip() if raw not in (None, "") else ""
+        dept = str(detail_ws.cell(br, 1).value or "").strip()
+        p = _lookup_employee(employees, raw_name) if raw_name else None
+        if p is not None:
+            out.append(_monthly_row_dict_from_payload(p))
+        elif raw_name:
+            out.append(_empty_monthly_row(raw_name, dept=dept))
+        else:
+            out.append(_empty_monthly_row("", dept=dept))
+    return out
+
+
 def _aggregate_employee_records(
     records: list[AttendanceDayRecord],
     *,
     template_profiles: dict[str, TemplateEmployeeProfile],
-) -> tuple[
-    dict[str, EmployeeMonthTemplateData],
-    list[dict[str, object]],
-    list[dict[str, object]],
-]:
+) -> tuple[dict[str, EmployeeMonthTemplateData], list[dict[str, object]]]:
     employees: dict[str, EmployeeMonthTemplateData] = {}
     analysis_rows: list[dict[str, object]] = []
     absent_streaks = _employee_absent_streaks(records)
@@ -529,25 +619,7 @@ def _aggregate_employee_records(
             }
         )
 
-    monthly_rows: list[dict[str, object]] = []
-    for payload in employees.values():
-        monthly_rows.append(
-            {
-                "姓名": payload.employee_name,
-                "考勤组": payload.attendance_group,
-                "部门": payload.department,
-                "工号": payload.employee_no,
-                "正常上班": round(payload.normal_hours, 2),
-                "平常加班": round(payload.weekday_overtime_hours, 2),
-                "星期天加班": round(payload.sunday_overtime_hours, 2),
-                "请假": round(payload.leave_hours, 2),
-                "旷工": round(payload.absent_hours, 2),
-                "迟到": round(payload.late_count, 2),
-                "早退": round(payload.early_count, 2),
-                "警告": "；".join(sorted(set(payload.warnings))),
-            }
-        )
-    return employees, analysis_rows, monthly_rows
+    return employees, analysis_rows
 
 
 def convert_attendance_records(
@@ -578,10 +650,11 @@ def convert_attendance_records(
                 "success": False,
                 "error": "钉钉数据与模板明细中的姓名无交集：请核对模板人员名单与「每日统计」姓名列是否一致（含空格/全半角）。",
             }
-        employees, analysis_rows, monthly_rows = _aggregate_employee_records(
+        employees, analysis_rows = _aggregate_employee_records(
             filtered,
             template_profiles=template_profiles,
         )
+        monthly_rows = _build_monthly_rows_for_template(employees, personnel_roster, detail_ws)
         template_result = write_detail_sheet(
             workbook,
             employees,
@@ -666,10 +739,11 @@ def convert_attendance_file(
                 "success": False,
                 "error": "钉钉数据与模板明细中的姓名无交集：请核对模板人员名单与「每日统计」姓名列是否一致（含空格/全半角）。",
             }
-        employees, analysis_rows, monthly_rows = _aggregate_employee_records(
+        employees, analysis_rows = _aggregate_employee_records(
             filtered,
             template_profiles=template_profiles,
         )
+        monthly_rows = _build_monthly_rows_for_template(employees, personnel_roster, detail_ws)
         template_result = write_detail_sheet(
             workbook,
             employees,

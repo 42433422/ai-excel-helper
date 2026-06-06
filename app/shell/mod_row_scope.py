@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 
 def _column_name_set(column_names: set[str] | Mapping[str, object]) -> set[str]:
@@ -34,9 +34,7 @@ def append_mod_scope_where(
     bind["xmid"] = mid
 
 
-def products_update_or_delete_mod_and(
-    pcols: set[str], params: dict[str, object]
-) -> str:
+def products_update_or_delete_mod_and(pcols: set[str], params: dict[str, object]) -> str:
     """UPDATE/DELETE products（及同类按包隔离表）时追加 AND 片段；与 append_mod_scope_where 共用 :xmid。"""
     if "xcagi_mod_id" not in pcols:
         return ""

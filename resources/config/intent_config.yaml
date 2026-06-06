@@ -279,6 +279,23 @@ tool_intents:
     tool_key: materials
     block_if_negated: false
 
+  - id: price_list
+    keywords:
+      - 价格表
+      - 报价单
+      - 打印价格表
+      - 打印报价单
+      - 打印公司的价格表
+      - 导出价格表
+      - 导出报价单
+      - 生成价格表
+      - 生成报价单
+      - 客户价格表
+      - 产品价格表
+    priority: 7
+    tool_key: price_list
+    block_if_negated: true
+
 hint_intents:
   - id: template_query
     keywords:
@@ -297,7 +314,7 @@ hint_intents:
       - 导出表格
       - 导出用户列表
       - 导出客户列表
-      - 导出购买单位
+      - 导出客户
       - 导出单位
     priority: 7
 
@@ -309,7 +326,7 @@ hint_intents:
       - 查看用户
       - 客户列表
       - 查看客户列表
-      - 购买单位列表
+      - 查看客户
     priority: 7
 
   - id: customer_edit
@@ -401,6 +418,10 @@ quick_rules:
     其他工具: other_tools
     ai生态: ai_ecosystem
     AI生态: ai_ecosystem
+    价格表: price_list
+    报价单: price_list
+    打印价格表: price_list
+    打印报价单: price_list
   intent_patterns:
     - pattern: '^发货单[^\s]{2,10}\s*\d+[桶箱件个]'
       intent: shipment_generate
@@ -414,6 +435,10 @@ quick_rules:
       intent: shipment_generate
     - pattern: '打印.*\d+.*规格'
       intent: shipment_generate
+    - pattern: '打印.*公司的价格表'
+      intent: price_list
+    - pattern: '打印.*公司的报价单'
+      intent: price_list
   context_inherit_patterns:
     - pattern: '^再[一1]份$'
       action: repeat_last

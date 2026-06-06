@@ -14,7 +14,8 @@ import json
 import logging
 import os
 import re
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -119,9 +120,10 @@ def enrich_excel_tool_arguments(
     ea = runtime_context.get("excel_analysis")
     if not isinstance(ea, dict):
         return out
-    ctx_fp = str(ea.get("file_path") or "").strip() or str(
-        (ea.get("preview_data") or {}).get("file_path") or ""
-    ).strip()
+    ctx_fp = (
+        str(ea.get("file_path") or "").strip()
+        or str((ea.get("preview_data") or {}).get("file_path") or "").strip()
+    )
     ctx_fn = str(ea.get("file_name") or "").strip()
     tool_fp = str(out.get("file_path") or "").strip()
     if ctx_fp:
@@ -191,9 +193,10 @@ def format_runtime_context_for_llm(runtime_context: Mapping[str, Any] | None) ->
     if isinstance(fp_top, str) and fp_top.strip():
         fp_single = fp_top.strip()
     elif isinstance(ea0, dict):
-        fp_single = str(ea0.get("file_path") or "").strip() or str(
-            (ea0.get("preview_data") or {}).get("file_path") or ""
-        ).strip()
+        fp_single = (
+            str(ea0.get("file_path") or "").strip()
+            or str((ea0.get("preview_data") or {}).get("file_path") or "").strip()
+        )
     if fp_single:
         lines.append(f"- excel_file_path: {fp_single}")
         lines.append(
@@ -225,12 +228,14 @@ def format_runtime_context_for_llm(runtime_context: Mapping[str, Any] | None) ->
                 "- 调用 excel_analysis 时请按 sheet_name 逐表读取并汇总，不要只读第一张表。"
             )
             lines.append(
-                '- 示例: {"file_path": "' + fp_single + '", "action": "read", "sheet_name": "<每个工作表名>"}'
+                '- 示例: {"file_path": "'
+                + fp_single
+                + '", "action": "read", "sheet_name": "<每个工作表名>"}'
             )
         elif sheet_name:
             lines.append(f"- 用户当前选中的工作表: {sheet_name}")
             lines.append(
-                f'- 调用 excel_analysis 时请使用 sheet_name 参数指定工作表: '
+                f"- 调用 excel_analysis 时请使用 sheet_name 参数指定工作表: "
                 f'{{"file_path": "{fp_single}", "action": "read", "sheet_name": "{sheet_name}"}}'
             )
         else:
@@ -262,7 +267,7 @@ def format_runtime_context_for_llm(runtime_context: Mapping[str, Any] | None) ->
         if ea_hdr is not None:
             lines.append(f"- extract-grid 检测到的表头行（Excel 行号，从 1 开始）: {ea_hdr}")
             lines.append(
-                f'- 调用 excel_analysis / excel_schema_understand 时务必包含相同表头行，例如: '
+                f"- 调用 excel_analysis / excel_schema_understand 时务必包含相同表头行，例如: "
                 f'{{"file_path": "{fp_single}", "action": "read", "sheet_name": "{sheet_name or ""}", '
                 f'"header_row": {ea_hdr}}}'.replace(', "sheet_name": ""', "")
             )
@@ -475,7 +480,9 @@ def format_excel_analysis_for_llm(runtime_context: Mapping[str, Any] | None) -> 
         if preview_text:
             lines.append(f"- 关联工作表真实网格预览: {preview_text}")
     lines.append("")
-    lines.append("注意：以上仅为摘要信息。如需获取完整数据进行导入、核对或查询，请调用 excel_analysis 工具。")
+    lines.append(
+        "注意：以上仅为摘要信息。如需获取完整数据进行导入、核对或查询，请调用 excel_analysis 工具。"
+    )
     return "\n".join(lines) if len(lines) > 1 else None
 
 

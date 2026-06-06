@@ -1,5 +1,5 @@
 """
-AI 助手接口兼容层（自归档 ``ai_assistant_compat`` Flask 蓝图迁移）。
+AI 助手接口兼容层（继承自归档 ``ai_assistant_compat`` 蓝图的端点契约）。
 
 与 ``xcagi_compat``、``shipment_orders_fastapi_compat``、``migrated_print`` 互补：
 仅注册上述模块尚未覆盖或语义不同的路径（例如 ``GET /api/units``、``POST /api/generate``、
@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Body, Query
 from fastapi.responses import JSONResponse
@@ -36,9 +36,9 @@ def _fail(message: str, status: int = 400, **extra: Any) -> JSONResponse:
 
 
 def _shipment_svc():
-    from app.bootstrap import get_shipment_app_service
+    from app.bootstrap import get_shipment_application_service_core
 
-    return get_shipment_app_service()
+    return get_shipment_application_service_core()
 
 
 def _printer_svc():
@@ -48,13 +48,13 @@ def _printer_svc():
     注意：不要从 `app.services` 导入（其 __init__ 会拉起大量服务/依赖，可能导致启动慢或卡死），
     直接引用打印服务模块内的单例即可。
     """
-    from app.services.printer_service import printer_service
+    from app.application.facades.print_facade import printer_service
 
     return printer_service
 
 
-def _distinct_product_names(keyword: Optional[str] = None) -> List[str]:
-    from app.services.unified_query_service import get_product_names
+def _distinct_product_names(keyword: str | None = None) -> list[str]:
+    from app.application.facades.query_facade import get_product_names
 
     return get_product_names(keyword=keyword)
 
@@ -99,9 +99,7 @@ def compat_ai_generate(payload: dict[str, Any] = Body(default_factory=dict)):
             return JSONResponse(result, status_code=500)
 
         file_path = result.get("file_path")
-        doc_name = result.get("doc_name") or (
-            os.path.basename(file_path) if file_path else None
-        )
+        doc_name = result.get("doc_name") or (os.path.basename(file_path) if file_path else None)
         download_url = f"/api/shipment/download/{doc_name}" if doc_name else None
 
         return _ok(
@@ -130,7 +128,7 @@ def compat_shipment_records_units():
 
 
 @router.get("/api/shipment-records/records")
-def compat_shipment_records_records(unit: Optional[str] = Query(default=None)):
+def compat_shipment_records_records(unit: str | None = Query(default=None)):
     app_service = _shipment_svc()
     rows = app_service.get_shipment_records(unit_name=unit)
     return _ok(rows, count=len(rows))
@@ -138,7 +136,7 @@ def compat_shipment_records_records(unit: Optional[str] = Query(default=None)):
 
 @router.get("/api/units")
 def compat_units_alias():
-    from app.services.unified_query_service import get_purchase_units
+    from app.application.facades.query_facade import get_purchase_units
 
     data = get_purchase_units()
     return _ok(data, count=len(data))
@@ -146,13 +144,11 @@ def compat_units_alias():
 
 @router.post("/api/purchase_units")
 def compat_purchase_units_create(payload: dict[str, Any] = Body(default_factory=dict)):
+    from app.application.facades.query_facade import find_purchase_unit
     from app.db.models import PurchaseUnit
     from app.db.session import get_db
-    from app.services.unified_query_service import find_purchase_unit
 
-    unit_name = str(
-        payload.get("unit_name") or payload.get("name") or ""
-    ).strip()
+    unit_name = str(payload.get("unit_name") or payload.get("name") or "").strip()
     if not unit_name:
         return _fail("单位名称不能为空", 400)
 
@@ -176,7 +172,9 @@ def compat_purchase_units_create(payload: dict[str, Any] = Body(default_factory=
 
 
 @router.put("/api/purchase_units/{unit_id}")
-def compat_purchase_units_update(unit_id: int, payload: dict[str, Any] = Body(default_factory=dict)):
+def compat_purchase_units_update(
+    unit_id: int, payload: dict[str, Any] = Body(default_factory=dict)
+):
     from app.db.models import PurchaseUnit
     from app.db.session import get_db
 
@@ -197,8 +195,8 @@ def compat_purchase_units_update(unit_id: int, payload: dict[str, Any] = Body(de
 
 @router.delete("/api/purchase_units/{unit_id}")
 def compat_purchase_units_delete(unit_id: int):
+    from app.application.facades.query_facade import query_service
     from app.db.models import PurchaseUnit
-    from app.services.unified_query_service import query_service
 
     deleted = query_service.delete(PurchaseUnit, id=unit_id)
     if deleted == 0:
@@ -208,7 +206,7 @@ def compat_purchase_units_delete(unit_id: int):
 
 @router.get("/api/purchase_units/by_name/{unit_name}")
 def compat_purchase_units_by_name(unit_name: str):
-    from app.services.unified_query_service import find_purchase_unit
+    from app.application.facades.query_facade import find_purchase_unit
 
     name = (unit_name or "").strip()
     unit = find_purchase_unit(unit_name=name)
@@ -237,7 +235,7 @@ def compat_product_names_by_unit(unit_id: int):
 
 @router.get("/api/product_names/by_unit_and_name")
 def compat_product_by_unit_and_name(name: str = Query(default="")):
-    from app.services.unified_query_service import find_product
+    from app.application.facades.query_facade import find_product
 
     n = (name or "").strip()
     if not n:
@@ -303,8 +301,46 @@ def compat_print_pdf_labels():
 
 
 @router.post("/api/print/single_label")
-def compat_print_single_label():
-    return _fail("XCAGI 暂未实现 single_label（请使用现有打印功能）", 501)
+def compat_print_single_label(payload: dict[str, Any] = Body(default_factory=dict)):
+    """打印单张标签：根据型号查找产品信息后发送到标签打印机。"""
+    model_number = str(payload.get("model_number") or "").strip()
+    quantity = int(payload.get("quantity") or 1)
+    if quantity < 1 or quantity > 100:
+        quantity = 1
+
+    product_name = model_number
+    specification: str | None = None
+    unit = "个"
+
+    if model_number:
+        try:
+            from app.application import get_product_app_service
+
+            svc = get_product_app_service()
+            products = svc.search_products(keyword=model_number, limit=1)
+            if products and isinstance(products, list):
+                p = products[0]
+                product_name = str(p.get("name") or p.get("product_name") or model_number)
+                specification = str(p.get("specification") or p.get("spec") or "") or None
+                unit = str(p.get("unit") or "个")
+        except Exception as e:
+            logger.warning("single_label: 查询产品失败，使用型号作为名称: %s", e)
+
+    try:
+        from app.application.print_app_service import get_print_application_service
+
+        result = get_print_application_service().print_single_label(
+            product_name=product_name,
+            model_number=model_number or None,
+            specification=specification,
+            unit=unit,
+            quantity=quantity,
+        )
+        status = 200 if result.get("success") else 400
+        return JSONResponse(result, status_code=status)
+    except Exception as e:
+        logger.error("single_label 打印失败: %s", e, exc_info=True)
+        return JSONResponse({"success": False, "message": f"打印失败: {e}"}, status_code=500)
 
 
 @router.post("/api/tts")
@@ -323,8 +359,10 @@ def compat_tts(payload: dict[str, Any] = Body(default_factory=dict)):
     pitch = payload.get("pitch")
 
     try:
-        from app.services import synthesize_to_data_uri
-        from app.services.tts_service import trigger_common_tts_warmup
+        from app.application.facades.tts_facade import (
+            synthesize_to_data_uri,
+            trigger_common_tts_warmup,
+        )
 
         trigger_common_tts_warmup()
 
@@ -356,5 +394,6 @@ def compat_tts(payload: dict[str, Any] = Body(default_factory=dict)):
                 "success": False,
                 "message": "TTS 服务未启用，将使用浏览器语音",
                 "data": {},
-            }
+            },
+            status_code=200,
         )

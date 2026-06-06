@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
 """小猫分析 Word 报告导出（与 XLSX 导出共享插件结论）。"""
+
 from __future__ import annotations
 
 import json
 from datetime import datetime
 from io import BytesIO
-from typing import Any, Dict, List
+from typing import Any
 
 from .service import KittenReportExportService
 
@@ -14,7 +14,7 @@ def _html_to_plain(content: str) -> str:
     return KittenReportExportService._html_to_text(str(content or ""))
 
 
-def build_kitten_docx(payload: Dict[str, Any]) -> Dict[str, Any]:
+def build_kitten_docx(payload: dict[str, Any]) -> dict[str, Any]:
     svc = KittenReportExportService()
     plugin_results = svc.collect_plugin_results(payload or {})
 
@@ -100,7 +100,9 @@ def build_kitten_docx(payload: Dict[str, Any]) -> Dict[str, Any]:
         for msg in messages[-40:]:
             role = str(msg.get("role") or "")
             label = "助手" if role == "ai" else "用户"
-            line = f"[{label} {msg.get('time') or ''}] {_html_to_plain(str(msg.get('content') or ''))}"
+            line = (
+                f"[{label} {msg.get('time') or ''}] {_html_to_plain(str(msg.get('content') or ''))}"
+            )
             doc.add_paragraph(line[:2000] + ("…" if len(line) > 2000 else ""))
     else:
         doc.add_paragraph("暂无对话记录。")

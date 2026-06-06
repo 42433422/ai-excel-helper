@@ -1,0 +1,36 @@
+name: ci-mobile-android
+
+on:
+  push:
+    paths:
+      - "mobile-android/**"
+      - ".github/workflows/ci-mobile-android.yml"
+  pull_request:
+    paths:
+      - "mobile-android/**"
+      - ".github/workflows/ci-mobile-android.yml"
+
+concurrency:
+  group: ci-mobile-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  assemble-debug:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Ensure gradlew executable
+        run: chmod +x ./gradlew
+      - name: Assemble Debug (personal + enterprise)
+        run: ./gradlew assemblePersonalDebug assembleEnterpriseDebug --no-daemon
+      - name: Lint
+        run: ./gradlew lintPersonalDebug --no-daemon
+        continue-on-error: true

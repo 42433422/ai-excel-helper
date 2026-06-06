@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class ShipmentRecordCommandPort(ABC):
     """shipment_records 写操作端口（Command side）。"""
 
     @abstractmethod
-    def clear_all(self) -> Dict[str, Any]:
+    def clear_all(self) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def clear_by_unit(self, purchase_unit: str) -> Dict[str, Any]:
+    def clear_by_unit(self, purchase_unit: str) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
@@ -20,13 +20,12 @@ class ShipmentRecordCommandPort(ABC):
         self,
         record_id: int,
         *,
-        unit_name: Optional[str] = None,
-        date: Optional[str] = None,
-        fields: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        unit_name: str | None = None,
+        date: str | None = None,
+        fields: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def delete_record(self, record_id: int) -> Dict[str, Any]:
+    def delete_record(self, record_id: int) -> dict[str, Any]:
         raise NotImplementedError
-

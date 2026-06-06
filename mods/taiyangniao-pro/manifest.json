@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "author": "太阳鸟",
   "description": "太阳鸟专业版：由 MODstore 脚手架创建，可在库内继续编辑并同步到 XCAGI/mods。",
-  "primary": false,
+  "primary": true,
   "dependencies": {
     "xcagi": ">=1.0.0"
   },
@@ -14,11 +14,12 @@
   },
   "frontend": {
     "routes": "frontend/routes",
+    "pro_entry_path": "/taiyangniao-pro",
     "menu": [
       {
         "id": "taiyangniao-pro-home",
-        "label": "太阳鸟pro",
-        "icon": "fa-cube",
+        "label": "考勤表转换",
+        "icon": "fa-file-excel-o",
         "path": "/taiyangniao-pro"
       }
     ],
@@ -79,6 +80,42 @@
       "label_height": 50
     }
   },
+  "ui_labels": {
+    "entity": "员工",
+    "entity_plural": "人员",
+    "query_title": "员工查询",
+    "query_description": "查询与快速修改员工档案",
+    "query_placeholder": "输入工号/员工姓名查询员工",
+    "records": "考勤记录",
+    "entity_list": "人员管理"
+  },
+  "ui_starter_pack": [
+    {
+      "label": "查员工信息",
+      "hint": "示例：查询员工「张三」或工号 1001",
+      "text": "查询工号1001的员工信息"
+    },
+    {
+      "label": "登记出勤",
+      "hint": "记录员工当天出勤与工时",
+      "text": "给张三登记今天出勤1天8小时"
+    },
+    {
+      "label": "生成考勤单",
+      "hint": "按部门或员工生成考勤单",
+      "text": "生成研发部本月考勤单"
+    },
+    {
+      "label": "异常说明",
+      "hint": "记录迟到、请假或缺卡",
+      "text": "记录李四今天迟到30分钟，原因是交通拥堵"
+    },
+    {
+      "label": "排班任务",
+      "hint": "快速创建排班安排",
+      "text": "给客服部生成明天早班排班单"
+    }
+  ],
   "workflow_employees": [
     {
       "id": "attendance_ai",

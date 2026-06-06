@@ -8,7 +8,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.domain.neuro.processors.coordinator import ProcessorType
 from app.domain.neuro.reflex_arc import IntentReflexArc, ReflexResult, ReflexType, get_reflex_arc
@@ -23,10 +23,10 @@ def is_neuro_stack_enabled() -> bool:
     return raw not in {"0", "false", "off", "no"}
 
 
-def reflex_match_to_chat_intent_dict(rr: ReflexResult) -> Dict[str, Any]:
+def reflex_match_to_chat_intent_dict(rr: ReflexResult) -> dict[str, Any]:
     """将反射弧命中结果转成与 Hybrid / rule 路径一致的意图字典。"""
     rt = rr.reflex_type
-    base: Dict[str, Any] = {
+    base: dict[str, Any] = {
         "primary_intent": None,
         "final_intent": None,
         "tool_key": None,
@@ -47,7 +47,7 @@ def reflex_match_to_chat_intent_dict(rr: ReflexResult) -> Dict[str, Any]:
     return base
 
 
-def try_neuro_reflex_intent(message: str, user_id: str = "") -> Optional[Dict[str, Any]]:
+def try_neuro_reflex_intent(message: str, user_id: str = "") -> dict[str, Any] | None:
     """
     非 pro 路径上的快速反射（问候/确认等）。总线未启动时仍返回意图字典，仅跳过 emit。
     """
@@ -80,10 +80,10 @@ class NeuroIntentResult:
     source: str
     processor_type: ProcessorType
     latency_ms: float
-    entities: Dict[str, Any]
+    entities: dict[str, Any]
     reflex_used: bool = False
     ai_enhanced: bool = False
-    recognizer_result: Optional[Any] = None
+    recognizer_result: Any | None = None
 
 
 class NeuroIntentRecognizer:
@@ -95,8 +95,8 @@ class NeuroIntentRecognizer:
 
     def __init__(
         self,
-        reflex_arc: Optional[IntentReflexArc] = None,
-        base_recognizer: Optional[Any] = None,
+        reflex_arc: IntentReflexArc | None = None,
+        base_recognizer: Any | None = None,
     ):
         from app.services.unified_intent_recognizer import get_unified_intent_recognizer
 
@@ -107,8 +107,8 @@ class NeuroIntentRecognizer:
         self,
         text: str,
         user_id: str = "",
-        context: Optional[Any] = None,
-        context_data: Optional[Dict[str, Any]] = None,
+        context: Any | None = None,
+        context_data: dict[str, Any] | None = None,
     ) -> NeuroIntentResult:
         start_time = time.perf_counter()
         reflex_result = self._reflex.process(text)
@@ -198,7 +198,7 @@ class NeuroIntentRecognizer:
     def should_use_reflex(self, text: str) -> bool:
         return self._reflex.should_handle(text)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {"reflex": self._reflex.get_stats()}
 
 
@@ -217,7 +217,7 @@ def integrate_with_intent_system() -> NeuroIntentRecognizer:
     return NeuroIntentRecognizer()
 
 
-_neuro_recognizer: Optional[NeuroIntentRecognizer] = None
+_neuro_recognizer: NeuroIntentRecognizer | None = None
 
 
 def get_neuro_intent_recognizer() -> NeuroIntentRecognizer:

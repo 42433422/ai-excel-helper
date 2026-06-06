@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from datetime import datetime
@@ -33,16 +32,22 @@ async def ingest_excel_vector(request: Request):
             upload = form.get("excel_file")
             if upload is not None and hasattr(upload, "filename") and upload.filename:
                 if not str(upload.filename).lower().endswith((".xlsx", ".xls")):
-                    return JSONResponse({"success": False, "message": "只支持 .xlsx/.xls 文件"}, status_code=400)
+                    return JSONResponse(
+                        {"success": False, "message": "只支持 .xlsx/.xls 文件"}, status_code=400
+                    )
                 filename = f"vector_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{upload.filename}"
                 file_path = os.path.join(get_upload_dir(), filename)
                 body = await upload.read()
                 with open(file_path, "wb") as f:
                     f.write(body)
                 should_cleanup = True
-                payload = {k: v for k, v in form.items() if k != "excel_file" and isinstance(v, str)}
+                payload = {
+                    k: v for k, v in form.items() if k != "excel_file" and isinstance(v, str)
+                }
             else:
-                return JSONResponse({"success": False, "message": "请选择 Excel 文件"}, status_code=400)
+                return JSONResponse(
+                    {"success": False, "message": "请选择 Excel 文件"}, status_code=400
+                )
         else:
             try:
                 payload = await request.json()
@@ -50,7 +55,10 @@ async def ingest_excel_vector(request: Request):
                 payload = {}
             file_path = str(payload.get("file_path") or "").strip()
             if not file_path:
-                return JSONResponse({"success": False, "message": "请提供 file_path 或上传 excel_file"}, status_code=400)
+                return JSONResponse(
+                    {"success": False, "message": "请提供 file_path 或上传 excel_file"},
+                    status_code=400,
+                )
 
         index_name = str(payload.get("index_name") or "").strip() or None
         index_id = str(payload.get("index_id") or "").strip() or None

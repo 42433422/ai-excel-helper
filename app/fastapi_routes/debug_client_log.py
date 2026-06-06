@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, Body
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/debug", tags=["debug"])
 
 
 @router.post("/client-log")
-def post_client_debug_log(body: Dict[str, Any] = Body(default_factory=dict)) -> Dict[str, Any]:
+def post_client_debug_log(body: dict[str, Any] = Body(default_factory=dict)) -> dict[str, Any]:
     try:
         from app.utils.logging_utils import ingest_client_debug_json
 

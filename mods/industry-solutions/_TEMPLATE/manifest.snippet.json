@@ -1,0 +1,14 @@
+{
+  "taxonomy": {
+    "category": "industry_solution",
+    "industry_vertical": "your-vertical-slug",
+    "tier": "template",
+    "market_slug": "your-market-slug"
+  },
+  "cross_platform": {
+    "min_manifest_version": "1",
+    "primary_targets": ["modstore"],
+    "capabilities": ["skill_invoke"],
+    "adapters_declared": []
+  }
+}

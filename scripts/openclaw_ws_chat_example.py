@@ -41,7 +41,11 @@ def _extract_assistant_text(payload: dict) -> str:
         return ""
     out = []
     for block in parts:
-        if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+        if (
+            isinstance(block, dict)
+            and block.get("type") == "text"
+            and isinstance(block.get("text"), str)
+        ):
             out.append(block["text"])
     return "".join(out)
 

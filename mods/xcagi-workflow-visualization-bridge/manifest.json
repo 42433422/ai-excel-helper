@@ -1,0 +1,44 @@
+{
+  "id": "xcagi-workflow-visualization-bridge",
+  "name": "工作流可视化（流程全景）",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "仅提供流程全景物理页路由；工作流员工由商店安装的 6 个独立 Mod 注入。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=8.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes",
+    "menu": [
+      {
+        "id": "mod-workflow-visualization",
+        "label": "流程可视化",
+        "icon": "fa-project-diagram",
+        "path": "/mod/xcagi-workflow-visualization-bridge/workflow-visualization"
+      }
+    ],
+    "menu_overrides": [
+      {
+        "key": "workflow-visualization",
+        "hidden": true
+      }
+    ]
+  },
+  "hooks": {},
+  "comms": {
+    "exports": []
+  },
+  "config": {
+    "workflow_pages_via_mod": true,
+    "views_physical": true,
+    "physical_views": [
+      "WorkflowVisualizationView.vue"
+    ],
+    "phase": "R"
+  }
+}

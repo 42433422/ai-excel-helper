@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class VectorStorePort(ABC):
@@ -11,7 +11,7 @@ class VectorStorePort(ABC):
     def upsert_chunks(
         self,
         index_id: str,
-        chunks: List[Dict[str, Any]],
+        chunks: list[dict[str, Any]],
     ) -> int:
         """写入分块向量数据并返回写入数量。"""
         raise NotImplementedError
@@ -20,15 +20,15 @@ class VectorStorePort(ABC):
     def query(
         self,
         index_id: str,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """检索相似分块。"""
         raise NotImplementedError
 
     @abstractmethod
-    def list_indexes(self) -> List[Dict[str, Any]]:
+    def list_indexes(self) -> list[dict[str, Any]]:
         """返回索引列表与状态。"""
         raise NotImplementedError
 

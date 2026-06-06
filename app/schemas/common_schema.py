@@ -1,20 +1,19 @@
-# -*- coding: utf-8 -*-
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class ErrorResponse(BaseModel):
     success: bool = False
     message: str
-    error_code: Optional[str] = None
-    details: Optional[List[Dict[str, Any]]] = None
+    error_code: str | None = None
+    details: list[dict[str, Any]] | None = None
 
 
 class SuccessResponse(BaseModel):
     success: bool = True
     message: str = "操作成功"
-    data: Optional[Any] = None
+    data: Any | None = None
 
 
 class PaginationMeta(BaseModel):

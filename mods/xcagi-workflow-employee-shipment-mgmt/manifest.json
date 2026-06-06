@@ -1,0 +1,36 @@
+{
+  "id": "xcagi-workflow-employee-shipment-mgmt",
+  "name": "出货管理 AI 员工",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "对话开单 → 确认执行 → 开始打印 → 出货记录审计建议。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=8.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes.js"
+  },
+  "hooks": {},
+  "comms": {
+    "exports": []
+  },
+  "config": {
+    "workflow_employee_single": true,
+    "employee_id": "shipment_mgmt",
+    "store_collection": "workflow_employee"
+  },
+  "workflow_employees": [
+    {
+      "id": "shipment_mgmt",
+      "label": "出货管理 AI 员工",
+      "panel_title": "工作流 · 出货管理 AI 员工",
+      "panel_summary": "对话开单 → 确认执行 → 开始打印 → 出货记录审计建议。",
+      "api_base_path": "employees/shipment_mgmt"
+    }
+  ]
+}

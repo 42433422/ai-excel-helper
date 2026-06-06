@@ -6,7 +6,9 @@ from pathlib import Path
 
 
 def mod_suffix_token(mod_id: str) -> str:
-    return "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").lower()
+    return (
+        "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").lower()
+    )
 
 
 def sqlite_filename_with_mod_suffix(filename: str, mod_id: str) -> str:

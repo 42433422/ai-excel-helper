@@ -30,9 +30,7 @@ def _sanitize_token(raw: str) -> str | None:
     t = (raw or "").strip()
     if not t or len(t) > 128:
         return None
-    allowed = frozenset(
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
-    )
+    allowed = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
     if not all(c in allowed for c in t):
         return None
     return t

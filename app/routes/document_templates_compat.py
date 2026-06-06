@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 调用 ``app.services.document_templates_service`` 中的模板 API 实现（纯 Python，
 不依赖 werkzeug）。
@@ -23,7 +22,7 @@ import shutil
 from io import BytesIO
 from typing import Any, BinaryIO
 
-from app.services import document_templates_service as _tpl
+from app.application.facades.template_facade import document_templates_service as _tpl
 
 
 class _UploadLikeFile:
@@ -33,7 +32,9 @@ class _UploadLikeFile:
     ``document_templates_service.analyze_template_with_upload`` 使用。
     """
 
-    def __init__(self, stream: BinaryIO, filename: str, content_type: str = "application/octet-stream") -> None:
+    def __init__(
+        self, stream: BinaryIO, filename: str, content_type: str = "application/octet-stream"
+    ) -> None:
         self.stream = stream
         self.filename = filename
         self.content_type = content_type

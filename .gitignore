@@ -1,1 +1,206 @@
+# ============================================================================
+# Python
+# ============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# ============================================================================
+# IDE / editor metadata
+# ============================================================================
+.idea/
+.vscode/
+.trae/
+.cursor/logs/
+*.swp
+*.swo
+*.bak
+*~
+
+# ============================================================================
+# Testing & coverage caches (NOTE: do NOT ignore tests/ directory itself)
+# ============================================================================
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+coverage.xml
+coverage/
+.tox/
+.vector_index/
+
+# ============================================================================
+# Database files (runtime data - keep code references to schemas)
+# ============================================================================
+*.db
+*.db-shm
+*.db-wal
+*.db.backup*
+*.sqlite
+*.sqlite3
+data/dev-db/
+XCAGI/data/desktop-dev/
+XCAGI/data/enterprise-desktop/
+data/model_payment_orders.json
+customer_products_final_corrected.db
+
+# Stray local scratch (historical)
+XCAGI/dy
+
+# ============================================================================
+# Logs & temporary output
+# ============================================================================
+*.log
+logs/
+.agent-*.log
+.uvicorn.*.log
+uvicorn-smoke.log
+bartender_gui_automation.log
+test_ocr_modify.log
+test_trademark_files.log
+tsc-errors.txt
+cleanup_report.txt
+**/_fail*.txt
+_fail*.txt
+_full*.txt
+_pytest*.txt
+_sweep*.txt
+startup_output.txt
+test_image.*
+test_barcode*
+
+# ============================================================================
+# OS
+# ============================================================================
+.DS_Store
+Thumbs.db
+
+# ============================================================================
+# Secrets & payment keys
+# ============================================================================
+.env
+.env.local
+.env.*.local
+scripts/package/upload-release.env
+.secrets/
+**/alipay_app_private.pem
+**/alipay_*_private*.pem
+**/应用私钥*.txt
+**/应用私钥*.pem
+.tmp_alipay_pkg/
+
+# ============================================================================
+# Runtime output / generated / user data
+# ============================================================================
+uploads/
+temp_excel/
+shipment_outputs/
+saved_analyses/
+user_memory/
+labels/
+test_labels/
+output/
+outputs/
+temp/
+
+# Excel temp artifacts
+~$*.xlsx
+~$*.xls
+
+# Label generator outputs
+labels/*.png
+labels/*.jpg
+
+# Resource exports (customer trademarks etc.)
+resources/ai_assistant/*.png
+resources/ai_assistant/*.jpg
+resources/ai_assistant/*.jpeg
+resources/ai_assistant/商标导出/
+
+# Wechat decrypt binary (build artifact)
+wechat-decrypt/bin/
+wechat-decrypt/build/
+
+# ============================================================================
+# Frontend build artifacts
+# ============================================================================
+node_modules/
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+templates/vue-dist/
+vue-dist/
+
+# ============================================================================
+# Model checkpoints (large binaries)
+# ============================================================================
+*.pt
+*.safetensors
+checkpoints/
+distillation/checkpoints/
+
+# ============================================================================
+# Python 32bit distribution
+# ============================================================================
+python32/
+
+# ============================================================================
+# Archive / backups
+# ============================================================================
+.archive/
+git-backup/
+release-bundle/
+_backup_icon_system/
+_tmp_*/
+_perf_*.json
+
+# ============================================================================
+# Misc
+# ============================================================================
+git-change-inventory.txt
+arch_violations.txt
+test_reports/intent_benchmark_latest.json
+*.spec
+current_page.html
+custom_mode_test.html
+.accelerate/
+
+# ============================================================================
+# Large local data / release builds
+# ============================================================================
+release/
+update-server/
+424/
+ces/
+10.2.0
+sz-qsm-pro-1.0.0.xcmod
+data/exports/
+合同/
+_compare_convert_output.xlsx
+
+# Removed mods snapshot (restored from git; may contain large zips)
+_archived_removed_mods/

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
 
@@ -10,6 +11,8 @@ from app.db.models import ShipmentRecord
 from app.db.session import get_db
 from app.infrastructure.lookups import resolve_purchase_unit
 
+logger = logging.getLogger(__name__)
+
 
 class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
     """shipment_records 表的只读查询实现（Read side）。"""
@@ -17,12 +20,12 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
     def query_shipments(
         self,
         *,
-        unit_name: Optional[str] = None,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        unit_name: str | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         page: int = 1,
         per_page: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         try:
             query_unit = unit_name
 
@@ -68,10 +71,10 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                     .all()
                 )
 
-                rows: List[Dict[str, Any]] = []
+                rows: list[dict[str, Any]] = []
                 shipment_inspect = sa_inspect(ShipmentRecord)
                 for record in records:
-                    row_dict: Dict[str, Any] = {}
+                    row_dict: dict[str, Any] = {}
                     for column in shipment_inspect.columns:
                         row_dict[column.name] = getattr(record, column.name)
                     rows.append(row_dict)
@@ -93,7 +96,7 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                 "per_page": per_page,
             }
 
-    def search_shipments(self, query: str) -> List[Dict[str, Any]]:
+    def search_shipments(self, query: str) -> list[dict[str, Any]]:
         try:
             query_str = (query or "").strip()
             if not query_str:
@@ -116,10 +119,10 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                     .all()
                 )
 
-                rows: List[Dict[str, Any]] = []
+                rows: list[dict[str, Any]] = []
                 shipment_inspect = sa_inspect(ShipmentRecord)
                 for record in records:
-                    row_dict: Dict[str, Any] = {}
+                    row_dict: dict[str, Any] = {}
                     for column in shipment_inspect.columns:
                         row_dict[column.name] = getattr(record, column.name)
                     rows.append(row_dict)
@@ -128,7 +131,7 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
         except Exception:
             return []
 
-    def get_shipment_by_id(self, order_id: str) -> Optional[Dict[str, Any]]:
+    def get_shipment_by_id(self, order_id: str) -> dict[str, Any] | None:
         try:
             if order_id is None:
                 return None
@@ -149,14 +152,14 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                     return None
 
                 shipment_inspect = sa_inspect(ShipmentRecord)
-                row_dict: Dict[str, Any] = {}
+                row_dict: dict[str, Any] = {}
                 for column in shipment_inspect.columns:
                     row_dict[column.name] = getattr(record, column.name)
                 return row_dict
         except Exception:
             return None
 
-    def get_latest_shipments(self, limit: int) -> List[Dict[str, Any]]:
+    def get_latest_shipments(self, limit: int) -> list[dict[str, Any]]:
         try:
             safe_limit = int(limit or 0)
             if safe_limit <= 0:
@@ -175,9 +178,9 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                 )
 
                 shipment_inspect = sa_inspect(ShipmentRecord)
-                rows: List[Dict[str, Any]] = []
+                rows: list[dict[str, Any]] = []
                 for record in records:
-                    row_dict: Dict[str, Any] = {}
+                    row_dict: dict[str, Any] = {}
                     for column in shipment_inspect.columns:
                         row_dict[column.name] = getattr(record, column.name)
                     rows.append(row_dict)
@@ -188,10 +191,10 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
 
     def get_shipment_records(
         self,
-        unit_name: Optional[str] = None,
+        unit_name: str | None = None,
         *,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         后台管理接口使用的列表查询：
         - unit_name: 可选，支持 resolve_purchase_unit 归一 + fuzzy fallback。
@@ -216,7 +219,7 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                         if resolved:
                             canonical_unit = str(resolved.unit_name or "").strip()
                     except Exception:
-                        pass
+                        logger.debug("suppressed exception", exc_info=True)
 
                     records_exact = (
                         query.filter(ShipmentRecord.purchase_unit == canonical_unit)
@@ -231,7 +234,11 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                         # 增加 strip 后精确兜底，兼容历史脏数据（单位首尾空格）
                         records_strip_exact = (
                             query.filter(ShipmentRecord.purchase_unit.isnot(None))
-                            .filter(ShipmentRecord.purchase_unit.in_([canonical_unit, f"{canonical_unit} "]))
+                            .filter(
+                                ShipmentRecord.purchase_unit.in_(
+                                    [canonical_unit, f"{canonical_unit} "]
+                                )
+                            )
                             .order_by(ShipmentRecord.created_at.desc())
                             .limit(safe_limit)
                             .all()
@@ -240,9 +247,9 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                             records = records_strip_exact
                         else:
                             # fuzzy fallback：把历史上不一致的 purchase_unit 归一再匹配
-                            memo: dict[str, Optional[str]] = {}
+                            memo: dict[str, str | None] = {}
 
-                            def norm(val: str) -> Optional[str]:
+                            def norm(val: str) -> str | None:
                                 if val in memo:
                                     return memo[val]
                                 try:
@@ -253,7 +260,7 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                                 return memo[val]
 
                             candidates = db.query(ShipmentRecord.purchase_unit).distinct().all()
-                            candidate_values: List[str] = []
+                            candidate_values: list[str] = []
                             for (v,) in candidates:
                                 if not v:
                                     continue
@@ -275,9 +282,9 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                     )
 
                 shipment_inspect = sa_inspect(ShipmentRecord)
-                rows: List[Dict[str, Any]] = []
+                rows: list[dict[str, Any]] = []
                 for record in records:
-                    row_dict: Dict[str, Any] = {}
+                    row_dict: dict[str, Any] = {}
                     for column in shipment_inspect.columns:
                         row_dict[column.name] = getattr(record, column.name)
                     rows.append(row_dict)
@@ -285,4 +292,3 @@ class SQLAlchemyShipmentRecordQuery(ShipmentRecordQueryPort):
                 return rows
         except Exception:
             return []
-

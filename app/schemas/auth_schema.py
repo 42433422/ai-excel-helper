@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 认证 Schema
 
@@ -16,18 +15,18 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1, max_length=200, description="密码")
     remember_me: bool = Field(False, description="记住我")
 
-    @field_validator('username')
+    @field_validator("username")
     @classmethod
     def username_not_empty(cls, v: str) -> str:
         if not v or not v.strip():
-            raise ValueError('用户名不能为空')
+            raise ValueError("用户名不能为空")
         return v.strip()
 
 
 class LoginResponse(BaseModel):
     success: bool = True
-    access_token: Optional[str] = None
-    refresh_token: Optional[str] = None
+    access_token: str | None = None
+    refresh_token: str | None = None
     token_type: str = "bearer"
     expires_in: int = 3600
     user: Optional["UserInfo"] = None
@@ -49,10 +48,10 @@ class TokenRefreshResponse(BaseModel):
 class UserInfo(BaseModel):
     id: int
     username: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
+    email: str | None = None
+    full_name: str | None = None
     roles: list[str] = []
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -62,15 +61,15 @@ class PasswordChangeRequest(BaseModel):
     old_password: str = Field(..., description="旧密码")
     new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
 
-    @field_validator('new_password')
+    @field_validator("new_password")
     @classmethod
     def password_strength(cls, v: str) -> str:
         if len(v) < 6:
-            raise ValueError('密码长度至少6位')
+            raise ValueError("密码长度至少6位")
         return v
 
 
 class ErrorResponse(BaseModel):
     success: bool = False
     message: str
-    error_code: Optional[str] = None
+    error_code: str | None = None

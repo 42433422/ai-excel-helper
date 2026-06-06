@@ -20,6 +20,7 @@
 | [mods/](../mods/) | 模块包 | 行业包(奇士美、太阳鸟等),运行时被 `XCAGI/mods/` 加载。 |
 | [MODstore/](../MODstore/) | 独立产品子线 | MOD 市场,单独部署,不是主应用的一部分。 |
 | [WXCC/](../WXCC/) | 独立产品子线 | 微信小程序,不是主应用运行时的一部分(主应用只暴露 `/api/mp*` 给它调)。 |
+| [mobile-android/](../mobile-android/) | 独立客户端 | Kotlin + Compose 原生 App;调 FHD `/api/mobile/v1` 与 MODstore 公网 API。见 [guides/MOBILE_ANDROID.md](./guides/MOBILE_ANDROID.md)。 |
 | [rasa/](../rasa/) | NLU 训练数据 | 训练 Rasa 模型用,非运行时代码。 |
 | [scripts/](../scripts/) | 运维/开发脚本 | `dev/` 开发调试,`launchers/` 辅助启动,`backend-legacy/` 历史脚本。 |
 | [tests/](../tests/) | 正式测试 | `pytest.ini testpaths=tests`。 |
@@ -59,6 +60,8 @@
 - 模板生成器:[app/infrastructure/skills/label_template_generator/](../app/infrastructure/skills/label_template_generator/)
 - 运行时生成:同 `shipment_document_generator_impl.py`(PIL 画图)
 - HTTP:[app/fastapi_routes/print_routes.py](../app/fastapi_routes/print_routes.py) `/api/print/*`
+- **单张标签打印**:`POST /api/print/single_label` → 实现在 [app/fastapi_routes/ai_assistant.py](../app/fastapi_routes/ai_assistant.py) `compat_print_single_label` → 调 [app/application/print_app_service.py](../app/application/print_app_service.py) `PrintApplicationService.print_single_label`
+- **工作流标签调度**:`POST /api/print/workflow/label-print/dispatch` 幂等接口（含产品查找 + 打印）
 - **商标监控**:不是代码功能,只是 BarTender 使用说明。见 [docs/user-guides/bartender/](./user-guides/bartender/)。
 
 ### 微信 / WeChat
@@ -88,6 +91,8 @@
 
 ### Mods / 模块市场
 
+> **解耦策略（2026）**：新业务只做 Mod（房子）或 `employee_pack`（家具）；宿主能力清单见 [guides/PLATFORM_SHELL.md](./guides/PLATFORM_SHELL.md) 与 `GET /api/platform-shell/capabilities`。客户 Mod `taiyangniao-pro`、`sz-qsm-pro` 禁止删除。
+
 - 运行时加载:[app/infrastructure/mods/](../app/infrastructure/mods/)
 - 发现外壳:[app/shell/xcagi_mods_discover.py](../app/shell/xcagi_mods_discover.py)
 - 模块源:[mods/](../mods/) + [XCAGI/mods/](../XCAGI/mods/)(运行时挂载)
@@ -98,6 +103,7 @@
 - 模板服务:[app/fastapi_routes/template_api.py](../app/fastapi_routes/template_api.py) + [app/legacy/document_template_service.py](../app/legacy/document_template_service.py)(后续继续拆到 `app/application/templates/`)
 - HTTP:[app/fastapi_routes/document_templates.py](../app/fastapi_routes/document_templates.py) `/api/document-templates/*`、[app/fastapi_routes/excel_templates.py](../app/fastapi_routes/excel_templates.py) `/api/excel/*`
 - Excel 导入/生成:[app/legacy/customers_excel_import.py](../app/legacy/customers_excel_import.py)、[app/legacy/products_bulk_import.py](../app/legacy/products_bulk_import.py)、[app/legacy/sales_contract_excel_generate.py](../app/legacy/sales_contract_excel_generate.py)、[app/legacy/price_list_docx_export.py](../app/legacy/price_list_docx_export.py)(全部计划继续拆到 `app/application/` 或 `app/infrastructure/documents/`)
+- **价格表导出工具**:`handle_price_list_export` 已迁至 [app/application/tools/exports.py](../app/application/tools/exports.py) — 从 `app.application.tools` 导入
 
 ## 非代码功能澄清
 

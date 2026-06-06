@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """TTS 合成（SDK re-export）。
 
 ``synthesize_to_data_uri(text, voice=...)`` 返回 ``data:audio/…;base64,…`` 形态 URI，

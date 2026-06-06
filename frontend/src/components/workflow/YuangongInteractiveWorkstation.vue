@@ -1,18 +1,34 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { YUANGONG_EMPLOYEE_SCENE_PNG } from '@/constants/yuangongAssets'
+import {
+  YUANGONG_DESK_PNG,
+  YUANGONG_DESK_SVG,
+  YUANGONG_STAFF_PNG,
+  YUANGONG_STAFF_SVG,
+  YUANGONG_STAFF_BUSY_PNG,
+  YUANGONG_STAFF_BUSY_SVG,
+  YUANGONG_FALLBACK_DESK,
+  YUANGONG_FALLBACK_STAFF,
+  YUANGONG_FALLBACK_STAFF_BUSY,
+} from '@/constants/yuangongAssets'
 import { YUANGONG_EMPLOYEE_HOTSPOTS } from '@/constants/yuangongEmployeeHotspots'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     /** 头顶状态（与工位卡片一致） */
     statusLine: string
     /** 底部工作流全称（如 panelTitle） */
     workflowFullName: string
+    /** 与卡片同步：副窗未启用时显示空工位（desk.png）；启用且忙时 staff-busy；启用空闲 staff */
+    enabled?: boolean
+    busy?: boolean
   }>(),
   {
     statusLine: '—',
     workflowFullName: '—',
+    enabled: false,
+    busy: false,
   }
 )
 
@@ -21,23 +37,57 @@ const router = useRouter()
 function navigate(routeName: string) {
   router.push({ name: routeName })
 }
+
+function primaryPng(): string {
+  if (!props.enabled) return YUANGONG_DESK_PNG
+  return props.busy ? YUANGONG_STAFF_BUSY_PNG : YUANGONG_STAFF_PNG
+}
+
+function primarySvg(): string {
+  if (!props.enabled) return YUANGONG_DESK_SVG
+  return props.busy ? YUANGONG_STAFF_BUSY_SVG : YUANGONG_STAFF_SVG
+}
+
+function fallbackFinal(): string {
+  if (!props.enabled) return YUANGONG_FALLBACK_DESK
+  return props.busy ? YUANGONG_FALLBACK_STAFF_BUSY : YUANGONG_FALLBACK_STAFF
+}
+
+const sceneSrc = ref(primaryPng())
+
+watch(
+  () => [props.enabled, props.busy] as const,
+  () => {
+    sceneSrc.value = primaryPng()
+  }
+)
+
+function onSceneError() {
+  const png = primaryPng()
+  const svg = primarySvg()
+  const last = fallbackFinal()
+  if (sceneSrc.value === png) sceneSrc.value = svg
+  else if (sceneSrc.value === svg) sceneSrc.value = last
+}
 </script>
 
 <template>
   <div class="yiw" role="region" aria-labelledby="yiw-heading">
     <h4 id="yiw-heading" class="yiw-title">工位示意 · 快捷入口</h4>
     <p class="yiw-lead">
-      根据场景图划分可点区域：右侧资料夹进入「原材料仓库」（库存数据）。图上沿为当前工位状态，下沿为工作流全称；点击下方某一工位可切换。
+      工位画面随上方所选工位的「副窗启用 / 忙碌」状态联动；图右下侧可点击进入对应单位数据库。
     </p>
-    <div class="yiw-frame" aria-label="员工工位示意图">
+    <div class="yiw-frame" :class="{ 'yiw-frame--idle': !enabled, 'yiw-frame--busy': enabled && busy }" aria-label="员工工位示意图">
       <img
         class="yiw-img"
-        :src="YUANGONG_EMPLOYEE_SCENE_PNG"
+        :class="{ 'yiw-img--bob': enabled && busy }"
+        :src="sceneSrc"
         alt="像素风工位：显示器、主机与桌面右侧三本蓝色资料夹"
         width="576"
         height="1024"
         decoding="async"
         fetchpriority="low"
+        @error="onSceneError"
       />
       <div class="yiw-ribbon yiw-ribbon--top" aria-live="polite">
         <span class="yiw-ribbon__k">状态</span>
@@ -95,6 +145,15 @@ function navigate(routeName: string) {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.yiw-frame--idle {
+  filter: grayscale(0.18) brightness(0.96);
+}
+
+.yiw-frame--busy {
+  box-shadow: 0 4px 24px rgba(56, 189, 248, 0.32), inset 0 0 0 2px rgba(56, 189, 248, 0.32);
 }
 
 .yiw-img {
@@ -102,6 +161,24 @@ function navigate(routeName: string) {
   width: 100%;
   height: auto;
   vertical-align: top;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .yiw-img--bob {
+    animation: yiw-bob 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes yiw-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 .yiw-ribbon {

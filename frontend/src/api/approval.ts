@@ -4,6 +4,9 @@
  */
 
 import { api } from './core'
+import { resolveApprovalApiPath } from '@/utils/approvalPaths'
+
+const ap = (path: string) => resolveApprovalApiPath(path)
 
 /** 后端 ApprovalListResponse 的 data 为数组，与视图中 data.requests / data.flows 对齐 */
 function withRequestList<T extends Record<string, unknown>>(res: T | null | undefined) {
@@ -92,7 +95,7 @@ export const approvalApi = {
   async getPendingApprovals(userId: number) {
     try {
       const data = await api.get(
-        `/api/approval/requests`,
+        ap('/api/approval/requests'),
         { approver_id: userId, page: 1, page_size: 200 },
         { headers: { 'X-User-ID': userId.toString() } }
       )
@@ -109,7 +112,7 @@ export const approvalApi = {
   async getMyRequests(userId: number) {
     try {
       const data = await api.get(
-        `/api/approval/requests`,
+        ap('/api/approval/requests'),
         { applicant_id: userId, page: 1, page_size: 500 },
         { headers: { 'X-User-ID': userId.toString() } }
       )
@@ -125,7 +128,7 @@ export const approvalApi = {
    */
   async getRequestDetails(requestId: number) {
     try {
-      const data = await api.get(`/api/approval/requests/${requestId}`)
+      const data = await api.get(ap(`/api/approval/requests/${requestId}`))
       return data
     } catch (error) {
       console.error('获取请求详情失败:', error)
@@ -139,7 +142,7 @@ export const approvalApi = {
   async approve(requestId: number, approverId: number, opinion: string) {
     try {
       const data = await api.post(
-        `/api/approval/requests/${requestId}/approve`,
+        ap(`/api/approval/requests/${requestId}/approve`),
         {
           approver_id: approverId,
           opinion: opinion
@@ -161,7 +164,7 @@ export const approvalApi = {
   async reject(requestId: number, approverId: number, reason: string) {
     try {
       const data = await api.post(
-        `/api/approval/requests/${requestId}/reject`,
+        ap(`/api/approval/requests/${requestId}/reject`),
         {
           approver_id: approverId,
           reason: reason
@@ -195,7 +198,7 @@ export const approvalApi = {
     is_active: boolean
   }>) {
     try {
-      const data = await api.post('/api/approval/flows', {
+      const data = await api.post(ap('/api/approval/flows'), {
         flow: flowData,
         nodes: nodes
       })
@@ -211,7 +214,7 @@ export const approvalApi = {
    */
   async getFlowList() {
     try {
-      const data = await api.get('/api/approval/flows', { is_active: true })
+      const data = await api.get(ap('/api/approval/flows'), { is_active: true })
       return withFlowList(data)
     } catch (error) {
       console.error('获取流程列表失败:', error)
@@ -232,7 +235,7 @@ export const approvalApi = {
   }) {
     try {
       const userId = localStorage.getItem('user_id') || '4'
-      const result = await api.post('/api/approval/requests', data, {
+      const result = await api.post(ap('/api/approval/requests'), data, {
         headers: { 'X-User-ID': userId }
       })
       return result
@@ -248,7 +251,7 @@ export const approvalApi = {
   async withdraw(requestId: number, userId: number) {
     try {
       const data = await api.post(
-        `/api/approval/requests/${requestId}/withdraw`,
+        ap(`/api/approval/requests/${requestId}/withdraw`),
         {},
         {
           headers: { 'X-User-ID': userId.toString() }
@@ -267,7 +270,7 @@ export const approvalApi = {
   async deleteRequest(requestId: number, userId: number) {
     try {
       const data = await api.delete(
-        `/api/approval/requests/${requestId}`,
+        ap(`/api/approval/requests/${requestId}`),
         {},
         {
           headers: { 'X-User-ID': userId.toString() }
@@ -288,6 +291,33 @@ export const approvalApi = {
    *   - beforeDays: 只清理 N 天之前的记录；0/不传表示不限
    *   - dryRun: true 时仅返回匹配数量，不真正删除
    */
+  async updateFlow(flowId: number, data: Partial<ApprovalFlow>) {
+    try {
+      return await api.put(ap(`/api/approval/flows/${flowId}`), data)
+    } catch (error) {
+      console.error('更新流程失败:', error)
+      return { success: false, message: '更新流程失败' }
+    }
+  },
+
+  async toggleFlowActive(flowId: number, isActive: boolean) {
+    try {
+      return await api.patch(ap(`/api/approval/flows/${flowId}/active`), { is_active: isActive })
+    } catch (error) {
+      console.error('切换流程状态失败:', error)
+      return { success: false, message: '切换流程状态失败' }
+    }
+  },
+
+  async deleteFlow(flowId: number) {
+    try {
+      return await api.delete(ap(`/api/approval/flows/${flowId}`))
+    } catch (error) {
+      console.error('删除流程失败:', error)
+      return { success: false, message: '删除流程失败' }
+    }
+  },
+
   async cleanupCompleted(
     userId: number,
     options: {
@@ -298,7 +328,7 @@ export const approvalApi = {
   ) {
     try {
       const data = await api.post(
-        `/api/approval/requests/cleanup`,
+        ap('/api/approval/requests/cleanup'),
         {
           statuses: options.statuses,
           before_days: options.beforeDays ?? 0,

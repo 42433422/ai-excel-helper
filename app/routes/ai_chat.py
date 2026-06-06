@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 """
-与归档 ``ai_chat`` 蓝图共用的纯 Python 辅助函数（无 Flask 依赖）。
+与归档 ``ai_chat`` 路由共用的纯 Python 辅助函数。
 
 供 ``normal_chat_dispatch``、``/api/ai/chat-unified`` 等原生 FastAPI 路由复用。
 """
@@ -8,19 +7,19 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.utils.ai_helpers import format_money, safe_float
 
 logger = logging.getLogger(__name__)
 
 
-def _fetch_product_meta_by_models(models, unit_name: str = "") -> Dict[str, Dict[str, Any]]:
+def _fetch_product_meta_by_models(models, unit_name: str = "") -> dict[str, dict[str, Any]]:
     model_list = [m for m in models if m]
     if not model_list:
         return {}
 
-    meta: Dict[str, Dict[str, Any]] = {}
+    meta: dict[str, dict[str, Any]] = {}
     try:
         from app.bootstrap import get_products_service
 
@@ -30,7 +29,7 @@ def _fetch_product_meta_by_models(models, unit_name: str = "") -> Dict[str, Dict
             text = str(v or "").strip().upper()
             return text.replace(" ", "").replace("-", "")
 
-        def _pick_best_record(records: list, model: str) -> Dict[str, Any]:
+        def _pick_best_record(records: list, model: str) -> dict[str, Any]:
             if not records:
                 return {}
             target = _normalize_model_token(model)
@@ -60,7 +59,9 @@ def _fetch_product_meta_by_models(models, unit_name: str = "") -> Dict[str, Dict
             records = []
 
             if unit_name:
-                result = products_service.get_products(model_number=model_raw, unit_name=unit_name) or {}
+                result = (
+                    products_service.get_products(model_number=model_raw, unit_name=unit_name) or {}
+                )
                 records = result.get("data") or []
 
             if not records:
@@ -86,7 +87,7 @@ def _fetch_product_meta_by_models(models, unit_name: str = "") -> Dict[str, Dict
     return meta
 
 
-def _build_number_preview_items(unit_name: str, products) -> Dict[str, Any]:
+def _build_number_preview_items(unit_name: str, products) -> dict[str, Any]:
     products = products or []
     models = []
     for p in products:
@@ -156,9 +157,15 @@ def _build_number_preview_items(unit_name: str, products) -> Dict[str, Any]:
     }
 
 
-def build_shipment_preview_response_dict(unit_name: str, products, order_text: str) -> Dict[str, Any]:
+def build_shipment_preview_response_dict(
+    unit_name: str, products, order_text: str
+) -> dict[str, Any]:
     preview = _build_number_preview_items(unit_name, products)
-    total_text = f"，预估总价 ¥{format_money(preview['grand_total'])}" if preview.get("grand_total") is not None else ""
+    total_text = (
+        f"，预估总价 ¥{format_money(preview['grand_total'])}"
+        if preview.get("grand_total") is not None
+        else ""
+    )
     items = preview["items"]
     return {
         "success": True,
@@ -190,21 +197,21 @@ def build_shipment_preview_response_dict(unit_name: str, products, order_text: s
     }
 
 
-def recognize_intents(message: str) -> Dict[str, Any]:
-    from app.domain.services.intent_recognition_service import get_intent_recognition_service
+def recognize_intents(message: str) -> dict[str, Any]:
+    from app.application.intent_recognition_app import recognize_intents as _recognize
+    from app.domain.neuro import ReflexType, get_reflex_arc
 
-    service = get_intent_recognition_service()
-    result = service.recognize(message)
+    result = _recognize(message)
     return {
-        "primary_intent": result.primary_intent,
-        "tool_key": result.tool_key,
-        "intent_hints": result.intent_hints,
-        "is_negated": result.is_negated,
-        "is_greeting": result.is_greeting,
-        "is_goodbye": result.is_goodbye,
-        "is_help": result.is_help,
-        "confidence": result.confidence,
-        "sources_used": result.sources_used,
+        "primary_intent": result.get("primary_intent"),
+        "tool_key": result.get("tool_key"),
+        "intent_hints": result.get("intent_hints", []),
+        "is_negated": result.get("is_negated", False),
+        "is_greeting": result.get("is_greeting", False),
+        "is_goodbye": result.get("is_goodbye", False),
+        "is_help": result.get("is_help", False),
+        "confidence": result.get("confidence", 0.5),
+        "sources_used": result.get("sources_used", ["rule_engine"]),
     }
 
 
@@ -221,7 +228,7 @@ def _resolve_mode_scoped_user_id(
     return f"user_{ip}:{channel}"
 
 
-def normalize_batch_messages_payload(data: Dict[str, Any]) -> list:
+def normalize_batch_messages_payload(data: dict[str, Any]) -> list:
     raw = data.get("messages") or data.get("message_list") or []
     if isinstance(raw, str):
         raw = [raw]
@@ -239,8 +246,8 @@ def unified_chat_single_payload(
     remote_addr: str,
     source: str,
     mode: Any,
-    context: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     from app.utils.ai_helpers import is_pro_source, is_professional_mode, is_qclaw_source
 
     if (is_pro_source(source) or is_professional_mode(mode)) and not is_qclaw_source(source):
@@ -268,7 +275,10 @@ def unified_chat_single_payload(
         )
         return result
 
-    from app.application.normal_chat_dispatch import build_product_query_response_dict, route_normal_mode_message
+    from app.application.normal_chat_dispatch import (
+        build_product_query_response_dict,
+        route_normal_mode_message,
+    )
 
     route_result = route_normal_mode_message(message)
     route_intent = route_result.get("intent")
@@ -291,7 +301,11 @@ def unified_chat_single_payload(
                 "success": True,
                 "message": "处理完成",
                 "response": local_msg,
-                "data": {"text": local_msg, "action": "followup", "data": {"parsed_data": parsed_retry}},
+                "data": {
+                    "text": local_msg,
+                    "action": "followup",
+                    "data": {"parsed_data": parsed_retry},
+                },
             }
         except Exception as local_parse_err:
             logger.error("普通版本地编号解析异常：%s", local_parse_err, exc_info=True)

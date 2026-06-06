@@ -7,58 +7,33 @@
 import difflib
 import json
 import logging
-import os
 import re
-import sys
-import threading
-import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from sqlalchemy import or_
 
 from app.db.models import WechatContact, WechatContactContext
 from app.db.session import get_db
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 from app.utils.external_sqlite import sqlite_conn
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 logger = logging.getLogger(__name__)
 
 
-class WechatContactService:
+class WechatContactService(NeuroEventPublisherMixin):
     """微信联系人服务类"""
 
     def __init__(self):
         pass
 
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
     def get_contacts(
         self,
-        keyword: Optional[str] = None,
-        contact_type: Optional[str] = None,
+        keyword: str | None = None,
+        contact_type: str | None = None,
         starred_only: bool = False,
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
         """
         获取微信联系人列表
 
@@ -71,7 +46,7 @@ class WechatContactService:
         try:
             with get_db() as db:
                 query = db.query(WechatContact).filter(WechatContact.is_active == 1)
-                
+
                 # 优先处理搜索关键词
                 if keyword:
                     pattern = f"%{keyword}%"
@@ -79,7 +54,7 @@ class WechatContactService:
                         or_(
                             WechatContact.contact_name.like(pattern),
                             WechatContact.remark.like(pattern),
-                            WechatContact.wechat_id.like(pattern)
+                            WechatContact.wechat_id.like(pattern),
                         )
                     )
                 # 处理类型筛选
@@ -88,11 +63,11 @@ class WechatContactService:
                     query = query.filter(WechatContact.is_starred == 1)
                 elif contact_type and contact_type != "all":
                     query = query.filter(WechatContact.contact_type == contact_type)
-                
+
                 # 处理星标筛选
                 if starred_only:
                     query = query.filter(WechatContact.is_starred == 1)
-                
+
                 query = query.order_by(WechatContact.contact_name).limit(limit)
                 contacts = query.all()
 
@@ -106,7 +81,7 @@ class WechatContactService:
                         "is_active": c.is_active,
                         "is_starred": c.is_starred,
                         "created_at": c.created_at.isoformat() if c.created_at else None,
-                        "updated_at": c.updated_at.isoformat() if c.updated_at else None
+                        "updated_at": c.updated_at.isoformat() if c.updated_at else None,
                     }
                     for c in contacts
                 ]
@@ -125,7 +100,9 @@ class WechatContactService:
             logger.exception(f"获取联系人列表失败：{e}")
             return []
 
-    def _search_contacts_from_wechat_db(self, keyword: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def _search_contacts_from_wechat_db(
+        self, keyword: str, limit: int = 50
+    ) -> list[dict[str, Any]]:
         """
         从微信解密数据库中搜索联系人（仅用于补充搜索结果，不写入主表）。
 
@@ -138,13 +115,11 @@ class WechatContactService:
 
         try:
             import os
-            import sqlite3
-            import sys
-
-            from app.utils.path_utils import get_base_dir
 
             # 1) 优先使用 XCAGI/resources 下的解密库
             from app.infrastructure.plugins.wechat_plugin import get_wechat_plugin
+            from app.utils.path_utils import get_base_dir
+
             plugin = get_wechat_plugin()
             decrypt_db = plugin.get_decrypted_db_path("message") if plugin.is_available() else None
             candidate_db_paths = [decrypt_db] if decrypt_db else []
@@ -152,7 +127,11 @@ class WechatContactService:
             # 2) 兼容：使用 XCAGI/AI助手 下原有的解密库位置（如果存在）
             base_dir = get_base_dir()
             legacy_ai_dir = os.path.join(base_dir, "AI助手")
-            candidate_db_paths.append(os.path.join(legacy_ai_dir, "wechat-decrypt", "decrypted", "message", "message_0.db"))
+            candidate_db_paths.append(
+                os.path.join(
+                    legacy_ai_dir, "wechat-decrypt", "decrypted", "message", "message_0.db"
+                )
+            )
 
             msg_db_path = os.environ.get("WECHAT_MSG_DB_PATH", "")
             if msg_db_path and os.path.exists(msg_db_path):
@@ -167,7 +146,12 @@ class WechatContactService:
             try:
                 wechat_decrypt_base = os.path.dirname(wechat_decrypt_dir)  # .../decrypted
                 contact_db_path = os.path.join(wechat_decrypt_base, "contact", "contact.db")
-                logger.info("[contact-fallback] path=%s exists=%s keyword=%s", contact_db_path, os.path.exists(contact_db_path), keyword)
+                logger.info(
+                    "[contact-fallback] path=%s exists=%s keyword=%s",
+                    contact_db_path,
+                    os.path.exists(contact_db_path),
+                    keyword,
+                )
                 if os.path.exists(contact_db_path):
                     with sqlite_conn(contact_db_path) as cconn:
                         cur = cconn.cursor()
@@ -185,7 +169,11 @@ class WechatContactService:
                             username = (username or "").strip()
                             nick_name = (nick_name or "").strip()
                             remark = (remark or "").strip()
-                            contact_type = "group" if (str(is_in_chat_room) == "1" or "@chatroom" in username) else "contact"
+                            contact_type = (
+                                "group"
+                                if (str(is_in_chat_room) == "1" or "@chatroom" in username)
+                                else "contact"
+                            )
                             contacts.append(
                                 {
                                     "id": None,
@@ -207,6 +195,7 @@ class WechatContactService:
 
             # 3) Use WeChat plugin for optional cv/decrypt support
             from app.infrastructure.plugins.wechat_plugin import get_wechat_plugin
+
             plugin = get_wechat_plugin()
             if plugin.is_available():
                 plugin.add_to_sys_path()
@@ -223,19 +212,27 @@ class WechatContactService:
             # - 旧版：MSG/Message，字段有 talker/displayName
             # - 新版：Msg_<hash>，字段多为 message_content 等
             # 为了稳定，这里先用 sqlite3 直接拉取“最可能的消息表”，再做兼容解析。
-            rows: List[Dict[str, Any]] = []
+            rows: list[dict[str, Any]] = []
             try:
                 with sqlite_conn(db_path) as conn:
                     cur = conn.cursor()
-                    tbls = cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+                    tbls = cur.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    ).fetchall()
                     table_names = [t[0] for t in tbls if t and t[0]]
                     msg_table = (
                         "MSG"
                         if "MSG" in table_names
-                        else ("Message" if "Message" in table_names else next((t for t in table_names if str(t).startswith("Msg_")), ""))
+                        else (
+                            "Message"
+                            if "Message" in table_names
+                            else next((t for t in table_names if str(t).startswith("Msg_")), "")
+                        )
                     )
                     if msg_table:
-                        raw = cur.execute(f"SELECT * FROM {msg_table} LIMIT ?", (limit * 5,)).fetchall()
+                        raw = cur.execute(
+                            f"SELECT * FROM {msg_table} LIMIT ?", (limit * 5,)
+                        ).fetchall()
                         colnames = [d[0] for d in (cur.description or [])]
                         rows = [dict(zip(colnames, r)) for r in raw]
             except Exception:
@@ -252,7 +249,7 @@ class WechatContactService:
                 return []
 
             keyword_lower = keyword.lower()
-            contacts_map: Dict[str, Dict[str, Any]] = {}
+            contacts_map: dict[str, dict[str, Any]] = {}
             for row in rows:
                 username = (row.get("talker") or "").strip()
                 display_name = (row.get("displayName") or "").strip()
@@ -314,14 +311,15 @@ class WechatContactService:
             logger.exception("从微信 DB 搜索联系人时异常：%s", e)
             return []
 
-    def get_contact_by_id(self, contact_id: int) -> Optional[Dict[str, Any]]:
+    def get_contact_by_id(self, contact_id: int) -> dict[str, Any] | None:
         """根据 ID 获取联系人"""
         try:
             with get_db() as db:
-                contact = db.query(WechatContact).filter(
-                    WechatContact.id == contact_id,
-                    WechatContact.is_active == 1
-                ).first()
+                contact = (
+                    db.query(WechatContact)
+                    .filter(WechatContact.id == contact_id, WechatContact.is_active == 1)
+                    .first()
+                )
 
                 if not contact:
                     return None
@@ -335,7 +333,7 @@ class WechatContactService:
                     "is_active": contact.is_active,
                     "is_starred": contact.is_starred,
                     "created_at": contact.created_at.isoformat() if contact.created_at else None,
-                    "updated_at": contact.updated_at.isoformat() if contact.updated_at else None
+                    "updated_at": contact.updated_at.isoformat() if contact.updated_at else None,
                 }
 
         except Exception as e:
@@ -345,11 +343,11 @@ class WechatContactService:
     def add_contact(
         self,
         contact_name: str,
-        remark: Optional[str] = None,
-        wechat_id: Optional[str] = None,
+        remark: str | None = None,
+        wechat_id: str | None = None,
         contact_type: str = "contact",
-        is_starred: bool = True
-    ) -> Dict[str, Any]:
+        is_starred: bool = True,
+    ) -> dict[str, Any]:
         """
         添加微信联系人
 
@@ -368,7 +366,9 @@ class WechatContactService:
             if not contact_name:
                 return {"success": False, "message": "联系人名称不能为空"}
 
-            if contact_name in ("%", "%s") or (len(contact_name) <= 3 and contact_name.startswith("%")):
+            if contact_name in ("%", "%s") or (
+                len(contact_name) <= 3 and contact_name.startswith("%")
+            ):
                 contact_name = wechat_id or "未知"
 
             with get_db() as db:
@@ -378,17 +378,13 @@ class WechatContactService:
                     wechat_id=wechat_id or "",
                     contact_type=contact_type,
                     is_active=1,
-                    is_starred=1 if is_starred else 0
+                    is_starred=1 if is_starred else 0,
                 )
                 db.add(contact)
                 db.commit()
                 db.refresh(contact)
 
-                return {
-                    "success": True,
-                    "message": "联系人添加成功",
-                    "contact_id": contact.id
-                }
+                return {"success": True, "message": "联系人添加成功", "contact_id": contact.id}
 
         except Exception as e:
             logger.exception(f"添加联系人失败：{e}")
@@ -397,19 +393,20 @@ class WechatContactService:
     def update_contact(
         self,
         contact_id: int,
-        contact_name: Optional[str] = None,
-        remark: Optional[str] = None,
-        wechat_id: Optional[str] = None,
-        contact_type: Optional[str] = None,
-        is_starred: Optional[bool] = None
-    ) -> Dict[str, Any]:
+        contact_name: str | None = None,
+        remark: str | None = None,
+        wechat_id: str | None = None,
+        contact_type: str | None = None,
+        is_starred: bool | None = None,
+    ) -> dict[str, Any]:
         """更新联系人"""
         try:
             with get_db() as db:
-                contact = db.query(WechatContact).filter(
-                    WechatContact.id == contact_id,
-                    WechatContact.is_active == 1
-                ).first()
+                contact = (
+                    db.query(WechatContact)
+                    .filter(WechatContact.id == contact_id, WechatContact.is_active == 1)
+                    .first()
+                )
 
                 if not contact:
                     return {"success": False, "message": "联系人不存在"}
@@ -442,14 +439,15 @@ class WechatContactService:
             logger.exception(f"更新联系人失败：{e}")
             return {"success": False, "message": str(e)}
 
-    def delete_contact(self, contact_id: int) -> Dict[str, Any]:
+    def delete_contact(self, contact_id: int) -> dict[str, Any]:
         """删除联系人（软删除）"""
         try:
             with get_db() as db:
-                contact = db.query(WechatContact).filter(
-                    WechatContact.id == contact_id,
-                    WechatContact.is_active == 1
-                ).first()
+                contact = (
+                    db.query(WechatContact)
+                    .filter(WechatContact.id == contact_id, WechatContact.is_active == 1)
+                    .first()
+                )
 
                 if not contact:
                     return {"success": False, "message": "联系人不存在"}
@@ -464,40 +462,40 @@ class WechatContactService:
             logger.exception(f"删除联系人失败：{e}")
             return {"success": False, "message": str(e)}
 
-    def star_contact(self, contact_id: int, starred: bool = True) -> Dict[str, Any]:
+    def star_contact(self, contact_id: int, starred: bool = True) -> dict[str, Any]:
         """设置联系人星标状态"""
         return self.update_contact(contact_id, is_starred=starred)
 
-    def unstar_all(self) -> Dict[str, Any]:
+    def unstar_all(self) -> dict[str, Any]:
         """取消所有联系人星标"""
         try:
             with get_db() as db:
-                count = db.query(WechatContact).filter(
-                    WechatContact.is_active == 1,
-                    WechatContact.is_starred == 1
-                ).update({
-                    "is_starred": 0,
-                    "updated_at": datetime.now()
-                })
+                count = (
+                    db.query(WechatContact)
+                    .filter(WechatContact.is_active == 1, WechatContact.is_starred == 1)
+                    .update({"is_starred": 0, "updated_at": datetime.now()})
+                )
                 db.commit()
 
                 return {
                     "success": True,
                     "message": f"已取消全部星标，共 {count} 个联系人",
-                    "count": count
+                    "count": count,
                 }
 
         except Exception as e:
             logger.exception(f"取消星标失败：{e}")
             return {"success": False, "message": str(e)}
 
-    def get_contact_context(self, contact_id: int) -> List[Dict[str, Any]]:
+    def get_contact_context(self, contact_id: int) -> list[dict[str, Any]]:
         """获取联系人聊天上下文"""
         try:
             with get_db() as db:
-                context = db.query(WechatContactContext).filter(
-                    WechatContactContext.contact_id == contact_id
-                ).first()
+                context = (
+                    db.query(WechatContactContext)
+                    .filter(WechatContactContext.contact_id == contact_id)
+                    .first()
+                )
 
                 if not context or not context.context_json:
                     return []
@@ -512,17 +510,16 @@ class WechatContactService:
             return []
 
     def save_contact_context(
-        self,
-        contact_id: int,
-        wechat_id: str,
-        messages: List[Dict[str, Any]]
+        self, contact_id: int, wechat_id: str, messages: list[dict[str, Any]]
     ) -> bool:
         """保存联系人聊天上下文"""
         try:
             with get_db() as db:
-                context = db.query(WechatContactContext).filter(
-                    WechatContactContext.contact_id == contact_id
-                ).first()
+                context = (
+                    db.query(WechatContactContext)
+                    .filter(WechatContactContext.contact_id == contact_id)
+                    .first()
+                )
 
                 if context:
                     context.wechat_id = wechat_id
@@ -534,7 +531,7 @@ class WechatContactService:
                         contact_id=contact_id,
                         wechat_id=wechat_id,
                         context_json=json.dumps(messages, ensure_ascii=False),
-                        message_count=len(messages)
+                        message_count=len(messages),
                     )
                     db.add(context)
 
@@ -545,7 +542,7 @@ class WechatContactService:
             logger.exception(f"保存联系人上下文失败：{e}")
             return False
 
-    def resolve_send_message(self, message: str) -> Tuple[Optional[str], Optional[str]]:
+    def resolve_send_message(self, message: str) -> tuple[str | None, str | None]:
         """
         从消息中解析出发送目标和内容
 
@@ -585,7 +582,7 @@ class WechatContactService:
 
         return None, None
 
-    def _find_best_matching_contact(self, contact_part: str) -> Optional[str]:
+    def _find_best_matching_contact(self, contact_part: str) -> str | None:
         """模糊匹配联系人"""
         contacts = self.get_contacts(keyword=contact_part, starred_only=False, limit=10)
 
@@ -611,124 +608,100 @@ class WechatContactService:
 
         return best_name
 
-    def refresh_messages(self, contact_id: int, limit: int = 50) -> Dict[str, Any]:
+    def refresh_messages(self, contact_id: int, limit: int = 50) -> dict[str, Any]:
         """
         从微信数据库拉取最新消息并保存到聊天上下文
-        
+
         Args:
             contact_id: 联系人 ID
             limit: 拉取消息数量限制，默认 50
-            
+
         Returns:
             结果字典，包含 success, message, count 等信息
         """
         try:
             import os
             import sys
-            
+
             with get_db() as db:
-                contact = db.query(WechatContact).filter(
-                    WechatContact.id == contact_id,
-                    WechatContact.is_active == 1
-                ).first()
-                
+                contact = (
+                    db.query(WechatContact)
+                    .filter(WechatContact.id == contact_id, WechatContact.is_active == 1)
+                    .first()
+                )
+
                 if not contact:
-                    return {
-                        "success": False,
-                        "message": "联系人不存在"
-                    }
-                
+                    return {"success": False, "message": "联系人不存在"}
+
                 wechat_id = contact.wechat_id or contact.contact_name
                 if not wechat_id:
-                    return {
-                        "success": False,
-                        "message": "联系人微信号或名称为空"
-                    }
-                
+                    return {"success": False, "message": "联系人微信号或名称为空"}
+
                 base = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
                 from app.utils.path_utils import get_resource_path
 
                 wechat_decrypt_dir = get_resource_path("wechat-decrypt", "decrypted", "message")
                 default_msg_db_path = os.path.join(wechat_decrypt_dir, "message_0.db")
                 msg_db_path = os.environ.get("WECHAT_MSG_DB_PATH", default_msg_db_path)
-                
+
                 if not msg_db_path or not os.path.exists(msg_db_path):
                     logger.warning("微信消息数据库不存在：%s", msg_db_path)
-                    return {
-                        "success": False,
-                        "message": "微信消息数据库不存在"
-                    }
-                
+                    return {"success": False, "message": "微信消息数据库不存在"}
+
                 try:
                     wechat_cv_path = get_resource_path("wechat_cv")
                     if os.path.isdir(wechat_cv_path) and wechat_cv_path not in sys.path:
                         sys.path.insert(0, wechat_cv_path)
                     from wechat_db_read import (
-                        get_contact_display_name,
                         get_messages_for_contact,
                         get_wechat_contact_db_path,
                     )
                 except Exception as e:
                     logger.warning("导入 wechat_db_read 失败：%s", e)
-                    return {
-                        "success": False,
-                        "message": f"导入微信数据库模块失败：{str(e)}"
-                    }
-                
+                    return {"success": False, "message": f"导入微信数据库模块失败：{str(e)}"}
+
                 contact_db_path = get_wechat_contact_db_path()
-                
+
                 messages_result = get_messages_for_contact(
                     msg_db_path=msg_db_path,
                     talker=wechat_id,
                     limit=limit,
                     only_other=False,
-                    config_path=os.environ.get("WECHAT_DB_KEY_CONFIG")
+                    config_path=os.environ.get("WECHAT_DB_KEY_CONFIG"),
                 )
-                
+
                 if not messages_result.get("success"):
                     return {
                         "success": False,
-                        "message": f"读取微信消息失败：{messages_result.get('message', '未知错误')}"
+                        "message": f"读取微信消息失败：{messages_result.get('message', '未知错误')}",
                     }
-                
+
                 rows = messages_result.get("rows", [])
                 if not rows:
-                    return {
-                        "success": True,
-                        "message": "未找到新消息",
-                        "count": 0
-                    }
-                
+                    return {"success": True, "message": "未找到新消息", "count": 0}
+
                 messages = []
                 for row in rows:
                     role = row.get("role", "other")
                     text = row.get("text", "")
                     if text:
-                        messages.append({
-                            "role": role,
-                            "text": text
-                        })
-                
+                        messages.append({"role": role, "text": text})
+
                 self.save_contact_context(
-                    contact_id=contact_id,
-                    wechat_id=wechat_id,
-                    messages=messages
+                    contact_id=contact_id, wechat_id=wechat_id, messages=messages
                 )
-                
+
                 logger.info(f"刷新联系人消息成功 contact_id={contact_id}, count={len(messages)}")
-                
+
                 return {
                     "success": True,
                     "message": f"成功拉取 {len(messages)} 条消息",
-                    "count": len(messages)
+                    "count": len(messages),
                 }
-                
+
         except Exception as e:
             logger.exception(f"刷新联系人消息失败：{e}")
-            return {
-                "success": False,
-                "message": f"刷新失败：{str(e)}"
-            }
+            return {"success": False, "message": f"刷新失败：{str(e)}"}
 
 
 wechat_contact_service = WechatContactService()

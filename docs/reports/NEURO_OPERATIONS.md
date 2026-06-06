@@ -18,10 +18,29 @@
 
 修改 `XCAGI_NEURO_HTTP_TRACE` 后，进程内会缓存该标志；热重载或重启应用后生效（单测可调用 `clear_neuro_trace_config_cache()`）。
 
+## NeuroBus 可靠性层（生产全开）
+
+生产/K8s 建议启用下列变量（与 [`k8s/configmap.yaml`](../../k8s/configmap.yaml)、`deploy-production` 一致）：
+
+| 变量 | 生产建议 |
+|------|----------|
+| `XCAGI_NEURO_BUS_DEDUP` | `1` |
+| `XCAGI_NEURO_BUS_CIRCUIT` | `1` |
+| `XCAGI_NEURO_BUS_RATE_LIMIT` | `1` |
+| `XCAGI_NEURO_BUS_TRACE` | `1` |
+| `XCAGI_NEURO_BUS_TRACE_SAMPLE_RATE` | `0.1`（避免 trace 洪泛） |
+| `XCAGI_NEURO_BUS_LIFELINE` | `1` |
+| `XCAGI_NEURO_BUS_DLQ_AUTO` | `1` |
+| `XCAGI_NEURO_BUS_SLA_LOG` | `1` |
+
+验证：`GET /api/neurobus/health` → `reliability` 中 `dedup`、`circuit_breaker`、`rate_limit`、`tracer`、`lifeline`、`dlq_auto`、`sla_log` 均为 `true`。
+
+Staging 未显式设置时默认仅 `DEDUP` + `CIRCUIT`（`FHD_ENV=staging`）；**生产勿使用 `FHD_ENV=staging`**。
+
 ## 自检与健康端点
 
 - `GET /api/neuro/migration-smoke`：栈启用、域注册数量、反射弧探测等。
-- `GET /api/neurobus/health`、`GET /api/neurobus/stats`：总线状态与队列统计。
+- `GET /api/neurobus/health`、`GET /api/neurobus/stats`：总线状态与队列统计（含 `sla_log`、`trace_sample_rate`）。
 - `GET /api/health`：聚合健康信息中的 `neuro` 摘要（启用时）。
 
 ## 隐私与噪声

@@ -1,0 +1,36 @@
+{
+  "id": "xcagi-workflow-employee-wechat-msg",
+  "name": "微信消息处理 AI 员工",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "星标自动刷新 → 新消息 → 意图 API 或本地规则 → 任务列表。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=8.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes.js"
+  },
+  "hooks": {},
+  "comms": {
+    "exports": []
+  },
+  "config": {
+    "workflow_employee_single": true,
+    "employee_id": "wechat_msg",
+    "store_collection": "workflow_employee"
+  },
+  "workflow_employees": [
+    {
+      "id": "wechat_msg",
+      "label": "微信消息处理 AI 员工",
+      "panel_title": "工作流 · 微信消息处理 AI 员工",
+      "panel_summary": "星标自动刷新 → 新消息 → 意图 API 或本地规则 → 任务列表。",
+      "api_base_path": "employees/wechat_msg"
+    }
+  ]
+}

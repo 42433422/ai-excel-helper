@@ -1,6 +1,8 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { createRouter, createMemoryHistory } from 'vue-router'
 
 // Mock chat api to avoid network calls during ChatView mount.
 vi.mock('../api/chat', () => {
@@ -12,10 +14,24 @@ vi.mock('../api/chat', () => {
   }
 })
 
+vi.mock('@/utils/pretext', () => ({
+  estimateMessageHeight: vi.fn(() => 48),
+  getPerformanceStats: vi.fn(() => ({})),
+}))
+
 import ChatView from './ChatView.vue'
 
 describe('ChatView pro-mode runtime task status', () => {
+  let pinia
+  let router
+
   beforeEach(() => {
+    pinia = createPinia()
+    setActivePinia(pinia)
+    router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', name: 'chat', component: { template: '<div />' } }],
+    })
     vi.useFakeTimers()
     window.__XCAGI_IS_PRO_MODE = true
     // Ensure localStorage exists in jsdom.
@@ -30,11 +46,20 @@ describe('ChatView pro-mode runtime task status', () => {
     delete window.__XCAGI_IS_PRO_MODE
   })
 
+  function mountChat() {
+    return mount(ChatView, {
+      global: {
+        plugins: [pinia, router],
+      },
+    })
+  }
+
   it('renders running/done status from xcagi:pro-task-status event', async () => {
-    const wrapper = mount(ChatView)
+    const wrapper = mountChat()
+    await flushPromises()
     await nextTick()
 
-    expect(wrapper.text()).toContain('暂无任务')
+    expect(wrapper.text()).toMatch(/暂无进行中任务|暂无任务/)
 
     window.dispatchEvent(new CustomEvent('xcagi:pro-task-status', {
       detail: {
@@ -63,11 +88,12 @@ describe('ChatView pro-mode runtime task status', () => {
     // done/failed/error should clear after 4.5s
     vi.advanceTimersByTime(4600)
     await nextTick()
-    expect(wrapper.text()).toContain('暂无任务')
+    expect(wrapper.text()).toMatch(/暂无进行中任务|暂无任务/)
   })
 
   it('does not override confirm task when currentTask exists', async () => {
-    const wrapper = mount(ChatView)
+    const wrapper = mountChat()
+    await flushPromises()
     await nextTick()
 
     // Force a confirm task card to be visible.

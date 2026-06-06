@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 意图识别 / AI 语义调用的缓存层
 
@@ -15,7 +14,7 @@
 4. **永远不让缓存故障变成业务故障**：底层 Redis 异常、序列化异常、甚至
    ``compute_fn`` 以外的任何错误，都降级到原 API 调用。
 
-此模块刻意**不直接依赖 Flask / FastAPI 请求对象**——调用方显式把
+此模块刻意**不直接依赖 HTTP 请求对象**——调用方显式把
 ``mod_id`` 传进来，便于单元测试与非 HTTP 场景（Celery、CLI、后台任务）复用。
 """
 
@@ -26,7 +25,8 @@ import logging
 import os
 import re
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from app.utils.redis_cache import RedisCache, get_redis_cache
 
@@ -38,7 +38,10 @@ _DEFAULT_SCOPE = "intent"
 _DEFAULT_VERSION = os.environ.get("XCAGI_INTENT_CACHE_VERSION", "1")
 _DEFAULT_TTL = int(os.environ.get("XCAGI_INTENT_CACHE_TTL", "900"))  # 15 min
 _ENABLED = (os.environ.get("XCAGI_INTENT_CACHE_ENABLED", "1") or "1").strip().lower() in {
-    "1", "true", "yes", "on",
+    "1",
+    "true",
+    "yes",
+    "on",
 }
 
 
@@ -80,8 +83,8 @@ class IntentCache:
         scope: str = _DEFAULT_SCOPE,
         version: str = _DEFAULT_VERSION,
         default_ttl: int = _DEFAULT_TTL,
-        backend: Optional[RedisCache] = None,
-        enabled: Optional[bool] = None,
+        backend: RedisCache | None = None,
+        enabled: bool | None = None,
     ):
         self._scope = scope
         self._version = str(version)
@@ -89,7 +92,7 @@ class IntentCache:
         self._backend = backend
         self._enabled = _ENABLED if enabled is None else bool(enabled)
 
-    def _resolve_backend(self) -> Optional[RedisCache]:
+    def _resolve_backend(self) -> RedisCache | None:
         if self._backend is not None:
             return self._backend
         try:
@@ -125,7 +128,7 @@ class IntentCache:
         text: str,
         value: Any,
         mod_id: str | None = None,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> bool:
         if not self._enabled or not text or value is None:
             return False
@@ -146,8 +149,8 @@ class IntentCache:
         text: str,
         compute_fn: Callable[[], Any],
         mod_id: str | None = None,
-        ttl: Optional[int] = None,
-        should_cache: Optional[Callable[[Any], bool]] = None,
+        ttl: int | None = None,
+        should_cache: Callable[[Any], bool] | None = None,
     ) -> Any:
         """先查缓存，未命中则调用 ``compute_fn`` 并回填。
 
@@ -223,11 +226,12 @@ def _default_should_cache_intent(result: Any) -> bool:
 # backend / metrics helpers
 # ---------------------------------------------------------------------------
 
+
 def _build_redis_client():
     """按 ``CACHE_REDIS_URL`` 惰性构建 redis 连接；失败返回 ``None``。
 
     之所以自己构建而不是复用 ``init_redis_cache_from_app``，是因为后者
-    依赖 Flask 实例；DDD 迁移过程里我们优先让 domain 层可脱壳运行。
+    依赖应用实例；DDD 迁移过程里我们优先让 domain 层可脱壳运行。
     """
     try:
         import redis  # type: ignore
@@ -250,6 +254,7 @@ def _build_redis_client():
 def _observe_hit(scope: str, mod_id: str | None) -> None:
     try:
         from app.utils import metrics as _m
+
         _m.intent_cache_hits_total.labels(scope=scope, mod_id=mod_id or "_global").inc()
     except Exception:
         pass
@@ -258,6 +263,7 @@ def _observe_hit(scope: str, mod_id: str | None) -> None:
 def _observe_miss(scope: str, mod_id: str | None, elapsed_sec: float) -> None:
     try:
         from app.utils import metrics as _m
+
         _m.intent_cache_misses_total.labels(scope=scope, mod_id=mod_id or "_global").inc()
         _m.intent_cache_compute_seconds.labels(scope=scope).observe(elapsed_sec)
     except Exception:
@@ -267,6 +273,7 @@ def _observe_miss(scope: str, mod_id: str | None, elapsed_sec: float) -> None:
 def _observe_error(scope: str, stage: str) -> None:
     try:
         from app.utils import metrics as _m
+
         _m.intent_cache_errors_total.labels(scope=scope, stage=stage).inc()
     except Exception:
         pass
@@ -276,7 +283,7 @@ def _observe_error(scope: str, stage: str) -> None:
 # singletons
 # ---------------------------------------------------------------------------
 
-_default_intent_cache: Optional[IntentCache] = None
+_default_intent_cache: IntentCache | None = None
 
 
 def get_intent_cache() -> IntentCache:

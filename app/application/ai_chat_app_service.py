@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 AI 聊天应用服务
 
@@ -26,7 +25,7 @@ import os
 import re
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -42,7 +41,7 @@ from app.utils.path_utils import resolve_fhd_repo_root
 logger = logging.getLogger(__name__)
 
 
-def _skip_pro_excel_deterministic_import(context: Optional[Dict[str, Any]]) -> bool:
+def _skip_pro_excel_deterministic_import(context: dict[str, Any] | None) -> bool:
     """
     是否跳过「专业版聊天：excel_analysis + 导入关键词 → 直接规则入库」的捷径。
 
@@ -61,7 +60,10 @@ def _skip_pro_excel_deterministic_import(context: Optional[Dict[str, Any]]) -> b
     if ctx.get("excel_import_ai_decides") is True:
         return True
     _truthy = frozenset({"1", "true", "yes", "on"})
-    if str(os.environ.get("XCAGI_DISABLE_PRO_EXCEL_IMPORT_SHORTCUT") or "").strip().lower() in _truthy:
+    if (
+        str(os.environ.get("XCAGI_DISABLE_PRO_EXCEL_IMPORT_SHORTCUT") or "").strip().lower()
+        in _truthy
+    ):
         return True
     if str(os.environ.get("XCAGI_EXCEL_IMPORT_AI_DECIDES") or "").strip().lower() in _truthy:
         return True
@@ -113,10 +115,10 @@ class AIChatApplicationService:
         self.risk_gate = HybridRiskGate()
         self.workflow_engine = WorkflowEngine(tool_dispatcher=self._dispatch_workflow_tool)
         self.approval_service = get_approval_service()
-        self._pending_workflows: Dict[str, Dict[str, Any]] = {}
+        self._pending_workflows: dict[str, dict[str, Any]] = {}
 
     @staticmethod
-    def _is_pro_source(source: Optional[str]) -> bool:
+    def _is_pro_source(source: str | None) -> bool:
         """兼容 pro 来源字段的多种写法（与 fastapi_routes.ai_chat._is_pro_source 对齐）。"""
         normalized = str(source or "").strip().lower().replace("-", "_")
         return normalized in {
@@ -131,9 +133,9 @@ class AIChatApplicationService:
     def _merge_tool_runtime_context(
         user_id: str,
         message: str,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        runtime_ctx: Dict[str, Any] = {"user_id": user_id, "message": message}
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        runtime_ctx: dict[str, Any] = {"user_id": user_id, "message": message}
         if isinstance(context, dict):
             for key in ("ui_surface", "intent_channel", "tool_execution_profile"):
                 if key in context and context[key] is not None:
@@ -148,10 +150,10 @@ class AIChatApplicationService:
         self,
         user_id: str,
         message: str,
-        context: Optional[Dict[str, Any]] = None,
-        source: Optional[str] = None,
-        file_context: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        context: dict[str, Any] | None = None,
+        source: str | None = None,
+        file_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         处理聊天请求
 
@@ -182,7 +184,7 @@ class AIChatApplicationService:
         # Excel 向量：须在 _try_handle_dynamic_workflow 之前注入，否则「规则导入捷径」提前 return 时永远不会检索索引。
         ctx = self._inject_excel_vector_context(message=message, context=dict(ctx))
 
-        def _finalize(resp: Dict[str, Any]) -> Dict[str, Any]:
+        def _finalize(resp: dict[str, Any]) -> dict[str, Any]:
             try:
                 from app.neuro_bus.application_neuro_bridge import neuro_notify_chat_completed
 
@@ -209,7 +211,9 @@ class AIChatApplicationService:
 
         enriched_context = dict(ctx)
         if isinstance(file_context, dict):
-            excel_file_path = file_context.get("file_path") or file_context.get("original_file_path")
+            excel_file_path = file_context.get("file_path") or file_context.get(
+                "original_file_path"
+            )
             if excel_file_path:
                 excel_analysis_obj = {
                     "file_path": str(excel_file_path).strip(),
@@ -231,7 +235,11 @@ class AIChatApplicationService:
         except ConnectionError as conn_err:
             logger.error(f"AI 服务连接失败：{conn_err}")
             loop.close()
-            return _finalize(self._build_fallback_response(message, "AI 服务连接失败，可能是网络问题或服务未启动"))
+            return _finalize(
+                self._build_fallback_response(
+                    message, "AI 服务连接失败，可能是网络问题或服务未启动"
+                )
+            )
         except TimeoutError as timeout_err:
             logger.error(f"AI 服务请求超时：{timeout_err}")
             loop.close()
@@ -241,15 +249,25 @@ class AIChatApplicationService:
             loop.close()
             error_msg = str(e)
             if "api_key" in error_msg.lower() or "apikey" in error_msg.lower():
-                return _finalize(self._build_fallback_response(message, "AI 服务 API Key 未配置或无效，请联系管理员"))
+                return _finalize(
+                    self._build_fallback_response(
+                        message, "AI 服务 API Key 未配置或无效，请联系管理员"
+                    )
+                )
             elif "connection" in error_msg.lower():
-                return _finalize(self._build_fallback_response(message, "无法连接到 AI 服务，请检查网络设置"))
+                return _finalize(
+                    self._build_fallback_response(message, "无法连接到 AI 服务，请检查网络设置")
+                )
             else:
-                return _finalize(self._build_fallback_response(message, f"AI 服务暂时不可用：{error_msg[:100]}"))
+                return _finalize(
+                    self._build_fallback_response(message, f"AI 服务暂时不可用：{error_msg[:100]}")
+                )
         finally:
             loop.close()
 
-        logger.info(f"用户 {user_id} 消息：{message[:50]}... -> {ai_result.get('action', 'unknown')}")
+        logger.info(
+            f"用户 {user_id} 消息：{message[:50]}... -> {ai_result.get('action', 'unknown')}"
+        )
 
         response_data = self._build_response(ai_result, source, message)
 
@@ -259,8 +277,8 @@ class AIChatApplicationService:
         self,
         user_id: str,
         message: str,
-        context: Dict[str, Any],
-        response_data: Dict[str, Any],
+        context: dict[str, Any],
+        response_data: dict[str, Any],
     ) -> None:
         """
         在请求携带 session_id / conversation_id 时，将会话与工具结果摘要写入 ai_conversations，
@@ -274,7 +292,9 @@ class AIChatApplicationService:
 
         inner = response_data.get("data") if isinstance(response_data.get("data"), dict) else {}
         inner_payload = inner.get("data") if isinstance(inner.get("data"), dict) else {}
-        tool_call = response_data.get("toolCall") if isinstance(response_data.get("toolCall"), dict) else {}
+        tool_call = (
+            response_data.get("toolCall") if isinstance(response_data.get("toolCall"), dict) else {}
+        )
         intent = str(
             inner_payload.get("intent")
             or inner_payload.get("tool_key")
@@ -289,16 +309,24 @@ class AIChatApplicationService:
             "intent": intent,
             "toolCall": tool_call or None,
             "plan_id": inner_payload.get("plan_id"),
-            "document": (inner_payload.get("document") or {}).get("doc_name")
-            if isinstance(inner_payload.get("document"), dict)
-            else None,
-            "excel_import": inner_payload.get("result")
-            if inner_payload.get("intent") == "excel_import_to_db"
-            else None,
+            "document": (
+                (inner_payload.get("document") or {}).get("doc_name")
+                if isinstance(inner_payload.get("document"), dict)
+                else None
+            ),
+            "excel_import": (
+                inner_payload.get("result")
+                if inner_payload.get("intent") == "excel_import_to_db"
+                else None
+            ),
         }
 
-        meta_user = json.dumps({"role_hint": "user", "summary": summary}, ensure_ascii=False)[:12000]
-        meta_assistant = json.dumps({"role_hint": "assistant", "summary": summary}, ensure_ascii=False)[:12000]
+        meta_user = json.dumps({"role_hint": "user", "summary": summary}, ensure_ascii=False)[
+            :12000
+        ]
+        meta_assistant = json.dumps(
+            {"role_hint": "assistant", "summary": summary}, ensure_ascii=False
+        )[:12000]
 
         conv = get_conversation_service()
         conv.save_message(
@@ -322,8 +350,8 @@ class AIChatApplicationService:
     def _inject_excel_vector_context(
         self,
         message: str,
-        context: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         若请求携带 excel_index_id，则做一次语义检索并将结果写入 excel_vector_context。
         与 context 中已有的 excel_analysis（专用 extract-grid 等）可同时存在，二者一并进入下游提示词。
@@ -335,9 +363,9 @@ class AIChatApplicationService:
         if not isinstance(context, dict):
             return {}
 
-        excel_index_id = (
-            str(context.get("excel_index_id") or context.get("excel_vector_index_id") or "").strip()
-        )
+        excel_index_id = str(
+            context.get("excel_index_id") or context.get("excel_vector_index_id") or ""
+        ).strip()
         if not excel_index_id:
             return context
 
@@ -370,7 +398,7 @@ class AIChatApplicationService:
         return context
 
     @staticmethod
-    def _build_fallback_response(message: str, error_reason: str) -> Dict[str, Any]:
+    def _build_fallback_response(message: str, error_reason: str) -> dict[str, Any]:
         """
         构建 AI 服务不可用时的降级响应。
 
@@ -415,10 +443,12 @@ class AIChatApplicationService:
         except Exception:
             return False
 
-    _HEADER_HINT_RE = re.compile(r"(产品|名称|规格|型号|编号|单价|价格|调价|金额|单位|客户|厂名|品名)")
+    _HEADER_HINT_RE = re.compile(
+        r"(产品|名称|规格|型号|编号|单价|价格|调价|金额|单位|客户|厂名|品名)"
+    )
 
     @classmethod
-    def _row_values_look_like_table_headers(cls, values: List[str]) -> bool:
+    def _row_values_look_like_table_headers(cls, values: list[str]) -> bool:
         non_empty = [v for v in values if str(v or "").strip()]
         if len(non_empty) < 2:
             return False
@@ -427,7 +457,7 @@ class AIChatApplicationService:
 
     @staticmethod
     def _resolve_excel_path_for_import(
-        excel_analysis: Dict[str, Any], preview_data: Dict[str, Any]
+        excel_analysis: dict[str, Any], preview_data: dict[str, Any]
     ) -> str:
         fp = str(excel_analysis.get("file_path") or "").strip()
         if not fp and isinstance(preview_data, dict):
@@ -435,7 +465,7 @@ class AIChatApplicationService:
         return fp
 
     @staticmethod
-    def _customer_hint_from_preview_grid(preview_data: Dict[str, Any]) -> str:
+    def _customer_hint_from_preview_grid(preview_data: dict[str, Any]) -> str:
         """与前端网格预览一致：从 grid_preview.rows[].text 解析抬头里的客户名（合并单元格常见）。"""
         if not isinstance(preview_data, dict):
             return ""
@@ -452,7 +482,7 @@ class AIChatApplicationService:
         for row in grid_rows[:22]:
             if not isinstance(row, list):
                 continue
-            parts: List[str] = []
+            parts: list[str] = []
             for cell in row:
                 if not isinstance(cell, dict):
                     continue
@@ -482,15 +512,17 @@ class AIChatApplicationService:
 
     @staticmethod
     def _default_purchase_unit_for_import(
-        excel_analysis: Dict[str, Any],
-        preview_data: Dict[str, Any],
-        request_context: Optional[Dict[str, Any]] = None,
+        excel_analysis: dict[str, Any],
+        preview_data: dict[str, Any],
+        request_context: dict[str, Any] | None = None,
     ) -> str:
         """
         默认客户：优先读表内「客户」类标签与标题区公司名；文档没有时再退回文件名推断。
         """
-        logger.debug("[导入调试] _default_purchase_unit_for_import 开始, request_context type: %s", 
-                     type(request_context).__name__)
+        logger.debug(
+            "[导入调试] _default_purchase_unit_for_import 开始, request_context type: %s",
+            type(request_context).__name__,
+        )
         if isinstance(request_context, dict):
             hint = str(request_context.get("excel_customer_hint") or "").strip()
             logger.debug("[导入调试] request_context.excel_customer_hint = %s", repr(hint))
@@ -519,7 +551,9 @@ class AIChatApplicationService:
                 try:
                     from app.routes.template_grid_core import _extract_customer_hint_from_excel
 
-                    doc_unit = str(_extract_customer_hint_from_excel(str(path), sheet) or "").strip()
+                    doc_unit = str(
+                        _extract_customer_hint_from_excel(str(path), sheet) or ""
+                    ).strip()
                     if doc_unit:
                         return doc_unit
                 except Exception as err:
@@ -527,14 +561,12 @@ class AIChatApplicationService:
         return AIChatApplicationService._guess_default_purchase_unit(excel_analysis)
 
     @staticmethod
-    def _guess_default_purchase_unit(excel_analysis: Dict[str, Any]) -> str:
+    def _guess_default_purchase_unit(excel_analysis: dict[str, Any]) -> str:
         """
         仅作兜底：报价类文件无表内客户信息时，用文件名猜测公司名。
         """
         name = str(
-            excel_analysis.get("file_name")
-            or excel_analysis.get("template_name")
-            or ""
+            excel_analysis.get("file_name") or excel_analysis.get("template_name") or ""
         ).strip()
         fp = str(excel_analysis.get("file_path") or "").strip()
         if not name and fp:
@@ -577,8 +609,8 @@ class AIChatApplicationService:
 
     @staticmethod
     def _resolve_force_header_row_1based(
-        excel_analysis: Dict[str, Any], preview_data: Dict[str, Any]
-    ) -> Optional[int]:
+        excel_analysis: dict[str, Any], preview_data: dict[str, Any]
+    ) -> int | None:
         """与前端 slim 上下文中的 grid_preview.header_row_index / tables[].header_row 对齐。"""
         pd = preview_data if isinstance(preview_data, dict) else {}
         gp = pd.get("grid_preview") if isinstance(pd.get("grid_preview"), dict) else {}
@@ -604,7 +636,9 @@ class AIChatApplicationService:
                             return n
                     except (TypeError, ValueError):
                         pass
-        sheets = excel_analysis.get("sheets") if isinstance(excel_analysis.get("sheets"), list) else None
+        sheets = (
+            excel_analysis.get("sheets") if isinstance(excel_analysis.get("sheets"), list) else None
+        )
         if sheets:
             for s in sheets:
                 if not isinstance(s, dict):
@@ -635,10 +669,10 @@ class AIChatApplicationService:
 
     @staticmethod
     def _resolve_sheet_name_for_reimport(
-        excel_analysis: Dict[str, Any],
-        preview_data: Dict[str, Any],
-        request_context: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        excel_analysis: dict[str, Any],
+        preview_data: dict[str, Any],
+        request_context: dict[str, Any] | None = None,
+    ) -> str | None:
         if isinstance(request_context, dict):
             sel = request_context.get("excel_analysis_selected_sheet")
             if isinstance(sel, dict):
@@ -653,7 +687,9 @@ class AIChatApplicationService:
                 v = preview_data.get(key)
                 if v and str(v).strip():
                     return str(v).strip()
-        sheets = excel_analysis.get("sheets") if isinstance(excel_analysis.get("sheets"), list) else None
+        sheets = (
+            excel_analysis.get("sheets") if isinstance(excel_analysis.get("sheets"), list) else None
+        )
         if sheets and isinstance(sheets[0], dict):
             sn = sheets[0].get("sheet_name")
             if sn and str(sn).strip():
@@ -662,18 +698,19 @@ class AIChatApplicationService:
 
     @staticmethod
     def _try_structured_reload_records(
-        excel_analysis: Dict[str, Any],
-        preview_data: Dict[str, Any],
-        request_context: Optional[Dict[str, Any]] = None,
-    ) -> Optional[List[Dict[str, Any]]]:
+        excel_analysis: dict[str, Any],
+        preview_data: dict[str, Any],
+        request_context: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]] | None:
         """
         聊天上下文里的 sample_rows 常来自 pandas（Unnamed 列）或已被截断；若服务器上仍有原文件，
         默认用 openpyxl 表头识别重读；若 preview_data.parse_mode 为 rectangular，则按矩形区域全读（列键 A/B/…），
         不再依赖推断的数据表头行。
         """
-        fp = (
-            str(excel_analysis.get("file_path") or "").strip()
-            or (str(preview_data.get("file_path") or "").strip() if isinstance(preview_data, dict) else "")
+        fp = str(excel_analysis.get("file_path") or "").strip() or (
+            str(preview_data.get("file_path") or "").strip()
+            if isinstance(preview_data, dict)
+            else ""
         )
         if not fp:
             return None
@@ -683,7 +720,9 @@ class AIChatApplicationService:
         sheet = AIChatApplicationService._resolve_sheet_name_for_reimport(
             excel_analysis, preview_data, request_context
         )
-        force_hdr = AIChatApplicationService._resolve_force_header_row_1based(excel_analysis, preview_data)
+        force_hdr = AIChatApplicationService._resolve_force_header_row_1based(
+            excel_analysis, preview_data
+        )
         try:
             pd0 = preview_data if isinstance(preview_data, dict) else {}
             if str(pd0.get("parse_mode") or "").strip().lower() == "rectangular":
@@ -702,7 +741,7 @@ class AIChatApplicationService:
             rows = structured.get("sample_rows") or []
             if not isinstance(rows, list) or not rows:
                 return None
-            out: List[Dict[str, Any]] = []
+            out: list[dict[str, Any]] = []
             for row in rows:
                 if isinstance(row, dict):
                     out.append(
@@ -752,13 +791,28 @@ class AIChatApplicationService:
                 hit += 1
                 continue
             if v in {
-                "件", "个", "只", "箱", "盒", "包", "袋", "瓶", "桶", "罐", "套", "组", "台", "条", "张", "支",
+                "件",
+                "个",
+                "只",
+                "箱",
+                "盒",
+                "包",
+                "袋",
+                "瓶",
+                "桶",
+                "罐",
+                "套",
+                "组",
+                "台",
+                "条",
+                "张",
+                "支",
             }:
                 hit += 1
         return hit / float(len(nonempty))
 
     @staticmethod
-    def _header_hint_column_roles(keys: list[str]) -> Dict[str, str]:
+    def _header_hint_column_roles(keys: list[str]) -> dict[str, str]:
         """
         表头 → 客户/名称/型号/单价 四角色：词条来自 ``resources/config/ai_db_field_index.json`` 中
         ``products`` 各列的 ``excel_synonyms_zh`` / ``api_aliases``，可按业务增删而无需改 Python。
@@ -778,7 +832,7 @@ class AIChatApplicationService:
 
     def _fallback_excel_product_name_column(
         self,
-        records: list[Dict[str, Any]],
+        records: list[dict[str, Any]],
         reserved: set[str],
     ) -> str:
         """
@@ -812,7 +866,7 @@ class AIChatApplicationService:
 
     def _fallback_excel_model_number_column(
         self,
-        records: list[Dict[str, Any]],
+        records: list[dict[str, Any]],
         reserved: set[str],
     ) -> str:
         """未识别型号列时，在剩余列上按型号样字符串得分选列，减轻丢型号。"""
@@ -834,14 +888,16 @@ class AIChatApplicationService:
                 best_col = sk
         return best_col if best_score >= 0.22 else ""
 
-    def _infer_excel_column_roles(self, records: list[Dict[str, Any]]) -> tuple[Dict[str, str], float]:
+    def _infer_excel_column_roles(
+        self, records: list[dict[str, Any]]
+    ) -> tuple[dict[str, str], float]:
         if not records:
             return {}, 0.0
         keys = [k for k in records[0].keys() if str(k).strip()]
         if not keys:
             return {}, 0.0
 
-        stats: Dict[str, Dict[str, float]] = {}
+        stats: dict[str, dict[str, float]] = {}
         for key in keys:
             values = [str((row or {}).get(key) or "").strip() for row in records]
             non_empty = [v for v in values if v]
@@ -867,11 +923,15 @@ class AIChatApplicationService:
         score_map = {
             "unit_price": lambda s: s["numeric_ratio"] * 0.9 + (1.0 - s["avg_len"] / 20.0) * 0.1,
             "model_number": lambda s: s["model_ratio"] * 0.8 + s["unique_ratio"] * 0.2,
-            "unit_name": lambda s: (1.0 - s["numeric_ratio"]) * 0.35 + s["repeat_ratio"] * 0.5 + (1.0 - min(s["avg_len"], 20.0) / 20.0) * 0.15,
-            "product_name": lambda s: (1.0 - s["numeric_ratio"]) * 0.45 + s["unique_ratio"] * 0.35 + min(s["avg_len"], 30.0) / 30.0 * 0.2,
+            "unit_name": lambda s: (1.0 - s["numeric_ratio"]) * 0.35
+            + s["repeat_ratio"] * 0.5
+            + (1.0 - min(s["avg_len"], 20.0) / 20.0) * 0.15,
+            "product_name": lambda s: (1.0 - s["numeric_ratio"]) * 0.45
+            + s["unique_ratio"] * 0.35
+            + min(s["avg_len"], 30.0) / 30.0 * 0.2,
         }
 
-        ranked_by_role: Dict[str, list[tuple[str, float]]] = {}
+        ranked_by_role: dict[str, list[tuple[str, float]]] = {}
         for role, fn in score_map.items():
             ranked_by_role[role] = sorted(
                 [(k, float(fn(v))) for k, v in stats.items()],
@@ -881,7 +941,7 @@ class AIChatApplicationService:
 
         # 避免角色冲突：如果推断冲突，优先保留最强语义的列，其他角色留空。
         used: set[str] = set()
-        resolved: Dict[str, str] = {}
+        resolved: dict[str, str] = {}
         confidences: list[float] = []
         for role in ("unit_price", "model_number", "unit_name", "product_name"):
             ranked = ranked_by_role.get(role) or []
@@ -892,7 +952,9 @@ class AIChatApplicationService:
                 top_score = ranked[0][1] if ranked else 0.0
                 next_score = ranked[1][1] if len(ranked) > 1 else 0.0
                 # 置信度由绝对分和领先差共同决定
-                role_conf = max(0.0, min(1.0, top_score * 0.7 + max(0.0, top_score - next_score) * 0.3))
+                role_conf = max(
+                    0.0, min(1.0, top_score * 0.7 + max(0.0, top_score - next_score) * 0.3)
+                )
                 confidences.append(role_conf)
             else:
                 resolved[role] = ""
@@ -900,12 +962,14 @@ class AIChatApplicationService:
         confidence = sum(confidences) / float(len(confidences) or 1)
         return resolved, confidence
 
-    def _infer_excel_column_roles_with_llm(self, records: list[Dict[str, Any]]) -> Dict[str, str]:
+    def _infer_excel_column_roles_with_llm(self, records: list[dict[str, Any]]) -> dict[str, str]:
         if not records:
             return {}
         try:
             api_key = str(getattr(self.ai_service, "api_key", "") or "").strip()
-            api_url = str(getattr(self.ai_service, "api_url", "") or "https://api.deepseek.com/v1/chat/completions")
+            from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+
+            api_url = str(getattr(self.ai_service, "api_url", "") or default_chat_completions_url())
             model = str(getattr(self.ai_service, "model", "") or "deepseek-chat")
             if not api_key:
                 return {}
@@ -961,7 +1025,9 @@ class AIChatApplicationService:
             ).strip()
             if not content:
                 return {}
-            content = content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            content = (
+                content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            )
             parsed = json.loads(content)
             roles = {}
             for role in ("unit_name", "product_name", "model_number", "unit_price"):
@@ -1001,7 +1067,7 @@ class AIChatApplicationService:
     @staticmethod
     def _merge_user_intent_for_price_resolution(
         user_message: str,
-        request_context: Optional[Dict[str, Any]],
+        request_context: dict[str, Any] | None,
     ) -> str:
         """
         合并「最近对话」与当前用户句，用于识别「调价前/后」单价列偏好。
@@ -1047,8 +1113,8 @@ class AIChatApplicationService:
         keys: list[str],
         current: str,
         user_message: str,
-        overrides: Optional[Dict[str, Any]],
-    ) -> tuple[str, Optional[str]]:
+        overrides: dict[str, Any] | None,
+    ) -> tuple[str, str | None]:
         """
         结合列名与用户话术确定入库单价列。
         返回 (column_name, error_code)；error_code 为 ambiguous_price_columns 时应中止自动入库。
@@ -1132,16 +1198,22 @@ class AIChatApplicationService:
 
     def _extract_excel_import_records(
         self,
-        excel_analysis: Dict[str, Any],
-        request_context: Optional[Dict[str, Any]] = None,
+        excel_analysis: dict[str, Any],
+        request_context: dict[str, Any] | None = None,
         *,
         user_message: str = "",
-    ) -> tuple[list[Dict[str, Any]], Optional[str]]:
-        preview_data = excel_analysis.get("preview_data") if isinstance(excel_analysis.get("preview_data"), dict) else {}
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        preview_data = (
+            excel_analysis.get("preview_data")
+            if isinstance(excel_analysis.get("preview_data"), dict)
+            else {}
+        )
         preview_data = preview_data or {}
-        records: list[Dict[str, Any]] = []
+        records: list[dict[str, Any]] = []
 
-        reloaded = self._try_structured_reload_records(excel_analysis, preview_data, request_context)
+        reloaded = self._try_structured_reload_records(
+            excel_analysis, preview_data, request_context
+        )
         if reloaded:
             records = reloaded
         else:
@@ -1151,7 +1223,7 @@ class AIChatApplicationService:
                     if isinstance(row, dict):
                         records.append(dict(row))
 
-            grid_rows = ((preview_data.get("grid_preview") or {}).get("rows") or [])
+            grid_rows = (preview_data.get("grid_preview") or {}).get("rows") or []
             if isinstance(grid_rows, list) and len(grid_rows) >= 2:
                 header = grid_rows[0]
                 if isinstance(header, list):
@@ -1159,7 +1231,7 @@ class AIChatApplicationService:
                     for row in grid_rows[1:]:
                         if not isinstance(row, list):
                             continue
-                        item: Dict[str, Any] = {}
+                        item: dict[str, Any] = {}
                         for idx, key in enumerate(header_keys):
                             if not key:
                                 continue
@@ -1177,20 +1249,20 @@ class AIChatApplicationService:
                     unnamed_count = sum(1 for k in keys if str(k).startswith("Unnamed:"))
                     key_unnamed_ratio = unnamed_count / len(keys)
                 header_values = [str(first.get(k) or "").strip() for k in keys]
-                label_like_ratio = (
-                    sum(1 for v in header_values if v and not self._is_number_text(v)) / float(len(header_values) or 1)
-                )
+                label_like_ratio = sum(
+                    1 for v in header_values if v and not self._is_number_text(v)
+                ) / float(len(header_values) or 1)
                 headerish = self._row_values_look_like_table_headers(header_values)
                 should_promote = len(records) >= 2 and (
                     (key_unnamed_ratio >= 0.5 and label_like_ratio >= 0.5)
                     or (key_unnamed_ratio >= 0.35 and headerish)
                 )
                 if should_promote:
-                    rebuilt: list[Dict[str, Any]] = []
+                    rebuilt: list[dict[str, Any]] = []
                     for row in records[1:]:
                         if not isinstance(row, dict):
                             continue
-                        mapped: Dict[str, Any] = {}
+                        mapped: dict[str, Any] = {}
                         for idx, key in enumerate(keys):
                             header = header_values[idx] if idx < len(header_values) else ""
                             if not header:
@@ -1202,9 +1274,11 @@ class AIChatApplicationService:
                         records = rebuilt
 
         records = [
-            {k: AIChatApplicationService._sanitize_import_scalar(v) for k, v in r.items()}
-            if isinstance(r, dict)
-            else r
+            (
+                {k: AIChatApplicationService._sanitize_import_scalar(v) for k, v in r.items()}
+                if isinstance(r, dict)
+                else r
+            )
             for r in records
         ]
 
@@ -1249,11 +1323,17 @@ class AIChatApplicationService:
         model_key = inferred_roles.get("model_number", "")
         price_key = inferred_roles.get("unit_price", "")
 
-        default_unit = self._default_purchase_unit_for_import(excel_analysis, preview_data, request_context)
+        default_unit = self._default_purchase_unit_for_import(
+            excel_analysis, preview_data, request_context
+        )
         logger.debug(
             "[导入调试] _default_purchase_unit_for_import 返回: %s (request_context keys: %s)",
             repr(default_unit),
-            list(request_context.keys()) if isinstance(request_context, dict) else type(request_context).__name__,
+            (
+                list(request_context.keys())
+                if isinstance(request_context, dict)
+                else type(request_context).__name__
+            ),
         )
         if unit_key:
             col_vals = [str((row or {}).get(unit_key) or "").strip() for row in records]
@@ -1276,19 +1356,25 @@ class AIChatApplicationService:
                 model_key = fb_model
 
         dedup: set[tuple[str, str, str]] = set()
-        normalized: list[Dict[str, Any]] = []
+        normalized: list[dict[str, Any]] = []
         for row in records:
             unit_name = str((row or {}).get(unit_key) or "").strip() if unit_key else ""
-            if not unit_name and default_unit:
-                unit_name = default_unit.strip()
-            elif (
-                default_unit
-                and unit_name
-                and AIChatApplicationService._excel_cell_looks_like_product_measure_unit(unit_name)
+            if (
+                not unit_name
+                and default_unit
+                or (
+                    default_unit
+                    and unit_name
+                    and AIChatApplicationService._excel_cell_looks_like_product_measure_unit(
+                        unit_name
+                    )
+                )
             ):
                 unit_name = default_unit.strip()
             product_name = str((row or {}).get(product_key) or "").strip() if product_key else ""
-            model_number = str((row or {}).get(model_key) or "").strip().upper() if model_key else ""
+            model_number = (
+                str((row or {}).get(model_key) or "").strip().upper() if model_key else ""
+            )
             price_text = str((row or {}).get(price_key) or "").strip() if price_key else ""
             try:
                 unit_price = float(price_text) if price_text else 0.0
@@ -1313,7 +1399,7 @@ class AIChatApplicationService:
         return normalized, None
 
     @staticmethod
-    def _excel_analysis_payload_present(context: Optional[Dict[str, Any]]) -> bool:
+    def _excel_analysis_payload_present(context: dict[str, Any] | None) -> bool:
         """请求里是否带有可用的 excel_analysis（与 extract-grid 结构一致）。"""
         ea = (context or {}).get("excel_analysis") if isinstance(context, dict) else None
         if not isinstance(ea, dict) or not ea:
@@ -1363,10 +1449,10 @@ class AIChatApplicationService:
         self,
         user_id: str,
         message: str,
-        source: Optional[str],
-        context: Dict[str, Any],
-        file_context: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        source: str | None,
+        context: dict[str, Any],
+        file_context: dict[str, Any],
+    ) -> dict[str, Any] | None:
         if not self._is_pro_source(source):
             return None
 
@@ -1385,9 +1471,7 @@ class AIChatApplicationService:
         if import_intent and (merged_file_ctx.get("suggested_use") == "unit_products_db"):
             saved_name = str(merged_file_ctx.get("saved_name") or "").strip()
             unit_name = str(
-                merged_file_ctx.get("unit_name")
-                or merged_file_ctx.get("unit_name_guess")
-                or ""
+                merged_file_ctx.get("unit_name") or merged_file_ctx.get("unit_name_guess") or ""
             ).strip()
             if not saved_name:
                 return {
@@ -1459,9 +1543,9 @@ class AIChatApplicationService:
                 }
 
         # 无分析结果时短指令勿走 LLM（混合 normal 画像下否则会长时间阻塞在 DeepSeek）
-        if not self._excel_analysis_payload_present(context) and self._looks_like_short_excel_import_command(
-            text
-        ):
+        if not self._excel_analysis_payload_present(
+            context
+        ) and self._looks_like_short_excel_import_command(text):
             return {
                 "success": True,
                 "message": "处理完成",
@@ -1478,7 +1562,9 @@ class AIChatApplicationService:
 
         # 下列分支为「规则入库捷径」：关键词 + excel_analysis 即写库，不经过本轮主对话模型的端到端推理。
         # 默认由前端 context.excel_import_ai_decides 跳过本分支，改走主链路使模型/Planner 拥有入库决策权。
-        excel_analysis = (context or {}).get("excel_analysis") if isinstance(context, dict) else None
+        excel_analysis = (
+            (context or {}).get("excel_analysis") if isinstance(context, dict) else None
+        )
         if (
             isinstance(excel_analysis, dict)
             and any(k in text for k in ("数据库", "入库", "导入", "添加到库"))
@@ -1553,6 +1639,7 @@ class AIChatApplicationService:
 
             try:
                 from app.bootstrap import get_products_service
+
                 products_service = get_products_service()
                 customer_service = None
                 customer_service_error = ""
@@ -1594,7 +1681,9 @@ class AIChatApplicationService:
                     if exists_result.get("success"):
                         rows = exists_result.get("data") or []
                         for item in rows:
-                            item_name = str(item.get("name") or item.get("product_name") or "").strip()
+                            item_name = str(
+                                item.get("name") or item.get("product_name") or ""
+                            ).strip()
                             item_model = str(item.get("model_number") or "").strip().upper()
                             if model_number and item_model == model_number:
                                 existed = True
@@ -1631,9 +1720,7 @@ class AIChatApplicationService:
                         "因此「客户总数」不会增加；若新增了产品，请到产品页按对应单位筛选查看。"
                     )
                 elif created_units > 0:
-                    explain_customers = (
-                        "\n说明：已新建客户，客户列表中的客户总数应相应增加。"
-                    )
+                    explain_customers = "\n说明：已新建客户，客户列表中的客户总数应相应增加。"
 
                 response_text = (
                     "已按聊天请求完成 Excel 入库：\n"
@@ -1680,6 +1767,9 @@ class AIChatApplicationService:
                 }
 
         from app.application.normal_chat_dispatch import (
+            build_customers_query_response_dict,
+            build_inventory_alert_response_dict,
+            build_label_print_response_dict,
             build_product_query_response_dict,
             resolve_tool_execution_profile,
             route_normal_mode_message,
@@ -1698,8 +1788,23 @@ class AIChatApplicationService:
                 if ship.get("success"):
                     ship.pop("normal_slot_dispatch", None)
                     return ship
+            if rr.get("intent") == "customers_query":
+                cq = build_customers_query_response_dict(rr)
+                if cq:
+                    return cq
+            if rr.get("intent") == "inventory_alert":
+                ia = build_inventory_alert_response_dict(rr)
+                if ia:
+                    return ia
+            if rr.get("intent") == "label_print":
+                lp = build_label_print_response_dict(rr)
+                if lp:
+                    return lp
             if rr.get("intent") == "price_list":
-                customer_name_match = re.search(r"([^\s，,。]{2,}(?:有限公司|集团有限公司|实业有限公司|公司\s|单位|客户|厂|店))", text)
+                customer_name_match = re.search(
+                    r"([^\s，,。]{2,}(?:有限公司|集团有限公司|实业有限公司|公司\s|单位|客户|厂|店))",
+                    text,
+                )
                 keyword_match = re.search(r"[的的]\s*([^\s，,。]+)", text)
                 slots = {}
                 if customer_name_match:
@@ -1722,7 +1827,11 @@ class AIChatApplicationService:
                     logger.info(f"价格表生成 - FHD根目录: {fhd_root}")
 
                     result = handle_price_list_export(
-                        {"customer_name": slots.get("customer_name", ""), "keyword": slots.get("keyword"), "export_date": None},
+                        {
+                            "customer_name": slots.get("customer_name", ""),
+                            "keyword": slots.get("keyword"),
+                            "export_date": None,
+                        },
                         workspace_root=str(fhd_root) if fhd_root else None,
                     )
 
@@ -1731,7 +1840,9 @@ class AIChatApplicationService:
                     if result.get("success"):
                         product_count = len(result.get("products", []))
                         file_path = result.get("file_path", "")
-                        filename = file_path.split("/")[-1].split("\\")[-1] if file_path else "价格表.docx"
+                        filename = (
+                            file_path.split("/")[-1].split("\\")[-1] if file_path else "价格表.docx"
+                        )
 
                         return {
                             "success": True,
@@ -1802,7 +1913,9 @@ class AIChatApplicationService:
                         },
                     }
 
-                run_result = self.workflow_engine.run(plan=plan, runtime_context=runtime_ctx, max_retries=1)
+                run_result = self.workflow_engine.run(
+                    plan=plan, runtime_context=runtime_ctx, max_retries=1
+                )
                 self._pending_workflows.pop(user_id, None)
                 return self._format_workflow_run_response(
                     plan,
@@ -1815,7 +1928,11 @@ class AIChatApplicationService:
                     "success": True,
                     "message": "处理完成",
                     "response": "已取消本次工作流执行。",
-                    "data": {"text": "已取消本次工作流执行。", "action": "workflow_cancelled", "data": {}},
+                    "data": {
+                        "text": "已取消本次工作流执行。",
+                        "action": "workflow_cancelled",
+                        "data": {},
+                    },
                 }
 
         # 普通工具画像（含「普通界面 + 专业意图」）：未命中槽位时勿走 LLM 工作流规划，避免长时间阻塞在 plan()；
@@ -1869,14 +1986,16 @@ class AIChatApplicationService:
 
         decision = self.risk_gate.evaluate(plan=plan, context=context)
         runtime_ctx = self._merge_tool_runtime_context(user_id, message, context)
-        thinking_steps = self._build_workflow_thinking_steps(plan=plan, decision_reason=decision.reason)
+        thinking_steps = self._build_workflow_thinking_steps(
+            plan=plan, decision_reason=decision.reason
+        )
 
         approval_required_nodes = self.approval_service.get_approval_required_nodes(plan)
         has_approval_requirement = bool(approval_required_nodes)
         approval_info = ""
         if has_approval_requirement:
             approval_node_names = [f"{n.tool_id}.{n.action}" for n in approval_required_nodes]
-            approval_info = f"\n以下操作需要审批后执行：" + "、".join(approval_node_names)
+            approval_info = "\n以下操作需要审批后执行：" + "、".join(approval_node_names)
 
         if decision.requires_confirmation or has_approval_requirement:
             self._pending_workflows[user_id] = {
@@ -1885,7 +2004,12 @@ class AIChatApplicationService:
                 "pending_id": uuid.uuid4().hex,
                 "approval_required": has_approval_requirement,
                 "approval_nodes": [
-                    {"node_id": n.node_id, "tool_id": n.tool_id, "action": n.action, "params": n.params}
+                    {
+                        "node_id": n.node_id,
+                        "tool_id": n.tool_id,
+                        "action": n.action,
+                        "params": n.params,
+                    }
                     for n in approval_required_nodes
                 ],
             }
@@ -1939,7 +2063,7 @@ class AIChatApplicationService:
 
     def _build_workflow_thinking_steps(self, plan, decision_reason: str) -> str:
         node_lines = []
-        for node in (plan.nodes or []):
+        for node in plan.nodes or []:
             deps = ",".join(node.depends_on) if node.depends_on else "无"
             node_lines.append(
                 f"- 节点 {node.node_id}: {node.tool_id}.{node.action} "
@@ -1966,7 +2090,11 @@ class AIChatApplicationService:
                 preview = preview[:220] + ("…" if len(preview) > 220 else "")
             probe_lines.append(f"- {tid}.{action}: success={ok}; {msg} {preview}".strip())
 
-        memory_block = f"3.5) 用户记忆 RAG 概览:\n{user_memory_rag_summary}\n" if user_memory_rag_summary else ""
+        memory_block = (
+            f"3.5) 用户记忆 RAG 概览:\n{user_memory_rag_summary}\n"
+            if user_memory_rag_summary
+            else ""
+        )
         probe_block = (
             "3.6) 工具探测概览:\n"
             + ("\n".join(probe_lines) if probe_lines else "- 无成功探测结果")
@@ -1982,9 +2110,7 @@ class AIChatApplicationService:
             f"5) 节点图:\n{nodes_text}"
         )
 
-    def _workflow_products_float_query(
-        self, plan, run_result, user_message: str
-    ) -> str:
+    def _workflow_products_float_query(self, plan, run_result, user_message: str) -> str:
         """从产品查询节点参数/结果或用户原话中提取副窗搜索词。"""
         for node in plan.nodes or []:
             if node.tool_id == "products" and node.action == "query":
@@ -2018,7 +2144,7 @@ class AIChatApplicationService:
         run_result,
         thinking_steps: str = "",
         user_message: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         lines = [f"工作流: {plan.intent}", f"计划ID: {plan.plan_id}"]
         if thinking_steps:
             lines.append(thinking_steps)
@@ -2049,7 +2175,7 @@ class AIChatApplicationService:
         if run_result.message:
             lines.append(f"说明: {run_result.message}")
         response_text = "\n".join(lines)
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "success": run_result.success,
             "message": "处理完成" if run_result.success else "处理失败",
             "response": response_text,
@@ -2107,7 +2233,7 @@ class AIChatApplicationService:
         return payload
 
     @staticmethod
-    def _normal_slot_dispatch_chat_overlay(run_result) -> Dict[str, Any]:
+    def _normal_slot_dispatch_chat_overlay(run_result) -> dict[str, Any]:
         for item in reversed(run_result.node_results):
             if not item.success or item.tool_id != "normal_slot_dispatch":
                 continue
@@ -2116,27 +2242,32 @@ class AIChatApplicationService:
                 continue
             if not (out.get("autoAction") or out.get("task")):
                 continue
-            picked: Dict[str, Any] = {}
+            picked: dict[str, Any] = {}
             for key in ("response", "message", "autoAction", "task"):
                 if key in out:
                     picked[key] = out[key]
             return picked
         return {}
 
-    def _dispatch_workflow_tool(self, tool_id: str, action: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _dispatch_workflow_tool(
+        self, tool_id: str, action: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
         try:
             from app.routes.tools import execute_registered_workflow_tool
 
             return execute_registered_workflow_tool(tool_id=tool_id, action=action, params=params)
         except Exception as err:
-            logger.error("workflow 工具调度失败 tool=%s action=%s err=%s", tool_id, action, err, exc_info=True)
+            logger.error(
+                "workflow 工具调度失败 tool=%s action=%s err=%s",
+                tool_id,
+                action,
+                err,
+                exc_info=True,
+            )
             return {"success": False, "message": str(err)}
 
     def _handle_confirmation_flow(
-        self,
-        user_id: str,
-        message: str,
-        file_context: Optional[Dict[str, Any]]
+        self, user_id: str, message: str, file_context: dict[str, Any] | None
     ) -> None:
         """处理确认流程"""
         if not file_context:
@@ -2150,23 +2281,23 @@ class AIChatApplicationService:
         suggested_use = file_context.get("suggested_use", "")
 
         if saved_name and suggested_use == "unit_products_db" and unit_name:
-            self.ai_service.set_pending_confirmation(user_id, {
-                "type": "import_unit_products",
-                "tool_key": "sqlite_import_unit_products",
-                "params": {
-                    "saved_name": saved_name,
-                    "unit_name": unit_name,
+            self.ai_service.set_pending_confirmation(
+                user_id,
+                {
+                    "type": "import_unit_products",
+                    "tool_key": "sqlite_import_unit_products",
+                    "params": {
+                        "saved_name": saved_name,
+                        "unit_name": unit_name,
+                    },
+                    "description": f"导入 {unit_name} 的产品",
                 },
-                "description": f"导入 {unit_name} 的产品"
-            })
+            )
             logger.info(f"用户 {user_id} 确认导入文件：{saved_name} -> {unit_name}")
 
     def _build_response(
-        self,
-        ai_result: Dict[str, Any],
-        source: Optional[str],
-        original_message: str = ""
-    ) -> Dict[str, Any]:
+        self, ai_result: dict[str, Any], source: str | None, original_message: str = ""
+    ) -> dict[str, Any]:
         """构建响应数据"""
         response_data = {
             "success": True,
@@ -2196,12 +2327,12 @@ class AIChatApplicationService:
 
     def _handle_tool_call(
         self,
-        response_data: Dict[str, Any],
-        ai_result: Dict[str, Any],
-        result_data: Dict[str, Any],
-        source: Optional[str],
-        original_message: str = ""
-    ) -> Dict[str, Any]:
+        response_data: dict[str, Any],
+        ai_result: dict[str, Any],
+        result_data: dict[str, Any],
+        source: str | None,
+        original_message: str = "",
+    ) -> dict[str, Any]:
         """处理工具调用响应"""
         tool_key = result_data.get("tool_key")
         parsed_params = result_data.get("params") or {}
@@ -2225,18 +2356,16 @@ class AIChatApplicationService:
 
     def _execute_pro_mode_tools(
         self,
-        response_data: Dict[str, Any],
+        response_data: dict[str, Any],
         tool_key: str,
-        slots: Dict[str, Any],
-        parsed_params: Dict[str, Any],
-        ai_result: Dict[str, Any],
-        original_message: str = ""
-    ) -> Dict[str, Any]:
+        slots: dict[str, Any],
+        parsed_params: dict[str, Any],
+        ai_result: dict[str, Any],
+        original_message: str = "",
+    ) -> dict[str, Any]:
         """执行专业模式工具"""
         if tool_key == "products":
-            return self._execute_products_query(
-                response_data, slots, parsed_params
-            )
+            return self._execute_products_query(response_data, slots, parsed_params)
         elif tool_key == "customers":
             return self._execute_customers_intent(
                 response_data=response_data,
@@ -2247,7 +2376,11 @@ class AIChatApplicationService:
         elif tool_key == "shipment_generate":
             unit_name = slots.get("unit_name") or parsed_params.get("unit_name", "")
             quantity_tins = slots.get("quantity_tins") or parsed_params.get("quantity_tins", "")
-            model_number = slots.get("model_number") or slots.get("product_model") or parsed_params.get("model_number", "")
+            model_number = (
+                slots.get("model_number")
+                or slots.get("product_model")
+                or parsed_params.get("model_number", "")
+            )
             tin_spec = slots.get("tin_spec") or parsed_params.get("tin_spec", "")
             products_list = slots.get("products") or []
             parsed_products = []
@@ -2256,6 +2389,7 @@ class AIChatApplicationService:
             # pro 模式优先从原消息解析整单，保留完整 products[]。
             try:
                 from app.routes.tools import _parse_order_text
+
                 parsed_order = _parse_order_text(original_message or "")
                 if parsed_order.get("success"):
                     parsed_products = parsed_order.get("products") or []
@@ -2266,9 +2400,13 @@ class AIChatApplicationService:
             if original_message and len(original_message) > 5:
                 order_text = original_message
             elif unit_name and quantity_tins and model_number and tin_spec:
-                order_text = f"{unit_name}{int(quantity_tins)} 桶 {model_number} 规格 {int(float(tin_spec))}"
+                order_text = (
+                    f"{unit_name}{int(quantity_tins)} 桶 {model_number} 规格 {int(float(tin_spec))}"
+                )
             elif unit_name and products_list:
-                order_text = self._build_order_text_from_products(unit_name, products_list, original_message, quantity_tins, tin_spec)
+                order_text = self._build_order_text_from_products(
+                    unit_name, products_list, original_message, quantity_tins, tin_spec
+                )
             else:
                 order_text = ai_result.get("text", "")
 
@@ -2283,7 +2421,7 @@ class AIChatApplicationService:
                     **ai_result.get("data", {}),
                     "products": effective_products,
                     "unit_name": effective_unit_name,
-                }
+                },
             }
             response_data["response"] = ai_result.get("text", "")
             return response_data
@@ -2294,46 +2432,37 @@ class AIChatApplicationService:
                 "params": {
                     "order_text": ai_result.get("text", ""),
                     **parsed_params,
-                    **ai_result.get("data", {})
-                }
+                    **ai_result.get("data", {}),
+                },
             }
             response_data["response"] = ai_result.get("text", "")
             return response_data
 
     def _execute_normal_mode_tools(
         self,
-        response_data: Dict[str, Any],
+        response_data: dict[str, Any],
         tool_key: str,
-        parsed_params: Dict[str, Any],
-        ai_result: Dict[str, Any],
-        result_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        parsed_params: dict[str, Any],
+        ai_result: dict[str, Any],
+        result_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """执行普通模式工具"""
         if tool_key == "shipment_generate":
-            return self._execute_shipment_generate(
-                response_data, parsed_params, ai_result
-            )
+            return self._execute_shipment_generate(response_data, parsed_params, ai_result)
         elif tool_key == "shipments":
             return self._execute_shipments_query(response_data)
         else:
             response_data["toolCall"] = {
                 "tool_id": tool_key,
                 "action": "执行",
-                "params": {
-                    "order_text": ai_result.get("text", ""),
-                    **parsed_params,
-                    **result_data
-                }
+                "params": {"order_text": ai_result.get("text", ""), **parsed_params, **result_data},
             }
             response_data["response"] = ai_result.get("text", "")
             return response_data
 
     def _execute_products_query(
-        self,
-        response_data: Dict[str, Any],
-        slots: Dict[str, Any],
-        parsed_params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, response_data: dict[str, Any], slots: dict[str, Any], parsed_params: dict[str, Any]
+    ) -> dict[str, Any]:
         """执行产品查询"""
         try:
             from app.bootstrap import get_products_service
@@ -2344,7 +2473,7 @@ class AIChatApplicationService:
             keyword = slots.get("keyword") or parsed_params.get("keyword", "")
 
             if not unit_name and not model_number and keyword and "的" in keyword:
-                match = re.search(r'([\u4e00-\u9fa5]{2,6})的(\d+[A-Z]?)', keyword)
+                match = re.search(r"([\u4e00-\u9fa5]{2,6})的(\d+[A-Z]?)", keyword)
                 if match:
                     potential_unit = match.group(1)
                     model_candidate = match.group(2)
@@ -2359,7 +2488,9 @@ class AIChatApplicationService:
             app_service = get_products_service()
 
             if model_number and unit_name:
-                products_result = app_service.get_products(model_number=model_number, unit_name=unit_name)
+                products_result = app_service.get_products(
+                    model_number=model_number, unit_name=unit_name
+                )
             elif model_number:
                 products_result = app_service.get_products(model_number=model_number)
             elif unit_name:
@@ -2374,15 +2505,17 @@ class AIChatApplicationService:
             response_data["data"]["unit_name"] = unit_name
             response_data["data"]["model_number"] = model_number
             response_data["data"]["data"] = {"products": products_list}
-            response_data["response"] = f"查询到 {len(products_list)} 个产品" if products_list else "未找到产品"
+            response_data["response"] = (
+                f"查询到 {len(products_list)} 个产品" if products_list else "未找到产品"
+            )
             response_data["toolCall"] = {
                 "tool_id": "products",
                 "action": "执行",
                 "params": {
                     "unit_name": unit_name,
                     "model_number": model_number,
-                    "keyword": keyword
-                }
+                    "keyword": keyword,
+                },
             }
             response_data["autoAction"] = {
                 "type": "tool_call",
@@ -2390,11 +2523,11 @@ class AIChatApplicationService:
                 "params": {
                     "unit_name": unit_name,
                     "model_number": model_number,
-                    "keyword": keyword
+                    "keyword": keyword,
                 },
                 "products": products_list,
                 "unit_name": unit_name,
-                "query": model_number or keyword or ""
+                "query": model_number or keyword or "",
             }
         except Exception as prod_err:
             logger.error("即时执行 products 查询失败: %s", prod_err, exc_info=True)
@@ -2402,10 +2535,7 @@ class AIChatApplicationService:
 
         return response_data
 
-    def _execute_customers_query(
-        self,
-        response_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _execute_customers_query(self, response_data: dict[str, Any]) -> dict[str, Any]:
         """执行客户查询"""
         try:
             from app.bootstrap import get_customer_app_service
@@ -2415,7 +2545,9 @@ class AIChatApplicationService:
             customers = customers_result.get("data", []) if customers_result else []
 
             response_data["data"]["data"] = {"customers": customers}
-            response_data["response"] = f"查询到 {len(customers)} 个客户" if customers else "未找到客户"
+            response_data["response"] = (
+                f"查询到 {len(customers)} 个客户" if customers else "未找到客户"
+            )
         except Exception as cust_err:
             logger.error("即时执行 customers 查询失败: %s", cust_err, exc_info=True)
             response_data["response"] = f"查询客户失败：{str(cust_err)}"
@@ -2424,11 +2556,11 @@ class AIChatApplicationService:
 
     def _execute_customers_intent(
         self,
-        response_data: Dict[str, Any],
-        slots: Dict[str, Any],
-        parsed_params: Dict[str, Any],
+        response_data: dict[str, Any],
+        slots: dict[str, Any],
+        parsed_params: dict[str, Any],
         original_message: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         text = str(original_message or "").strip()
         lower = text.lower()
         unit_name = str(
@@ -2447,7 +2579,9 @@ class AIChatApplicationService:
         )
 
         if is_add_intent and not unit_name:
-            response_data["response"] = "你要添加哪个单位？请告诉我单位名称，例如：添加单位 七彩乐园。"
+            response_data["response"] = (
+                "你要添加哪个单位？请告诉我单位名称，例如：添加单位 七彩乐园。"
+            )
             response_data["data"]["data"] = {
                 "intent": "customer_create",
                 "missing_fields": ["unit_name"],
@@ -2482,23 +2616,32 @@ class AIChatApplicationService:
 
         # 未明确意图时，不再默认查全表，避免“添加单位”误触发列表查询
         response_data["response"] = (
-            "我可以帮你处理单位管理。你可以说："
-            "“添加单位 七彩乐园”或“查询客户列表”。"
+            "我可以帮你处理单位管理。你可以说：" "“添加单位 七彩乐园”或“查询客户列表”。"
         )
         response_data["data"]["data"] = {"intent": "customers_followup"}
         return response_data
 
-    def _build_order_text_from_products(self, unit_name: str, products: list, original_message: str = "", default_qty: int = None, default_spec: int = None) -> str:
+    def _build_order_text_from_products(
+        self,
+        unit_name: str,
+        products: list,
+        original_message: str = "",
+        default_qty: int = None,
+        default_spec: int = None,
+    ) -> str:
         """根据产品列表构建订单文本"""
         import re
+
         if not products:
             return ""
         if not unit_name:
             return ""
 
         if original_message and len(products) >= 1:
-            normalized_msg = original_message.replace('，', ',').replace('。', '').replace(' ', '')
-            order_pattern = re.compile(r'帮?打\s*(.+?)\s*的?\s*货单?[,，]?\s*(\d+)\s*桶\s*(\d+[A-Z]?(?:-\d+[A-Z]?)?)\s*规格\s*(\d+)\s*[,，]?\s*(\d+)\s*桶\s*(\d+[A-Z]?(?:-\d+[A-Z]?)?)\s*规格\s*(\d+)')
+            normalized_msg = original_message.replace("，", ",").replace("。", "").replace(" ", "")
+            order_pattern = re.compile(
+                r"帮?打\s*(.+?)\s*的?\s*货单?[,，]?\s*(\d+)\s*桶\s*(\d+[A-Z]?(?:-\d+[A-Z]?)?)\s*规格\s*(\d+)\s*[,，]?\s*(\d+)\s*桶\s*(\d+[A-Z]?(?:-\d+[A-Z]?)?)\s*规格\s*(\d+)"
+            )
             matches = list(order_pattern.finditer(normalized_msg))
 
             if len(matches) >= 1:
@@ -2539,17 +2682,18 @@ class AIChatApplicationService:
     def _try_merge_split_model(self, text: str, product_template: dict) -> str:
         """尝试合并被拆分的型号（如 5003-2737B 被拆成 5003 和 2737B）"""
         import re
+
         qty = product_template.get("quantity_tins") or 1
         spec = product_template.get("spec") or product_template.get("tin_spec") or 25
 
-        number_pattern = r'(\d+)([A-Z]?)\s*规格\s*(\d+)'
+        number_pattern = r"(\d+)([A-Z]?)\s*规格\s*(\d+)"
         m = re.search(number_pattern, text)
         if m:
             model = m.group(1) + m.group(2)
             spec_val = int(m.group(3))
             return f"{int(qty)}桶{model}规格{spec_val}"
 
-        number_pattern2 = r'(\d+)\s*桶\s*(\d+)([A-Z]?)\s*规格\s*(\d+)'
+        number_pattern2 = r"(\d+)\s*桶\s*(\d+)([A-Z]?)\s*规格\s*(\d+)"
         m2 = re.search(number_pattern2, text)
         if m2:
             qty_val = int(m2.group(1))
@@ -2561,10 +2705,10 @@ class AIChatApplicationService:
 
     def _execute_shipment_generate(
         self,
-        response_data: Dict[str, Any],
-        parsed_params: Dict[str, Any],
-        ai_result: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        response_data: dict[str, Any],
+        parsed_params: dict[str, Any],
+        ai_result: dict[str, Any],
+    ) -> dict[str, Any]:
         """执行发货单生成"""
         try:
             from app.bootstrap import get_shipment_app_service
@@ -2584,7 +2728,9 @@ class AIChatApplicationService:
 
                 if doc_result.get("success"):
                     doc_name = doc_result.get("doc_name") or ""
-                    response_data["response"] = f"已生成发货单：{doc_name}" if doc_name else "已生成发货单。"
+                    response_data["response"] = (
+                        f"已生成发货单：{doc_name}" if doc_name else "已生成发货单。"
+                    )
                 else:
                     response_data["response"] = doc_result.get("message", "生成发货单失败")
             else:
@@ -2595,10 +2741,7 @@ class AIChatApplicationService:
 
         return response_data
 
-    def _execute_shipments_query(
-        self,
-        response_data: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _execute_shipments_query(self, response_data: dict[str, Any]) -> dict[str, Any]:
         """执行发货记录查询"""
         try:
             from app.bootstrap import get_shipment_app_service
@@ -2612,9 +2755,13 @@ class AIChatApplicationService:
             else:
                 for o in orders[:10]:
                     order_no = o.get("order_number") or o.get("order_no") or o.get("id") or ""
-                    customer = o.get("customer_name") or o.get("unit_name") or o.get("purchase_unit") or ""
+                    customer = (
+                        o.get("customer_name") or o.get("unit_name") or o.get("purchase_unit") or ""
+                    )
                     date = o.get("date") or o.get("created_at") or ""
-                    amount = o.get("total_amount") or o.get("total_amount_yuan") or o.get("amount") or 0
+                    amount = (
+                        o.get("total_amount") or o.get("total_amount_yuan") or o.get("amount") or 0
+                    )
                     status = o.get("status") or "已完成"
                     lines.append(f"- {order_no} | {customer} | {date} | ¥{amount} | {status}")
 
@@ -2627,13 +2774,8 @@ class AIChatApplicationService:
         return response_data
 
 
-_ai_chat_app_service_instance = None
-
-
 def get_ai_chat_app_service() -> AIChatApplicationService:
     """获取 AI 聊天应用服务单例"""
-    global _ai_chat_app_service_instance
-    if _ai_chat_app_service_instance is None:
-        _ai_chat_app_service_instance = AIChatApplicationService()
-    return _ai_chat_app_service_instance
+    from app.di.registry import get_service_registry
 
+    return get_service_registry().ai_chat_application_service

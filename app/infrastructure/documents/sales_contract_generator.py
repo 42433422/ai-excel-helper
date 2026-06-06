@@ -1,9 +1,9 @@
-from docx import Document
 import os
 import uuid
 from datetime import datetime
-from typing import List, Dict
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
+
+from docx import Document
 
 
 class SalesContractGenerator:
@@ -21,10 +21,10 @@ class SalesContractGenerator:
         if isinstance(num, Decimal):
             num = float(num)
         if num == 0:
-            return '零元整'
+            return "零元整"
 
-        digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖']
-        units = ['', '拾', '佰', '仟', '万']
+        digits = ["零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"]
+        units = ["", "拾", "佰", "仟", "万"]
 
         int_num = int(num)
         num_str = str(int_num)
@@ -39,23 +39,23 @@ class SalesContractGenerator:
                 if unit_idx > 0:
                     result.append(units[unit_idx])
             else:
-                if result and result[-1] != '零' and result[-1] not in units:
-                    result.append('零')
+                if result and result[-1] != "零" and result[-1] not in units:
+                    result.append("零")
 
-        s = ''.join(result)
-        while '零零' in s:
-            s = s.replace('零零', '零')
-        s = s.strip('零')
+        s = "".join(result)
+        while "零零" in s:
+            s = s.replace("零零", "零")
+        s = s.strip("零")
 
-        if not s.endswith('元') and not s.endswith('角') and not s.endswith('分'):
-            s = s + '元'
+        if not s.endswith("元") and not s.endswith("角") and not s.endswith("分"):
+            s = s + "元"
 
-        if '角' not in s and '分' not in s:
-            s = s + '零角零分'
-        elif '角' not in s:
-            s = s + '零角'
-        elif '分' not in s:
-            s = s + '零分'
+        if "角" not in s and "分" not in s:
+            s = s + "零角零分"
+        elif "角" not in s:
+            s = s + "零角"
+        elif "分" not in s:
+            s = s + "零分"
 
         return s
 
@@ -64,24 +64,26 @@ class SalesContractGenerator:
         customer_name: str,
         customer_phone: str = "",
         contract_date: str = None,
-        products: List[Dict] = None,
+        products: list[dict] = None,
         return_buckets_expected: int = 0,
-        return_buckets_actual: int = 0
-    ) -> Dict:
+        return_buckets_actual: int = 0,
+    ) -> dict:
         if contract_date is None:
             now = datetime.now()
             contract_date = f"{now.year}年{now.month:02d}月{now.day:02d}日"
 
         if products is None:
-            products = [{
-                "model_number": "306B",
-                "name": "PU亮光硬化剂",
-                "spec": "10KG×1",
-                "unit": "桶",
-                "quantity": "10 KG",
-                "unit_price": "39.2",
-                "amount": "392"
-            }]
+            products = [
+                {
+                    "model_number": "306B",
+                    "name": "PU亮光硬化剂",
+                    "spec": "10KG×1",
+                    "unit": "桶",
+                    "quantity": "10 KG",
+                    "unit_price": "39.2",
+                    "amount": "392",
+                }
+            ]
 
         doc = Document(self.template_path)
 
@@ -102,7 +104,9 @@ class SalesContractGenerator:
             except:
                 return Decimal("0")
 
-        total_quantity = sum(_to_decimal(p.get("quantity", "0")) for p in products if p.get("quantity"))
+        total_quantity = sum(
+            _to_decimal(p.get("quantity", "0")) for p in products if p.get("quantity")
+        )
         total_amount = sum(Decimal(str(p.get("amount", "0"))) for p in products if p.get("amount"))
 
         return {
@@ -114,7 +118,7 @@ class SalesContractGenerator:
             "contract_date": contract_date,
             "products": products,
             "total_quantity": float(total_quantity),
-            "total_amount": float(total_amount)
+            "total_amount": float(total_amount),
         }
 
     def _fill_customer(self, doc, customer_name, customer_phone):

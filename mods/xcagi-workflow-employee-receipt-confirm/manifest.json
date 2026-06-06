@@ -1,0 +1,36 @@
+{
+  "id": "xcagi-workflow-employee-receipt-confirm",
+  "name": "收货确认 AI 员工",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "星标意图 → 收货/对账类客户反馈写入工作流进程；对话跟进确认。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=8.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes.js"
+  },
+  "hooks": {},
+  "comms": {
+    "exports": []
+  },
+  "config": {
+    "workflow_employee_single": true,
+    "employee_id": "receipt_confirm",
+    "store_collection": "workflow_employee"
+  },
+  "workflow_employees": [
+    {
+      "id": "receipt_confirm",
+      "label": "收货确认 AI 员工",
+      "panel_title": "工作流 · 收货确认 AI 员工",
+      "panel_summary": "星标意图 → 收货/对账类客户反馈写入工作流进程；对话跟进确认。",
+      "api_base_path": "employees/receipt_confirm"
+    }
+  ]
+}

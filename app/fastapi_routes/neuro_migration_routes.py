@@ -5,7 +5,7 @@ Neuro 迁移与分层观测路由（不改变业务契约，仅用于健康检�
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter
 
@@ -15,18 +15,21 @@ router = APIRouter(prefix="/api/neuro", tags=["neuro-migration"])
 
 
 @router.get("/migration-smoke")
-async def neuro_migration_smoke() -> Dict[str, Any]:
+async def neuro_migration_smoke() -> dict[str, Any]:
     """
     返回 Neuro 栈与 Domain 注册、反射弧、Application 挂钩等自检信息。
     """
     from app.neuro_bus.bus import get_neuro_bus
     from app.neuro_bus.domains.base import get_domain_registry
-    from app.neuro_bus.integrations.intent_integration import is_neuro_stack_enabled, try_neuro_reflex_intent
+    from app.neuro_bus.integrations.intent_integration import (
+        is_neuro_stack_enabled,
+        try_neuro_reflex_intent,
+    )
 
     enabled = is_neuro_stack_enabled()
     bus = get_neuro_bus()
-    domains: List[str] = []
-    reflex_hit: Optional[Dict[str, Any]] = None
+    domains: list[str] = []
+    reflex_hit: dict[str, Any] | None = None
     if enabled:
         domains = list(get_domain_registry().list_domains())
         reflex_hit = try_neuro_reflex_intent("你好", "migration-smoke")

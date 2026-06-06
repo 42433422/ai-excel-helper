@@ -2,6 +2,7 @@
  * v-html 统一消毒入口（DOMPurify）。禁止在模板中写 v-html="原始字符串"。
  */
 import DOMPurify, { type Config, type UponSanitizeAttributeHookEvent } from 'dompurify'
+import { renderMarkdown, stripInternalMarkers } from '@/utils/lightMarkdown'
 
 const CHAT_BUBBLE_CONFIG: Config = {
   ALLOWED_TAGS: [
@@ -69,6 +70,24 @@ const CHAT_BUBBLE_CONFIG: Config = {
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i
 }
 
+/** AI 气泡：Markdown → HTML 后再消毒；允许代码块复制按钮与图片等 Markdown 产物 */
+const CHAT_MARKDOWN_CONFIG: Config = {
+  ...CHAT_BUBBLE_CONFIG,
+  ALLOWED_TAGS: [...(CHAT_BUBBLE_CONFIG.ALLOWED_TAGS as string[]), 'img', 'button'],
+  ALLOWED_ATTR: [
+    ...(CHAT_BUBBLE_CONFIG.ALLOWED_ATTR as string[]),
+    'src',
+    'alt',
+    'type',
+    'data-copy',
+    'data-lang',
+    'data-source',
+    'data-tex',
+    'aria-label',
+    'role'
+  ]
+}
+
 const SALES_CONTRACT_SANITIZE_CONFIG: Config = {
   ...CHAT_BUBBLE_CONFIG,
   ALLOWED_TAGS: [...(CHAT_BUBBLE_CONFIG.ALLOWED_TAGS as string[]), 'input', 'button'],
@@ -118,6 +137,14 @@ export function sanitizeChatBubbleHtml(raw: string | undefined | null): string {
   const dirty = String(raw ?? '')
   if (!dirty) return ''
   return DOMPurify.sanitize(dirty, CHAT_BUBBLE_CONFIG)
+}
+
+/** 助手回复：按 Markdown 渲染后再消毒（表格、列表、粗体等）。 */
+export function sanitizeChatBubbleMarkdown(raw: string | undefined | null): string {
+  const stripped = stripInternalMarkers(String(raw ?? ''))
+  if (!stripped) return ''
+  const html = renderMarkdown(stripped)
+  return DOMPurify.sanitize(html, CHAT_MARKDOWN_CONFIG)
 }
 
 export type TaskSummarySanitizeInput = {

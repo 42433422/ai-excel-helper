@@ -74,7 +74,7 @@
 import { defineComponent, ref } from 'vue'
 import WorkflowEmployeeRow from './WorkflowEmployeeRow.vue'
 import WfVizBranchCard from './WfVizBranchCard.vue'
-import type { BranchTrigger } from '../types/workflow-employee'
+import type { BranchTrigger } from '@/types/workflow-employee'
 
 export default defineComponent({
   name: 'WorkflowDemo',

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """SQLAlchemy 会话工厂（SDK re-export）。
 
 ``SessionLocal()`` 返回一个可作上下文使用的 ORM Session；

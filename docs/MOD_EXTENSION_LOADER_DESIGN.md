@@ -479,3 +479,45 @@ def retry_failed_sends():
 3. MOD 在 manifest 中声明即可
 
 **主系统和 MOD 之间形成真正的"插件生态"。**
+
+---
+
+## 远端 Mod Catalog 接入
+
+FHD 内置的 `/api/mod-store/*` 兼容接口可作为修茈公网 Catalog 的服务端代理使用，前端仍访问本机后端，后端再读取远端 `/v1`。
+
+### 环境变量
+
+```env
+XCAGI_CATALOG_BASE_URL=https://xiu-ci.com/v1
+XCAGI_CATALOG_TOKEN=
+VITE_MARKET_BASE=https://xiu-ci.com/market
+```
+
+- `XCAGI_CATALOG_BASE_URL`：远端 Catalog 根地址，必须指向暴露 `/index.json`、`/packages/{id}/{version}/download` 的 `/v1` 服务。
+- `XCAGI_CATALOG_TOKEN`：只读列表与下载默认留空；若修茈侧开启鉴权，填写 Bearer token。
+- `VITE_MARKET_BASE`：前端卡片「网页查看」链接基址，不参与安装下载。
+
+### 接入检查
+
+1. 先确认公网可访问：`curl https://xiu-ci.com/v1/index.json`。
+2. 再确认本机代理：`curl http://127.0.0.1:5000/api/mod-store/catalog`。
+3. 安装失败且返回 502 时，优先检查修茈 Nginx 是否已将 `/v1/` 反代到 `modstore_server`。
+4. 安装成功后，用 `/api/mods/loading-status` 查看 `discovered_mod_ids` 与 `load_errors`。
+
+---
+
+## 修茈市场账号同步
+
+「模型支付」页提供 **修茈账号同步**：本机后端 `POST /api/market/account-sync` 携带用户粘贴的 `Authorization`，代请求修茈 `{XCAGI_MARKET_BASE_URL}/api/auth/me`，返回脱敏后的用户档案；前端将令牌与档案写入 `localStorage`（`xcagi_market_access_token` / `xcagi_market_user_json`），便于后续功能携带同一修茈身份。
+
+### 环境变量
+
+```env
+XCAGI_MARKET_BASE_URL=https://xiu-ci.com
+```
+
+### 安全说明
+
+- 令牌**不落盘**到服务端配置；仅本次请求转发到修茈 HTTPS。
+- 浏览器 `localStorage` 存 token 有 XSS 风险，请勿在不可信环境粘贴长期令牌。

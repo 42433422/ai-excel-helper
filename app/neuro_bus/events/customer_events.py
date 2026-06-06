@@ -5,18 +5,17 @@ Customer 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class CustomerRegisteredEvent(NeuroEvent):
     """客户注册事件"""
-    
+
     event_type: str = "customer.registered"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["customer_id", "contact_info"]
@@ -28,10 +27,10 @@ class CustomerRegisteredEvent(NeuroEvent):
 @dataclass
 class CustomerUpdatedEvent(NeuroEvent):
     """客户信息更新事件"""
-    
+
     event_type: str = "customer.updated"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "customer_id" not in self.payload:
@@ -41,10 +40,10 @@ class CustomerUpdatedEvent(NeuroEvent):
 @dataclass
 class CustomerDeactivatedEvent(NeuroEvent):
     """客户停用事件"""
-    
+
     event_type: str = "customer.deactivated"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "customer_id" not in self.payload:
@@ -54,10 +53,10 @@ class CustomerDeactivatedEvent(NeuroEvent):
 @dataclass
 class CustomerPurchaseUnitBoundEvent(NeuroEvent):
     """客户绑定购买单位事件"""
-    
+
     event_type: str = "customer.purchase_unit_bound"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["customer_id", "purchase_unit"]
@@ -69,10 +68,10 @@ class CustomerPurchaseUnitBoundEvent(NeuroEvent):
 @dataclass
 class CustomerPreferenceUpdatedEvent(NeuroEvent):
     """客户偏好更新事件"""
-    
+
     event_type: str = "customer.preference_updated"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "customer_id" not in self.payload:
@@ -82,10 +81,10 @@ class CustomerPreferenceUpdatedEvent(NeuroEvent):
 @dataclass
 class CustomerCreditLimitChangedEvent(NeuroEvent):
     """客户信用额度变更事件"""
-    
+
     event_type: str = "customer.credit_limit_changed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["customer_id", "old_limit", "new_limit"]

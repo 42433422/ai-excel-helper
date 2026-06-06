@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 对话上下文模块
 
@@ -7,29 +6,27 @@
 - ChatContext: 聊天上下文，管理对话历史和重复检测
 """
 
-from app.domain.services.conversation.context.intent_context import (
-    PendingIntent,
-    IntentContext,
-    get_intent_context,
-    AdoptionReason,
-    SPECIAL_INTENTS,
-    LOW_PRIORITY_INTENTS,
-    HIGH_PRIORITY_INTENTS,
-)
-
 from app.domain.services.conversation.context.chat_context import (
-    ChatTurn,
     ChatContext,
+    ChatTurn,
     get_chat_context,
 )
-
 from app.domain.services.conversation.context.context_facade import (
-    ContextFacade,
-    get_context_facade,
-    ProcessingAction,
-    IntentResult,
-    ProcessingResult,
     ContextDecision,
+    ContextFacade,
+    IntentResult,
+    ProcessingAction,
+    ProcessingResult,
+    get_context_facade,
+)
+from app.domain.services.conversation.context.intent_context import (
+    HIGH_PRIORITY_INTENTS,
+    LOW_PRIORITY_INTENTS,
+    SPECIAL_INTENTS,
+    AdoptionReason,
+    IntentContext,
+    PendingIntent,
+    get_intent_context,
 )
 
 __all__ = [

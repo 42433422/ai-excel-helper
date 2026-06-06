@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Draft document structure via LLM, render to DOCX / XLSX."""
 
 from __future__ import annotations
@@ -104,7 +103,9 @@ def _extract_first_json_object(text: str) -> str | None:
 
 def draft_document_spec(user_prompt: str, output: Literal["docx", "xlsx"]) -> dict[str, Any]:
     if resolve_mode() == "offline":
-        raise RuntimeError("当前为 offline 模式：生成文档需要 online 模式并配置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY")
+        raise RuntimeError(
+            "当前为 offline 模式：生成文档需要 online 模式并配置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY"
+        )
     cli = get_openai_compatible_client()
     model = resolve_chat_model()
     sys = _SYSTEM_DOCX if output == "docx" else _SYSTEM_XLSX
@@ -138,8 +139,8 @@ def draft_document_spec(user_prompt: str, output: Literal["docx", "xlsx"]) -> di
 def build_docx_bytes(spec: dict[str, Any]) -> tuple[bytes, str]:
     try:
         from docx import Document
-        from docx.shared import Pt, RGBColor, Inches
         from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.shared import Inches, Pt, RGBColor
     except ImportError as e:
         raise RuntimeError("未安装 python-docx") from e
 

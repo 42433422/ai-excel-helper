@@ -7,11 +7,14 @@ Provides endpoints for:
 - GET /api/mods/routes - Get mod routes
 """
 
+import hashlib
+import json
 import logging
+import os
 from typing import Any
 
 from fastapi import Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,24 @@ def get_mods_router() -> Any:
         router = APIRouter(prefix="/api/mods", tags=["mods"])
         _register_mods_endpoints(router)
     return router
+
+
+async def _sync_enterprise_entitlements_from_request(request: Request) -> None:
+    """已登录会话拉 Mod 列表前同步权益（含 SUNBIRD → taiyangniao-pro 兜底）。"""
+    try:
+        from app.enterprise.mod_entitlements import (
+            enterprise_mod_filter_active,
+            sync_entitlements_for_session,
+        )
+
+        if not enterprise_mod_filter_active():
+            return
+        cookie_name = os.environ.get("SESSION_COOKIE_NAME", "session_id")
+        sid = (request.cookies.get(cookie_name) or "").strip()
+        if sid:
+            await sync_entitlements_for_session(sid)
+    except Exception:
+        logger.exception("sync entitlements before list_mods failed")
 
 
 def _register_mods_endpoints(router) -> None:
@@ -56,7 +77,14 @@ def _register_mods_endpoints(router) -> None:
             mm._refresh_mods_root_if_needed()
 
             scanned = mm.scan_mods()
-            discovered_mod_ids = [m.id for m in scanned if m.id]
+            installed_on_disk = [m.id for m in scanned if m.id]
+            discovered_mod_ids = list(installed_on_disk)
+            try:
+                from app.enterprise.mod_entitlements import filter_mod_id_list_for_enterprise
+
+                discovered_mod_ids = filter_mod_id_list_for_enterprise(discovered_mod_ids)
+            except Exception:
+                pass
 
             loaded_mods = mm.list_loaded_mods()
             mods_loaded = len(loaded_mods)
@@ -87,7 +115,10 @@ def _register_mods_endpoints(router) -> None:
             return {
                 "success": True,
                 "data": {
+                    "mods_root": mm.mods_root,
+                    "mods_search_roots": mm.all_mods_roots(),
                     "discovered_mod_ids": discovered_mod_ids,
+                    "installed_mod_ids": installed_on_disk,
                     "primary_mod_id": primary_mod_id,
                     "primary_mod_count": primary_mod_count,
                     "mods_loaded": mods_loaded,
@@ -118,24 +149,36 @@ def _register_mods_endpoints(router) -> None:
                 },
             }
 
-    @router.get("/")
-    async def list_mods(all: str | None = None):
+    @router.get("")
+    @router.get("/", include_in_schema=False)
+    async def list_mods(request: Request, all: str | None = None):
         """List all loaded or discovered mods
 
         Args:
             all: 当传入 "1" 时，返回磁盘扫描的全部 Mod 列表（不受已加载状态影响）
         """
+        await _sync_enterprise_entitlements_from_request(request)
         try:
             from app.infrastructure.mods.mod_manager import get_mod_manager
 
             mm = get_mod_manager()
+            etag_src = mm._mods_scan_fingerprint()
+            etag = hashlib.sha256(etag_src.encode("utf-8")).hexdigest()[:32]
+            inm = (request.headers.get("if-none-match") or "").strip().strip('"')
+            if inm and inm == etag:
+                return Response(status_code=304, headers={"ETag": f'"{etag}"'})
             # 侧栏菜单/图标需要实时反映 manifest 变更，默认也走磁盘扫描。
             # 保留 ?all=1 兼容旧调用方；当前两者行为一致。
             mods = mm.list_all_mods()
-            return {"success": True, "data": mods}
+            body = {"success": True, "data": mods}
+            return JSONResponse(
+                content=body,
+                headers={"ETag": f'"{etag}"', "Cache-Control": "private, max-age=30"},
+            )
         except Exception as e:
             logger.exception(f"list_mods failed: {e}")
-            return {"success": False, "message": str(e), "data": []}
+            err = str(e)
+            return {"success": False, "message": err, "error": err, "data": []}
 
     @router.get("/routes")
     async def list_routes():
@@ -148,7 +191,8 @@ def _register_mods_endpoints(router) -> None:
             return {"success": True, "data": routes}
         except Exception as e:
             logger.exception(f"list_routes failed: {e}")
-            return {"success": False, "message": str(e), "data": []}
+            err = str(e)
+            return {"success": False, "message": err, "error": err, "data": []}
 
     @router.get("/comms/endpoints")
     async def list_comms_endpoints():
@@ -164,14 +208,15 @@ def _register_mods_endpoints(router) -> None:
     @router.get("/employee-packs/{pack_id}/config-preview")
     async def employee_pack_config_preview(pack_id: str):
         """返回已安装 employee_pack 的 ``employee_config_v2`` 摘要（供宿主/MODstore 联调）。"""
-        import json
         import os
 
         try:
             from app.infrastructure.mods.mod_manager import _default_mods_root
         except Exception as e:  # noqa: BLE001
             return {"success": False, "error": str(e)}
-        root = os.path.join(_default_mods_root(), "_employees", (pack_id or "").strip(), "manifest.json")
+        root = os.path.join(
+            _default_mods_root(), "_employees", (pack_id or "").strip(), "manifest.json"
+        )
         if not os.path.isfile(root):
             return {"success": False, "error": "员工包未安装或 manifest 不存在"}
         try:
@@ -228,3 +273,26 @@ def _register_mods_endpoints(router) -> None:
         except Exception as e:
             logger.exception("get_mod_detail failed: %s", e)
             return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+    @router.delete("/{mod_id}")
+    async def uninstall_mod_disk(mod_id: str):
+        """从本机删除扩展包目录并解除加载（与 ``POST /api/mod-store/uninstall`` 同源逻辑）。"""
+        try:
+            from app.infrastructure.mods.mod_manager import get_mod_manager, is_mods_disabled
+
+            if is_mods_disabled():
+                return JSONResponse(
+                    {"success": False, "message": "扩展已全局关闭（XCAGI_DISABLE_MODS）"},
+                    status_code=403,
+                )
+            mid = (mod_id or "").strip()
+            if not mid:
+                return JSONResponse({"success": False, "message": "缺少 mod_id"}, status_code=400)
+            mm = get_mod_manager()
+            ok, msg = mm.uninstall_mod(mid, remove_files=True)
+            if not ok:
+                return JSONResponse({"success": False, "message": msg}, status_code=400)
+            return {"success": True, "message": msg, "data": {"id": mid}}
+        except Exception as e:
+            logger.exception("uninstall_mod_disk failed: %s", e)
+            return JSONResponse({"success": False, "message": str(e)}, status_code=500)

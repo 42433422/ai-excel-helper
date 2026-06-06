@@ -18,7 +18,7 @@ import os
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ _SETTINGS_FILENAME = "lan_settings.json"
 def _resolve_repo_root() -> Path:
     here = Path(__file__).resolve()
     for parent in here.parents:
-        if (parent / "backend" / "routers").is_dir():
+        if (parent / "app" / "fastapi_routes").is_dir() and (parent / "XCAGI").is_dir():
             return parent
     return here.parents[2]
 
@@ -44,13 +44,14 @@ def _settings_path() -> Path:
 @dataclass
 class LanSettingsOverride:
     """可覆写的字段。``None`` 代表"不覆写，沿用 env/默认值"。"""
-    enabled: Optional[bool] = None
-    license_secret: Optional[str] = None
-    admin_bootstrap_key: Optional[str] = None
-    allowed_cidrs: Optional[list[str]] = None
 
-    def to_json(self) -> Dict[str, Any]:
-        out: Dict[str, Any] = {}
+    enabled: bool | None = None
+    license_secret: str | None = None
+    admin_bootstrap_key: str | None = None
+    allowed_cidrs: list[str] | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        out: dict[str, Any] = {}
         if self.enabled is not None:
             out["enabled"] = bool(self.enabled)
         if self.license_secret is not None:
@@ -62,7 +63,7 @@ class LanSettingsOverride:
         return out
 
     @classmethod
-    def from_json(cls, raw: Any) -> "LanSettingsOverride":
+    def from_json(cls, raw: Any) -> LanSettingsOverride:
         if not isinstance(raw, dict):
             return cls()
         enabled = raw.get("enabled")
@@ -77,7 +78,7 @@ class LanSettingsOverride:
         if bootstrap is not None:
             bootstrap = str(bootstrap)
         allowed_cidrs = raw.get("allowed_cidrs")
-        parsed_cidrs: Optional[list[str]] = None
+        parsed_cidrs: list[str] | None = None
         if isinstance(allowed_cidrs, (list, tuple)):
             parsed_cidrs = [str(x).strip() for x in allowed_cidrs if str(x).strip()]
         elif isinstance(allowed_cidrs, str):

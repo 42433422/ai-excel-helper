@@ -2,8 +2,10 @@
 DeepSeek 意图识别服务测试
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from app.services.deepseek_intent_service import DeepSeekIntentRecognizer
 
 

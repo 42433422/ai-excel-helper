@@ -18,6 +18,8 @@ web = [
 dev = [
   "pytest>=7.4",
   "pytest-cov>=4.1",
+  "black>=24.3",
+  "isort>=5.13",
 ]
 
 [project.scripts]
@@ -33,6 +35,16 @@ include = ["modman*", "modstore_server*"]
 
 [tool.setuptools.package-data]
 modman = ["data/*.json"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+known_first_party = ["modman", "modstore_server"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

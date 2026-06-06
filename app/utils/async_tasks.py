@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 异步任务工具模块
 
@@ -15,14 +14,14 @@ import functools
 import logging
 import os
 import time
-import traceback
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 DEFAULT_TASK_TIMEOUT = int(os.environ.get("XCAGI_TASK_DEFAULT_TIMEOUT", "300"))
 MAX_RETRIES = int(os.environ.get("XCAGI_TASK_MAX_RETRIES", "3"))
@@ -31,6 +30,7 @@ RETRY_DELAY = int(os.environ.get("XCAGI_TASK_RETRY_DELAY", "5"))
 
 class TaskStatus(str, Enum):
     """任务状态"""
+
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
@@ -43,17 +43,18 @@ class TaskStatus(str, Enum):
 @dataclass
 class TaskResult:
     """任务结果"""
+
     task_id: str
     status: TaskStatus
-    result: Optional[Any] = None
-    error: Optional[str] = None
+    result: Any | None = None
+    error: str | None = None
     progress: int = 0
-    total: Optional[int] = None
+    total: int | None = None
     created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
+    started_at: float | None = None
+    completed_at: float | None = None
     retries: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def duration_ms(self) -> float:
@@ -73,6 +74,7 @@ class TaskResult:
 @dataclass
 class AsyncTaskConfig:
     """异步任务配置"""
+
     name: str
     queue: str = "normal"
     timeout: int = DEFAULT_TASK_TIMEOUT
@@ -82,9 +84,9 @@ class AsyncTaskConfig:
     priority: int = 5
     cache_result: bool = True
     cache_ttl: int = 3600
-    on_success: Optional[Callable] = None
-    on_failure: Optional[Callable] = None
-    on_progress: Optional[Callable[[int, int], None]] = None
+    on_success: Callable | None = None
+    on_failure: Callable | None = None
+    on_progress: Callable[[int, int], None] | None = None
 
 
 class AsyncTaskManager:
@@ -100,9 +102,9 @@ class AsyncTaskManager:
     """
 
     def __init__(self):
-        self._tasks: Dict[str, TaskResult] = {}
-        self._task_configs: Dict[str, AsyncTaskConfig] = {}
-        self._progress_callbacks: Dict[str, Callable] = {}
+        self._tasks: dict[str, TaskResult] = {}
+        self._task_configs: dict[str, AsyncTaskConfig] = {}
+        self._progress_callbacks: dict[str, Callable] = {}
 
     def register_task(self, config: AsyncTaskConfig) -> None:
         """注册任务配置"""
@@ -114,9 +116,9 @@ class AsyncTaskManager:
         task_name: str,
         args: tuple = (),
         kwargs: dict = None,
-        task_id: Optional[str] = None,
+        task_id: str | None = None,
         sync: bool = False,
-        **extra_config
+        **extra_config,
     ) -> TaskResult:
         """
         提交异步任务
@@ -142,7 +144,7 @@ class AsyncTaskManager:
             task_id=task_id,
             status=TaskStatus.PENDING,
             total=None,
-            metadata={"task_name": task_name}
+            metadata={"task_name": task_name},
         )
 
         self._tasks[task_id] = result
@@ -158,17 +160,18 @@ class AsyncTaskManager:
 
         if overrides:
             config_dict = {**base_config.__dict__, **overrides}
-            return AsyncTaskConfig(**{k: v for k, v in config_dict.items() if k in AsyncTaskConfig.__dataclass_fields__})
+            return AsyncTaskConfig(
+                **{
+                    k: v
+                    for k, v in config_dict.items()
+                    if k in AsyncTaskConfig.__dataclass_fields__
+                }
+            )
 
         return base_config
 
     def _execute_sync(
-        self,
-        task_name: str,
-        args: tuple,
-        kwargs: dict,
-        result: TaskResult,
-        config: AsyncTaskConfig
+        self, task_name: str, args: tuple, kwargs: dict, result: TaskResult, config: AsyncTaskConfig
     ) -> TaskResult:
         """同步执行任务（用于测试/调试）"""
         logger.info(f"[同步执行] 任务 {task_name} (ID: {result.task_id})")
@@ -177,6 +180,7 @@ class AsyncTaskManager:
 
         try:
             from app.tasks import get_task_function
+
             func = get_task_function(task_name)
 
             output = func(*args, **kwargs)
@@ -203,12 +207,7 @@ class AsyncTaskManager:
         return result
 
     def _execute_async(
-        self,
-        task_name: str,
-        args: tuple,
-        kwargs: dict,
-        result: TaskResult,
-        config: AsyncTaskConfig
+        self, task_name: str, args: tuple, kwargs: dict, result: TaskResult, config: AsyncTaskConfig
     ) -> TaskResult:
         """异步执行任务（通过 Celery）"""
         if os.environ.get("XCAGI_DESKTOP_MODE", "0").lower() in {"1", "true", "yes", "on"}:
@@ -227,7 +226,11 @@ class AsyncTaskManager:
 
         from app.extensions import celery_app
 
-        if not hasattr(celery_app, 'send_task') or isinstance(celery_app.__class__.__name__, str) and 'Dummy' in celery_app.__class__.__name__:
+        if (
+            not hasattr(celery_app, "send_task")
+            or isinstance(celery_app.__class__.__name__, str)
+            and "Dummy" in celery_app.__class__.__name__
+        ):
             logger.warning("Celery 不可用，回退到同步执行")
             return self._execute_sync(task_name, args, kwargs, result, config)
 
@@ -259,11 +262,11 @@ class AsyncTaskManager:
 
         return result
 
-    def get_status(self, task_id: str) -> Optional[TaskResult]:
+    def get_status(self, task_id: str) -> TaskResult | None:
         """获取任务状态"""
         return self._tasks.get(task_id)
 
-    def get_result(self, task_id: str, timeout: Optional[int] = None) -> Optional[Any]:
+    def get_result(self, task_id: str, timeout: int | None = None) -> Any | None:
         """
         获取任务结果（阻塞等待）
 
@@ -294,7 +297,7 @@ class AsyncTaskManager:
 
         return result.result if result and result.is_success else None
 
-    def update_progress(self, task_id: str, current: int, total: Optional[int] = None) -> None:
+    def update_progress(self, task_id: str, current: int, total: int | None = None) -> None:
         """更新任务进度"""
         result = self._tasks.get(task_id)
         if result:
@@ -322,8 +325,7 @@ class AsyncTaskManager:
         """清理旧任务记录"""
         cutoff = time.time() - max_age_seconds
         old_keys = [
-            tid for tid, t in self._tasks.items()
-            if t.completed_at and t.completed_at < cutoff
+            tid for tid, t in self._tasks.items() if t.completed_at and t.completed_at < cutoff
         ]
 
         for key in old_keys:
@@ -336,15 +338,16 @@ class AsyncTaskManager:
         return cleaned
 
     @property
-    def active_tasks(self) -> Dict[str, TaskResult]:
+    def active_tasks(self) -> dict[str, TaskResult]:
         """获取活跃任务"""
         return {
-            tid: t for tid, t in self._tasks.items()
+            tid: t
+            for tid, t in self._tasks.items()
             if t.status in (TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.RETRYING)
         }
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """获取统计信息"""
         status_counts = {}
         for t in self._tasks.values():
@@ -364,7 +367,7 @@ def async_task(
     timeout: int = DEFAULT_TASK_TIMEOUT,
     cache_result: bool = True,
     cache_ttl: int = 3600,
-    **kwargs
+    **kwargs,
 ):
     """
     异步任务装饰器
@@ -384,6 +387,7 @@ def async_task(
         # 同步调用：result = generate_monthly_report("01", 2026)
         # 异步调用：task = generate_monthry_report.async_submit("01", 2026)
     """
+
     def decorator(func: Callable) -> Callable:
         config = AsyncTaskConfig(
             name=name,
@@ -391,14 +395,16 @@ def async_task(
             timeout=timeout,
             cache_result=cache_result,
             cache_ttl=cache_ttl,
-            **kwargs
+            **kwargs,
         )
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             manager = get_async_task_manager()
 
-            sync_mode = kwargs.pop('_sync', False) or os.environ.get('XCAGI_FORCE_SYNC_TASKS', '0') == '1'
+            sync_mode = (
+                kwargs.pop("_sync", False) or os.environ.get("XCAGI_FORCE_SYNC_TASKS", "0") == "1"
+            )
 
             if sync_mode:
                 return manager.submit(config.name, args, kwargs, sync=True).result
@@ -417,7 +423,7 @@ def async_task(
             manager = get_async_task_manager()
             return manager.submit(config.name, a, kw)
 
-        def get_task_status(task_id: str) -> Optional[TaskResult]:
+        def get_task_status(task_id: str) -> TaskResult | None:
             manager = get_async_task_manager()
             return manager.get_status(task_id)
 
@@ -426,19 +432,19 @@ def async_task(
         wrapper.config = config
 
         return wrapper
+
     return decorator
 
 
 def background_task(
-    name: Optional[str] = None,
-    queue: str = "background",
-    max_retries: int = MAX_RETRIES
+    name: str | None = None, queue: str = "background", max_retries: int = MAX_RETRIES
 ):
     """
     后台任务装饰器（简化版）
 
     自动在后台执行，不等待结果
     """
+
     def decorator(func: Callable) -> Callable:
         task_name = name or f"bg_{func.__name__}"
 
@@ -447,9 +453,9 @@ def background_task(
             try:
                 from app.extensions import celery_app
 
-                if hasattr(celery_app, 'send_task'):
+                if hasattr(celery_app, "send_task"):
                     celery_app.send_task(
-                        f'app.tasks.{task_name}',
+                        f"app.tasks.{task_name}",
                         args=args,
                         kwargs=kwargs,
                         queue=queue,
@@ -459,6 +465,7 @@ def background_task(
 
                 logger.warning("Celery 不可用，同步执行后台任务")
                 import threading
+
                 t = threading.Thread(target=func, args=args, kwargs=kwargs, daemon=True)
                 t.start()
                 return {"status": "threaded", "task_name": task_name}
@@ -468,6 +475,7 @@ def background_task(
                 raise
 
         return wrapper
+
     return decorator
 
 
@@ -475,7 +483,7 @@ def retry_on_failure(
     max_retries: int = MAX_RETRIES,
     delay: int = RETRY_DELAY,
     backoff_factor: float = 2.0,
-    exceptions: tuple = (Exception,)
+    exceptions: tuple = (Exception,),
 ):
     """
     重试装饰器
@@ -485,6 +493,7 @@ def retry_on_failure(
         def unreliable_operation():
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -507,11 +516,13 @@ def retry_on_failure(
                         logger.error(f"重试耗尽 [{func.__name__}]: {e}")
 
             raise last_exception
+
         return wrapper
+
     return decorator
 
 
-_async_task_manager: Optional[AsyncTaskManager] = None
+_async_task_manager: AsyncTaskManager | None = None
 
 
 def get_async_task_manager() -> AsyncTaskManager:
@@ -527,8 +538,12 @@ def _register_default_tasks(manager: AsyncTaskManager) -> None:
     """注册默认任务配置"""
     default_tasks = [
         AsyncTaskConfig(name="shipment_tasks.generate_shipment_order", queue="urgent", timeout=120),
-        AsyncTaskConfig(name="shipment_tasks.export_shipment_records_task", queue="normal", timeout=300),
-        AsyncTaskConfig(name="shipment_tasks.import_products_batch_task", queue="normal", timeout=600),
+        AsyncTaskConfig(
+            name="shipment_tasks.export_shipment_records_task", queue="normal", timeout=300
+        ),
+        AsyncTaskConfig(
+            name="shipment_tasks.import_products_batch_task", queue="normal", timeout=600
+        ),
         AsyncTaskConfig(name="wechat_tasks.scan_wechat_messages", queue="wechat", timeout=60),
         AsyncTaskConfig(name="kitten_report.generate_report", queue="heavy", timeout=900),
     ]

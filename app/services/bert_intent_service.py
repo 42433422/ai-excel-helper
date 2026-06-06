@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 BERT 意图分类推理服务
 
@@ -8,22 +7,23 @@ BERT 意图分类推理服务
 import json
 import logging
 import os
-import sys
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any
 
-import torch
-from transformers import (
-    AutoConfig,
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-    BertTokenizer,
-)
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+if TYPE_CHECKING:
+    import torch
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 logger = logging.getLogger(__name__)
+
+
+def _import_ml_stack():
+    """桌面 PyInstaller 构建可能排除 transformers；延迟导入避免阻塞整应用启动。"""
+    import torch
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+    return torch, AutoModelForSequenceClassification, AutoTokenizer
 
 
 INTENT_LABELS = [
@@ -82,11 +82,11 @@ class BertIntentClassifier:
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
+        model_path: str | None = None,
         model_name: str = "bert-base-chinese",
         max_length: int = 64,
         confidence_threshold: float = 0.7,
-        device: Optional[str] = None,
+        device: str | None = None,
         use_fp16: bool = False,
         local_files_only: bool = False,
     ):
@@ -102,6 +102,24 @@ class BertIntentClassifier:
             use_fp16: 是否使用半精度
             local_files_only: 是否仅使用本地文件
         """
+        try:
+            self._torch, _, _ = _import_ml_stack()
+        except ImportError as exc:
+            logger.warning("BERT intent ML stack unavailable (desktop/minimal build): %s", exc)
+            self._torch = None
+            self.max_length = max_length
+            self.confidence_threshold = confidence_threshold
+            self.use_fp16 = False
+            self.local_files_only = local_files_only
+            self.device = device or "cpu"
+            self.model = None
+            self.tokenizer = None
+            self.id2label = ID_TO_LABEL.copy()
+            self.label2id = LABEL_TO_ID.copy()
+            self._setup_dummy_model()
+            return
+
+        torch = self._torch
         self.max_length = max_length
         self.confidence_threshold = confidence_threshold
         self.use_fp16 = use_fp16 and torch.cuda.is_available()
@@ -136,18 +154,19 @@ class BertIntentClassifier:
 
     def _load_model(self, model_path: str, local_files_only: bool = False):
         """加载模型和分词器
-        
+
         Args:
             model_path: 模型路径或模型名称
             local_files_only: 是否仅使用本地文件
         """
+        _, AutoModelForSequenceClassification, AutoTokenizer = _import_ml_stack()
         model_path = str(model_path)
         is_local_distillation_model = False
 
         if os.path.isdir(model_path):
             config_path = os.path.join(model_path, "config.json")
             if os.path.exists(config_path):
-                with open(config_path, "r", encoding="utf-8") as f:
+                with open(config_path, encoding="utf-8") as f:
                     config = json.load(f)
                     if "id2label" in config:
                         loaded_id2label = {int(k): v for k, v in config["id2label"].items()}
@@ -158,25 +177,25 @@ class BertIntentClassifier:
                             self.label2id = LABEL_TO_ID.copy()
                         else:
                             self.id2label = loaded_id2label
-                            self.label2id = {v: int(k) for k, v in config.get("label2id", {}).items()}
+                            self.label2id = {
+                                v: int(k) for k, v in config.get("label2id", {}).items()
+                            }
                     if "label2id" in config and not is_local_distillation_model:
                         self.label2id = {k: int(v) for k, v in config["label2id"].items()}
             else:
                 labels_path = os.path.join(model_path, "intent_labels.json")
                 if os.path.exists(labels_path):
-                    with open(labels_path, "r", encoding="utf-8") as f:
+                    with open(labels_path, encoding="utf-8") as f:
                         data = json.load(f)
                         self.id2label = {int(k): v for k, v in data.get("id2label", {}).items()}
                         self.label2id = data.get("label2id", {})
 
         self.tokenizer = AutoTokenizer.from_pretrained(
-            model_path, 
-            local_files_only=local_files_only
+            model_path, local_files_only=local_files_only
         )
 
         self.model = AutoModelForSequenceClassification.from_pretrained(
-            model_path, 
-            local_files_only=local_files_only
+            model_path, local_files_only=local_files_only
         )
         self.model.to(self.device)
         self.model.eval()
@@ -184,7 +203,9 @@ class BertIntentClassifier:
         if self.use_fp16:
             self.model = self.model.half()
 
-        logger.info(f"模型已加载：{model_path}, 设备：{self.device}, local_files_only={local_files_only}")
+        logger.info(
+            f"模型已加载：{model_path}, 设备：{self.device}, local_files_only={local_files_only}"
+        )
 
     def _setup_dummy_model(self):
         """设置虚拟模型（用于演示或测试）"""
@@ -192,8 +213,7 @@ class BertIntentClassifier:
         self.model = None
         self.tokenizer = None
 
-    @torch.no_grad()
-    def predict(self, text: str, return_probs: bool = False) -> Dict[str, Any]:
+    def predict(self, text: str, return_probs: bool = False) -> dict[str, Any]:
         """
         预测单个文本的意图
 
@@ -207,23 +227,25 @@ class BertIntentClassifier:
         if self.model is None or self.tokenizer is None:
             return self._dummy_predict(text, return_probs)
 
-        inputs = self.tokenizer(
-            text,
-            max_length=self.max_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        torch = self._torch
+        with torch.no_grad():
+            inputs = self.tokenizer(
+                text,
+                max_length=self.max_length,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt",
+            )
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        if self.use_fp16:
-            inputs = {k: v.half() for k, v in inputs.items()}
+            if self.use_fp16:
+                inputs = {k: v.half() for k, v in inputs.items()}
 
-        outputs = self.model(**inputs)
-        logits = outputs.logits
+            outputs = self.model(**inputs)
+            logits = outputs.logits
 
-        probs = torch.softmax(logits, dim=-1)
-        confidence, predicted_idx = torch.max(probs, dim=-1)
+            probs = torch.softmax(logits, dim=-1)
+            confidence, predicted_idx = torch.max(probs, dim=-1)
 
         predicted_idx = predicted_idx.item()
         confidence = confidence.item()
@@ -247,8 +269,7 @@ class BertIntentClassifier:
 
         return result
 
-    @torch.no_grad()
-    def predict_batch(self, texts: List[str], return_probs: bool = False) -> List[Dict[str, Any]]:
+    def predict_batch(self, texts: list[str], return_probs: bool = False) -> list[dict[str, Any]]:
         """
         批量预测文本的意图
 
@@ -262,23 +283,25 @@ class BertIntentClassifier:
         if self.model is None or self.tokenizer is None:
             return [self._dummy_predict(text, return_probs) for text in texts]
 
-        inputs = self.tokenizer(
-            texts,
-            max_length=self.max_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        torch = self._torch
+        with torch.no_grad():
+            inputs = self.tokenizer(
+                texts,
+                max_length=self.max_length,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt",
+            )
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        if self.use_fp16:
-            inputs = {k: v.half() for k, v in inputs.items()}
+            if self.use_fp16:
+                inputs = {k: v.half() for k, v in inputs.items()}
 
-        outputs = self.model(**inputs)
-        logits = outputs.logits
+            outputs = self.model(**inputs)
+            logits = outputs.logits
 
-        probs = torch.softmax(logits, dim=-1)
-        confidences, predicted_indices = torch.max(probs, dim=-1)
+            probs = torch.softmax(logits, dim=-1)
+            confidences, predicted_indices = torch.max(probs, dim=-1)
 
         results = []
         for i, text in enumerate(texts):
@@ -305,7 +328,7 @@ class BertIntentClassifier:
 
         return results
 
-    def _dummy_predict(self, text: str, return_probs: bool = False) -> Dict[str, Any]:
+    def _dummy_predict(self, text: str, return_probs: bool = False) -> dict[str, Any]:
         """虚拟预测（当模型不可用时）"""
         import random
 
@@ -320,7 +343,9 @@ class BertIntentClassifier:
         }
 
         if return_probs:
-            result["all_probs"] = {label: round(random.random() * 0.3, 4) for label in INTENT_LABELS}
+            result["all_probs"] = {
+                label: round(random.random() * 0.3, 4) for label in INTENT_LABELS
+            }
             result["all_probs"][intent] = confidence
 
         return result
@@ -330,7 +355,7 @@ class BertIntentClassifier:
         return self.model is not None and self.tokenizer is not None
 
 
-class BertIntentService:
+class BertIntentService(NeuroEventPublisherMixin):
     """
     BERT 意图识别服务
 
@@ -342,7 +367,7 @@ class BertIntentService:
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
+        model_path: str | None = None,
         model_name: str = "bert-base-chinese",
         confidence_threshold: float = 0.7,
         use_fallback: bool = True,
@@ -367,26 +392,7 @@ class BertIntentService:
         self.confidence_threshold = confidence_threshold
         self.use_fallback = use_fallback
 
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
-    def recognize(self, text: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def recognize(self, text: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         """
         识别文本意图
 
@@ -416,14 +422,11 @@ class BertIntentService:
         return result
 
     def recognize_batch(
-        self, texts: List[str], context: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+        self, texts: list[str], context: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """批量识别意图"""
         if not self.classifier.is_available() and not self.use_fallback:
-            return [
-                {"intent": None, "confidence": 0.0, "source": "unavailable"}
-                for _ in texts
-            ]
+            return [{"intent": None, "confidence": 0.0, "source": "unavailable"} for _ in texts]
 
         results = self.classifier.predict_batch(texts, return_probs=True)
 
@@ -436,7 +439,7 @@ class BertIntentService:
 
         return results
 
-    def get_top_intents(self, text: str, top_k: int = 3) -> List[Tuple[str, float]]:
+    def get_top_intents(self, text: str, top_k: int = 3) -> list[tuple[str, float]]:
         """
         获取 Top-K 可能的意图
 
@@ -457,11 +460,11 @@ class BertIntentService:
         return sorted_intents[:top_k]
 
 
-_bert_intent_service: Optional[BertIntentService] = None
+_bert_intent_service: BertIntentService | None = None
 
 
 def get_bert_intent_service(
-    model_path: Optional[str] = None,
+    model_path: str | None = None,
     model_name: str = "bert-base-chinese",
     confidence_threshold: float = 0.7,
     use_fallback: bool = True,
@@ -505,4 +508,3 @@ from app.neuro_bus.neuro_service_instrumentation import instrument_service_layer
 
 instrument_service_layer_class(BertIntentClassifier, "app.services.bert_intent_service")
 instrument_service_layer_class(BertIntentService, "app.services.bert_intent_service")
-

@@ -11,7 +11,13 @@ def main() -> None:
     print("tables_first_50", tables[:50])
 
     # Print candidate contact tables/columns
-    candidates = [t for t in tables if t.lower() in {"contact", "contacts"} or str(t).lower().startswith("contact") or str(t).startswith("Contact_")]
+    candidates = [
+        t
+        for t in tables
+        if t.lower() in {"contact", "contacts"}
+        or str(t).lower().startswith("contact")
+        or str(t).startswith("Contact_")
+    ]
     print("candidates", candidates[:10])
 
     # If we have typical tables, dump first columns
@@ -28,4 +34,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

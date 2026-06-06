@@ -5,19 +5,17 @@ Order 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
-from decimal import Decimal
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class OrderSubmittedEvent(NeuroEvent):
     """订单提交事件"""
-    
+
     event_type: str = "order.submitted"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["order_id", "customer_id", "items"]
@@ -29,10 +27,10 @@ class OrderSubmittedEvent(NeuroEvent):
 @dataclass
 class OrderPaidEvent(NeuroEvent):
     """订单支付事件"""
-    
+
     event_type: str = "order.paid"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["order_id", "payment_id", "amount"]
@@ -44,10 +42,10 @@ class OrderPaidEvent(NeuroEvent):
 @dataclass
 class OrderPaymentFailedEvent(NeuroEvent):
     """订单支付失败事件"""
-    
+
     event_type: str = "order.payment_failed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "order_id" not in self.payload:
@@ -57,10 +55,10 @@ class OrderPaymentFailedEvent(NeuroEvent):
 @dataclass
 class OrderFulfilledEvent(NeuroEvent):
     """订单履行完成事件"""
-    
+
     event_type: str = "order.fulfilled"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "order_id" not in self.payload:
@@ -70,10 +68,10 @@ class OrderFulfilledEvent(NeuroEvent):
 @dataclass
 class OrderShippedEvent(NeuroEvent):
     """订单发货事件"""
-    
+
     event_type: str = "order.shipped"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["order_id", "shipment_id", "tracking_number"]
@@ -85,10 +83,10 @@ class OrderShippedEvent(NeuroEvent):
 @dataclass
 class OrderCancelledEvent(NeuroEvent):
     """订单取消事件"""
-    
+
     event_type: str = "order.cancelled"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "order_id" not in self.payload:
@@ -98,10 +96,10 @@ class OrderCancelledEvent(NeuroEvent):
 @dataclass
 class OrderRefundedEvent(NeuroEvent):
     """订单退款事件"""
-    
+
     event_type: str = "order.refunded"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["order_id", "refund_id", "refund_amount"]
@@ -113,10 +111,10 @@ class OrderRefundedEvent(NeuroEvent):
 @dataclass
 class OrderItemUpdatedEvent(NeuroEvent):
     """订单项更新事件"""
-    
+
     event_type: str = "order.item_updated"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["order_id", "item_id", "changes"]
@@ -128,10 +126,10 @@ class OrderItemUpdatedEvent(NeuroEvent):
 @dataclass
 class OrderStatusChangedEvent(NeuroEvent):
     """订单状态变更事件"""
-    
+
     event_type: str = "order.status_changed"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["order_id", "old_status", "new_status"]

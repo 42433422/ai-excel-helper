@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.domain.customer.entities import PurchaseUnit
 
@@ -14,7 +14,15 @@ def get_customers_session():
     导致客户/购买单位数据始终落在基库。现在统一走 ``app.db`` 的 mod-aware 引擎，
     请求头 ``X-XCAGI-Active-Mod-Id`` 会自动把 URL 改写成 ``xcagi__<mod>``
     （或 ``products__<mod>.db``），与 ``SQLAlchemyCustomerRepository`` 一致。
+
+    里程碑 L++：安装 ERP 门面 Mod 且 ``repository_via_mod`` 时经 Mod 适配器解析。
     """
+    try:
+        from app.mod_sdk.erp_repository_registry import resolve_customers_session
+
+        return resolve_customers_session()
+    except Exception:
+        logger.debug("resolve_customers_session fallback to host SessionLocal", exc_info=True)
     from app.db import SessionLocal
 
     return SessionLocal()
@@ -27,8 +35,9 @@ def reset_customers_engine() -> None:
     侧的独立缓存。迁移到统一 engine 后，重置工作完全由 ``app.db`` 内部完成，这里
     仅保留符号以便现有 ``try/except import`` 调用链不中断。
     """
-    global _customer_app_service_instance
-    _customer_app_service_instance = None
+    from app.di.registry import get_service_registry
+
+    get_service_registry().invalidate_customer_application_service()
 
 
 class CustomerApplicationService:
@@ -59,11 +68,8 @@ class CustomerApplicationService:
         return get_customers_session()
 
     def get_all(
-        self,
-        keyword: Optional[str] = None,
-        page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+        self, keyword: str | None = None, page: int = 1, per_page: int = 20
+    ) -> dict[str, Any]:
         """获取所有购买单位（分页）"""
         try:
             session = self._get_session()
@@ -77,7 +83,12 @@ class CustomerApplicationService:
                     query = query.filter(PurchaseUnitModel.unit_name.like(pattern))
 
                 total = query.count()
-                units = query.order_by(PurchaseUnitModel.unit_name).offset((page - 1) * per_page).limit(per_page).all()
+                units = (
+                    query.order_by(PurchaseUnitModel.unit_name)
+                    .offset((page - 1) * per_page)
+                    .limit(per_page)
+                    .all()
+                )
 
                 return {
                     "success": True,
@@ -89,13 +100,13 @@ class CustomerApplicationService:
                             "contact_phone": unit.contact_phone or "",
                             "contact_address": unit.address or "",
                             "created_at": unit.created_at.isoformat() if unit.created_at else None,
-                            "updated_at": unit.updated_at.isoformat() if unit.updated_at else None
+                            "updated_at": unit.updated_at.isoformat() if unit.updated_at else None,
                         }
                         for unit in units
                     ],
                     "total": total,
                     "page": page,
-                    "per_page": per_page
+                    "per_page": per_page,
                 }
             finally:
                 session.close()
@@ -104,14 +115,18 @@ class CustomerApplicationService:
             logger.exception(f"获取客户列表失败: {e}")
             return {"success": False, "message": str(e), "data": [], "total": 0}
 
-    def get_by_id(self, customer_id: int) -> Dict[str, Any]:
+    def get_by_id(self, customer_id: int) -> dict[str, Any]:
         """根据 ID 获取单个购买单位"""
         try:
             session = self._get_session()
             try:
                 from app.db.models.purchase_unit import PurchaseUnit as PurchaseUnitModel
 
-                unit = session.query(PurchaseUnitModel).filter(PurchaseUnitModel.id == customer_id).first()
+                unit = (
+                    session.query(PurchaseUnitModel)
+                    .filter(PurchaseUnitModel.id == customer_id)
+                    .first()
+                )
 
                 if not unit:
                     return {"success": False, "message": "客户不存在", "data": None}
@@ -125,8 +140,8 @@ class CustomerApplicationService:
                         "contact_phone": unit.contact_phone or "",
                         "contact_address": unit.address or "",
                         "created_at": unit.created_at.isoformat() if unit.created_at else None,
-                        "updated_at": unit.updated_at.isoformat() if unit.updated_at else None
-                    }
+                        "updated_at": unit.updated_at.isoformat() if unit.updated_at else None,
+                    },
                 }
             finally:
                 session.close()
@@ -135,7 +150,7 @@ class CustomerApplicationService:
             logger.exception(f"获取客户失败: {e}")
             return {"success": False, "message": str(e), "data": None}
 
-    def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create(self, data: dict[str, Any]) -> dict[str, Any]:
         """创建购买单位"""
         try:
             session = self._get_session()
@@ -146,9 +161,11 @@ class CustomerApplicationService:
                 if not customer_name:
                     return {"success": False, "message": "客户名称不能为空"}
 
-                existing = session.query(PurchaseUnitModel).filter(
-                    PurchaseUnitModel.unit_name == customer_name
-                ).first()
+                existing = (
+                    session.query(PurchaseUnitModel)
+                    .filter(PurchaseUnitModel.unit_name == customer_name)
+                    .first()
+                )
 
                 if existing:
                     return {"success": False, "message": "客户名称已存在"}
@@ -157,7 +174,7 @@ class CustomerApplicationService:
                     unit_name=customer_name,
                     contact_person=data.get("contact_person", ""),
                     contact_phone=data.get("contact_phone", ""),
-                    address=data.get("contact_address", "")
+                    address=data.get("contact_address", ""),
                 )
 
                 session.add(unit)
@@ -174,8 +191,8 @@ class CustomerApplicationService:
                         "contact_phone": unit.contact_phone or "",
                         "contact_address": unit.address or "",
                         "created_at": unit.created_at.isoformat() if unit.created_at else None,
-                        "updated_at": unit.updated_at.isoformat() if unit.updated_at else None
-                    }
+                        "updated_at": unit.updated_at.isoformat() if unit.updated_at else None,
+                    },
                 }
             finally:
                 session.close()
@@ -184,23 +201,31 @@ class CustomerApplicationService:
             logger.exception(f"创建客户失败: {e}")
             return {"success": False, "message": str(e)}
 
-    def update(self, customer_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update(self, customer_id: int, data: dict[str, Any]) -> dict[str, Any]:
         """更新购买单位"""
         try:
             session = self._get_session()
             try:
                 from app.db.models.purchase_unit import PurchaseUnit as PurchaseUnitModel
 
-                unit = session.query(PurchaseUnitModel).filter(PurchaseUnitModel.id == customer_id).first()
+                unit = (
+                    session.query(PurchaseUnitModel)
+                    .filter(PurchaseUnitModel.id == customer_id)
+                    .first()
+                )
 
                 if not unit:
                     return {"success": False, "message": "客户不存在"}
 
                 if "customer_name" in data:
-                    existing = session.query(PurchaseUnitModel).filter(
-                        PurchaseUnitModel.unit_name == data["customer_name"],
-                        PurchaseUnitModel.id != customer_id
-                    ).first()
+                    existing = (
+                        session.query(PurchaseUnitModel)
+                        .filter(
+                            PurchaseUnitModel.unit_name == data["customer_name"],
+                            PurchaseUnitModel.id != customer_id,
+                        )
+                        .first()
+                    )
                     if existing:
                         return {"success": False, "message": "客户名称已存在"}
                     unit.unit_name = data["customer_name"]
@@ -225,8 +250,8 @@ class CustomerApplicationService:
                         "contact_phone": unit.contact_phone or "",
                         "contact_address": unit.address or "",
                         "created_at": unit.created_at.isoformat() if unit.created_at else None,
-                        "updated_at": unit.updated_at.isoformat() if unit.updated_at else None
-                    }
+                        "updated_at": unit.updated_at.isoformat() if unit.updated_at else None,
+                    },
                 }
             finally:
                 session.close()
@@ -235,7 +260,7 @@ class CustomerApplicationService:
             logger.exception(f"更新客户失败: {e}")
             return {"success": False, "message": str(e)}
 
-    def _check_shipment_associations(self, unit_name: str) -> Dict[str, Any]:
+    def _check_shipment_associations(self, unit_name: str) -> dict[str, Any]:
         """检查购买单位是否有关联的发货记录
 
         Returns:
@@ -246,8 +271,8 @@ class CustomerApplicationService:
             }
         """
         try:
-            from app.db.session import get_db
             from app.db.models.shipment import ShipmentRecord
+            from app.db.session import get_db
 
             with get_db() as db:
                 records = (
@@ -266,17 +291,19 @@ class CustomerApplicationService:
 
                 sample_records = []
                 for r in records:
-                    sample_records.append({
-                        "id": r.id,
-                        "product_name": r.product_name,
-                        "quantity_kg": r.quantity_kg,
-                        "created_at": r.created_at.isoformat() if r.created_at else None
-                    })
+                    sample_records.append(
+                        {
+                            "id": r.id,
+                            "product_name": r.product_name,
+                            "quantity_kg": r.quantity_kg,
+                            "created_at": r.created_at.isoformat() if r.created_at else None,
+                        }
+                    )
 
                 return {
                     "has_associations": total_count > 0,
                     "shipment_count": total_count,
-                    "sample_records": sample_records
+                    "sample_records": sample_records,
                 }
         except Exception as e:
             logger.warning(f"检查发货记录关联失败: {e}")
@@ -284,10 +311,10 @@ class CustomerApplicationService:
                 "has_associations": False,
                 "shipment_count": 0,
                 "sample_records": [],
-                "message": str(e)
+                "message": str(e),
             }
 
-    def delete(self, customer_id: int, force: bool = False) -> Dict[str, Any]:
+    def delete(self, customer_id: int, force: bool = False) -> dict[str, Any]:
         """删除购买单位
 
         Args:
@@ -302,7 +329,11 @@ class CustomerApplicationService:
             try:
                 from app.db.models.purchase_unit import PurchaseUnit as PurchaseUnitModel
 
-                unit = session.query(PurchaseUnitModel).filter(PurchaseUnitModel.id == customer_id).first()
+                unit = (
+                    session.query(PurchaseUnitModel)
+                    .filter(PurchaseUnitModel.id == customer_id)
+                    .first()
+                )
 
                 if not unit:
                     return {"success": False, "message": "客户不存在", "deleted_count": 0}
@@ -319,9 +350,9 @@ class CustomerApplicationService:
                         "has_associations": True,
                         "association_details": {
                             "shipment_count": association_check["shipment_count"],
-                            "sample_records": association_check["sample_records"]
+                            "sample_records": association_check["sample_records"],
                         },
-                        "suggestion": "请先删除关联的发货记录，或使用 force=True 强制删除"
+                        "suggestion": "请先删除关联的发货记录，或使用 force=True 强制删除",
                     }
 
                 session.delete(unit)
@@ -331,7 +362,7 @@ class CustomerApplicationService:
                     "success": True,
                     "message": "客户删除成功",
                     "deleted_count": 1,
-                    "has_associations": False
+                    "has_associations": False,
                 }
             finally:
                 session.close()
@@ -340,7 +371,7 @@ class CustomerApplicationService:
             logger.exception(f"删除客户失败: {e}")
             return {"success": False, "message": str(e), "deleted_count": 0}
 
-    def batch_delete(self, ids: List[int], force: bool = False) -> Dict[str, Any]:
+    def batch_delete(self, ids: list[int], force: bool = False) -> dict[str, Any]:
         """批量删除购买单位
 
         Args:
@@ -365,12 +396,14 @@ class CustomerApplicationService:
                     for unit in units:
                         check = self._check_shipment_associations(unit.unit_name)
                         if check.get("has_associations"):
-                            affected_units.append({
-                                "id": unit.id,
-                                "unit_name": unit.unit_name,
-                                "shipment_count": check["shipment_count"],
-                                "sample_records": check["sample_records"]
-                            })
+                            affected_units.append(
+                                {
+                                    "id": unit.id,
+                                    "unit_name": unit.unit_name,
+                                    "shipment_count": check["shipment_count"],
+                                    "sample_records": check["sample_records"],
+                                }
+                            )
 
                     if affected_units:
                         return {
@@ -379,7 +412,7 @@ class CustomerApplicationService:
                             "deleted_count": 0,
                             "has_associations": True,
                             "affected_units": affected_units,
-                            "suggestion": "请先删除关联的发货记录，或使用 force=True 强制删除"
+                            "suggestion": "请先删除关联的发货记录，或使用 force=True 强制删除",
                         }
 
                 for unit in units:
@@ -387,7 +420,11 @@ class CustomerApplicationService:
 
                 session.commit()
 
-                return {"success": True, "message": f"成功删除 {len(units)} 条记录", "deleted_count": len(units)}
+                return {
+                    "success": True,
+                    "message": f"成功删除 {len(units)} 条记录",
+                    "deleted_count": len(units),
+                }
             finally:
                 session.close()
 
@@ -397,11 +434,11 @@ class CustomerApplicationService:
 
     def import_data(
         self,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         skip_duplicates: bool = True,
         validate_before_import: bool = True,
-        clean_data: bool = True
-    ) -> Dict[str, Any]:
+        clean_data: bool = True,
+    ) -> dict[str, Any]:
         """导入客户数据（从解析后的数据列表）
 
         Args:
@@ -426,7 +463,11 @@ class CustomerApplicationService:
 
                 for item in data:
                     try:
-                        customer_name = item.get("customer_name") or item.get("unit_name") or item.get("name", "").strip()
+                        customer_name = (
+                            item.get("customer_name")
+                            or item.get("unit_name")
+                            or item.get("name", "").strip()
+                        )
 
                         if not customer_name:
                             skipped += 1
@@ -436,25 +477,37 @@ class CustomerApplicationService:
                         if clean_data:
                             customer_name = customer_name.strip()
 
-                        existing = session.query(PurchaseUnitModel).filter(
-                            PurchaseUnitModel.unit_name == customer_name
-                        ).first()
+                        existing = (
+                            session.query(PurchaseUnitModel)
+                            .filter(PurchaseUnitModel.unit_name == customer_name)
+                            .first()
+                        )
 
                         if existing:
                             if skip_duplicates:
                                 skipped += 1
-                                skipped_items.append({"reason": "客户已存在", "customer_name": customer_name})
+                                skipped_items.append(
+                                    {"reason": "客户已存在", "customer_name": customer_name}
+                                )
                                 continue
                             else:
-                                existing.contact_person = item.get("contact_person") or existing.contact_person
-                                existing.contact_phone = item.get("contact_phone") or existing.contact_phone
-                                existing.address = item.get("address") or item.get("contact_address") or existing.address
+                                existing.contact_person = (
+                                    item.get("contact_person") or existing.contact_person
+                                )
+                                existing.contact_phone = (
+                                    item.get("contact_phone") or existing.contact_phone
+                                )
+                                existing.address = (
+                                    item.get("address")
+                                    or item.get("contact_address")
+                                    or existing.address
+                                )
                         else:
                             unit = PurchaseUnitModel(
                                 unit_name=customer_name,
                                 contact_person=item.get("contact_person") or "",
                                 contact_phone=item.get("contact_phone") or "",
-                                address=item.get("address") or item.get("contact_address") or ""
+                                address=item.get("address") or item.get("contact_address") or "",
                             )
                             session.add(unit)
 
@@ -471,10 +524,7 @@ class CustomerApplicationService:
                     "imported": imported,
                     "skipped": skipped,
                     "failed": failed,
-                    "details": {
-                        "failed_items": failed_items,
-                        "skipped_items": skipped_items
-                    }
+                    "details": {"failed_items": failed_items, "skipped_items": skipped_items},
                 }
             finally:
                 session.close()
@@ -486,17 +536,29 @@ class CustomerApplicationService:
                 "imported": 0,
                 "skipped": 0,
                 "failed": 0,
-                "details": {"failed_items": [], "skipped_items": []}
+                "details": {"failed_items": [], "skipped_items": []},
             }
 
-    def import_from_excel(self, file) -> Dict[str, Any]:
+    def import_from_excel(self, file) -> dict[str, Any]:
         """从 Excel 导入购买单位"""
+        from app.db.sqlite_write_guard import sqlite_write_guard
+
         try:
-            import os
+            with sqlite_write_guard():
+                return self._import_from_excel_locked(file)
+        except Exception as e:
+            logger.exception(f"导入客户数据失败: {e}")
+            return {
+                "success": False,
+                "imported": 0,
+                "skipped": 0,
+                "failed": 0,
+                "details": {"failed_items": [], "skipped_items": []},
+            }
 
+    def _import_from_excel_locked(self, file) -> dict[str, Any]:
+        try:
             from openpyxl import load_workbook
-
-            from app.utils.path_utils import get_data_dir
 
             session = self._get_session()
             try:
@@ -518,9 +580,11 @@ class CustomerApplicationService:
                         skipped += 1
                         continue
 
-                    existing = session.query(PurchaseUnitModel).filter(
-                        PurchaseUnitModel.unit_name == unit_name
-                    ).first()
+                    existing = (
+                        session.query(PurchaseUnitModel)
+                        .filter(PurchaseUnitModel.unit_name == unit_name)
+                        .first()
+                    )
 
                     if existing:
                         if row[1]:
@@ -535,7 +599,7 @@ class CustomerApplicationService:
                             unit_name=unit_name,
                             contact_person=str(row[1]) if row[1] else "",
                             contact_phone=str(row[2]) if row[2] else "",
-                            address=str(row[3]) if row[3] else ""
+                            address=str(row[3]) if row[3] else "",
                         )
                         session.add(unit)
                         inserted += 1
@@ -544,10 +608,10 @@ class CustomerApplicationService:
 
                 return {
                     "success": True,
-                    "message": f"导入完成",
+                    "message": "导入完成",
                     "updated": updated,
                     "inserted": inserted,
-                    "skipped": skipped
+                    "skipped": skipped,
                 }
             finally:
                 session.close()
@@ -556,7 +620,9 @@ class CustomerApplicationService:
             logger.exception(f"导入失败: {e}")
             return {"success": False, "message": str(e), "updated": 0, "inserted": 0, "skipped": 0}
 
-    def export_to_excel(self, keyword: Optional[str] = None, template_id: Optional[str] = None) -> Dict[str, Any]:
+    def export_to_excel(
+        self, keyword: str | None = None, template_id: str | None = None
+    ) -> dict[str, Any]:
         """导出购买单位到 Excel"""
         try:
             import os
@@ -601,10 +667,16 @@ class CustomerApplicationService:
                     try:
                         from app.application import get_template_app_service
 
-                        templates = (get_template_app_service().get_templates() or {}).get("templates") or []
-                        target = next((t for t in templates if str(t.get("id")) == str(template_id)), None)
+                        templates = (get_template_app_service().get_templates() or {}).get(
+                            "templates"
+                        ) or []
+                        target = next(
+                            (t for t in templates if str(t.get("id")) == str(template_id)), None
+                        )
                         if target:
-                            candidate_path = str(target.get("path") or target.get("file_path") or "").strip()
+                            candidate_path = str(
+                                target.get("path") or target.get("file_path") or ""
+                            ).strip()
                             if candidate_path and os.path.exists(candidate_path):
                                 template_path = candidate_path
                     except Exception:
@@ -630,13 +702,15 @@ class CustomerApplicationService:
                     ws.title = "客户列表"
                     ws.append(["ID", "客户名称", "联系人", "电话", "地址"])
                     for row in records:
-                        ws.append([
-                            row["id"],
-                            row["customer_name"],
-                            row["contact_person"],
-                            row["contact_phone"],
-                            row["address"],
-                        ])
+                        ws.append(
+                            [
+                                row["id"],
+                                row["customer_name"],
+                                row["contact_person"],
+                                row["contact_phone"],
+                                row["address"],
+                            ]
+                        )
 
                 wb.save(file_path)
 
@@ -644,7 +718,7 @@ class CustomerApplicationService:
                     "success": True,
                     "message": f"成功导出 {len(units)} 条记录",
                     "file_path": str(file_path),
-                    "filename": filename
+                    "filename": filename,
                 }
             finally:
                 session.close()
@@ -653,17 +727,20 @@ class CustomerApplicationService:
             logger.exception(f"导出失败: {e}")
             return {"success": False, "message": str(e)}
 
-    def get_purchase_unit_by_name(self, name: str) -> Optional[PurchaseUnit]:
+    def get_purchase_unit_by_name(self, name: str) -> PurchaseUnit | None:
         """根据名称获取购买单位（用于内部业务）"""
         try:
             session = self._get_session()
             try:
                 from app.db.models.purchase_unit import PurchaseUnit as PurchaseUnitModel
 
-                unit = session.query(PurchaseUnitModel).filter(
-                    PurchaseUnitModel.unit_name == name,
-                    PurchaseUnitModel.is_active == True
-                ).first()
+                unit = (
+                    session.query(PurchaseUnitModel)
+                    .filter(
+                        PurchaseUnitModel.unit_name == name, PurchaseUnitModel.is_active == True
+                    )
+                    .first()
+                )
 
                 if unit:
                     return PurchaseUnit(
@@ -685,7 +762,7 @@ class CustomerApplicationService:
             logger.exception(f"查询购买单位失败: {e}")
             return None
 
-    def match_purchase_unit(self, input_name: str) -> Optional[PurchaseUnit]:
+    def match_purchase_unit(self, input_name: str) -> PurchaseUnit | None:
         """智能匹配购买单位（模糊匹配）"""
         try:
             name = str(input_name or "").strip()
@@ -697,10 +774,13 @@ class CustomerApplicationService:
             try:
                 from app.db.models.purchase_unit import PurchaseUnit as PurchaseUnitModel
 
-                exact = session.query(PurchaseUnitModel).filter(
-                    PurchaseUnitModel.unit_name == name,
-                    PurchaseUnitModel.is_active == True
-                ).first()
+                exact = (
+                    session.query(PurchaseUnitModel)
+                    .filter(
+                        PurchaseUnitModel.unit_name == name, PurchaseUnitModel.is_active == True
+                    )
+                    .first()
+                )
 
                 if exact:
                     return PurchaseUnit(
@@ -711,9 +791,11 @@ class CustomerApplicationService:
                         address=exact.address or "",
                     )
 
-                all_units = session.query(PurchaseUnitModel).filter(
-                    PurchaseUnitModel.is_active == True
-                ).all()
+                all_units = (
+                    session.query(PurchaseUnitModel)
+                    .filter(PurchaseUnitModel.is_active == True)
+                    .all()
+                )
 
                 # 子串匹配仅用于较长名称，避免单字/短串误命中多个客户
                 if len(name) >= 2:
@@ -741,13 +823,9 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(CustomerApplicationService)
 
-_customer_app_service_instance = None
-
 
 def get_customer_app_service() -> CustomerApplicationService:
     """获取客户服务单例"""
-    global _customer_app_service_instance
-    if _customer_app_service_instance is None:
-        _customer_app_service_instance = CustomerApplicationService()
-    return _customer_app_service_instance
+    from app.di.registry import get_service_registry
 
+    return get_service_registry().customer_application_service

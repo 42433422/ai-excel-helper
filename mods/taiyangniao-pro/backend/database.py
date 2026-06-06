@@ -1,17 +1,17 @@
 """
-太阳鸟pro - 数据库连接和会话管理
+太阳鸟pro - 数据库连接和会话管理（Mod 私有 SQLite，与主库拆分并存）。
 """
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
+import threading
 from typing import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
-from app.infrastructure.workspace import workspace_root
+from app.mod_sdk.private_sqlite import resolve_mod_private_sqlite_path
 
 try:
     from .models import Base
@@ -21,32 +21,31 @@ except ImportError:
     except ImportError:
         Base = None  # type: ignore[misc,assignment]
 
-# 默认数据库文件名
 DEFAULT_DB_NAME = "taiyangniao_pro.db"
 
+_engine_lock = threading.Lock()
+_engine = None
+_session_factory: sessionmaker | None = None
 
-def get_database_path() -> Path:
-    """获取 mod 业务库 ``taiyangniao_pro.db`` 路径。
 
-    与 ``app.infrastructure.workspace`` 一致：默认 ``WORKSPACE_ROOT``（未设则为进程 cwd），
-    可用 ``XCAGI_WORKSPACE_ROOT`` 覆盖。避免在路由里写死盘符，否则换目录启动会连到空库。
-    """
-    wr = (os.environ.get("XCAGI_WORKSPACE_ROOT") or "").strip()
-    base_path = Path(wr).resolve() if wr else workspace_root()
-
-    # 在 workspace 下创建数据库目录
-    db_dir = base_path / "data" / "mod_dbs"
-    db_dir.mkdir(parents=True, exist_ok=True)
-
-    return db_dir / DEFAULT_DB_NAME
+def get_database_path():
+    """Mod 业务库路径：与主应用 ``data`` / 桌面 ``DATABASE_PATH`` 对齐的 ``mod_dbs``。"""
+    return resolve_mod_private_sqlite_path(DEFAULT_DB_NAME)
 
 
 def get_engine():
-    """创建数据库引擎"""
-    db_path = get_database_path()
-    # SQLite连接字符串
-    connection_string = f"sqlite:///{db_path}"
-    return create_engine(connection_string, connect_args={"check_same_thread": False})
+    """进程内单例 Engine（SQLite NullPool + 超时，与主栈策略一致）。"""
+    global _engine
+    with _engine_lock:
+        if _engine is None:
+            db_path = get_database_path()
+            _engine = create_engine(
+                f"sqlite:///{db_path}",
+                connect_args={"check_same_thread": False, "timeout": 45},
+                poolclass=NullPool,
+                echo=False,
+            )
+        return _engine
 
 
 def init_database():
@@ -60,15 +59,17 @@ def init_database():
     return engine
 
 
-# 创建会话工厂
-SessionLocal = sessionmaker(autocommit=False, autoflush=False)
+def _sessionmaker() -> sessionmaker:
+    global _session_factory
+    with _engine_lock:
+        if _session_factory is None:
+            _session_factory = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+        return _session_factory
 
 
 def get_session() -> Generator[Session, None, None]:
     """获取数据库会话的生成器，用于依赖注入"""
-    engine = get_engine()
-    SessionLocal.configure(bind=engine)
-    session = SessionLocal()
+    session = _sessionmaker()()
     try:
         yield session
     finally:
@@ -76,7 +77,5 @@ def get_session() -> Generator[Session, None, None]:
 
 
 def get_session_context() -> Session:
-    """获取数据库会话的上下文管理器"""
-    engine = get_engine()
-    SessionLocal.configure(bind=engine)
-    return SessionLocal()
+    """获取数据库会话（调用方负责 close）。"""
+    return _sessionmaker()()

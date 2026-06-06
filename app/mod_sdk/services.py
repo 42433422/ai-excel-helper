@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """主程高层 Application / Domain 服务（SDK re-export）。
 
 这些是 Mod 允许依赖的**稳定服务入口**。它们的实现可能在内部多次搬家

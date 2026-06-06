@@ -13,7 +13,6 @@ Usage:
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
 
 from app.utils.path_utils import get_resource_path
 
@@ -39,18 +38,20 @@ class WechatPlugin:
 
         self._available = bool(self._decrypt_path or self._cv_path)
         if self._available:
-            logger.info(f"WeChat plugin available. decrypt={bool(self._decrypt_path)}, cv={bool(self._cv_path)}")
+            logger.info(
+                f"WeChat plugin available. decrypt={bool(self._decrypt_path)}, cv={bool(self._cv_path)}"
+            )
         return self._available
 
     def is_available(self) -> bool:
         """Check if WeChat features are available."""
         return self._available
 
-    def get_decrypt_path(self) -> Optional[str]:
+    def get_decrypt_path(self) -> str | None:
         """Get path to wechat-decrypt resources."""
         return self._decrypt_path
 
-    def get_cv_path(self) -> Optional[str]:
+    def get_cv_path(self) -> str | None:
         """Get path to wechat_cv resources."""
         return self._cv_path
 
@@ -71,7 +72,7 @@ class WechatPlugin:
             logger.debug(f"Added {paths_added} WeChat paths to sys.path")
         return paths_added > 0
 
-    def get_decrypted_db_path(self, db_type: str = "message") -> Optional[str]:
+    def get_decrypted_db_path(self, db_type: str = "message") -> str | None:
         """Get path to decrypted DB (message or contact)."""
         if not self._decrypt_path:
             return None
@@ -81,7 +82,7 @@ class WechatPlugin:
         return os.path.join(base, "message", "message_0.db")
 
 
-_wechat_plugin: Optional[WechatPlugin] = None
+_wechat_plugin: WechatPlugin | None = None
 
 
 def get_wechat_plugin() -> WechatPlugin:

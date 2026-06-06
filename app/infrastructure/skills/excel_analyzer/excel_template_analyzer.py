@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Excel Analyzer Skill - Excel模板结构分析工具
 
@@ -11,12 +10,14 @@ Excel Analyzer Skill - Excel模板结构分析工具
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def analyze_template(file_path: str, sheet_name: Optional[str] = None, verbose: bool = False) -> Dict[str, Any]:
+def analyze_template(
+    file_path: str, sheet_name: str | None = None, verbose: bool = False
+) -> dict[str, Any]:
     """
     分析Excel模板结构
 
@@ -40,7 +41,7 @@ def analyze_template(file_path: str, sheet_name: Optional[str] = None, verbose: 
             else:
                 return {
                     "success": False,
-                    "message": f"Sheet '{sheet_name}' 不存在，可用Sheet: {wb.sheetnames}"
+                    "message": f"Sheet '{sheet_name}' 不存在，可用Sheet: {wb.sheetnames}",
                 }
         else:
             ws = wb.active
@@ -52,12 +53,12 @@ def analyze_template(file_path: str, sheet_name: Optional[str] = None, verbose: 
             "structure": {
                 "max_row": ws.max_row,
                 "max_col": ws.max_column,
-                "max_col_letter": get_column_letter(ws.max_column)
+                "max_col_letter": get_column_letter(ws.max_column),
             },
             "zones": [],
             "merged_cells": [],
             "editable_ranges": [],
-            "cells": {}
+            "cells": {},
         }
 
         merged_ranges = list(ws.merged_cells.ranges)
@@ -67,7 +68,7 @@ def analyze_template(file_path: str, sheet_name: Optional[str] = None, verbose: 
                 "min_row": merge_range.min_row,
                 "max_row": merge_range.max_row,
                 "min_col": merge_range.min_col,
-                "max_col": merge_range.max_col
+                "max_col": merge_range.max_col,
             }
 
             master_cell = ws.cell(merge_range.min_row, merge_range.min_col)
@@ -94,38 +95,31 @@ def analyze_template(file_path: str, sheet_name: Optional[str] = None, verbose: 
             cells_info = {}
             for row in ws.iter_rows(min_row=1, max_row=min(20, ws.max_row)):
                 for cell in row:
-                    if cell.value is not None or cell.data_type != 'n':
+                    if cell.value is not None or cell.data_type != "n":
                         cells_info[cell.coordinate] = {
                             "address": cell.coordinate,
                             "row": cell.row,
                             "col": cell.column,
                             "value": cell.value,
                             "type": _classify_cell(ws, cell, zones),
-                            "is_merged": cell.coordinate in [str(m) for m in merged_ranges]
+                            "is_merged": cell.coordinate in [str(m) for m in merged_ranges],
                         }
             result["cells"] = cells_info
 
         return result
 
     except ImportError:
-        return {
-            "success": False,
-            "message": "需要安装 openpyxl 库: pip install openpyxl"
-        }
+        return {"success": False, "message": "需要安装 openpyxl 库: pip install openpyxl"}
     except FileNotFoundError:
-        return {
-            "success": False,
-            "message": f"文件不存在: {file_path}"
-        }
+        return {"success": False, "message": f"文件不存在: {file_path}"}
     except Exception as e:
         logger.error(f"分析Excel模板失败: {e}")
-        return {
-            "success": False,
-            "message": f"分析失败: {str(e)}"
-        }
+        return {"success": False, "message": f"分析失败: {str(e)}"}
 
 
-def analyze_to_json(file_path: str, output_path: str, sheet_name: Optional[str] = None) -> Dict[str, Any]:
+def analyze_to_json(
+    file_path: str, output_path: str, sheet_name: str | None = None
+) -> dict[str, Any]:
     """
     分析Excel模板并保存结果到JSON文件
 
@@ -140,19 +134,16 @@ def analyze_to_json(file_path: str, output_path: str, sheet_name: Optional[str] 
     result = analyze_template(file_path, sheet_name, verbose=True)
 
     try:
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
 
         result["output_file"] = output_path
         return result
     except Exception as e:
-        return {
-            "success": False,
-            "message": f"保存JSON失败: {str(e)}"
-        }
+        return {"success": False, "message": f"保存JSON失败: {str(e)}"}
 
 
-def _identify_zones(ws, merged_ranges) -> List[Dict[str, Any]]:
+def _identify_zones(ws, merged_ranges) -> list[dict[str, Any]]:
     """识别模板中的区域（表头、数据区、汇总区等）"""
     zones = []
     max_row = ws.max_row
@@ -164,58 +155,66 @@ def _identify_zones(ws, merged_ranges) -> List[Dict[str, Any]]:
             header_rows.append(row_idx)
 
     if header_rows:
-        zones.append({
-            "name": "header",
-            "rows": header_rows,
-            "type": "template",
-            "description": "表头和标题区域"
-        })
+        zones.append(
+            {
+                "name": "header",
+                "rows": header_rows,
+                "type": "template",
+                "description": "表头和标题区域",
+            }
+        )
 
     data_start = max(header_rows) + 1 if header_rows else 4
     data_rows = list(range(data_start, max_row - 3)) if max_row > data_start + 3 else []
 
     if data_rows:
-        zones.append({
-            "name": "data",
-            "rows": [min(data_rows), max(data_rows)],
-            "type": "editable",
-            "description": "数据输入区域"
-        })
+        zones.append(
+            {
+                "name": "data",
+                "rows": [min(data_rows), max(data_rows)],
+                "type": "editable",
+                "description": "数据输入区域",
+            }
+        )
 
     if max_row > 5:
         summary_row = max_row - 2
-        zones.append({
-            "name": "summary",
-            "rows": [summary_row, max_row],
-            "type": "template",
-            "description": "汇总和签名区域"
-        })
+        zones.append(
+            {
+                "name": "summary",
+                "rows": [summary_row, max_row],
+                "type": "template",
+                "description": "汇总和签名区域",
+            }
+        )
 
     return zones
 
 
-def _identify_editable_ranges(ws, zones) -> List[Dict[str, Any]]:
+def _identify_editable_ranges(ws, zones) -> list[dict[str, Any]]:
     """识别可编辑区域"""
     editable_ranges = []
     data_zone = next((z for z in zones if z["name"] == "data"), None)
 
     if data_zone:
         row_range = data_zone["rows"]
-        editable_ranges.append({
-            "range": f"A{row_range[0]}:{ws.max_column}{row_range[1]}",
-            "min_row": row_range[0],
-            "max_row": row_range[1],
-            "min_col": 1,
-            "max_col": ws.max_column,
-            "description": "产品/数据输入区"
-        })
+        editable_ranges.append(
+            {
+                "range": f"A{row_range[0]}:{ws.max_column}{row_range[1]}",
+                "min_row": row_range[0],
+                "max_row": row_range[1],
+                "min_col": 1,
+                "max_col": ws.max_column,
+                "description": "产品/数据输入区",
+            }
+        )
 
     return editable_ranges
 
 
 def _classify_cell(ws, cell, zones) -> str:
     """分类单元格类型"""
-    if cell.data_type == 'f':
+    if cell.data_type == "f":
         return "formula"
 
     for zone in zones:
@@ -233,7 +232,9 @@ class ExcelAnalyzerSkill:
         self.name = "excel_analyzer"
         self.description = "分析Excel模板结构，提取表头、可编辑区域、样式信息"
 
-    def execute(self, file_path: str, sheet_name: Optional[str] = None, output_json: Optional[str] = None) -> Dict[str, Any]:
+    def execute(
+        self, file_path: str, sheet_name: str | None = None, output_json: str | None = None
+    ) -> dict[str, Any]:
         """
         执行Excel模板分析
 
@@ -250,7 +251,7 @@ class ExcelAnalyzerSkill:
         else:
             return analyze_template(file_path, sheet_name)
 
-    def get_skill_info(self) -> Dict[str, Any]:
+    def get_skill_info(self) -> dict[str, Any]:
         """获取技能信息"""
         return {
             "name": self.name,
@@ -258,12 +259,12 @@ class ExcelAnalyzerSkill:
             "parameters": {
                 "file_path": {"type": "string", "required": True, "description": "Excel文件路径"},
                 "sheet_name": {"type": "string", "required": False, "description": "Sheet名称"},
-                "output_json": {"type": "string", "required": False, "description": "输出JSON路径"}
-            }
+                "output_json": {"type": "string", "required": False, "description": "输出JSON路径"},
+            },
         }
 
 
-_skill_instance: Optional[ExcelAnalyzerSkill] = None
+_skill_instance: ExcelAnalyzerSkill | None = None
 
 
 def get_excel_analyzer_skill() -> ExcelAnalyzerSkill:

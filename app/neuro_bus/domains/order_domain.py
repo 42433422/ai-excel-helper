@@ -5,10 +5,9 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
 from decimal import Decimal
 
-from app.neuro_bus.domains.base import NeuroDomain, DomainChannel, get_domain_registry
+from app.neuro_bus.domains.base import DomainChannel, NeuroDomain, get_domain_registry
 from app.neuro_bus.events.base import EventPriority
 from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
 
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 class OrderNeuroDomain(NeuroDomain):
     """
     订单神经域
-    
+
     事件：
     - order.created
     - order.updated
@@ -28,23 +27,23 @@ class OrderNeuroDomain(NeuroDomain):
     - order.cancelled
     - order.refunded
     """
-    
+
     domain_name = "order"
     default_channel = DomainChannel.RELIABLE
-    
+
     def __init__(self, bus=None):
         super().__init__(bus)
         self._setup_handlers()
-    
+
     def _setup_handlers(self):
         """设置默认处理器"""
-        
+
         @self.on("order.created", priority=1, channel=DomainChannel.RELIABLE)
         async def on_order_created(event):
             order_id = event.payload.get("order_id")
             logger.info(f"Order created: {order_id}")
             bump_domain_handler_metric("order.created")
-        
+
         @self.on("order.paid", priority=0, channel=DomainChannel.RELIABLE)
         async def on_order_paid(event):
             order_id = event.payload.get("order_id")
@@ -53,20 +52,20 @@ class OrderNeuroDomain(NeuroDomain):
             from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
 
             bump_domain_handler_metric("order.paid")
-        
+
         @self.on("order.shipped", priority=1, channel=DomainChannel.STANDARD)
         async def on_order_shipped(event):
             order_id = event.payload.get("order_id")
             shipment_id = event.payload.get("shipment_id")
             logger.info(f"Order shipped: {order_id}, shipment={shipment_id}")
             bump_domain_handler_metric("order.shipped")
-    
+
     async def initialize(self):
         logger.info("OrderNeuroDomain initialized")
-    
+
     async def shutdown(self):
         logger.info("OrderNeuroDomain shutdown")
-    
+
     def emit_order_created(
         self,
         order_id: str,
@@ -83,9 +82,9 @@ class OrderNeuroDomain(NeuroDomain):
                 "items": items,
                 "total_amount": str(total_amount),
                 "item_count": len(items),
-            }
+            },
         )
-    
+
     def emit_order_paid(self, order_id: str, amount: Decimal, payment_method: str) -> bool:
         return self.emit(
             "order.paid",
@@ -94,11 +93,11 @@ class OrderNeuroDomain(NeuroDomain):
                 "order_id": order_id,
                 "amount": str(amount),
                 "payment_method": payment_method,
-            }
+            },
         )
 
 
-_order_domain: Optional[OrderNeuroDomain] = None
+_order_domain: OrderNeuroDomain | None = None
 
 
 def get_order_domain() -> OrderNeuroDomain:

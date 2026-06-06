@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 蒸馏模型意图识别服务
 
@@ -12,25 +11,45 @@
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.utils.distillation_paths import get_distillation_checkpoints_dir
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 logger = logging.getLogger(__name__)
 
 CHECKPOINT_DIR = get_distillation_checkpoints_dir()
 
 DEFAULT_INTENT_LABELS = [
-    "shipment_generate", "customers", "products", "shipments",
-    "wechat_send", "print_label", "upload_file", "materials",
-    "shipment_template", "template_extract", "business_docking", "template_preview",
-    "shipment_records", "wechat", "printer_list", "settings", "tools_table",
-    "other_tools", "ai_ecosystem", "excel_decompose", "show_images", "show_videos",
-    "greet", "goodbye", "help", "negation", "customer_export",
-    "customer_edit", "customer_supplement", "unk"
+    "shipment_generate",
+    "customers",
+    "products",
+    "shipments",
+    "wechat_send",
+    "print_label",
+    "upload_file",
+    "materials",
+    "shipment_template",
+    "template_extract",
+    "business_docking",
+    "template_preview",
+    "shipment_records",
+    "wechat",
+    "printer_list",
+    "settings",
+    "tools_table",
+    "other_tools",
+    "ai_ecosystem",
+    "excel_decompose",
+    "show_images",
+    "show_videos",
+    "greet",
+    "goodbye",
+    "help",
+    "negation",
+    "customer_export",
+    "customer_edit",
+    "customer_supplement",
+    "unk",
 ]
 
 
@@ -44,7 +63,7 @@ class DistilledIntentRecognizer:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(self, model_path: str | None = None):
         if hasattr(self, "_initialized") and self._initialized:
             return
 
@@ -71,14 +90,14 @@ class DistilledIntentRecognizer:
 
             self.id2label = None
             self.label2id = None
-            
+
             config_path = os.path.join(self.model_path, "config.json")
             if os.path.exists(config_path):
-                with open(config_path, "r", encoding="utf-8") as f:
+                with open(config_path, encoding="utf-8") as f:
                     config = json.load(f)
                     raw_id2label = config.get("id2label", {})
                     raw_label2id = config.get("label2id", {})
-                    
+
                     if raw_id2label and "LABEL_0" in raw_id2label.values():
                         logger.info("检测到蒸馏模型，使用标准意图标签映射")
                         self.id2label = {i: label for i, label in enumerate(DEFAULT_INTENT_LABELS)}
@@ -89,12 +108,14 @@ class DistilledIntentRecognizer:
             else:
                 vocab_path = os.path.join(CHECKPOINT_DIR, "vocab.json")
                 if os.path.exists(vocab_path):
-                    with open(vocab_path, "r", encoding="utf-8") as f:
+                    with open(vocab_path, encoding="utf-8") as f:
                         vocab = json.load(f)
                         raw_id2label = vocab.get("id2label", {})
                         if raw_id2label and "LABEL_0" in raw_id2label.values():
                             logger.info("检测到蒸馏模型，使用标准意图标签映射")
-                            self.id2label = {i: label for i, label in enumerate(DEFAULT_INTENT_LABELS)}
+                            self.id2label = {
+                                i: label for i, label in enumerate(DEFAULT_INTENT_LABELS)
+                            }
                             self.label2id = {v: k for k, v in self.id2label.items()}
                         else:
                             self.id2label = {int(k): v for k, v in raw_id2label.items()}
@@ -111,7 +132,7 @@ class DistilledIntentRecognizer:
             )
 
             if os.environ.get("USE_CUDA", "0") == "1":
-                import torch
+
                 self.model = self.model.to("cuda")
 
             self.model.eval()
@@ -127,7 +148,7 @@ class DistilledIntentRecognizer:
         """检查模型是否可用"""
         return self.model is not None and self.tokenizer is not None
 
-    def recognize(self, text: str) -> Dict[str, Any]:
+    def recognize(self, text: str) -> dict[str, Any]:
         """识别意图"""
         if not self.is_available():
             return {
@@ -135,7 +156,7 @@ class DistilledIntentRecognizer:
                 "confidence": 0.0,
                 "slots": {},
                 "reasoning": "蒸馏模型不可用",
-                "source": "distilled_fallback"
+                "source": "distilled_fallback",
             }
 
         import torch
@@ -169,7 +190,7 @@ class DistilledIntentRecognizer:
                 "confidence": round(confidence, 4),
                 "slots": {},
                 "reasoning": "蒸馏模型推理",
-                "source": "distilled"
+                "source": "distilled",
             }
 
         except Exception as e:
@@ -179,14 +200,14 @@ class DistilledIntentRecognizer:
                 "confidence": 0.0,
                 "slots": {},
                 "reasoning": f"推理错误：{str(e)}",
-                "source": "distilled_error"
+                "source": "distilled_error",
             }
 
 
-_distilled_recognizer: Optional[DistilledIntentRecognizer] = None
+_distilled_recognizer: DistilledIntentRecognizer | None = None
 
 
-def get_distilled_recognizer(model_path: Optional[str] = None) -> DistilledIntentRecognizer:
+def get_distilled_recognizer(model_path: str | None = None) -> DistilledIntentRecognizer:
     """获取蒸馏识别器单例"""
     global _distilled_recognizer
     if _distilled_recognizer is None:

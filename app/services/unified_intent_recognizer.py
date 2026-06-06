@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 统一意图识别服务
 
@@ -23,19 +22,17 @@ import os
 import sys
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from resources.config.intent_config import get_intent_config, reload_intent_config
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
+from resources.config.intent_config import reload_intent_config
 
 logger = logging.getLogger(__name__)
 
 
 class RecognizerType(Enum):
     """识别器类型"""
+
     RULE = "rule"
     DISTILLED = "distilled"
     BERT = "bert"
@@ -47,9 +44,10 @@ class RecognizerType(Enum):
 @dataclass
 class RecognizerResult:
     """统一识别结果"""
+
     primary_intent: str
     tool_key: str
-    intent_hints: List[str]
+    intent_hints: list[str]
     is_negated: bool
     is_greeting: bool
     is_goodbye: bool
@@ -57,11 +55,11 @@ class RecognizerResult:
     is_confirmation: bool
     is_negation_intent: bool
     is_likely_unclear: bool
-    all_matched_tools: List[tuple]
-    slots: Dict[str, Any]
+    all_matched_tools: list[tuple]
+    slots: dict[str, Any]
     confidence: float
-    sources_used: List[str]
-    raw_results: Dict[str, Any]
+    sources_used: list[str]
+    raw_results: dict[str, Any]
 
 
 class UnifiedIntentRecognizer:
@@ -94,11 +92,13 @@ class UnifiedIntentRecognizer:
 
     def _init_recognizers(self):
         """初始化所有识别器"""
-        from app.services.rule_engine import get_rule_engine, reload_rule_engine
+        from app.services.rule_engine import get_rule_engine
+
         self._rule_engine = get_rule_engine()
 
         try:
             from app.services.distilled_intent_service import get_distilled_recognizer
+
             self._distilled_recognizer = get_distilled_recognizer()
             if self._distilled_recognizer.is_available():
                 logger.info("蒸馏模型识别器已加载")
@@ -111,30 +111,32 @@ class UnifiedIntentRecognizer:
 
         try:
             from app.services.bert_intent_service import BertIntentClassifier
+
             # unified_intent_recognizer 位于：XCAGI/app/services/
             # 模型目录在：XCAGI/distillation/
             # 因此 base_dir 需要回到 XCAGI 根目录（向上 3 级）。
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            distillation_model_path = os.path.join(base_dir, "distillation", "checkpoints", "best.pt")
-            chinese_bert_path = os.path.join(base_dir, "distillation", "checkpoints", "hfl", "chinese-bert-wwm-ext")
+            distillation_model_path = os.path.join(
+                base_dir, "distillation", "checkpoints", "best.pt"
+            )
+            chinese_bert_path = os.path.join(
+                base_dir, "distillation", "checkpoints", "hfl", "chinese-bert-wwm-ext"
+            )
 
             if os.path.exists(distillation_model_path):
                 logger.info(f"发现本地蒸馏模型：{distillation_model_path}")
                 self._bert_recognizer = BertIntentClassifier(
-                    model_path=distillation_model_path,
-                    local_files_only=True
+                    model_path=distillation_model_path, local_files_only=True
                 )
             elif os.path.exists(chinese_bert_path):
                 logger.info(f"发现 chinese-bert-wwm-ext 模型：{chinese_bert_path}")
                 self._bert_recognizer = BertIntentClassifier(
-                    model_path=chinese_bert_path,
-                    local_files_only=True
+                    model_path=chinese_bert_path, local_files_only=True
                 )
             else:
                 logger.warning("本地模型不存在，使用虚拟模型（规则引擎将作为主要识别器）")
                 self._bert_recognizer = BertIntentClassifier(
-                    model_name="chinese-bert-wwm",
-                    local_files_only=True
+                    model_name="chinese-bert-wwm", local_files_only=True
                 )
             if self._bert_recognizer.is_available():
                 logger.info("BERT识别器已加载")
@@ -147,6 +149,7 @@ class UnifiedIntentRecognizer:
 
         try:
             from app.services.deepseek_intent_service import DeepSeekIntentRecognizer
+
             self._deepseek_recognizer = DeepSeekIntentRecognizer()
             logger.info("DeepSeek识别器已加载")
         except Exception as e:
@@ -155,6 +158,7 @@ class UnifiedIntentRecognizer:
 
         try:
             from app.services.rasa_nlu_service import RasaNLUService
+
             self._rasa_service = RasaNLUService()
             logger.info("RASA NLU已加载")
         except Exception as e:
@@ -163,6 +167,7 @@ class UnifiedIntentRecognizer:
 
         try:
             from app.services.hybrid_intent_service import HybridIntentService
+
             self._hybrid_service = HybridIntentService()
             logger.info("混合意图服务已加载")
         except Exception as e:
@@ -172,8 +177,8 @@ class UnifiedIntentRecognizer:
     def recognize(
         self,
         message: str,
-        context: Optional[List[Dict[str, str]]] = None,
-        context_data: Optional[Dict[str, Any]] = None
+        context: list[dict[str, str]] | None = None,
+        context_data: dict[str, Any] | None = None,
     ) -> RecognizerResult:
         """
         统一意图识别入口
@@ -191,18 +196,24 @@ class UnifiedIntentRecognizer:
         context_used = False
 
         try:
-            from app.services.intent_service import quick_recognize, recognize_intents
+            from app.services.intent_service import quick_recognize
 
             if context_data:
                 quick_result = quick_recognize(message, context_data)
                 if quick_result.get("primary_intent") and quick_result.get("elapsed_ms", 100) < 50:
                     sources_used.append("quick")
                     context_used = quick_result.get("context_inherited", False)
-                    logger.info(f"[CONTEXT] quick_recognize hit: intent={quick_result.get('primary_intent')}, context_used={context_used}")
+                    logger.info(
+                        f"[CONTEXT] quick_recognize hit: intent={quick_result.get('primary_intent')}, context_used={context_used}"
+                    )
                     return RecognizerResult(
                         primary_intent=quick_result.get("primary_intent"),
                         tool_key=quick_result.get("tool_key"),
-                        intent_hints=[quick_result.get("primary_intent")] if quick_result.get("primary_intent") else [],
+                        intent_hints=(
+                            [quick_result.get("primary_intent")]
+                            if quick_result.get("primary_intent")
+                            else []
+                        ),
                         is_negated=False,
                         is_greeting=False,
                         is_goodbye=False,
@@ -214,7 +225,7 @@ class UnifiedIntentRecognizer:
                         slots=quick_result.get("slots", {}),
                         confidence=0.95 if quick_result.get("source") == "quick_command" else 0.85,
                         sources_used=sources_used,
-                        raw_results={"quick_result": quick_result}
+                        raw_results={"quick_result": quick_result},
                     )
         except Exception as e:
             logger.warning(f"快速识别失败: {e}")
@@ -277,14 +288,12 @@ class UnifiedIntentRecognizer:
             slots=final_result.get("slots", {}),
             confidence=final_result.get("confidence", 0.0),
             sources_used=sources_used,
-            raw_results=results
+            raw_results=results,
         )
 
     def _recognize_from_context(
-        self,
-        message: str,
-        context_data: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        self, message: str, context_data: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """基于上下文的意图识别"""
         try:
             pending = context_data.get("pending_confirmation")
@@ -296,7 +305,7 @@ class UnifiedIntentRecognizer:
                         "tool_key": pending_intent,
                         "confidence": 0.9,
                         "slots": pending.get("slots", {}),
-                        "source": "context_pending"
+                        "source": "context_pending",
                     }
 
             last_intent = context_data.get("last_intent") or context_data.get("current_intent")
@@ -308,7 +317,7 @@ class UnifiedIntentRecognizer:
                     "tool_key": last_intent,
                     "confidence": 0.7,
                     "slots": last_slots,
-                    "source": "context_inherit"
+                    "source": "context_inherit",
                 }
 
             recent_intents = context_data.get("recent_intents", [])
@@ -318,7 +327,7 @@ class UnifiedIntentRecognizer:
                     "tool_key": recent_intents[0],
                     "confidence": 0.6,
                     "slots": {},
-                    "source": "context_recent"
+                    "source": "context_recent",
                 }
 
         except Exception as e:
@@ -326,16 +335,17 @@ class UnifiedIntentRecognizer:
 
         return None
 
-    def _recognize_rule(self, message: str) -> Optional[Dict[str, Any]]:
+    def _recognize_rule(self, message: str) -> dict[str, Any] | None:
         """规则识别"""
         try:
             from app.services.intent_service import recognize_intents
+
             return recognize_intents(message)
         except Exception as e:
             logger.error(f"规则识别失败: {e}")
             return None
 
-    def _recognize_distilled(self, message: str) -> Optional[Dict[str, Any]]:
+    def _recognize_distilled(self, message: str) -> dict[str, Any] | None:
         """蒸馏模型识别"""
         try:
             if not self._distilled_recognizer:
@@ -346,14 +356,14 @@ class UnifiedIntentRecognizer:
                     "primary_intent": result["intent"],
                     "tool_key": result["intent"],
                     "confidence": result.get("confidence", 0.0),
-                    "slots": {}
+                    "slots": {},
                 }
             return None
         except Exception as e:
             logger.error(f"蒸馏模型识别失败: {e}")
             return None
 
-    def _recognize_bert(self, message: str) -> Optional[Dict[str, Any]]:
+    def _recognize_bert(self, message: str) -> dict[str, Any] | None:
         """BERT模型识别"""
         try:
             if not self._bert_recognizer:
@@ -364,23 +374,28 @@ class UnifiedIntentRecognizer:
                     "primary_intent": result["intent"],
                     "tool_key": result["intent"],
                     "confidence": result.get("confidence", 0.0),
-                    "slots": {}
+                    "slots": {},
                 }
             return None
         except Exception as e:
             logger.error(f"BERT识别失败: {e}")
             return None
 
-    def _recognize_deepseek(self, message: str, context: Optional[List[Dict[str, str]]] = None) -> Optional[Dict[str, Any]]:
+    def _recognize_deepseek(
+        self, message: str, context: list[dict[str, str]] | None = None
+    ) -> dict[str, Any] | None:
         """DeepSeek模型识别"""
         try:
             import asyncio
+
             if not self._deepseek_recognizer:
                 return None
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                result = loop.run_until_complete(self._deepseek_recognizer.recognize(message, context))
+                result = loop.run_until_complete(
+                    self._deepseek_recognizer.recognize(message, context)
+                )
             finally:
                 loop.close()
             if result and result.get("intent"):
@@ -388,7 +403,7 @@ class UnifiedIntentRecognizer:
                     "primary_intent": result["intent"],
                     "tool_key": result["intent"],
                     "confidence": result.get("confidence", 0.0),
-                    "slots": result.get("slots", {})
+                    "slots": result.get("slots", {}),
                 }
             return None
         except Exception as e:
@@ -396,11 +411,8 @@ class UnifiedIntentRecognizer:
             return None
 
     def _merge_results(
-        self,
-        results: Dict[str, Dict],
-        message: str,
-        context_data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, results: dict[str, dict], message: str, context_data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """合并多个识别结果，规则优先，考虑上下文匹配度"""
         if not results:
             return {
@@ -408,7 +420,7 @@ class UnifiedIntentRecognizer:
                 "tool_key": None,
                 "confidence": 0.0,
                 "slots": {},
-                "is_likely_unclear": len(message) <= 4
+                "is_likely_unclear": len(message) <= 4,
             }
 
         if "rule" in results:
@@ -447,11 +459,12 @@ class UnifiedIntentRecognizer:
         """重新加载所有识别器"""
         reload_intent_config()
         from app.services.rule_engine import reload_rule_engine
+
         reload_rule_engine()
         self._init_recognizers()
 
 
-_unified_recognizer: Optional[UnifiedIntentRecognizer] = None
+_unified_recognizer: UnifiedIntentRecognizer | None = None
 
 
 def get_unified_intent_recognizer() -> UnifiedIntentRecognizer:

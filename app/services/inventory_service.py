@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 库存管理服务模块
 
@@ -8,7 +7,7 @@
 import logging
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import func
 
@@ -20,8 +19,6 @@ from app.db.models import (
     Warehouse,
 )
 from app.db.session import get_db
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +33,7 @@ class InventoryService:
         return value
 
     @staticmethod
-    def _model_to_dict(model: Any) -> Dict[str, Any]:
+    def _model_to_dict(model: Any) -> dict[str, Any]:
         if model is None:
             return {}
         result = {}
@@ -45,7 +42,7 @@ class InventoryService:
             result[col.name] = InventoryService._decimal_to_float(value)
         return result
 
-    def get_warehouses(self, status: Optional[str] = None) -> Dict[str, Any]:
+    def get_warehouses(self, status: str | None = None) -> dict[str, Any]:
         with get_db() as db:
             query = db.query(Warehouse)
             if status:
@@ -54,17 +51,17 @@ class InventoryService:
             return {
                 "success": True,
                 "data": [self._model_to_dict(w) for w in warehouses],
-                "count": len(warehouses)
+                "count": len(warehouses),
             }
 
-    def get_warehouse(self, warehouse_id: int) -> Dict[str, Any]:
+    def get_warehouse(self, warehouse_id: int) -> dict[str, Any]:
         with get_db() as db:
             warehouse = db.query(Warehouse).filter(Warehouse.id == warehouse_id).first()
             if not warehouse:
                 return {"success": False, "message": "仓库不存在"}
             return {"success": True, "data": self._model_to_dict(warehouse)}
 
-    def create_warehouse(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_warehouse(self, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
                 warehouse = Warehouse(
@@ -74,7 +71,7 @@ class InventoryService:
                     address=data.get("address"),
                     manager=data.get("manager"),
                     status=data.get("status", "active"),
-                    created_at=datetime.now()
+                    created_at=datetime.now(),
                 )
                 db.add(warehouse)
                 db.commit()
@@ -85,7 +82,7 @@ class InventoryService:
                 logger.error(f"创建仓库失败: {e}")
                 return {"success": False, "message": str(e)}
 
-    def update_warehouse(self, warehouse_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_warehouse(self, warehouse_id: int, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
                 warehouse = db.query(Warehouse).filter(Warehouse.id == warehouse_id).first()
@@ -105,7 +102,7 @@ class InventoryService:
                 logger.error(f"更新仓库失败: {e}")
                 return {"success": False, "message": str(e)}
 
-    def delete_warehouse(self, warehouse_id: int) -> Dict[str, Any]:
+    def delete_warehouse(self, warehouse_id: int) -> dict[str, Any]:
         with get_db() as db:
             try:
                 warehouse = db.query(Warehouse).filter(Warehouse.id == warehouse_id).first()
@@ -119,7 +116,7 @@ class InventoryService:
                 logger.error(f"删除仓库失败: {e}")
                 return {"success": False, "message": str(e)}
 
-    def get_storage_locations(self, warehouse_id: int, status: Optional[str] = None) -> Dict[str, Any]:
+    def get_storage_locations(self, warehouse_id: int, status: str | None = None) -> dict[str, Any]:
         with get_db() as db:
             query = db.query(StorageLocation).filter(StorageLocation.warehouse_id == warehouse_id)
             if status:
@@ -128,10 +125,10 @@ class InventoryService:
             return {
                 "success": True,
                 "data": [self._model_to_dict(loc) for loc in locations],
-                "count": len(locations)
+                "count": len(locations),
             }
 
-    def create_storage_location(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_storage_location(self, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
                 location = StorageLocation(
@@ -141,7 +138,7 @@ class InventoryService:
                     max_capacity=self._decimal_to_float(data.get("max_capacity")),
                     current_capacity=self._decimal_to_float(data.get("current_capacity", 0)),
                     status=data.get("status", "active"),
-                    created_at=datetime.now()
+                    created_at=datetime.now(),
                 )
                 db.add(location)
                 db.commit()
@@ -152,14 +149,37 @@ class InventoryService:
                 logger.error(f"创建库位失败: {e}")
                 return {"success": False, "message": str(e)}
 
+    def update_storage_location(self, location_id: int, data: dict[str, Any]) -> dict[str, Any]:
+        with get_db() as db:
+            try:
+                location = (
+                    db.query(StorageLocation).filter(StorageLocation.id == location_id).first()
+                )
+                if not location:
+                    return {"success": False, "message": "库位不存在"}
+                updatable = ["code", "name", "max_capacity", "status"]
+                for field in updatable:
+                    if field in data:
+                        value = data[field]
+                        if field == "max_capacity":
+                            value = self._decimal_to_float(value)
+                        setattr(location, field, value)
+                db.commit()
+                db.refresh(location)
+                return {"success": True, "data": self._model_to_dict(location)}
+            except Exception as e:
+                db.rollback()
+                logger.error(f"更新库位失败: {e}")
+                return {"success": False, "message": str(e)}
+
     def get_inventory(
         self,
-        warehouse_id: Optional[int] = None,
-        product_id: Optional[int] = None,
-        batch_no: Optional[str] = None,
+        warehouse_id: int | None = None,
+        product_id: int | None = None,
+        batch_no: str | None = None,
         page: int = 1,
-        per_page: int = 50
-    ) -> Dict[str, Any]:
+        per_page: int = 50,
+    ) -> dict[str, Any]:
         with get_db() as db:
             query = db.query(InventoryLedger).join(Product)
 
@@ -171,10 +191,12 @@ class InventoryService:
                 query = query.filter(InventoryLedger.batch_no == batch_no)
 
             total = query.count()
-            items = query.order_by(InventoryLedger.created_at.desc())\
-                .offset((page - 1) * per_page)\
-                .limit(per_page)\
+            items = (
+                query.order_by(InventoryLedger.created_at.desc())
+                .offset((page - 1) * per_page)
+                .limit(per_page)
                 .all()
+            )
 
             result = []
             for item in items:
@@ -190,27 +212,23 @@ class InventoryService:
                 "data": result,
                 "total": total,
                 "page": page,
-                "per_page": per_page
+                "per_page": per_page,
             }
 
-    def get_inventory_summary(self, warehouse_id: Optional[int] = None) -> Dict[str, Any]:
+    def get_inventory_summary(self, warehouse_id: int | None = None) -> dict[str, Any]:
         with get_db() as db:
             query = db.query(
                 InventoryLedger.product_id,
                 Product.name.label("product_name"),
                 Product.model_number,
                 func.sum(InventoryLedger.quantity).label("total_quantity"),
-                func.sum(InventoryLedger.available_quantity).label("total_available")
+                func.sum(InventoryLedger.available_quantity).label("total_available"),
             ).join(Product)
 
             if warehouse_id:
                 query = query.filter(InventoryLedger.warehouse_id == warehouse_id)
 
-            query = query.group_by(
-                InventoryLedger.product_id,
-                Product.name,
-                Product.model_number
-            )
+            query = query.group_by(InventoryLedger.product_id, Product.name, Product.model_number)
 
             items = query.all()
             return {
@@ -221,10 +239,10 @@ class InventoryService:
                         "product_name": item.product_name,
                         "model_number": item.model_number,
                         "total_quantity": self._decimal_to_float(item.total_quantity),
-                        "total_available": self._decimal_to_float(item.total_available)
+                        "total_available": self._decimal_to_float(item.total_available),
                     }
                     for item in items
-                ]
+                ],
             }
 
     def inventory_in(
@@ -232,25 +250,29 @@ class InventoryService:
         product_id: int,
         warehouse_id: int,
         quantity: float,
-        batch_no: Optional[str] = None,
-        location_id: Optional[int] = None,
-        unit_price: Optional[float] = None,
-        reference_type: Optional[str] = None,
-        reference_id: Optional[int] = None,
-        operator: Optional[str] = None,
-        remark: Optional[str] = None
-    ) -> Dict[str, Any]:
+        batch_no: str | None = None,
+        location_id: int | None = None,
+        unit_price: float | None = None,
+        reference_type: str | None = None,
+        reference_id: int | None = None,
+        operator: str | None = None,
+        remark: str | None = None,
+    ) -> dict[str, Any]:
         with get_db() as db:
             try:
                 product = db.query(Product).filter(Product.id == product_id).first()
                 if not product:
                     return {"success": False, "message": "产品不存在"}
 
-                ledger = db.query(InventoryLedger).filter(
-                    InventoryLedger.product_id == product_id,
-                    InventoryLedger.warehouse_id == warehouse_id,
-                    InventoryLedger.batch_no == batch_no
-                ).first()
+                ledger = (
+                    db.query(InventoryLedger)
+                    .filter(
+                        InventoryLedger.product_id == product_id,
+                        InventoryLedger.warehouse_id == warehouse_id,
+                        InventoryLedger.batch_no == batch_no,
+                    )
+                    .first()
+                )
 
                 now = datetime.now()
                 if ledger:
@@ -269,7 +291,7 @@ class InventoryService:
                         unit=product.unit or "个",
                         in_date=now.date(),
                         created_at=now,
-                        updated_at=now
+                        updated_at=now,
                     )
                     db.add(ledger)
 
@@ -292,7 +314,7 @@ class InventoryService:
                     transaction_date=now,
                     operator=operator,
                     remark=remark,
-                    created_at=now
+                    created_at=now,
                 )
                 db.add(transaction)
                 db.commit()
@@ -303,8 +325,8 @@ class InventoryService:
                     "data": {
                         "ledger_id": ledger.id,
                         "quantity": quantity,
-                        "total_quantity": float(ledger.quantity)
-                    }
+                        "total_quantity": float(ledger.quantity),
+                    },
                 }
             except Exception as e:
                 db.rollback()
@@ -316,19 +338,19 @@ class InventoryService:
         product_id: int,
         warehouse_id: int,
         quantity: float,
-        batch_no: Optional[str] = None,
-        location_id: Optional[int] = None,
-        reference_type: Optional[str] = None,
-        reference_id: Optional[int] = None,
-        operator: Optional[str] = None,
-        remark: Optional[str] = None
-    ) -> Dict[str, Any]:
+        batch_no: str | None = None,
+        location_id: int | None = None,
+        reference_type: str | None = None,
+        reference_id: int | None = None,
+        operator: str | None = None,
+        remark: str | None = None,
+    ) -> dict[str, Any]:
         with get_db() as db:
             try:
                 query = db.query(InventoryLedger).filter(
                     InventoryLedger.product_id == product_id,
                     InventoryLedger.warehouse_id == warehouse_id,
-                    InventoryLedger.available_quantity >= quantity
+                    InventoryLedger.available_quantity >= quantity,
                 )
 
                 if batch_no:
@@ -360,7 +382,7 @@ class InventoryService:
                     transaction_date=now,
                     operator=operator,
                     remark=remark,
-                    created_at=now
+                    created_at=now,
                 )
                 db.add(transaction)
                 db.commit()
@@ -371,8 +393,8 @@ class InventoryService:
                     "data": {
                         "ledger_id": ledger.id,
                         "quantity": quantity,
-                        "remaining_quantity": float(ledger.quantity)
-                    }
+                        "remaining_quantity": float(ledger.quantity),
+                    },
                 }
             except Exception as e:
                 db.rollback()
@@ -385,19 +407,23 @@ class InventoryService:
         from_warehouse_id: int,
         to_warehouse_id: int,
         quantity: float,
-        from_location_id: Optional[int] = None,
-        to_location_id: Optional[int] = None,
-        batch_no: Optional[str] = None,
-        operator: Optional[str] = None,
-        remark: Optional[str] = None
-    ) -> Dict[str, Any]:
+        from_location_id: int | None = None,
+        to_location_id: int | None = None,
+        batch_no: str | None = None,
+        operator: str | None = None,
+        remark: str | None = None,
+    ) -> dict[str, Any]:
         with get_db() as db:
             try:
-                from_ledger = db.query(InventoryLedger).filter(
-                    InventoryLedger.product_id == product_id,
-                    InventoryLedger.warehouse_id == from_warehouse_id,
-                    InventoryLedger.available_quantity >= quantity
-                ).first()
+                from_ledger = (
+                    db.query(InventoryLedger)
+                    .filter(
+                        InventoryLedger.product_id == product_id,
+                        InventoryLedger.warehouse_id == from_warehouse_id,
+                        InventoryLedger.available_quantity >= quantity,
+                    )
+                    .first()
+                )
 
                 if not from_ledger:
                     return {"success": False, "message": "源仓库库存不足"}
@@ -422,15 +448,20 @@ class InventoryService:
                     transaction_date=now,
                     operator=operator,
                     remark=f"调出至仓库{to_warehouse_id}",
-                    created_at=now
+                    created_at=now,
                 )
                 db.add(out_transaction)
 
-                to_ledger = db.query(InventoryLedger).filter(
-                    InventoryLedger.product_id == product_id,
-                    InventoryLedger.warehouse_id == to_warehouse_id,
-                    (InventoryLedger.batch_no == batch_no) | (InventoryLedger.batch_no.is_(None))
-                ).first()
+                to_ledger = (
+                    db.query(InventoryLedger)
+                    .filter(
+                        InventoryLedger.product_id == product_id,
+                        InventoryLedger.warehouse_id == to_warehouse_id,
+                        (InventoryLedger.batch_no == batch_no)
+                        | (InventoryLedger.batch_no.is_(None)),
+                    )
+                    .first()
+                )
 
                 if to_ledger:
                     to_ledger.quantity = float(to_ledger.quantity) + quantity
@@ -448,7 +479,7 @@ class InventoryService:
                         unit=from_ledger.unit,
                         in_date=now.date(),
                         created_at=now,
-                        updated_at=now
+                        updated_at=now,
                     )
                     db.add(to_ledger)
 
@@ -468,7 +499,7 @@ class InventoryService:
                     transaction_date=now,
                     operator=operator,
                     remark=f"从仓库{from_warehouse_id}调入",
-                    created_at=now
+                    created_at=now,
                 )
                 db.add(in_transaction)
                 db.commit()
@@ -479,8 +510,8 @@ class InventoryService:
                     "data": {
                         "from_ledger_id": from_ledger.id,
                         "to_ledger_id": to_ledger.id,
-                        "quantity": quantity
-                    }
+                        "quantity": quantity,
+                    },
                 }
             except Exception as e:
                 db.rollback()
@@ -489,14 +520,14 @@ class InventoryService:
 
     def get_inventory_transactions(
         self,
-        product_id: Optional[int] = None,
-        warehouse_id: Optional[int] = None,
-        transaction_type: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        product_id: int | None = None,
+        warehouse_id: int | None = None,
+        transaction_type: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         page: int = 1,
-        per_page: int = 50
-    ) -> Dict[str, Any]:
+        per_page: int = 50,
+    ) -> dict[str, Any]:
         with get_db() as db:
             query = db.query(InventoryTransaction)
 
@@ -512,10 +543,12 @@ class InventoryService:
                 query = query.filter(InventoryTransaction.transaction_date <= end_date)
 
             total = query.count()
-            items = query.order_by(InventoryTransaction.transaction_date.desc())\
-                .offset((page - 1) * per_page)\
-                .limit(per_page)\
+            items = (
+                query.order_by(InventoryTransaction.transaction_date.desc())
+                .offset((page - 1) * per_page)
+                .limit(per_page)
                 .all()
+            )
 
             result = []
             for item in items:
@@ -530,13 +563,15 @@ class InventoryService:
                 "data": result,
                 "total": total,
                 "page": page,
-                "per_page": per_page
+                "per_page": per_page,
             }
 
-    def get_inventory_alert(self) -> Dict[str, Any]:
+    def get_inventory_alert(self) -> dict[str, Any]:
         with get_db() as db:
-            query = db.query(InventoryLedger).join(Product).filter(
-                InventoryLedger.available_quantity <= 0
+            query = (
+                db.query(InventoryLedger)
+                .join(Product)
+                .filter(InventoryLedger.available_quantity <= 0)
             )
             items = query.all()
 
@@ -547,11 +582,7 @@ class InventoryService:
                 item_dict["product_code"] = item.product.model_number if item.product else None
                 result.append(item_dict)
 
-            return {
-                "success": True,
-                "data": result,
-                "count": len(result)
-            }
+            return {"success": True, "data": result, "count": len(result)}
 
 
 # NEURO-DDD: 为 Services 层类添加 instrumentation

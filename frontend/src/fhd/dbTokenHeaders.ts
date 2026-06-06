@@ -357,8 +357,10 @@ export function combinedRequestUrl(config: { baseURL?: string; url?: string }): 
 }
 
 export function dbReadHeaders(options: { ignoreGrace?: boolean } = {}): Record<string, string> {
-  if (!options.ignoreGrace && !isProductsReadGateGraceActive()) return {};
+  void options.ignoreGrace;
   const { read } = readStoredDbTokens();
+  // 只要本机已存一级口令就随请求携带；勿再用「grace 窗口」卡死头，否则 grace 过期后
+  // installFetchDbReadToken / 探针 GET /api/products/list 会永久 403，弹窗提示「口令错误或服务不可达」。
   return read ? { 'X-FHD-Db-Read-Token': read } : {};
 }
 

@@ -13,6 +13,9 @@
 | 场景 | 并发数 | 持续时间 | RPS | P50 延迟 | P95 延迟 | P99 延迟 | 错误率 | 备注 |
 |------|--------|----------|-----|----------|----------|----------|--------|------|
 | 健康检查 `GET /api/health` | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 无业务逻辑，基线 |
+| **桌面 enterprise 冷启**（Electron 出窗 → `mods_list_ok` / 侧栏可点） | 1 | 单次 | — | 待测 | 待测 | — | 待测 | 记录 `tcp_5000_ms`、`desktop_status_ms`（壳日志 `[xcagi-desktop] startup`）与前端 Performance `bootstrap_mount` / `mods_list_ok` |
+| `GET /api/mods/`（缓存命中后） | 待测 | 待测 | 待测 | 待测 | &lt;500ms 目标 | 待测 | 待测 | 支持 ETag/304；探针见 `--suite desktop-mods` |
+| `GET /api/mods/loading-status` | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 无鉴权可读；与列表共用后端扫描缓存 |
 | 上传小文件 `POST /api/upload/excel` | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 磁盘 IO |
 | 对话 `POST /api/chat` | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 强依赖 LLM，不宜与静态页对比 |
 | 流式 `POST /api/chat/stream` | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 待测 | 首 token 时间与流式带宽 |
@@ -28,7 +31,12 @@
 python scripts/loadtest/probe.py
 
 python scripts/loadtest/probe.py --url http://127.0.0.1:8000 --workers 100 --total 5000
+
+# 桌面 Mod 热路径（health + mods 列表 + loading-status + desktop/status）
+python scripts/loadtest/probe.py --base http://127.0.0.1:5000 --suite desktop-mods --workers 20 --total 100
 ```
+
+`GET /api/mods/loading-status` 在无登录态下仍返回聚合状态（用于开屏与重试）；勿与需鉴权的业务 API 混在同一 SLA 表。
 
 ## 建议使用专业工具补充
 

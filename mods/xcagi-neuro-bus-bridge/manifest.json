@@ -1,0 +1,34 @@
+{
+  "id": "xcagi-neuro-bus-bridge",
+  "name": "NeuroBus 事件桥接 Mod",
+  "version": "1.3.0",
+  "author": "成都修茈科技有限公司",
+  "description": "NeuroBus 域清单 + 诊断 API（M/M+）+ 领域处理器注册编排（N，实现委托宿主）。",
+  "dependencies": { "xcagi": ">=8.0.0" },
+  "backend": { "entry": "blueprints", "init": "mod_init" },
+  "hooks": {},
+  "comms": { "exports": [] },
+  "config": {
+    "neuro_bus_facade": true,
+    "domains": [
+      "intent",
+      "order",
+      "inventory",
+      "product",
+      "customer",
+      "ai_service",
+      "wechat",
+      "print",
+      "ocr",
+      "payment",
+      "safety",
+      "shipment"
+    ],
+    "legacy_host_prefixes": ["/api/neurobus", "/api/neuro"],
+    "neuro_bus_event_facade": true,
+    "neuro_bus_handlers_via_mod": true,
+    "handler_catalog_file": "config/neuro_handler_catalog.json",
+    "neuro_bus_runtime_via_mod": true,
+    "phase": "S"
+  }
+}

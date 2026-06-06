@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 重试机制模块
 
@@ -6,7 +5,6 @@
 """
 
 import logging
-from functools import wraps
 
 from tenacity import (
     after_log,
@@ -25,7 +23,7 @@ def retry_on_exception(
     initial_wait: float = 1.0,
     max_wait: float = 30.0,
     multiplier: float = 2.0,
-    exceptions: tuple = (Exception,)
+    exceptions: tuple = (Exception,),
 ):
     """
     重试装饰器
@@ -42,23 +40,15 @@ def retry_on_exception(
     """
     return retry(
         stop=stop_after_attempt(max_attempts),
-        wait=wait_exponential(
-            multiplier=multiplier,
-            min=initial_wait,
-            max=max_wait
-        ),
+        wait=wait_exponential(multiplier=multiplier, min=initial_wait, max=max_wait),
         retry=retry_if_exception_type(exceptions),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         after=after_log(logger, logging.INFO),
-        reraise=True
+        reraise=True,
     )
 
 
-def retry_ai_service(
-    max_attempts: int = 3,
-    initial_wait: float = 1.0,
-    max_wait: float = 30.0
-):
+def retry_ai_service(max_attempts: int = 3, initial_wait: float = 1.0, max_wait: float = 30.0):
     """
     AI 服务重试装饰器
 
@@ -73,14 +63,12 @@ def retry_ai_service(
             ConnectionError,
             TimeoutError,
             OSError,
-        )
+        ),
     )
 
 
 def retry_network_operation(
-    max_attempts: int = 3,
-    initial_wait: float = 0.5,
-    max_wait: float = 10.0
+    max_attempts: int = 3, initial_wait: float = 0.5, max_wait: float = 10.0
 ):
     """
     网络操作重试装饰器
@@ -95,5 +83,5 @@ def retry_network_operation(
         exceptions=(
             ConnectionError,
             TimeoutError,
-        )
+        ),
     )

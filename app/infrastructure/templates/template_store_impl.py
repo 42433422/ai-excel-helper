@@ -5,7 +5,7 @@ import logging
 import os
 import shutil
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import text
 
@@ -27,12 +27,12 @@ class FileSystemTemplateStore(TemplateStorePort):
         self._template_dir = os.path.join(base_dir, "templates")
         os.makedirs(self._template_dir, exist_ok=True)
 
-    def _legacy_templates(self) -> List[Dict]:
+    def _legacy_templates(self) -> list[dict]:
         common = [
             {"id": "shipment", "name": "发货单模板", "filename": "发货单模板.xlsx"},
             {"id": "fallback", "name": "备用模板", "filename": "尹玉华132.xlsx"},
         ]
-        out: List[Dict] = []
+        out: list[dict] = []
         for t in common:
             path1 = os.path.join(self._base_dir, t["filename"])
             path2 = os.path.join(self._template_dir, t["filename"])
@@ -68,7 +68,7 @@ class FileSystemTemplateStore(TemplateStorePort):
             return "发货单"
         return "Excel"
 
-    def _discover_excel_templates(self) -> List[Dict]:
+    def _discover_excel_templates(self) -> list[dict]:
         """
         从固定目录自动发现 Excel 模板文件：
         - 项目根目录
@@ -81,7 +81,7 @@ class FileSystemTemplateStore(TemplateStorePort):
             os.path.join(self._base_dir, "resources", "templates"),
         ]
 
-        templates: List[Dict] = []
+        templates: list[dict] = []
         seen_paths = set()
         for folder in candidates:
             if not os.path.isdir(folder):
@@ -123,7 +123,7 @@ class FileSystemTemplateStore(TemplateStorePort):
                 continue
         return templates
 
-    def _discover_word_templates(self) -> List[Dict]:
+    def _discover_word_templates(self) -> list[dict]:
         """从与 Excel 相同的目录自动发现 Word 模板（.docx）。"""
         candidates = [
             self._base_dir,
@@ -131,7 +131,7 @@ class FileSystemTemplateStore(TemplateStorePort):
             os.path.join(self._base_dir, "resources", "templates"),
             os.path.join(self._base_dir, "424", "document_templates"),
         ]
-        templates: List[Dict] = []
+        templates: list[dict] = []
         seen_paths = set()
         for folder in candidates:
             if not os.path.isdir(folder):
@@ -173,13 +173,13 @@ class FileSystemTemplateStore(TemplateStorePort):
         return templates
 
     @staticmethod
-    def _map_category(template_type: Optional[str]) -> str:
+    def _map_category(template_type: str | None) -> str:
         t = (template_type or "").strip().lower()
         if any(k in t for k in ["标签", "label", "print", "打印"]):
             return "label_print"
         return "excel"
 
-    def _db_templates(self) -> List[Dict]:
+    def _db_templates(self) -> list[dict]:
         """从 templates 表读取模板元数据（若表不存在则返回空列表）。"""
         try:
             with get_db() as db:
@@ -194,7 +194,7 @@ class FileSystemTemplateStore(TemplateStorePort):
         except Exception:
             return []
 
-        out: List[Dict] = []
+        out: list[dict] = []
         for r in rows:
             path = r.original_file_path if getattr(r, "original_file_path", None) else None
             exists = bool(path and os.path.exists(path))
@@ -223,7 +223,7 @@ class FileSystemTemplateStore(TemplateStorePort):
             )
         return out
 
-    def list_templates(self) -> List[Dict]:
+    def list_templates(self) -> list[dict]:
         # DB 为主，自动发现文件模板为辅，再补 legacy（仅存在的文件）。
         # 注意：历史上这里还会拼接 `_system_default_export_templates()` 产生的
         # "导出默认模板" 占位条目，但它们带的都是假样例数据（M001/示例产品等），
@@ -235,7 +235,7 @@ class FileSystemTemplateStore(TemplateStorePort):
         templates.extend([t for t in self._legacy_templates() if t.get("exists")])
 
         # 按文件路径去重，避免 legacy 与 fs_scan 重复展示
-        deduped: List[Dict] = []
+        deduped: list[dict] = []
         seen = set()
         for tpl in templates:
             path = str(tpl.get("path") or "").strip()
@@ -246,15 +246,13 @@ class FileSystemTemplateStore(TemplateStorePort):
             deduped.append(tpl)
         return deduped
 
-    def list_by_type(self, template_type: str, active_only: bool = True) -> List[Dict]:
-        db_templates = [
-            t for t in self._db_templates() if t.get("template_type") == template_type
-        ]
+    def list_by_type(self, template_type: str, active_only: bool = True) -> list[dict]:
+        db_templates = [t for t in self._db_templates() if t.get("template_type") == template_type]
         if active_only:
             db_templates = [t for t in db_templates if t.get("is_active", 1)]
         return db_templates
 
-    def get_default_for_type(self, template_type: str) -> Optional[Dict]:
+    def get_default_for_type(self, template_type: str) -> dict | None:
         # 1) 优先从 DB 中选出 active 且文件存在的模板，按 db_id 倒排取一个
         candidates = [
             t
@@ -276,7 +274,7 @@ class FileSystemTemplateStore(TemplateStorePort):
 
         return None
 
-    def resolve_template_file(self, template_id: str) -> Optional[str]:
+    def resolve_template_file(self, template_id: str) -> str | None:
         # 1) 支持 "db:<id>" 形式（表驱动）
         if template_id.startswith("db:"):
             try:
@@ -318,7 +316,7 @@ class FileSystemTemplateStore(TemplateStorePort):
             return None
         return t.get("path")
 
-    def save_template_file(self, source_name: str, target_name: str, overwrite: bool) -> Dict:
+    def save_template_file(self, source_name: str, target_name: str, overwrite: bool) -> dict:
         source_name = (source_name or "").strip() or "尹玉华132.xlsx"
         target_name = (target_name or "").strip() or "发货单模板.xlsx"
 
@@ -403,13 +401,13 @@ class FileSystemTemplateStore(TemplateStorePort):
             "template_path": target_path,
         }
 
-    def save_template(self, template_data: Dict[str, Any]) -> Dict[str, Any]:
+    def save_template(self, template_data: dict[str, Any]) -> dict[str, Any]:
         """将模板元数据写入 templates 表（供 POST /api/excel/templates 等使用）。"""
         name = (template_data.get("template_name") or "").strip()
         if not name:
             return {"success": False, "message": "模板名称不能为空"}
 
-        def _dumps(obj: Any) -> Optional[str]:
+        def _dumps(obj: Any) -> str | None:
             if obj is None:
                 return None
             return json.dumps(obj, ensure_ascii=False)
@@ -453,4 +451,3 @@ class FileSystemTemplateStore(TemplateStorePort):
         except Exception as e:
             logger.error("save_template failed: %s", e, exc_info=True)
             return {"success": False, "message": str(e)}
-

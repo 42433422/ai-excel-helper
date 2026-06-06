@@ -32,12 +32,16 @@ if not defined DATABASE_URL (
   set "DATABASE_URL=postgresql+psycopg://xcagi:xcagi@127.0.0.1:%PG_PORT%/xcagi"
 )
 
+REM 治根注：FHD_ROOT 必须放在 PYTHONPATH 第一位，XCAGI 在后（或不放）。
+REM 历史上反过来会让 XCAGI/resources/、XCAGI/scripts/ 下的僵尸副本永远赢
+REM FHD 主版本（namespace package 先到先得），典型症状是 /api/system/industries
+REM 拿到 4-14 旧 industry_config，前端下拉出现 4 项 YAML 硬编码幽灵。
 if exist "%FHD_ROOT%\XCAGI\app\" (
   if not defined PYTHONPATH (
-    set "PYTHONPATH=%FHD_ROOT%\XCAGI;%FHD_ROOT%"
+    set "PYTHONPATH=%FHD_ROOT%;%FHD_ROOT%\XCAGI"
   ) else (
-    echo ";%PYTHONPATH%;" | findstr /i /c:";%FHD_ROOT%\XCAGI;" >nul
-    if errorlevel 1 set "PYTHONPATH=%FHD_ROOT%\XCAGI;%FHD_ROOT%;%PYTHONPATH%"
+    echo ";%PYTHONPATH%;" | findstr /i /c:";%FHD_ROOT%;" >nul
+    if errorlevel 1 set "PYTHONPATH=%FHD_ROOT%;%FHD_ROOT%\XCAGI;%PYTHONPATH%"
   )
 ) else (
   if not defined PYTHONPATH set "PYTHONPATH=%FHD_ROOT%"

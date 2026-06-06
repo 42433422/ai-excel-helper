@@ -3,6 +3,7 @@ Task Context Service 测试
 """
 
 import pytest
+
 from app.services.task_context_service import get_task_context_service
 
 
@@ -21,10 +22,7 @@ class TestTaskContextService:
         assert result is None
 
     def test_set_and_get_context(self, service):
-        task_data = {
-            "task_type": "shipment_generate",
-            "slots": {"unit_name": "测试单位"}
-        }
+        task_data = {"task_type": "shipment_generate", "slots": {"unit_name": "测试单位"}}
         service.set("test_user", task_data)
         result = service.get("test_user")
         assert result is not None

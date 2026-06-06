@@ -1,0 +1,16 @@
+{
+  "sku": "personal",
+  "runtime_edition": "minimal",
+  "frontend_edition": "minimal",
+  "blocked_mod_ids": ["xcagi-erp-domain-bridge"],
+  "package_stage_ids": [
+    "xcagi-planner-bridge",
+    "xcagi-neuro-bus-bridge",
+    "xcagi-office-employee-pack-bridge"
+  ],
+  "sku_bundled_mod_ids": [
+    "xcagi-planner-bridge",
+    "xcagi-neuro-bus-bridge",
+    "xcagi-office-employee-pack-bridge"
+  ]
+}

@@ -283,7 +283,13 @@ def _try_page_pay(
         order_string = client.api_alipay_trade_page_pay(**kwargs)
     except Exception as e:
         logger.exception("alipay.trade.page.pay 请求异常")
-        return {"ok": False, "order_string": None, "gateway": "", "message": f"请求支付宝异常: {e}", "raw": None}
+        return {
+            "ok": False,
+            "order_string": None,
+            "gateway": "",
+            "message": f"请求支付宝异常: {e}",
+            "raw": None,
+        }
 
     gateway = "https://openapi.alipay.com/gateway.do"
     if alipay_debug():
@@ -340,7 +346,13 @@ def _try_wap_pay(
         order_string = client.api_alipay_trade_wap_pay(**kwargs)
     except Exception as e:
         logger.exception("alipay.trade.wap.pay 请求异常")
-        return {"ok": False, "order_string": None, "gateway": "", "message": f"请求支付宝异常: {e}", "raw": None}
+        return {
+            "ok": False,
+            "order_string": None,
+            "gateway": "",
+            "message": f"请求支付宝异常: {e}",
+            "raw": None,
+        }
 
     gateway = "https://openapi.alipay.com/gateway.do"
     if alipay_debug():
@@ -382,7 +394,9 @@ def create_pay_order(
     }
     """
     ua = (user_agent or "").lower()
-    is_mobile = any(k in ua for k in ("mobile", "android", "iphone", "ipad", "ipod", "windows phone"))
+    is_mobile = any(
+        k in ua for k in ("mobile", "android", "iphone", "ipad", "ipod", "windows phone")
+    )
 
     # 先尝试网站支付（page 或 wap）
     if is_mobile:
@@ -568,9 +582,7 @@ def query_refund(*, out_trade_no: str, out_request_no: str | None = None) -> dic
     req_no = out_request_no or out_trade_no
     try:
         # SDK 3.x：第一个位置参数为 out_request_no，关键字 out_trade_no
-        result = client.api_alipay_trade_fastpay_refund_query(
-            req_no, out_trade_no=out_trade_no
-        )
+        result = client.api_alipay_trade_fastpay_refund_query(req_no, out_trade_no=out_trade_no)
     except Exception as e:
         logger.exception("alipay.trade.fastpay.refund.query 请求异常")
         return {"ok": False, "message": f"请求支付宝异常: {e}", "raw": None}
@@ -590,7 +602,9 @@ def _public_key_source() -> str:
     """返回支付宝公钥来源描述：env / path / bundled / missing。"""
     if _pem_from_env("ALIPAY_ALIPAY_PUBLIC_KEY"):
         return "env"
-    if _env("ALIPAY_ALIPAY_PUBLIC_KEY_PATH") and _read_file_from_env("ALIPAY_ALIPAY_PUBLIC_KEY_PATH"):
+    if _env("ALIPAY_ALIPAY_PUBLIC_KEY_PATH") and _read_file_from_env(
+        "ALIPAY_ALIPAY_PUBLIC_KEY_PATH"
+    ):
         return "path"
     if _default_bundled_alipay_public_key():
         return "bundled"

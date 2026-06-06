@@ -11,4 +11,3 @@ __all__ = [
     "load_legacy_shipment_document_generator",
     "LegacyShipmentDocumentGenerator",
 ]
-

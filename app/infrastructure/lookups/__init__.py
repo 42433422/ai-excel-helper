@@ -4,4 +4,3 @@ from app.infrastructure.lookups.purchase_unit_resolver import (
 )
 
 __all__ = ["ResolvedPurchaseUnit", "resolve_purchase_unit"]
-

@@ -52,7 +52,7 @@ import { defineComponent, computed } from 'vue'
 export interface BranchTrigger {
   id: string
   name: string
-  status: 'active' | 'inactive' | 'pending'
+  status: 'active' | 'inactive' | 'pending' | 'error'
   description?: string
 }
 

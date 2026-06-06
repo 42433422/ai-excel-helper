@@ -17,9 +17,7 @@ def _ensure_mod_backend_on_path() -> None:
     here = os.path.abspath(os.path.dirname(__file__))
     # app/shell/taiyangniao_attendance -> repo_root
     repo_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
-    mod_backend = os.path.join(
-        repo_root, "mods", "taiyangniao-pro", "backend"
-    )
+    mod_backend = os.path.join(repo_root, "mods", "taiyangniao-pro", "backend")
     if os.path.isdir(mod_backend) and mod_backend not in sys.path:
         sys.path.insert(0, mod_backend)
 

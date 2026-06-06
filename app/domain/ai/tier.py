@@ -6,7 +6,8 @@ Phase 3 从 ``app.legacy.ai_tier`` 迁入。
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from fastapi import HTTPException, Request
 
@@ -32,12 +33,19 @@ def resolve_ai_tier(request: Request | None) -> str:
 
 def assert_p2_elevated_claim_or_raise(request: Request | None) -> None:
     claimed = _header(request, "X-XCAGI-AI-Tier").lower()
-    strict = (os.environ.get("FHD_AI_TIER_STRICT") or "").strip().lower() in ("1", "true", "yes", "on")
+    strict = (os.environ.get("FHD_AI_TIER_STRICT") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     if claimed == "p2" and strict and resolve_ai_tier(request) != "p2":
         raise HTTPException(status_code=403, detail="p2 elevated token invalid")
 
 
-def runtime_context_with_tier(runtime_context: Mapping[str, Any] | None, tier: str) -> dict[str, Any]:
+def runtime_context_with_tier(
+    runtime_context: Mapping[str, Any] | None, tier: str
+) -> dict[str, Any]:
     out = dict(runtime_context or {})
     out["ai_tier"] = "p2" if tier == "p2" else "p1"
     return out

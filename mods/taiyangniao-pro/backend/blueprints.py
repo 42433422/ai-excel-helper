@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from urllib.parse import unquote
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Body, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -112,13 +112,60 @@ def register_fastapi_routes(app, mod_id: str) -> None:
             "data": {"message": f"Hello from {mod_id}", "mod": "taiyangniao-pro"},
         }
 
+    @router.get("/attendance/policy")
+    async def attendance_policy_get() -> dict:
+        """太阳鸟考勤裁窗配置（读写 approval_config.yaml 的 attendance_policy 段）。"""
+        try:
+            from resources.config.approval_config import get_approval_config
+
+            pol = getattr(get_approval_config(), "attendance_policy", None) or {}
+        except Exception as exc:
+            logger.exception("读取考勤策略失败")
+            return JSONResponse(
+                {"success": False, "message": str(exc)},
+                status_code=500,
+            )
+        return {"success": True, "attendance_policy": pol}
+
+    @router.post("/attendance/policy")
+    async def attendance_policy_post(body: dict = Body(default_factory=dict)) -> dict:
+        payload = body if isinstance(body, dict) else {}
+        raw = payload.get("attendance_policy")
+        if not isinstance(raw, dict):
+            return JSONResponse(
+                {"success": False, "message": "请提供 attendance_policy 对象"},
+                status_code=400,
+            )
+        try:
+            from resources.config.approval_config import (
+                get_approval_config,
+                normalize_attendance_policy,
+                reload_approval_config,
+            )
+
+            config = get_approval_config()
+            config.attendance_policy = normalize_attendance_policy(raw)
+            config.save()
+            reload_approval_config()
+            return {
+                "success": True,
+                "message": "考勤规则已保存",
+                "attendance_policy": config.attendance_policy,
+            }
+        except Exception as exc:
+            logger.exception("保存考勤策略失败")
+            return JSONResponse(
+                {"success": False, "message": str(exc)},
+                status_code=500,
+            )
+
     @router.get("/attendance/rules")
     async def attendance_rules() -> dict:
         lines = [
             "优先读取钉钉「每日统计」，再用「原始记录」补充打卡时间与去重。",
             "重复打卡按上午/下午/晚上分段去重，优先保留每段的有效边界打卡。",
             "目标文件会在固定模板基础上回填「明细」工作表。",
-            "公司/工厂正班周六按大小周半天口径处理：有打卡时按 13:30-16:00 记正班。",
+            "周一到周六正班固定为 08:00-12:00、13:30-17:30；周日算加班。",
         ]
         config = {
             "default_header_row": 0,
@@ -134,8 +181,8 @@ def register_fastapi_routes(app, mod_id: str) -> None:
                 "headcount": "按导出表统计",
                 "shift_type": "固定班制",
                 "lines": [
-                    "工作日：优先按钉钉班次时间解析，未识别时回退 08:00-12:00 / 13:30-17:30",
-                    "周六：有打卡则按 13:30-16:00 计正班，其余时间转平常加班",
+                    "周一到周六：正班固定 08:00-12:00 / 13:30-17:30",
+                    "晚上：18:00 后按最后一次打卡计加班",
                     "周日：全部按星期天加班处理",
                 ],
             },
@@ -144,8 +191,8 @@ def register_fastapi_routes(app, mod_id: str) -> None:
                 "headcount": "按导出表统计",
                 "shift_type": "固定班制",
                 "lines": [
-                    "工作日：优先按钉钉班次时间解析，未识别时回退 08:00-12:00 / 13:30-17:30",
-                    "周六：有打卡则按 13:30-16:00 计正班，其余时间转平常加班",
+                    "周一到周六：正班固定 08:00-12:00 / 13:30-17:30",
+                    "晚上：18:00 后按最后一次打卡计加班",
                     "周日：全部按星期天加班处理",
                 ],
             }
@@ -615,6 +662,35 @@ def register_fastapi_routes(app, mod_id: str) -> None:
         items = [dict(r) for r in cur.fetchall()]
         conn.close()
         return {"success": True, "data": items, "total": total}
+
+    def _distinct_customer_purchase_units() -> list[str]:
+        import sqlite3
+
+        db_path = get_database_path()
+        if not db_path.exists():
+            return []
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT DISTINCT TRIM(purchase_unit) FROM customers "
+            "WHERE purchase_unit IS NOT NULL AND TRIM(purchase_unit) != '' "
+            "ORDER BY purchase_unit COLLATE NOCASE"
+        )
+        units = [str(row[0]).strip() for row in cur.fetchall() if row and str(row[0]).strip()]
+        conn.close()
+        return units
+
+    @router.get("/purchase_units")
+    @router.get("/purchase_units/")
+    async def purchase_units_list():
+        units = _distinct_customer_purchase_units()
+        return {"success": True, "data": units}
+
+    @router.get("/shipment/shipment-records/units")
+    @router.get("/shipment/shipment-records/units/")
+    async def shipment_record_units_compat():
+        units = _distinct_customer_purchase_units()
+        return {"success": True, "data": units, "units": units}
 
     @router.get("/customers/{customer_id}", response_model=None)
     async def customers_get(customer_id: int):

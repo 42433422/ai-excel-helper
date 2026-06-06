@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 规则引擎 v2
 
@@ -14,14 +13,10 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from app.utils.cache_manager import get_intent_rule_cache
 from resources.config.intent_config import get_intent_config, reload_intent_config
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +42,7 @@ class RuleEngine:
         """标准化消息"""
         return (msg or "").strip()
 
-    def _match_keywords(self, message: str, keywords: List[str]) -> bool:
+    def _match_keywords(self, message: str, keywords: list[str]) -> bool:
         """匹配关键词"""
         msg_lower = message.lower()
         for kw in keywords:
@@ -55,7 +50,7 @@ class RuleEngine:
                 return True
         return False
 
-    def _match_patterns(self, message: str, patterns: List[str]) -> Optional[Dict[str, Any]]:
+    def _match_patterns(self, message: str, patterns: list[str]) -> dict[str, Any] | None:
         """匹配正则表达式模式"""
         for pattern in patterns:
             match = re.search(pattern, message)
@@ -63,7 +58,9 @@ class RuleEngine:
                 return match.groupdict() if match.groupdict() else {"match": match.group(0)}
         return None
 
-    def match_tool_intent(self, message: str, intent_def: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    def match_tool_intent(
+        self, message: str, intent_def: dict[str, Any]
+    ) -> tuple[bool, dict[str, Any] | None]:
         """
         匹配工具意图
 
@@ -81,7 +78,7 @@ class RuleEngine:
 
         return False, None
 
-    def match_intents(self, message: str) -> List[Dict[str, Any]]:
+    def match_intents(self, message: str) -> list[dict[str, Any]]:
         """
         匹配所有意图
 
@@ -98,19 +95,21 @@ class RuleEngine:
         for intent_def in tool_intents:
             matched, captured = self.match_tool_intent(msg, intent_def)
             if matched:
-                matches.append({
-                    "id": intent_def["id"],
-                    "tool_key": intent_def.get("tool_key", intent_def["id"]),
-                    "priority": intent_def.get("priority", 0),
-                    "block_if_negated": intent_def.get("block_if_negated", False),
-                    "keywords": intent_def.get("keywords", []),
-                    "captured": captured,
-                })
+                matches.append(
+                    {
+                        "id": intent_def["id"],
+                        "tool_key": intent_def.get("tool_key", intent_def["id"]),
+                        "priority": intent_def.get("priority", 0),
+                        "block_if_negated": intent_def.get("block_if_negated", False),
+                        "keywords": intent_def.get("keywords", []),
+                        "captured": captured,
+                    }
+                )
 
         matches.sort(key=lambda x: x["priority"], reverse=True)
         return matches
 
-    def match_hint_intents(self, message: str) -> List[str]:
+    def match_hint_intents(self, message: str) -> list[str]:
         """匹配提示意图"""
         msg = self._normalize(message)
         if not msg:
@@ -126,7 +125,7 @@ class RuleEngine:
 
         return hints
 
-    def check_special_intent(self, message: str) -> Dict[str, bool]:
+    def check_special_intent(self, message: str) -> dict[str, bool]:
         """检查特殊意图（问候、告别、帮助、否定等）"""
         msg = self._normalize(message)
         if not msg:
@@ -181,7 +180,7 @@ class RuleEngine:
         }
 
 
-_rule_engine: Optional[RuleEngine] = None
+_rule_engine: RuleEngine | None = None
 
 
 def get_rule_engine() -> RuleEngine:

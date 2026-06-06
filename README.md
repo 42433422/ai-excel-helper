@@ -1,4 +1,8 @@
-# XCAGI v7.0 - 桌面版 + Web 版并行的企业 AI 员工平台
+# XCAGI v8.0 - 独立宿主 + 平台 MOD 变身垂直系统
+
+> **产品模型**：每家客户部署**自己的一份** XCAGI 宿主（空壳）；从平台安装 MOD 后，该实例即变为对应的行业系统（ERP、出货、客服等）。你不代运营客户业务数据。  
+> 技术形态：桌面版 + Web 自托管并行 · Neuro-DDD · FastAPI · Mod 生态 · MOD 商店。  
+> 全量收口计划：[docs/guides/ADCDFG_COMPLETION_PLAN.md](docs/guides/ADCDFG_COMPLETION_PLAN.md)
 
 **版本说明索引**：下列 **[版本与发布约定](#version-policy)** 与仓库根目录 **[`VERSION.md`](VERSION.md)** 保持同一套锚点与自检命令；本 README 在该节**复述 `VERSION.md` 正文**并额外说明 **Git / GitHub 展示仓库** 行为。若两处将来出现差异，**以 `VERSION.md` 为准**，README 应随 PR 一并改正。
 
@@ -16,9 +20,9 @@
 
 ## 🌟 项目简介
 
-**XCAGI v7.0** 通过 OCR、混合意图识别与大模型工作流，把「上传 Excel / 对话指令 → 解析 → 业务动作（出货、打印、库存等）」连成可运维的闭环，并新增 Windows / macOS 桌面交付形态。
+**XCAGI v8.0** 通过 OCR、混合意图识别与大模型工作流，把「上传 Excel / 对话指令 → 解析 → 业务动作（出货、打印、库存等）」连成可运维的闭环，并新增 Windows / macOS 桌面交付形态。
 
-> 🚀 **v7.0 / 7.0.0 当前版本**: `Electron 桌面壳 + FastAPI 本地子进程 + Vue 3 前端复用`，同时保留 Docker / Nginx web 版并行交付；Mod 商店 / 员工商店 / Token 认证钱包继续作为两种形态共用的商业化能力。  
+> 🚀 **v8.0 / 8.0.0 当前版本**: `Electron 桌面壳 + FastAPI 本地子进程 + Vue 3 前端复用`，同时保留 Docker / Nginx web 版并行交付；Mod 商店 / 员工商店 / Token 认证钱包继续作为两种形态共用的商业化能力；跨行业 UI 适配 + Mod 制作端行业选择。
 > 🎯 **从「工具」到「员工」**: 侧重可编排的用例与可替换的基础设施实现，而不是把业务规则堆在路由里。  
 > 🧠 **Neuro-DDD 在本仓库的含义**: **DDD 分层**（`application` / `domain` / `infrastructure`）+ **AI 对话与工作流的用例编排**；HTTP 层尽量薄，装配集中在 Composition Root（`app/bootstrap.py`）。**神经域 + NeuroBus 大图及组件摘录**与 `**[XCAGI/README.md](XCAGI/README.md)`** 同构展示；**以源码为准**。
 
@@ -33,6 +37,7 @@
 - 🧩 [MOD 作者指南](docs/guides/MOD_AUTHORING_GUIDE.md)（manifest / SDK / hook / comms / workflow_employees / 打包与冒烟）
 - 🧭 [迁移总登记册](docs/MIGRATION_REGISTRY.md)(入口统一 / Flask 拆除 / Neuro / 归档索引)
 - 📚 [完整文档](docs/)
+- 🗂️ [文档地图（Canonical / 归档 / 工具说明）](docs/DOCUMENTATION_MAP.md)
 - 📝 [更新日志](CHANGELOG.md)
 - 📌 [版本锚点 VERSION.md](VERSION.md)（**单一事实来源**，与下文 README 节同步）
 - 🤝 [贡献指南](.github/CONTRIBUTING.md)
@@ -41,44 +46,44 @@
 
 ## 版本与发布约定（与 VERSION.md 一致）
 
-> 本节的**版本号表、产品定位、相关文档索引、发版前自检命令**与 [`VERSION.md`](VERSION.md) 对齐；完整叙事与按日期的发布说明仍以 [`CHANGELOG.md`](CHANGELOG.md) 为准（当前 GA 章节：**v7.0.0 (2026-04-29) — 桌面化时代**）。
+> 本节的**版本号表、产品定位、相关文档索引、发版前自检命令**与 [`VERSION.md`](VERSION.md) 对齐；完整叙事与按日期的发布说明仍以 [`CHANGELOG.md`](CHANGELOG.md) 为准（当前 GA 章节：**v8.0.0 (2026-05-21) — 跨行业适配**）。
 
 ### 版本号（必须同步的锚点）
 
 | 组件 | 版本 | 文件 |
 |------|------|------|
-| **XCAGI 总版本** | `7.0.0` | `CHANGELOG.md`、`README.md` |
-| **Python 包（根）** | `7.0.0` | `pyproject.toml` |
-| **Python 包（XCAGI 子树）** | `7.0.0` | `XCAGI/pyproject.toml` |
-| **前端 SPA** | `7.0.0` | `frontend/package.json` |
-| **桌面壳 npm** | `7.0.0` | `desktop/package.json` |
-| **根级 npm（脚本/测试入口）** | `7.0.0` | `package.json` |
-| **FastAPI 应用** | `7.0.0` | `app/fastapi_app.py`（`FastAPI(version=...)`） |
-| **Mod 依赖校验基线** | `7.0.0` | `app/infrastructure/mods/manifest.py` |
+| **XCAGI 总版本** | `8.0.0` | `CHANGELOG.md`、`README.md` |
+| **Python 包（根）** | `8.0.0` | `pyproject.toml` |
+| **Python 包（XCAGI 子树）** | `8.0.0` | `XCAGI/pyproject.toml` |
+| **前端 SPA** | `8.0.0` | `frontend/package.json` |
+| **桌面壳 npm** | `8.0.0` | `desktop/package.json` |
+| **根级 npm（脚本/测试入口）** | `8.0.0` | `package.json` |
+| **FastAPI 应用** | `8.0.0` | `app/fastapi_app.py`（`FastAPI(version=...)`） |
+| **Mod 依赖校验基线** | `8.0.0` | `app/infrastructure/mods/manifest.py` |
 
 > 独立子工程保留自己的版本号：`MODstore/pyproject.toml`（`0.2.0`）、`MODstore/web/package.json`（`0.2.0`）、`MODstore/market/package.json`（`1.0.0`）。
 
-发版打安装包时脚本使用的 **`-Version` / 参数版本字符串** 须与上表 **7.0.0** 一致（示例见下文 CHANGELOG 摘要中的命令块）。
+发版打安装包时脚本使用的 **`-Version` / 参数版本字符串** 须与上表 **8.0.0** 一致（示例见下文 CHANGELOG 摘要中的命令块）。
 
-### 当前定位（v7.0）
+### 当前定位（v8.0）
 
-**跨平台企业 AI 员工桌面平台** — Windows/macOS 桌面版 + Web 版并行交付，保留 Neuro-DDD + FastAPI + Mod 生态 + Token 认证钱包。
+**跨平台企业 AI 员工桌面平台** — Windows/macOS 桌面版 + Web 版并行交付，保留 Neuro-DDD + FastAPI + Mod 生态 + Token 认证钱包 + 跨行业 UI 适配。
 
-### v7.0.0 发布摘要（详见 CHANGELOG）
+### v8.0.0 发布摘要（详见 CHANGELOG）
 
-以下内容对应 `CHANGELOG.md` **v7.0.0 (2026-04-29) — 桌面化时代** 一节，此处仅作索引；细节、命令与注意事项以 CHANGELOG 全文为准。
+以下内容对应 `CHANGELOG.md` **v8.0.0 (2026-05-21) — 跨行业适配** 一节，此处仅作索引；细节、命令与注意事项以 CHANGELOG 全文为准。
 
-- **定位**：由「以 Web 为主的企业 AI 员工平台」升级为「**桌面版 + Web 版并行**」；桌面为 Electron 壳 + 本地 FastAPI 子进程，Web/Docker 路径保留。
-- **新增能力（节选）**：`app/desktop_runtime/`、桌面相关 API（如 `/api/desktop/*`）、`frontend/src/views/DesktopRuntimeView.vue`、`scripts/package/build-*`、`desktop/`、`.github/workflows/release-desktop.yml` / `release-web.yml`、`update-server/` 模板等。
-- **环境与标志**：`XCAGI_DESKTOP_MODE=1` 启用 SQLite / 本地队列等桌面运行时；默认 Web 模式仍为 PostgreSQL + Redis + Celery（见 CHANGELOG 注意事项）。
+- **定位**：在 v7.0 桌面版 + Web 版并行基础上，新增**跨行业 UI 适配**与**Mod 制作端行业选择**能力。
+- **新增能力（节选）**：宿主与 Mod 制作端共用 `industryPresets`（通用、涂料、考勤、烤禽、批发等），菜单/欢迎语/快捷按钮随所选行业切换；新建 Mod 可指定目标行业，写入 `manifest.industry` 与 `config/industry_card.json`。
+- **版本锚点**：前后端与桌面壳统一为 `8.0.0`；Mod 依赖基线 `>=8.0.0`。
 - **打包命令示例**（与 CHANGELOG 一致）：
 
 ```bash
 # Windows 桌面安装包
-powershell -ExecutionPolicy Bypass -File scripts/package/build-installer.ps1 -Version 7.0.0
+powershell -ExecutionPolicy Bypass -File scripts/package/build-installer.ps1 -Version 8.0.0
 
 # macOS 桌面安装包
-bash scripts/package/build-installer.sh 7.0.0
+bash scripts/package/build-installer.sh 8.0.0
 ```
 
 ### 相关文档（与 VERSION.md 相同索引）
@@ -106,14 +111,14 @@ rg -n 'version\s*=\s*"[0-9]' app/fastapi_app.py app/infrastructure/mods/manifest
 | 项目 | 说明 |
 |------|------|
 | **一体化展示仓库** | **[ai-excel-helper](https://github.com/42433422/ai-excel-helper)**，**主库默认分支为 `master`**，用于公开展示与协作克隆（`git clone` 后默认检出 `master`）。 |
-| **Git 标签** | 附注标签 **`v7.0.0`** 指向与上表 **语义化 `7.0.0`** 一致的提交；在 **`master`** 上执行 `git describe --tags` 应得到 **`v7.0.0`**（[标签页](https://github.com/42433422/ai-excel-helper/releases/tag/v7.0.0)）。 |
+| **Git 标签** | 附注标签 **`v8.0.0`** 指向与上表 **语义化 `8.0.0`** 一致的提交；在 **`master`** 上执行 `git describe --tags` 应得到 **`v8.0.0`**（[标签页](https://github.com/42433422/ai-excel-helper/releases/tag/v8.0.0)）。 |
 | **与 xcagi 发行说明** | 历史与发行说明仍可与 **[xcagi/releases](https://github.com/42433422/xcagi/releases)** 对照；本仓库 `CHANGELOG` 为一体化树的主变更记录。 |
 | **展示克隆体积控制** | 向 **`origin/master`** 推送时采用**在 `master` 上增量提交**的方式，避免附带历史中的超大二进制（如旧快照 zip）；**`QClaw/resources/app.asar` 等运行时大包不纳入该分支**，本地完整体验需自行构建或取发行物。 |
-| **CI 触发** | 推送符合 **`v7.*`** 模式的标签会触发 `.github/workflows/` 中桌面/Web 相关流水线；若仅浏览源码、不需要 CI，请避免误推此类标签或按需调整 workflow。 |
+| **CI 触发** | 推送符合 **`v8.*`** 模式的标签会触发 `.github/workflows/` 中桌面/Web 相关流水线；若仅浏览源码、不需要 CI，请避免误推此类标签或按需调整 workflow。 |
 
 ---
 
-## 🖥️ v7.0 交付形态
+## 🖥️ v8.0 交付形态
 
 - **桌面版**：Windows `.exe` 与 macOS `.dmg/.pkg`，由 [desktop/](desktop/) 的 Electron 壳启动本地 FastAPI 子进程，数据默认存放在系统 userData 目录。
 - **Web 版**：Docker Compose / Nginx 路径继续保留，适合企业自托管、局域网部署和开发调试。
@@ -281,6 +286,7 @@ class IntentReflexArc:
 | 熔断      | `circuit_breaker.py`            | `XCAGI_NEURO_BUS_CIRCUIT`    |
 | SLA 日志  | `sla_controller.py`             | `XCAGI_NEURO_BUS_SLA_LOG`    |
 | 保命通道    | `lifeline.py`                   | `XCAGI_NEURO_BUS_LIFELINE`   |
+| 死信自动入队 | `dead_letter_queue.py`（handler 异常写入全局 DLQ） | `XCAGI_NEURO_BUS_DLQ_AUTO` |
 | 重试 / 沙盒 | `retry_handler.py`、`sandbox.py` | 业务按需调用；默认不挂入总线 publish       |
 
 
@@ -398,13 +404,13 @@ NeuroBus：生产级异步事件总线；上表为可选 publish/分发增强。
 下表为版本迭代中的**内部对比与目标取向**（环境、模型与数据不同会导致差异），非第三方审计 SLA。
 
 
-| 指标       | v3.0  | v4.0  | v5.0              | v6.0                         | v7.0                                      |
-| -------- | ----- | ----- | ----------------- | ---------------------------- | ----------------------------------------- |
-| 前端加载（典型） | ~1.5s | ~1.0s | ~0.8s             | **~0.6s**                    | **与 v6 同栈；桌面壳内嵌同一 Vue 构建**            |
-| 意图与对话延迟  | 秒级    | 优化    | <1ms 反射弧 + 云端 LLM | **显著依赖模型与路由**                | **同左**                                     |
-| 行业适配     | 手动配置  | 配置化   | Mod / 模板 + 策略     | **Mod 商店 + 开发者分成**           | **同左**                                     |
-| 交付形态     | Web   | Web   | Web               | Web                          | **Web + Windows/macOS 安装包（Electron）**   |
-| 商业化      | —     | —     | —                 | **本地部署 + Mod 商店 + Token 钱包** | **同左**                                     |
+| 指标       | v3.0  | v4.0  | v5.0              | v6.0                         | v7.0                                      | v8.0                                      |
+| -------- | ----- | ----- | ----------------- | ---------------------------- | ----------------------------------------- | ----------------------------------------- |
+| 前端加载（典型） | ~1.5s | ~1.0s | ~0.8s             | **~0.6s**                    | **与 v6 同栈；桌面壳内嵌同一 Vue 构建**            | **同 v7；行业预设按需加载**                     |
+| 意图与对话延迟  | 秒级    | 优化    | <1ms 反射弧 + 云端 LLM | **显著依赖模型与路由**                | **同左**                                     | **同左**                                     |
+| 行业适配     | 手动配置  | 配置化   | Mod / 模板 + 策略     | **Mod 商店 + 开发者分成**           | **同左**                                     | **行业预设 + Mod 行业选择**                      |
+| 交付形态     | Web   | Web   | Web               | Web                          | **Web + Windows/macOS 安装包（Electron）**   | **同 v7**                                   |
+| 商业化      | —     | —     | —                 | **本地部署 + Mod 商店 + Token 钱包** | **同左**                                     | **同左**                                     |
 
 
 ---
@@ -559,11 +565,16 @@ cd XCAGI && python run.py
 
 ## 🔄 版本演进
 
-### v7.0（当前主线）
+### v8.0（当前主线）
 
-- **版本与锚点、发版自检、Git/GitHub 行为**：已上收至前文 **[版本与发布约定](#version-policy)**（与 [`VERSION.md`](VERSION.md) 对齐），请勿在本小节重复改版本号表。  
-- **桌面交付**：Windows / macOS 安装包（Electron 壳 + 本地 FastAPI 子进程 + 与 Web 同源 Vue 资源），与 Docker / 本地 `run.py` 并行。  
-- **延续 v6 商业化与 Mod 生态**：本地部署授权、Mod 商店分成、Token 认证钱包；Manifest 与路由契约不变。  
+- **版本与锚点、发版自检、Git/GitHub 行为**：已上收至前文 **[版本与发布约定](#version-policy)**（与 [`VERSION.md`](VERSION.md) 对齐），请勿在本小节重复改版本号表。
+- **跨行业 UI 适配**：宿主菜单/欢迎语/快捷按钮随所选行业切换；Mod 制作端可指定目标行业。
+- **延续 v7 桌面交付与 v6 商业化**：Windows/macOS 安装包（Electron 壳 + 本地 FastAPI 子进程 + 与 Web 同源 Vue 资源），与 Docker / 本地 `run.py` 并行；本地部署授权、Mod 商店分成、Token 认证钱包；Manifest 与路由契约不变。
+
+### v7.0
+
+- **桌面交付**：Windows / macOS 安装包（Electron 壳 + 本地 FastAPI 子进程 + 与 Web 同源 Vue 资源），与 Docker / 本地 `run.py` 并行。
+- **延续 v6 商业化与 Mod 生态**：本地部署授权、Mod 商店分成、Token 认证钱包；Manifest 与路由契约不变。
 
 ### v6.0
 
@@ -591,13 +602,13 @@ cd XCAGI && python run.py
 ## 📊 技术栈演进对比
 
 
-| 组件    | v1.0 | v2.0 | v3.0     | v4.0       | v5.0            | v6.0                  | **v7.0**                         |
-| ----- | ---- | ---- | -------- | ---------- | --------------- | --------------------- | -------------------------------- |
-| 定位    | 工具   | 智能系统 | 智能系统     | AI 员工      | AI 员工 + 模块生态    | 企业 AI 员工平台            | **+ 桌面安装版（Electron）**          |
-| 主 API | -    | -    | Flask 为主 | Flask + 演进 | FastAPI 唯一入口    | FastAPI + Token 签名    | **同 v6**                          |
-| 架构    | 单文件  | MVC  | DDD      | DDD+       | Neuro-DDD + 兼容层 | Neuro-DDD + Mod 生态 v2 | **同 v6**                          |
-| 扩展    | ❌    | ❌    | ❌        | 有限         | Mod / Mod Store | Mod 商店 + 开发者分成        | **同 v6**                          |
-| 商业化   | ❌    | ❌    | ❌        | ❌          | 未明确             | 本地部署 + Mod + Token    | **同 v6**                          |
+| 组件    | v1.0 | v2.0 | v3.0     | v4.0       | v5.0            | v6.0                  | v7.0                         | **v8.0**                         |
+| ----- | ---- | ---- | -------- | ---------- | --------------- | --------------------- | -------------------------------- | -------------------------------- |
+| 定位    | 工具   | 智能系统 | 智能系统     | AI 员工      | AI 员工 + 模块生态    | 企业 AI 员工平台            | + 桌面安装版（Electron）          | **+ 跨行业 UI 适配**              |
+| 主 API | -    | -    | Flask 为主 | Flask + 演进 | FastAPI 唯一入口    | FastAPI + Token 签名    | 同 v6                          | **同 v7**                          |
+| 架构    | 单文件  | MVC  | DDD      | DDD+       | Neuro-DDD + 兼容层 | Neuro-DDD + Mod 生态 v2 | 同 v6                          | **同 v7**                          |
+| 扩展    | ❌    | ❌    | ❌        | 有限         | Mod / Mod Store | Mod 商店 + 开发者分成        | 同 v6                          | **+ 行业预设**                    |
+| 商业化   | ❌    | ❌    | ❌        | ❌          | 未明确             | 本地部署 + Mod + Token    | 同 v6                          | **同 v7**                          |
 
 
 ---
@@ -669,6 +680,6 @@ pytest
 
 ---
 
-**XCAGI v7.0 — 企业 AI 员工平台（Neuro-DDD + FastAPI + Mod 生态 + 可选桌面版）**
+**XCAGI v8.0 — 企业 AI 员工平台（Neuro-DDD + FastAPI + Mod 生态 + 可选桌面版 + 跨行业适配）**
 
 [🔝 返回顶部](#-项目简介)

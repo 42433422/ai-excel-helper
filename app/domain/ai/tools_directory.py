@@ -6,7 +6,12 @@ Phase 3 从 ``app.legacy.tools_directory_compat`` 迁入。
 from __future__ import annotations
 
 DEFAULT_TOOL_CATEGORIES = [
-    {"id": 10, "category_key": "planner", "name": "AI Planner", "description": "对话 Planner 可调用的后端工具"},
+    {
+        "id": 10,
+        "category_key": "planner",
+        "name": "AI Planner",
+        "description": "对话 Planner 可调用的后端工具",
+    },
     {"id": 1, "category_key": "products", "name": "产品管理", "description": "产品与型号维护"},
     {"id": 2, "category_key": "customers", "name": "客户管理", "description": "客户与购买单位维护"},
     {"id": 3, "category_key": "orders", "name": "出货单", "description": "出货单与记录管理"},
@@ -26,7 +31,13 @@ def _tool(
     category_key: str,
     *,
     aliases: list[str] | None = None,
+    roles: list[str] | None = None,
 ) -> dict:
+    """
+    Args:
+        roles: 允许访问该工具的角色列表，例如 ['admin', 'manager']。
+               None 或空列表表示所有角色可见。
+    """
     return {
         "id": tool_id,
         "tool_key": tool_id,
@@ -35,6 +46,7 @@ def _tool(
         "kind": "app_entry",
         "planner_callable": False,
         "aliases": list(aliases or []),
+        "roles": list(roles or []),
         "category": {
             "category_key": category_key,
             "name": next(
@@ -64,9 +76,17 @@ DEFAULT_TOOLS = [
 def _planner_tools_from_registry() -> list[dict]:
     """OpenAI function 规格，与 legacy_chat_adapter / execute_workflow_tool 一致。"""
     try:
-        from app.application.tools.workflow import get_workflow_tool_registry
+        from app.mod_sdk.planner_tools import (
+            get_planner_chat_tool_registry,
+            is_planner_tools_via_mod_enabled,
+        )
 
-        reg = get_workflow_tool_registry()
+        if is_planner_tools_via_mod_enabled():
+            reg = get_planner_chat_tool_registry()
+        else:
+            from app.application.tools.workflow import get_workflow_tool_registry
+
+            reg = get_workflow_tool_registry()
     except Exception:
         return []
     out: list[dict] = []

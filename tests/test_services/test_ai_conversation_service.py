@@ -2,8 +2,10 @@
 AI Conversation Service 测试
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from app.services.ai_conversation_service import AIConversationService
 
 
@@ -19,9 +21,13 @@ class TestAIConversationService:
         assert service is not None
 
     def test_handle_negative_intent(self, service):
-        result = service.handle_intent("不要生成发货单", user_id="test")
-        assert result.get("is_negation") is True or "message" in result
+        from app.services.intent_service import recognize_intents
+
+        result = recognize_intents("不要生成发货单")
+        assert result.get("is_negation_intent") or result.get("is_negated")
 
     def test_handle_greeting(self, service):
-        result = service.handle_intent("你好", user_id="test")
-        assert result.get("is_greeting") is True or "message" in result
+        from app.services.intent_service import recognize_intents
+
+        result = recognize_intents("你好")
+        assert result.get("is_greeting") is True

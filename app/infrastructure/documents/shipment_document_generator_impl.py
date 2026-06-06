@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import logging
 import os
-import sqlite3
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     from PIL import Image, ImageDraw, ImageFont
+
     _PIL_AVAILABLE = True
     _PIL_IMPORT_ERROR = ""
 except Exception as _pil_import_error:
@@ -18,14 +18,13 @@ except Exception as _pil_import_error:
     _PIL_IMPORT_ERROR = str(_pil_import_error)
 
 from app.application.ports.shipment_document_generator import ShipmentDocumentGeneratorPort
-from app.db.models import Product, PurchaseUnit
+from app.db.models import Product
 from app.db.session import get_db
 from app.domain.shipment.shipment_product_parser import prepare_parsed_products
 from app.infrastructure.documents.legacy_shipment_document import (
     load_legacy_shipment_document_generator,
 )
 from app.infrastructure.lookups.purchase_unit_resolver import (
-    ResolvedPurchaseUnit,
     resolve_purchase_unit,
 )
 from app.utils.path_utils import get_app_data_dir, get_base_dir, get_resource_path
@@ -61,7 +60,8 @@ class SimpleLabelGenerator:
                 continue
 
         import sys
-        if sys.platform == 'win32':
+
+        if sys.platform == "win32":
             win_fonts = [
                 "C:\\Windows\\Fonts\\msyhbd.ttf",
                 "C:\\Windows\\Fonts\\simhei.ttf",
@@ -76,18 +76,22 @@ class SimpleLabelGenerator:
 
         return ImageFont.load_default()
 
-    def generate_label(self, product_data: Dict[str, Any], order_number: str, label_index: int = 1) -> Optional[str]:
+    def generate_label(
+        self, product_data: dict[str, Any], order_number: str, label_index: int = 1
+    ) -> str | None:
         if not _PIL_AVAILABLE:
             logger.warning(f"PIL 不可用，跳过标签生成：{_PIL_IMPORT_ERROR}")
             return None
         try:
-            image = Image.new('RGB', (self.width, self.height), self.bg_color)
+            image = Image.new("RGB", (self.width, self.height), self.bg_color)
             draw = ImageDraw.Draw(image)
 
-            draw.rectangle([0, 0, self.width - 1, self.height - 1], outline=self.border_color, width=3)
+            draw.rectangle(
+                [0, 0, self.width - 1, self.height - 1], outline=self.border_color, width=3
+            )
 
-            product_name = product_data.get('name', '') or product_data.get('product_name', '')
-            has_ratio = not any(keyword in product_name for keyword in ['剂', '料'])
+            product_name = product_data.get("name", "") or product_data.get("product_name", "")
+            has_ratio = not any(keyword in product_name for keyword in ["剂", "料"])
 
             y_pn = 25
             h_pn = 70
@@ -121,25 +125,49 @@ class SimpleLabelGenerator:
             col3_x = 650
 
             if has_ratio:
-                draw.line([label_x + label_width, y_pn, label_x + label_width, y_spec + h_spec], fill=self.border_color, width=2)
-                draw.line([col2_x + col2_width, y_date, col2_x + col2_width, y_spec + h_spec], fill=self.border_color, width=2)
-                draw.line([col1_x + col1_width, y_date, col1_x + col1_width, y_spec + h_spec], fill=self.border_color, width=2)
+                draw.line(
+                    [label_x + label_width, y_pn, label_x + label_width, y_spec + h_spec],
+                    fill=self.border_color,
+                    width=2,
+                )
+                draw.line(
+                    [col2_x + col2_width, y_date, col2_x + col2_width, y_spec + h_spec],
+                    fill=self.border_color,
+                    width=2,
+                )
+                draw.line(
+                    [col1_x + col1_width, y_date, col1_x + col1_width, y_spec + h_spec],
+                    fill=self.border_color,
+                    width=2,
+                )
             else:
-                draw.line([label_x + label_width, y_pn, label_x + label_width, 599], fill=self.border_color, width=2)
-                draw.line([col2_x + col2_width, y_date, col2_x + col2_width, 599], fill=self.border_color, width=2)
+                draw.line(
+                    [label_x + label_width, y_pn, label_x + label_width, 599],
+                    fill=self.border_color,
+                    width=2,
+                )
+                draw.line(
+                    [col2_x + col2_width, y_date, col2_x + col2_width, 599],
+                    fill=self.border_color,
+                    width=2,
+                )
 
             draw.line([20, y_pn + h_pn, 880, y_pn + h_pn], fill=self.border_color, width=2)
             draw.line([20, y_name + h_name, 880, y_name + h_name], fill=self.border_color, width=2)
 
             if has_ratio:
-                draw.line([20, y_ratio + h_ratio, 880, y_ratio + h_ratio], fill=self.border_color, width=2)
+                draw.line(
+                    [20, y_ratio + h_ratio, 880, y_ratio + h_ratio], fill=self.border_color, width=2
+                )
 
             draw.line([20, y_date + h_date, 880, y_date + h_date], fill=self.border_color, width=2)
             draw.line([20, y_spec + h_spec, 880, y_spec + h_spec], fill=self.border_color, width=2)
 
             pn_value_font = self._get_font(70)
             draw.text((45, y_pn + 12), "产品编号", font=self._get_font(40), fill=self.text_color)
-            pn_value = product_data.get('model_number', '') or product_data.get('product_number', '')
+            pn_value = product_data.get("model_number", "") or product_data.get(
+                "product_number", ""
+            )
             pn_bbox = draw.textbbox((0, 0), pn_value, font=pn_value_font)
             pn_width = pn_bbox[2] - pn_bbox[0]
             pn_x = 200 + (680 - pn_width) // 2
@@ -150,18 +178,24 @@ class SimpleLabelGenerator:
             name_bbox = draw.textbbox((0, 0), product_name, font=name_value_font)
             name_width = name_bbox[2] - name_bbox[0]
             name_x = 200 + (680 - name_width) // 2
-            draw.text((name_x, y_name + 12), product_name, font=name_value_font, fill=self.text_color)
+            draw.text(
+                (name_x, y_name + 12), product_name, font=name_value_font, fill=self.text_color
+            )
 
             if has_ratio:
                 ratio_label = "参考配比"
                 ratio_label_font = self._get_font(32)
-                draw.text((45, y_ratio + 10), ratio_label, font=ratio_label_font, fill=self.text_color)
-                ratio_text = product_data.get('ratio', '1 : 0.5-0.6 : 0.5-0.8')
+                draw.text(
+                    (45, y_ratio + 10), ratio_label, font=ratio_label_font, fill=self.text_color
+                )
+                ratio_text = product_data.get("ratio", "1 : 0.5-0.6 : 0.5-0.8")
                 ratio_value_font = self._get_font(38)
                 ratio_bbox = draw.textbbox((0, 0), ratio_text, font=ratio_value_font)
                 ratio_width = ratio_bbox[2] - ratio_bbox[0]
                 ratio_x = 200 + (680 - ratio_width) // 2
-                draw.text((ratio_x, y_ratio + 10), ratio_text, font=ratio_value_font, fill=self.text_color)
+                draw.text(
+                    (ratio_x, y_ratio + 10), ratio_text, font=ratio_value_font, fill=self.text_color
+                )
 
             date_font = self._get_font(38)
             production_date = datetime.now().strftime("%Y.%m.%d")
@@ -170,8 +204,8 @@ class SimpleLabelGenerator:
             draw.text((520, y_date + 12), "保质期", font=date_font, fill=self.text_color)
             draw.text((670, y_date + 12), "6个月", font=date_font, fill=self.text_color)
 
-            tin_spec = product_data.get('tin_spec', 0)
-            quantity_tins = product_data.get('quantity_tins', 0)
+            tin_spec = product_data.get("tin_spec", 0)
+            quantity_tins = product_data.get("quantity_tins", 0)
             specification = f"{tin_spec}±0.1KG/桶" if tin_spec else "20±0.1KG/桶"
             draw.text((45, y_spec + 12), "产品规格", font=date_font, fill=self.text_color)
             draw.text((210, y_spec + 12), specification, font=date_font, fill=self.text_color)
@@ -200,18 +234,22 @@ class SimpleLabelGenerator:
             logger.error(f"生成标签失败: {e}")
             return None
 
-    def generate_labels_for_order(self, order_number: str, products: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    def generate_labels_for_order(
+        self, order_number: str, products: list[dict[str, Any]]
+    ) -> list[dict[str, str]]:
         labels = []
         for i, product in enumerate(products, 1):
             filename = self.generate_label(product, order_number, i)
             if filename:
                 file_path = os.path.join(self.output_dir, filename)
-                labels.append({
-                    "filename": filename,
-                    "file_path": file_path,
-                    "order_number": order_number,
-                    "label_number": str(i),
-                })
+                labels.append(
+                    {
+                        "filename": filename,
+                        "file_path": file_path,
+                        "order_number": order_number,
+                        "label_number": str(i),
+                    }
+                )
         return labels
 
 
@@ -231,12 +269,14 @@ class LegacyShipmentDocumentGenerator(ShipmentDocumentGeneratorPort):
 
         resources_template_dir = get_resource_path("ai_assistant", "uploads")
         legacy_template_dir = os.path.join(get_base_dir(), "AI助手", "uploads")
-        self.template_dir = resources_template_dir if os.path.isdir(resources_template_dir) else legacy_template_dir
+        self.template_dir = (
+            resources_template_dir if os.path.isdir(resources_template_dir) else legacy_template_dir
+        )
         self.output_dir = os.path.join(get_app_data_dir(), "shipment_outputs")
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def _load_products_from_main_db(self) -> List[Dict[str, Any]]:
-        products: List[Dict[str, Any]] = []
+    def _load_products_from_main_db(self) -> list[dict[str, Any]]:
+        products: list[dict[str, Any]] = []
         with get_db() as db:
             rows = db.query(Product).filter(Product.is_active == 1).all()
             for p in rows:
@@ -257,11 +297,11 @@ class LegacyShipmentDocumentGenerator(ShipmentDocumentGeneratorPort):
         self,
         *,
         unit_name: str,
-        products: List[Dict[str, Any]],
-        date: Optional[str] = None,
-        template_name: Optional[str] = None,
-        order_number: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        products: list[dict[str, Any]],
+        date: str | None = None,
+        template_name: str | None = None,
+        order_number: str | None = None,
+    ) -> dict[str, Any]:
         # 1) 统一单位名来源：purchase_units 主库
         resolved = resolve_purchase_unit(unit_name)
         if not resolved:
@@ -288,7 +328,7 @@ class LegacyShipmentDocumentGenerator(ShipmentDocumentGeneratorPort):
 
         # 4) 产品匹配（仅主库 products）
         db_products = self._load_products_from_main_db()
-        parsed_products: List[Dict[str, Any]] = prepare_parsed_products(
+        parsed_products: list[dict[str, Any]] = prepare_parsed_products(
             input_products=products,
             db_products=db_products,
         )
@@ -301,7 +341,10 @@ class LegacyShipmentDocumentGenerator(ShipmentDocumentGeneratorPort):
                 "file_path": None,
             }
 
-        parsed_data: Dict[str, Any] = {"purchase_unit": resolved.unit_name, "products": parsed_products}
+        parsed_data: dict[str, Any] = {
+            "purchase_unit": resolved.unit_name,
+            "products": parsed_products,
+        }
 
         # 5) 调用 legacy 生成逻辑
         from app.db.init_db import get_db_path
@@ -333,8 +376,7 @@ class LegacyShipmentDocumentGenerator(ShipmentDocumentGeneratorPort):
         labels_dir = get_resource_path("ai_assistant", "商标导出")
         label_generator = SimpleLabelGenerator(labels_dir)
         generated_labels = label_generator.generate_labels_for_order(
-            order_number=order_number or filename.replace(".xlsx", ""),
-            products=parsed_products
+            order_number=order_number or filename.replace(".xlsx", ""), products=parsed_products
         )
 
         return {
@@ -350,4 +392,3 @@ class LegacyShipmentDocumentGenerator(ShipmentDocumentGeneratorPort):
             "parsed_products": parsed_products,
             "labels": generated_labels,
         }
-

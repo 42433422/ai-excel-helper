@@ -4,7 +4,7 @@ Mod Base Class
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -29,6 +29,6 @@ class Mod(ABC):
         """Cleanup resources when mod is unloaded."""
         pass
 
-    def get_hooks(self) -> List[str]:
+    def get_hooks(self) -> list[str]:
         """Return list of hook names this mod subscribes to."""
         return []

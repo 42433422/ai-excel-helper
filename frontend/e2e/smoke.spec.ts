@@ -44,6 +44,16 @@ test.describe('XCAGI 前端冒烟 @5001', () => {
     await expect(page.locator('.app-shell.is-ready')).toBeVisible({ timeout: 20_000 });
   });
 
+  test('顶栏副窗可打开并以 Escape 关闭', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    await expect(page.locator('.app-shell.is-ready')).toBeVisible({ timeout: 20_000 });
+    await page.locator('.assistant-float-toggle').click();
+    await expect(page.locator('#xcagi-assistant-float-panel')).toBeVisible();
+    await expect(page.locator('#xcagi-assistant-float-title')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#xcagi-assistant-float-panel')).toHaveCount(0);
+  });
+
   test('并发 API 不被单点阻塞（products/list + system/industries）', async ({ request }) => {
     const jobs: Promise<any>[] = [];
     for (let i = 0; i < 10; i += 1) {

@@ -26,13 +26,14 @@ from __future__ import annotations
 
 import contextvars
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 Handler = Callable[..., Any]
 
-_current_caller: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+_current_caller: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "mod_comms_caller", default=None
 )
 
@@ -49,7 +50,7 @@ class ModCommsConflictError(ModCommsError):
     """通道已被占用且未允许 replace"""
 
 
-def get_caller_mod_id() -> Optional[str]:
+def get_caller_mod_id() -> str | None:
     """在被 comms.call 调用的 handler 内部可读取当前调用方 mod id（无调用上下文时为 None）。"""
     return _current_caller.get()
 
@@ -58,7 +59,7 @@ class ModCommsRegistry:
     """按 (mod_id, channel) 注册的同步调用表。"""
 
     def __init__(self) -> None:
-        self._handlers: Dict[Tuple[str, str], Handler] = {}
+        self._handlers: dict[tuple[str, str], Handler] = {}
 
     def register(
         self,
@@ -78,7 +79,12 @@ class ModCommsRegistry:
         if key in self._handlers and not replace:
             raise ModCommsConflictError(f"Comms channel already registered: {mid}::{ch}")
         self._handlers[key] = handler
-        logger.info("Mod comms registered: %s::%s -> %s", mid, ch, getattr(handler, "__name__", repr(handler)))
+        logger.info(
+            "Mod comms registered: %s::%s -> %s",
+            mid,
+            ch,
+            getattr(handler, "__name__", repr(handler)),
+        )
 
     def unregister(self, mod_id: str, channel: str) -> bool:
         mid = (mod_id or "").strip()
@@ -124,21 +130,23 @@ class ModCommsRegistry:
         finally:
             _current_caller.reset(token)
 
-    def list_endpoints(self) -> List[Dict[str, str]]:
+    def list_endpoints(self) -> list[dict[str, str]]:
         """供调试或管理接口列举已注册端点（不含可调用对象）。"""
-        out: List[Dict[str, str]] = []
+        out: list[dict[str, str]] = []
         for (mid, ch), fn in sorted(self._handlers.items(), key=lambda x: (x[0][0], x[0][1])):
             out.append(
                 {
                     "mod_id": mid,
                     "channel": ch,
-                    "handler": getattr(fn, "__qualname__", getattr(fn, "__name__", type(fn).__name__)),
+                    "handler": getattr(
+                        fn, "__qualname__", getattr(fn, "__name__", type(fn).__name__)
+                    ),
                 }
             )
         return out
 
 
-_registry: Optional[ModCommsRegistry] = None
+_registry: ModCommsRegistry | None = None
 
 
 def get_mod_comms() -> ModCommsRegistry:

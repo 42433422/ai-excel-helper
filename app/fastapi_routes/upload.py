@@ -1,4 +1,4 @@
-"""上传 API（自归档 Flask upload 蓝图迁移）。"""
+"""上传 API（继承自归档 upload 蓝图的端点契约）。"""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import JSONResponse
+
 from app.utils.secure_filename import secure_filename
 
 logger = logging.getLogger(__name__)

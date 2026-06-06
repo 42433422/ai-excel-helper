@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ``app.mod_sdk`` — XCAGI Mod 面向主程的唯一稳定 API 面。
 
@@ -50,9 +49,15 @@
 | ``mod_sdk.workspace`` | 工作区相对路径安全解析：                                  |
 |                       | ``resolve_safe_workspace_relpath``                     |
 +-----------------------+--------------------------------------------------------+
+| ``mod_sdk.private_sqlite`` | Mod 自有 SQLite 路径 ``resolve_mod_private_sqlite_path`` |
+|                       |（与主库 ``data/`` 及桌面 ``DATABASE_PATH`` 对齐）       |
++-----------------------+--------------------------------------------------------+
 | ``mod_sdk.attendance``| 考勤转换（太阳鸟 PRO 依赖）；                            |
 |                       | 未来任务 B 会把该能力下沉回 ``mods/taiyangniao-pro/``   |
 |                       | 后本文件会收窄为空或移除。                               |
++-----------------------+--------------------------------------------------------+
+| ``mod_sdk.mod_employee_llm`` | Mod 员工窄 LLM：``mod_employee_complete``（生成物     |
+|                       | ``blueprints._call_llm`` 优先调用，走宿主对话配置）     |
 +-----------------------+--------------------------------------------------------+
 """
 
@@ -61,10 +66,13 @@ from __future__ import annotations
 from app.mod_sdk import (  # noqa: F401
     ai_helpers,
     attendance,
+    audit,
     comms,
     db,
     db_models,
+    mod_employee_llm,
     mods_bus,
+    private_sqlite,
     services,
     state,
     tts,
@@ -74,10 +82,13 @@ from app.mod_sdk import (  # noqa: F401
 __all__ = [
     "ai_helpers",
     "attendance",
+    "audit",
     "comms",
     "db",
     "db_models",
+    "mod_employee_llm",
     "mods_bus",
+    "private_sqlite",
     "services",
     "state",
     "tts",

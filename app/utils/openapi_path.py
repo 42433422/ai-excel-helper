@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
 __all__ = [
     "url_rule_to_openapi_path",

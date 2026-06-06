@@ -5,18 +5,17 @@ Auth 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class UserLoginEvent(NeuroEvent):
     """用户登录事件"""
-    
+
     event_type: str = "auth.user_login"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["user_id", "login_method", "ip_address"]
@@ -28,10 +27,10 @@ class UserLoginEvent(NeuroEvent):
 @dataclass
 class UserLogoutEvent(NeuroEvent):
     """用户登出事件"""
-    
+
     event_type: str = "auth.user_logout"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "user_id" not in self.payload:
@@ -41,10 +40,10 @@ class UserLogoutEvent(NeuroEvent):
 @dataclass
 class UserRegisteredEvent(NeuroEvent):
     """用户注册事件"""
-    
+
     event_type: str = "auth.user_registered"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["user_id", "username", "registration_source"]
@@ -56,10 +55,10 @@ class UserRegisteredEvent(NeuroEvent):
 @dataclass
 class UserPasswordChangedEvent(NeuroEvent):
     """用户密码变更事件"""
-    
+
     event_type: str = "auth.password_changed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "user_id" not in self.payload:
@@ -69,10 +68,10 @@ class UserPasswordChangedEvent(NeuroEvent):
 @dataclass
 class UserPermissionGrantedEvent(NeuroEvent):
     """用户权限授予事件"""
-    
+
     event_type: str = "auth.permission_granted"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["user_id", "permission", "granted_by"]
@@ -84,10 +83,10 @@ class UserPermissionGrantedEvent(NeuroEvent):
 @dataclass
 class UserPermissionRevokedEvent(NeuroEvent):
     """用户权限撤销事件"""
-    
+
     event_type: str = "auth.permission_revoked"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["user_id", "permission", "revoked_by"]
@@ -99,10 +98,10 @@ class UserPermissionRevokedEvent(NeuroEvent):
 @dataclass
 class LoginFailedEvent(NeuroEvent):
     """登录失败事件"""
-    
+
     event_type: str = "auth.login_failed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["username", "reason", "ip_address"]
@@ -114,10 +113,10 @@ class LoginFailedEvent(NeuroEvent):
 @dataclass
 class TokenRefreshedEvent(NeuroEvent):
     """Token 刷新事件"""
-    
+
     event_type: str = "auth.token_refreshed"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "user_id" not in self.payload:

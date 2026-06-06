@@ -15,13 +15,17 @@ import sqlite3
 import logging
 import urllib.parse
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', encoding='utf-8')
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    encoding="utf-8",
+)
 logger = logging.getLogger(__name__)
 
 
 def get_base_dir():
     """获取应用基础目录（兼容 PyInstaller 打包）"""
-    if hasattr(sys, '_MEIPASS'):
+    if hasattr(sys, "_MEIPASS"):
         return sys._MEIPASS
     return os.path.dirname(os.path.abspath(__file__))
 
@@ -29,9 +33,9 @@ def get_base_dir():
 def get_app_data_dir():
     """获取应用程序数据目录"""
     base = get_base_dir()
-    if hasattr(sys, '_MEIPASS'):
-        app_data = os.environ.get('APPDATA') or os.environ.get('LOCALAPPDATA')
-        app_data_dir = os.path.join(app_data, 'XCAGI')
+    if hasattr(sys, "_MEIPASS"):
+        app_data = os.environ.get("APPDATA") or os.environ.get("LOCALAPPDATA")
+        app_data_dir = os.path.join(app_data, "XCAGI")
     else:
         app_data_dir = base
     os.makedirs(app_data_dir, exist_ok=True)
@@ -47,33 +51,40 @@ logger.info(f"XCAGI 应用程序数据目录：{APP_DATA_DIR}")
 def initialize_databases():
     """初始化数据库（PyInstaller 打包环境需要）"""
     import shutil
-    is_frozen = hasattr(sys, '_MEIPASS')
+
+    is_frozen = hasattr(sys, "_MEIPASS")
     source_dir = sys._MEIPASS if is_frozen else BASE_DIR
     work_dir = APP_DATA_DIR
     logger.info(f"PyInstaller 打包环境：{is_frozen}")
     logger.info(f"源目录：{source_dir}")
     logger.info(f"工作目录：{work_dir}")
-    
+
     # XCAGI 项目需要的数据库文件
-    db_files = ['products.db', 'customers.db', 'inventory.db', 'voice_learning.db', 'error_collection.db']
-    
+    db_files = [
+        "products.db",
+        "customers.db",
+        "inventory.db",
+        "voice_learning.db",
+        "error_collection.db",
+    ]
+
     for db_file in db_files:
         source_path = os.path.join(source_dir, db_file)
         work_path = os.path.join(work_dir, db_file)
         logger.info(f"检查数据库：{db_file}")
-        
+
         if not os.path.exists(source_path):
             logger.warning(f"  源数据库文件不存在：{source_path}")
             continue
-        
+
         if os.path.exists(work_path):
             logger.info(f"  工作数据库已存在，跳过复制")
             continue
-        
+
         try:
             shutil.copy2(source_path, work_path)
             logger.info(f"  已复制数据库文件：{db_file}")
-            
+
             if os.path.exists(work_path):
                 cur = sqlite3.connect(work_path).cursor()
                 cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
@@ -85,43 +96,43 @@ def initialize_databases():
 
 def get_db_path():
     """获取数据库路径（兼容 PyInstaller 打包）"""
-    if hasattr(sys, '_MEIPASS'):
-        db_path = os.path.join(APP_DATA_DIR, 'products.db')
+    if hasattr(sys, "_MEIPASS"):
+        db_path = os.path.join(APP_DATA_DIR, "products.db")
     else:
-        db_path = os.path.join(BASE_DIR, 'products.db')
+        db_path = os.path.join(BASE_DIR, "products.db")
     logger.info(f"数据库路径：{db_path}")
     return db_path
 
 
 def get_customers_db_path():
     """获取客户库路径"""
-    if hasattr(sys, '_MEIPASS'):
-        return os.path.join(APP_DATA_DIR, 'customers.db')
-    return os.path.join(BASE_DIR, 'customers.db')
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(APP_DATA_DIR, "customers.db")
+    return os.path.join(BASE_DIR, "customers.db")
 
 
 def get_distillation_db_path():
     """蒸馏数据存储路径"""
-    if hasattr(sys, '_MEIPASS'):
-        return os.path.join(APP_DATA_DIR, 'distillation.db')
-    return os.path.join(BASE_DIR, 'distillation.db')
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(APP_DATA_DIR, "distillation.db")
+    return os.path.join(BASE_DIR, "distillation.db")
 
 
 def _query_purchase_units_from_db(db_path):
     """从指定数据库查询 purchase_units 表，返回 list[dict]；表不存在或出错返回 []。"""
     if not db_path or not os.path.exists(db_path):
         return []
-    
+
     try:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        
+
         cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='purchase_units'")
         if not cur.fetchone():
             conn.close()
             return []
-        
+
         cur.execute(
             "SELECT id, unit_name, contact_person, contact_phone, address FROM purchase_units WHERE is_active = 1"
         )
@@ -157,15 +168,16 @@ def get_all_purchase_units():
 
 def init_user_db():
     """初始化用户数据库"""
-    if hasattr(sys, '_MEIPASS'):
-        db_path = os.path.join(APP_DATA_DIR, 'users.db')
+    if hasattr(sys, "_MEIPASS"):
+        db_path = os.path.join(APP_DATA_DIR, "users.db")
     else:
-        db_path = os.path.join(BASE_DIR, 'users.db')
-    
+        db_path = os.path.join(BASE_DIR, "users.db")
+
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
-    cursor.execute('''
+
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
@@ -175,9 +187,11 @@ def init_user_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_login TIMESTAMP
         )
-    ''')
-    
-    cursor.execute('''
+    """
+    )
+
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT UNIQUE NOT NULL,
@@ -186,8 +200,9 @@ def init_user_db():
             expires_at TIMESTAMP NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
-    ''')
-    
+    """
+    )
+
     conn.commit()
     conn.close()
     return db_path
@@ -204,21 +219,21 @@ def get_unit_db_connection(unit):
     """
     try:
         unit = urllib.parse.unquote(unit)
-        db_path = os.path.join(BASE_DIR, 'unit_databases', f'{unit}.db')
-        
+        db_path = os.path.join(BASE_DIR, "unit_databases", f"{unit}.db")
+
         if not os.path.exists(db_path):
             logger.error(f"单位数据库不存在：{unit}, 路径：{db_path}")
             return None
-        
+
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
+
         cursor.execute('SELECT name FROM sqlite_master WHERE type="table" AND name="products"')
         if not cursor.fetchone():
             logger.error(f"单位数据库中不存在 products 表：{unit}")
             conn.close()
             return None
-        
+
         return conn, cursor
     except Exception as e:
         logger.error(f"获取单位数据库连接失败：{e}")
@@ -265,7 +280,11 @@ def execute_db(sql, params=()):
 def get_unit_id_by_name(unit_name):
     """根据单位名称获取单位 ID"""
     try:
-        unit = query_db("SELECT id FROM purchase_units WHERE unit_name = ? AND is_active = 1", [unit_name], fetch_one=True)
+        unit = query_db(
+            "SELECT id FROM purchase_units WHERE unit_name = ? AND is_active = 1",
+            [unit_name],
+            fetch_one=True,
+        )
         return unit["id"] if unit else None
     except Exception:
         return None
@@ -276,7 +295,7 @@ def init_wechat_tasks_table():
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-    
+
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS wechat_tasks (
@@ -295,21 +314,21 @@ def init_wechat_tasks_table():
         )
         """
     )
-    
+
     cur.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_wechat_tasks_contact_status
         ON wechat_tasks (contact_id, status)
         """
     )
-    
+
     cur.execute(
         """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_wechat_tasks_msg_unique
         ON wechat_tasks (message_id, username)
         """
     )
-    
+
     conn.commit()
     conn.close()
 
@@ -327,11 +346,11 @@ def insert_or_ignore_wechat_task(
     """插入一条 wechat_tasks 记录，若已存在则忽略。返回插入行 id 或已存在行 id。"""
     if not raw_text:
         return None
-    
+
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-    
+
     if message_id and username:
         cur.execute(
             "SELECT id FROM wechat_tasks WHERE message_id = ? AND username = ? LIMIT 1",
@@ -341,7 +360,7 @@ def insert_or_ignore_wechat_task(
         if row:
             conn.close()
             return row[0]
-    
+
     cur.execute(
         """
         INSERT INTO wechat_tasks
@@ -350,7 +369,7 @@ def insert_or_ignore_wechat_task(
         """,
         (contact_id, username, display_name, message_id, msg_timestamp, raw_text, task_type),
     )
-    
+
     task_id = cur.lastrowid
     conn.commit()
     conn.close()
@@ -361,16 +380,16 @@ def update_wechat_task_status(task_id: int, status: str):
     """更新任务状态：pending / confirmed / done / ignored"""
     if status not in ("pending", "confirmed", "done", "ignored"):
         raise ValueError(f"invalid wechat_task status: {status}")
-    
+
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-    
+
     cur.execute(
         "UPDATE wechat_tasks SET status = ?, last_status_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (status, task_id),
     )
-    
+
     conn.commit()
     conn.close()
 
@@ -381,7 +400,7 @@ def get_pending_wechat_tasks_for_contact(contact_id: int | None, limit: int = 20
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    
+
     if contact_id is not None:
         cur.execute(
             "SELECT * FROM wechat_tasks WHERE contact_id = ? AND status = 'pending' ORDER BY msg_timestamp DESC, id DESC LIMIT ?",
@@ -392,7 +411,7 @@ def get_pending_wechat_tasks_for_contact(contact_id: int | None, limit: int = 20
             "SELECT * FROM wechat_tasks WHERE status = 'pending' ORDER BY msg_timestamp DESC, id DESC LIMIT ?",
             (limit,),
         )
-    
+
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
     return rows

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 熔断器实现
 
@@ -8,9 +7,10 @@
 import logging
 import threading
 import time
+from collections.abc import Callable
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class CircuitBreaker:
         failure_threshold: int = 10,
         recovery_timeout: float = 30.0,
         half_open_max_calls: int = 1,
-        expected_exceptions: tuple = (Exception,)
+        expected_exceptions: tuple = (Exception,),
     ):
         self.name = name
         self.failure_threshold = failure_threshold
@@ -50,7 +50,7 @@ class CircuitBreaker:
 
         self._state = CircuitState.CLOSED
         self._failure_count = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._half_open_calls = 0
         self._lock = threading.RLock()
         self._call_count = 0
@@ -68,11 +68,7 @@ class CircuitBreaker:
 
     @property
     def state_value(self) -> int:
-        state_map = {
-            CircuitState.CLOSED: 0,
-            CircuitState.HALF_OPEN: 1,
-            CircuitState.OPEN: 2
-        }
+        state_map = {CircuitState.CLOSED: 0, CircuitState.HALF_OPEN: 1, CircuitState.OPEN: 2}
         return state_map.get(self.state, 0)
 
     def _should_attempt_reset(self) -> bool:
@@ -83,11 +79,11 @@ class CircuitBreaker:
     def _update_metrics(self):
         try:
             from app.utils.metrics import circuit_breaker_failures_total, circuit_breaker_state
+
             circuit_breaker_state.labels(name=self.name).set(self.state_value)
             if self._failure_count_total > 0:
                 circuit_breaker_failures_total.labels(
-                    name=self.name,
-                    circuit_state=self._state.value
+                    name=self.name, circuit_state=self._state.value
                 ).inc(self._failure_count_total)
         except Exception:
             pass
@@ -134,7 +130,7 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self._record_success()
             return result
-        except self.expected_exceptions as e:
+        except self.expected_exceptions:
             self._record_failure()
             raise
 
@@ -142,6 +138,7 @@ class CircuitBreaker:
         @wraps(func)
         def wrapper(*args, **kwargs):
             return self.call(func, *args, **kwargs)
+
         return wrapper
 
     def get_stats(self) -> dict:
@@ -153,12 +150,13 @@ class CircuitBreaker:
                 "call_count": self._call_count,
                 "success_count": self._success_count,
                 "failure_count": self._failure_count_total,
-                "failure_rate": self._failure_count_total / max(self._call_count, 1)
+                "failure_rate": self._failure_count_total / max(self._call_count, 1),
             }
 
 
 class CircuitBreakerOpen(Exception):
     """熔断器开启异常"""
+
     pass
 
 
@@ -166,7 +164,7 @@ def get_circuit_breaker(
     name: str,
     failure_threshold: int = 10,
     recovery_timeout: float = 30.0,
-    half_open_max_calls: int = 1
+    half_open_max_calls: int = 1,
 ) -> CircuitBreaker:
     """获取或创建命名熔断器"""
     with _breakers_lock:
@@ -175,7 +173,7 @@ def get_circuit_breaker(
                 name=name,
                 failure_threshold=failure_threshold,
                 recovery_timeout=recovery_timeout,
-                half_open_max_calls=half_open_max_calls
+                half_open_max_calls=half_open_max_calls,
             )
         return _circuit_breakers[name]
 
@@ -184,15 +182,19 @@ def circuit_breaker(
     name: str,
     failure_threshold: int = 10,
     recovery_timeout: float = 30.0,
-    half_open_max_calls: int = 1
+    half_open_max_calls: int = 1,
 ):
     """熔断器装饰器"""
+
     def decorator(func: Callable) -> Callable:
         cb = get_circuit_breaker(name, failure_threshold, recovery_timeout, half_open_max_calls)
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             return cb.call(func, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 

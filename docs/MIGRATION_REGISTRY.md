@@ -29,7 +29,7 @@
 | 条线                                           | 状态                                           | 权威落点                                                                                                         | 遗留 / 归档                                                                                   | 详细文档                                                                                                                                                |
 | -------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **A. 主 API 入口统一**（`backend/http_app` → 主栈）   | **已完成**(2026-04-20 `backend/` 目录整体删除)        | `**XCAGI/run.py`**、仓库根 `**app/fastapi_app.py**`、`**app/fastapi_routes/**`、`**app/legacy/**`、`**app/shell/**` | 备份见 `[.archive/legacy-backend-2026-04-final/](../.archive/legacy-backend-2026-04-final/)` | 本登记册 §5                                                                                                                                             |
-| **B. Flask 路由拆除**（`app/routes` → FastAPI）    | **已完成**（目录已删，已归档）                            | `**app/fastapi_routes/`**                                                                                    | `.archive/flask-routes-2026-04/`                                                          | `[MIGRATION_CLEANUP_COMPLETE.md](../MIGRATION_CLEANUP_COMPLETE.md)`、`[FLASK_TO_FASTAPI_MIGRATION_FINAL.md](../FLASK_TO_FASTAPI_MIGRATION_FINAL.md)` |
+| **B. Flask 路由拆除**（`app/routes` → FastAPI）    | **已完成**（目录已删，已归档）                            | `**app/fastapi_routes/`**                                                                                    | `.archive/flask-routes-2026-04/`                                                          | `[MIGRATION_CLEANUP_COMPLETE.md](reports/_completed/MIGRATION_CLEANUP_COMPLETE.md)`、`[FLASK_TO_FASTAPI_MIGRATION_FINAL.md](reports/_completed/FLASK_TO_FASTAPI_MIGRATION_FINAL.md)` |
 | **C. Neuro-DDD 接入**（事件/领域/服务instrumentation） | 报告声明 Routes+Services 等范围已完成；路线图保留「质量定义」      | `**app/domain/`**、`**app/application/**`、`**app/infrastructure/**`、`**app/neuro_bus/**`                      | 评估/路线图文档                                                                                  | `[NEURO_MIGRATION_FINAL_COMPLETE.md](../NEURO_MIGRATION_FINAL_COMPLETE.md)`、`[NEURO_MIGRATION_ROADMAP.md](../NEURO_MIGRATION_ROADMAP.md)`           |
 | **D. 数据库 schema（Alembic）**                   | 指南随子工程维护                                     | `XCAGI/` 与仓库根各自指南                                                                                            | —                                                                                         | `[ALEMBIC_MIGRATION_GUIDE.md](../ALEMBIC_MIGRATION_GUIDE.md)`、`[XCAGI/ALEMBIC_MIGRATION_GUIDE.md](../XCAGI/ALEMBIC_MIGRATION_GUIDE.md)`             |
 | **E. 前端 dev 端口 / API 基址**                    | 已统一到后端 5000 叙事；**唯一前端根**为仓库根 `**frontend/`** | `**frontend/vite.config.js**`、`**frontend/.env.example**`                                                    | 历史副本：`.archive/xcagi-frontend-dup-2026-04/frontend`                                       | `[FRONTEND_PORT_MIGRATION.md](FRONTEND_PORT_MIGRATION.md)`、`[XCAGI/FRONTEND.md](../XCAGI/FRONTEND.md)`                                              |
@@ -66,18 +66,18 @@
 
 **Flask / FastAPI 与清理**
 
-- `MIGRATION_CLEANUP_COMPLETE.md`
-- `FLASK_TO_FASTAPI_MIGRATION_COMPLETE.md`
-- `FLASK_TO_FASTAPI_MIGRATION_FINAL.md`
+-- `reports/_completed/MIGRATION_CLEANUP_COMPLETE.md`
+-- `reports/_completed/FLASK_TO_FASTAPI_MIGRATION_COMPLETE.md`
+-- `reports/_completed/FLASK_TO_FASTAPI_MIGRATION_FINAL.md`
 
 **Neuro-DDD**
 
-- `NEURO_MIGRATION_FINAL_COMPLETE.md`
-- `NEURO_MIGRATION_ROADMAP.md`
-- `NEURO_CORE_MIGRATION_COMPLETE.md`
-- `NEURO_MIGRATION_COMPLETE_SUMMARY.md`
-- `NEURO_MIGRATION_EXECUTION_SUMMARY.md`
-- `NEURO_MIGRATION_EXECUTION_REPORT.md`
+-- `reports/_completed/NEURO_MIGRATION_FINAL_COMPLETE.md`
+-- `NEURO_MIGRATION_ROADMAP.md`
+-- `reports/_completed/NEURO_CORE_MIGRATION_COMPLETE.md`
+-- `reports/_completed/NEURO_MIGRATION_COMPLETE_SUMMARY.md`
+-- `reports/_completed/NEURO_MIGRATION_EXECUTION_SUMMARY.md`
+-- `reports/_completed/NEURO_MIGRATION_EXECUTION_REPORT.md`
 - `NEURO_DDD_MIGRATION_COMPLETE_DEFINITION.md`
 - `NEURO_DDD_MIGRATION_ASSESSMENT.md`
 
@@ -179,6 +179,7 @@
 | 项                   | 说明                                                                                 | 跟踪                                                    |
 | ------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | **`app/legacy/` 再细拆**       | 阶段 1 把 33 个支持模块集中落在 `app/legacy/`,后续按 DDD 分层再拆到 `app/application` / `app/infrastructure`。 | 开新 issue 跟踪;不影响运行,不赶时间 |
+| **服务装配 / DI**              | 首批单例已收敛到 `app/di/registry.py` 的 `ServiceContainer`（session/auth/user/preference、customer/ai_chat/unit_import/file_analysis/wechat_contact、发货全量 wiring）；`app.bootstrap` 与上述 application `get_*` 对齐；FastAPI `app.state.services`；测试用 `set_service_registry` / `reset_service_registry` 或 `invalidate_shipment_wiring` / `invalidate_customer_application_service`。其余 `application/*`、`services/*` 内零散 `global` 单例可按需迁入同一容器。 | 本登记册；`app/di/fastapi_deps.py` |
 | **`scripts/dev/tests_adhoc/` 死脚本** | 5 个文件引用的 `backend.unified_ai` 从未存在过(迁移前即是坏引用);保留作历史痕迹或整体删除。                        | 本次已确认不阻塞运行                                             |
 | **历史报告**              | `docs/reports/` 下 8+ 份旧报告仍提及 `backend/...`,是迁移前状态的快照,属于只读档案。                       | 不动;参考时以本登记册 §5 为准                                      |
 

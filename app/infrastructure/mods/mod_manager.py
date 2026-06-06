@@ -90,6 +90,38 @@ def _default_mods_root() -> str:
     return from_pkg_layout
 
 
+def _repo_layout_mods_candidates() -> list[str]:
+    """
+    开发树常见双份 mods（FHD/mods 与 XCAGI/mods）。
+    部署/桥接包仅含 xcagi-* 时，主 XCAGI_MODS_ROOT 可能缺客户 Mod（如 taiyangniao-pro）。
+    """
+    file_here = os.path.abspath(__file__)
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(file_here))))
+    out: list[str] = []
+    for rel in ("mods", os.path.join("XCAGI", "mods")):
+        p = os.path.abspath(os.path.join(repo_root, rel))
+        if os.path.isdir(p) and p not in out:
+            out.append(p)
+    return out
+
+
+def _all_mods_roots(primary: str) -> list[str]:
+    """主 mods_root + 仓库内其它 mods 目录（去重，主目录优先）。"""
+    roots: list[str] = []
+    primary_abs = os.path.abspath((primary or "").strip())
+    if primary_abs and os.path.isdir(primary_abs) and primary_abs not in roots:
+        roots.append(primary_abs)
+    env = (os.environ.get("XCAGI_MODS_ROOT") or os.environ.get("XCAGI_MODS_DIR") or "").strip()
+    if env:
+        p = os.path.abspath(env)
+        if os.path.isdir(p) and p not in roots:
+            roots.append(p)
+    for p in _repo_layout_mods_candidates():
+        if p not in roots:
+            roots.append(p)
+    return roots
+
+
 def _backend_path_for_mod(mod_path: str) -> str:
     return os.path.join(mod_path, "backend")
 
@@ -167,6 +199,35 @@ class ModManager:
         # ensure_mods_loaded：注册表为空但磁盘有 manifest 时重复尝试（节流，避免「只试一次」后永久失败）
         self._last_ensure_at: float = 0.0
         self._ensure_attempts: int = 0
+        self._http_routes_registered: set[str] = set()
+        self._scan_cache_fp: str = ""
+        self._scan_cache_mods: list = []
+        self._backend_entry_modules: dict[str, object] = {}
+
+    def invalidate_scan_cache(self) -> None:
+        self._scan_cache_fp = ""
+        self._scan_cache_mods = []
+
+    def _mods_scan_fingerprint(self) -> str:
+        parts: list[str] = []
+        for root in self.all_mods_roots():
+            parts.append(os.path.abspath(root))
+            if not os.path.isdir(root):
+                continue
+            try:
+                entries = sorted(os.listdir(root))
+            except OSError:
+                continue
+            for entry in entries:
+                if entry.startswith("_"):
+                    continue
+                manifest_path = os.path.join(root, entry, "manifest.json")
+                if os.path.isfile(manifest_path):
+                    try:
+                        parts.append(f"{entry}:{os.path.getmtime(manifest_path):.6f}")
+                    except OSError:
+                        parts.append(entry)
+        return "|".join(parts)
 
     def _refresh_mods_root_if_needed(self) -> None:
         """
@@ -254,50 +315,135 @@ class ModManager:
                 e,
             )
 
-    def scan_mods(self) -> list[ModMetadata]:
+    def all_mods_roots(self) -> list[str]:
         self._refresh_mods_root_if_needed()
-        logger.info(f"[ModManager] Scanning mods directory: {self.mods_root}")
-        logger.info(f"[ModManager] CWD: {os.getcwd()}")
-        logger.info(f"[ModManager] __file__: {os.path.abspath(__file__)}")
+        return _all_mods_roots(self.mods_root)
+
+    def resolve_mod_directory(self, mod_id: str) -> str | None:
+        """在全部 mods 根目录中定位 Mod 目录（主根优先）。"""
+        mid = (mod_id or "").strip()
+        if not mid:
+            return None
+        for root in self.all_mods_roots():
+            mod_path = os.path.join(root, mid)
+            if os.path.isdir(mod_path) and os.path.isfile(os.path.join(mod_path, "manifest.json")):
+                return mod_path
+        return None
+
+    def _scan_mods_from_build_index(self, fp: str) -> list[ModMetadata] | None:
+        """读取构建时生成的 mods-index.json（指纹一致时）。"""
+        import json
+
+        for root in self.all_mods_roots():
+            index_path = os.path.join(root, "mods-index.json")
+            if not os.path.isfile(index_path):
+                continue
+            try:
+                payload = json.loads(Path(index_path).read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if str(payload.get("fingerprint") or "") != fp:
+                continue
+            rows = payload.get("mods")
+            if not isinstance(rows, list):
+                continue
+            mods: list[ModMetadata] = []
+            seen: set[str] = set()
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                mod_path = str(row.get("mod_path") or "").strip()
+                if not mod_path or not os.path.isfile(os.path.join(mod_path, "manifest.json")):
+                    continue
+                metadata = parse_manifest(mod_path)
+                if metadata and metadata.id not in seen:
+                    seen.add(metadata.id)
+                    mods.append(metadata)
+            if mods:
+                logger.info("[ModManager] scan_mods via mods-index.json (%s mods)", len(mods))
+                return mods
+        return None
+
+    def scan_mods(self, *, use_cache: bool = True) -> list[ModMetadata]:
+        self._refresh_mods_root_if_needed()
+        fp = self._mods_scan_fingerprint()
+        if use_cache and fp and fp == self._scan_cache_fp and self._scan_cache_mods:
+            return list(self._scan_cache_mods)
+
+        indexed = self._scan_mods_from_build_index(fp) if use_cache else None
+        if indexed is not None:
+            self._scan_cache_fp = fp
+            self._scan_cache_mods = indexed
+            return list(indexed)
+
+        logger.debug("[ModManager] Scanning mods roots: %s", self.all_mods_roots())
 
         self._scan_manifest_errors = []
 
-        if not os.path.isdir(self.mods_root):
-            logger.warning(f"[ModManager] Mods directory does not exist: {self.mods_root}")
-            return []
-
-        mods = []
-        for entry in os.listdir(self.mods_root):
-            if entry.startswith("_"):
-                continue
-            mod_path = os.path.join(self.mods_root, entry)
-            if not os.path.isdir(mod_path):
+        mods: list[ModMetadata] = []
+        seen_ids: set[str] = set()
+        for mods_root in self.all_mods_roots():
+            if not os.path.isdir(mods_root):
+                logger.warning("[ModManager] Mods directory does not exist: %s", mods_root)
                 continue
 
-            manifest_path = os.path.join(mod_path, "manifest.json")
-            logger.info(
-                f"[ModManager] Checking mod entry: {entry}, manifest exists: {os.path.isfile(manifest_path)}"
-            )
+            for entry in os.listdir(mods_root):
+                if entry.startswith("_"):
+                    continue
+                mod_path = os.path.join(mods_root, entry)
+                if not os.path.isdir(mod_path):
+                    continue
 
-            metadata = parse_manifest(mod_path)
-            if metadata:
-                mods.append(metadata)
-                logger.info(
-                    f"[ModManager] Found mod: {metadata.id} ({metadata.name}) v{metadata.version}"
-                )
-            else:
-                logger.warning(f"[ModManager] Failed to parse manifest for mod entry: {entry}")
-                self._scan_manifest_errors.append(
-                    {
-                        "entry": entry,
-                        "message": "manifest.json 缺失或无法解析（检查 JSON 与必填字段 id）",
-                    }
+                manifest_path = os.path.join(mod_path, "manifest.json")
+                logger.debug(
+                    "[ModManager] Checking %s/%s, manifest exists: %s",
+                    mods_root,
+                    entry,
+                    os.path.isfile(manifest_path),
                 )
 
-        logger.info(f"[ModManager] Total mods found: {len(mods)}")
+                metadata = parse_manifest(mod_path)
+                if metadata:
+                    if metadata.id in seen_ids:
+                        continue
+                    seen_ids.add(metadata.id)
+                    mods.append(metadata)
+                    logger.debug(
+                        "[ModManager] Found mod: %s (%s) v%s @ %s",
+                        metadata.id,
+                        metadata.name,
+                        metadata.version,
+                        mod_path,
+                    )
+                else:
+                    logger.warning(
+                        "[ModManager] Failed to parse manifest for mod entry: %s/%s",
+                        mods_root,
+                        entry,
+                    )
+                    self._scan_manifest_errors.append(
+                        {
+                            "entry": entry,
+                            "mods_root": mods_root,
+                            "message": "manifest.json 缺失或无法解析（检查 JSON 与必填字段 id）",
+                        }
+                    )
+
+        logger.info("[ModManager] Total mods found: %s", len(mods))
+        self._scan_cache_fp = fp
+        self._scan_cache_mods = mods
         return mods
 
     def load_mod(self, mod_id: str) -> bool:
+        try:
+            from app.mod_sdk.product_skus import assert_mod_allowed_for_sku
+
+            assert_mod_allowed_for_sku(mod_id)
+        except PermissionError as exc:
+            logger.warning("[ModManager] Mod blocked for SKU: %s — %s", mod_id, exc)
+            self._record_load_failure(mod_id, "sku_policy", str(exc))
+            return False
+
         registry = get_mod_registry()
 
         logger.info(f"[ModManager] Attempting to load mod: {mod_id}")
@@ -314,11 +460,14 @@ class ModManager:
                 self._loaded_mods.append(mod_id)
             return True
 
-        mod_path = os.path.join(self.mods_root, mod_id)
+        mod_path = self.resolve_mod_directory(mod_id)
         logger.info(f"[ModManager] Mod path: {mod_path}")
-        if not os.path.isdir(mod_path):
-            logger.error(f"[ModManager] Mod directory not found: {mod_path}")
-            self._record_load_failure(mod_id, "fs", f"目录不存在: {mod_path}")
+        if not mod_path:
+            self._record_load_failure(
+                mod_id,
+                "fs",
+                f"目录不存在（已搜索 mods 根: {self.all_mods_roots()}）",
+            )
             return False
 
         metadata = parse_manifest(mod_path)
@@ -375,6 +524,7 @@ class ModManager:
         if metadata.backend_entry:
             try:
                 module = import_mod_backend_py(mod_path, mod_id, metadata.backend_entry)
+                self._backend_entry_modules[mod_id] = module
                 if hasattr(module, metadata.backend_init):
                     init_fn = getattr(module, metadata.backend_init)
                     if callable(init_fn):
@@ -433,6 +583,7 @@ class ModManager:
             self._refresh_mods_root_if_needed()
             os.makedirs(self.mods_root, exist_ok=True)
 
+            self.invalidate_scan_cache()
             logger.info(f"Installing MOD package: {package_path}")
 
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -448,6 +599,13 @@ class ModManager:
                 mod_id = manifest.get("id", "")
                 if not mod_id:
                     return False, "MOD 包缺少 id 字段", None
+
+                try:
+                    from app.mod_sdk.product_skus import assert_mod_allowed_for_sku
+
+                    assert_mod_allowed_for_sku(mod_id)
+                except PermissionError as exc:
+                    return False, str(exc), None
 
                 target_path = os.path.join(self.mods_root, mod_id)
 
@@ -686,7 +844,15 @@ class ModManager:
             "description": m.description or "",
             "primary": bool(m.primary),
             "artifact": art,
+            "industry": dict(m.industry) if isinstance(m.industry, dict) else {},
+            "ui_labels": dict(m.ui_labels) if isinstance(m.ui_labels, dict) else {},
+            "ui_starter_pack": (
+                list(m.ui_starter_pack) if isinstance(m.ui_starter_pack, list) else []
+            ),
             "menu": list(m.frontend_menu) if m.frontend_menu else [],
+            "frontend": {
+                "pro_entry_path": str(getattr(m, "frontend_pro_entry_path", "") or "").strip(),
+            },
             "menu_overrides": list(m.frontend_menu_overrides) if m.frontend_menu_overrides else [],
             "workflow_employees": list(m.workflow_employees) if m.workflow_employees else [],
             "comms_exports": list(m.comms_exports) if m.comms_exports else [],
@@ -697,24 +863,11 @@ class ModManager:
 
     def list_mods(self) -> list[dict[str, Any]]:
         """
-        已加载 Mod 元数据优先；否则回退磁盘扫描 manifest。
-        供 GET /api/mods/、Neuro SAFETY_MODS_LIST 使用（前端读 result.data[]）。
+        返回磁盘扫描 + 权益过滤后的 Mod 列表（与 list_all_mods 一致）。
+        勿仅用 list_loaded_mods：企业版启动时未 entitlement 的客户 Mod（如 taiyangniao-pro）
+        不会进入 _loaded_mods，但 SUNBIRD 登录后仍需在 /api/mods/ 中可见以便前端选中。
         """
-        if is_mods_disabled():
-            return []
-        self._refresh_mods_root_if_needed()
-        loaded = self.list_loaded_mods()
-        if loaded:
-            rows = [self._metadata_to_api_dict(x) for x in loaded]
-        else:
-            rows = [self._metadata_to_api_dict(x) for x in self.scan_mods()]
-        try:
-            from .employee_registry import get_employee_registry
-
-            rows = rows + get_employee_registry(self.mods_root).list_for_mods_api()
-        except Exception as e:
-            logger.warning("employee registry merge skipped: %s", e)
-        return rows
+        return self.list_all_mods()
 
     def list_all_mods(self) -> list[dict[str, Any]]:
         """
@@ -732,6 +885,12 @@ class ModManager:
             rows = rows + get_employee_registry(self.mods_root).list_for_mods_api()
         except Exception as e:
             logger.warning("employee registry merge skipped: %s", e)
+        try:
+            from app.enterprise.mod_entitlements import filter_mod_rows_for_enterprise
+
+            rows = filter_mod_rows_for_enterprise(rows)
+        except Exception:
+            pass
         return rows
 
     def get_routes(self) -> list[dict[str, str]]:
@@ -744,6 +903,13 @@ class ModManager:
         self._refresh_mods_root_if_needed()
         out: list[dict[str, str]] = []
         for m in self.scan_mods():
+            try:
+                from app.enterprise.mod_entitlements import is_mod_visible_for_enterprise
+
+                if not is_mod_visible_for_enterprise(m.id):
+                    continue
+            except Exception:
+                pass
             rp = (m.frontend_routes or "").strip()
             if rp:
                 out.append({"mod_id": m.id, "routes_path": rp})
@@ -759,6 +925,17 @@ class ModManager:
         loaded = []
 
         for metadata in mods:
+            try:
+                from app.enterprise.mod_entitlements import is_mod_visible_for_enterprise
+
+                if not is_mod_visible_for_enterprise(metadata.id):
+                    logger.info(
+                        "[ModManager] Skipping mod %s (enterprise entitlement)",
+                        metadata.id,
+                    )
+                    continue
+            except Exception:
+                pass
             logger.info(f"[ModManager] Checking dependencies for mod: {metadata.id}")
             if metadata.dependencies:
                 deps_satisfied = validate_dependencies(metadata, loaded)
@@ -866,8 +1043,179 @@ def load_employee_pack_routes(app, mod_manager: ModManager | None = None) -> Non
                 reg(app, pack_id)
                 logger.info("FastAPI routes registered for employee_pack: %s", pack_id)
         except Exception as e:
-            logger.error("employee_pack route registration failed %s: %s", pack_id, e, exc_info=True)
+            logger.error(
+                "employee_pack route registration failed %s: %s", pack_id, e, exc_info=True
+            )
             mod_manager.record_blueprint_failure(pack_id, str(e)[:500])
+
+
+def _register_single_mod_http_routes(
+    app,
+    mod_manager: ModManager,
+    mod_id: str,
+    *,
+    force: bool = False,
+) -> bool:
+    """为单个 Mod 挂载 /api/mod/{id}/*；已挂载则跳过（除非 force）。"""
+    mid = (mod_id or "").strip()
+    if not mid:
+        return False
+    if not force and mid in mod_manager._http_routes_registered:
+        return True
+
+    registry = get_mod_registry()
+    metadata = registry.get_mod_metadata(mid)
+    if not metadata or not (metadata.backend_entry or "").strip():
+        logger.warning("Mod %s has no backend_entry; skip HTTP route registration", mid)
+        return False
+
+    try:
+        mod_fs_path = metadata.mod_path
+        if not mod_fs_path:
+            mod_manager.record_blueprint_failure(mid, "manifest 缺少 mod_path，无法注册路由")
+            return False
+        module = mod_manager._backend_entry_modules.get(mid)
+        if module is None:
+            module = import_mod_backend_py(mod_fs_path, mid, metadata.backend_entry)
+            mod_manager._backend_entry_modules[mid] = module
+        registered = False
+        if hasattr(module, "register_fastapi_routes"):
+            register_fastapi_fn = module.register_fastapi_routes
+            if callable(register_fastapi_fn):
+                register_fastapi_fn(app, mid)
+                logger.info("FastAPI routes registered for mod: %s", mid)
+                registered = True
+        if hasattr(module, "register_websocket_routes"):
+            ws_register_fn = module.register_websocket_routes
+            if callable(ws_register_fn):
+                ws_result = ws_register_fn(app)
+                if ws_result is False:
+                    logger.warning("WebSocket routes not registered for mod: %s", mid)
+                else:
+                    logger.info("WebSocket routes registered for mod: %s", mid)
+        if registered:
+            mod_manager._http_routes_registered.add(mid)
+            _move_history_fallback_to_end(app)
+            return True
+        logger.info("Mod %s has no HTTP route registrar, skip", mid)
+        return False
+    except Exception as e:
+        logger.error("Failed to register routes for %s: %s", mid, e, exc_info=True)
+        mod_manager.record_blueprint_failure(mid, _short_exc_message(e))
+        return False
+
+
+def _restore_entitlements_from_session_id(session_id: str | None) -> None:
+    """无市场 token 时从 session 行恢复权益（供 Mod API 按需挂载）。"""
+    sid = (session_id or "").strip()
+    if not sid:
+        return
+    try:
+        from app.enterprise.mod_entitlements import (
+            _augment_entitled_for_username,
+            _session_username_for_entitlements,
+            get_cached_entitled_client_mod_ids,
+            restore_entitlements_from_session_row,
+            set_session_entitlements,
+        )
+
+        restore_entitlements_from_session_row(sid)
+        uname = _session_username_for_entitlements(sid)
+        cached = _augment_entitled_for_username(
+            uname, get_cached_entitled_client_mod_ids() or set()
+        )
+        if cached:
+            set_session_entitlements(entitled_client_mod_ids=cached)
+    except Exception:
+        logger.debug("restore entitlements from session failed", exc_info=True)
+
+
+def _mod_allowed_for_api_load(mod_id: str, session_id: str | None = None) -> bool:
+    mid = (mod_id or "").strip()
+    if not mid:
+        return False
+    try:
+        from app.enterprise.account_mod_binding import (
+            SUNBIRD_CLIENT_MOD_ID,
+            is_sunbird_local_username,
+        )
+        from app.enterprise.mod_entitlements import (
+            _session_username_for_entitlements,
+            enterprise_mod_filter_active,
+            is_mod_visible_for_enterprise,
+        )
+
+        if not enterprise_mod_filter_active():
+            return True
+        if is_mod_visible_for_enterprise(mid):
+            return True
+        if mid == SUNBIRD_CLIENT_MOD_ID:
+            mm = get_mod_manager()
+            if mm.resolve_mod_directory(mid):
+                return True
+            uname = (_session_username_for_entitlements(session_id or "") or "").strip()
+            if is_sunbird_local_username(uname):
+                return True
+    except Exception:
+        pass
+    return False
+
+
+def ensure_mod_api_ready(mod_id: str, session_id: str | None = None) -> bool:
+    """
+    访问 /api/mod/{mod_id}/... 前确保 Mod 已 load 且 HTTP 路由已挂载。
+    修复企业版登录后 reload 未传 app、太阳鸟等客户 Mod 仅出现在列表但未 load 导致 404。
+    """
+    mid = (mod_id or "").strip()
+    if not mid or is_mods_disabled():
+        return False
+    _restore_entitlements_from_session_id(session_id)
+    if not _mod_allowed_for_api_load(mid, session_id):
+        logger.warning("[ModManager] ensure_mod_api_ready: mod %s not allowed", mid)
+        return False
+
+    mm = get_mod_manager()
+    if mid not in mm._loaded_mods:
+        if not mm.load_mod(mid):
+            logger.warning("[ModManager] ensure_mod_api_ready: load_mod(%s) failed", mid)
+            return False
+
+    if mid in mm._http_routes_registered:
+        return True
+
+    try:
+        from app.fastapi_app import get_fastapi_app
+
+        app = get_fastapi_app()
+    except Exception as e:
+        logger.warning("ensure_mod_api_ready: cannot get FastAPI app: %s", e)
+        return False
+
+    return _register_single_mod_http_routes(app, mm, mid)
+
+
+def mount_on_disk_primary_client_mods(mod_manager: ModManager | None = None) -> list[str]:
+    """
+    企业版启动时 load_all_mods 可能因无会话跳过客户 Mod，但考勤等 /api/mod/* 仍需可挂载。
+    若磁盘上存在主客户 Mod（太阳鸟），执行 load_mod（不走 entitlement 过滤）。
+    """
+    if mod_manager is None:
+        mod_manager = get_mod_manager()
+    if is_mods_disabled():
+        return []
+    from app.enterprise.account_mod_binding import SUNBIRD_CLIENT_MOD_ID
+
+    mounted: list[str] = []
+    mid = SUNBIRD_CLIENT_MOD_ID
+    mod_path = mod_manager.resolve_mod_directory(mid)
+    if not mod_path:
+        return mounted
+    if mid in mod_manager._loaded_mods:
+        return [mid]
+    if mod_manager.load_mod(mid):
+        mounted.append(mid)
+        logger.info("[ModManager] mounted on-disk client mod for API: %s", mid)
+    return mounted
 
 
 def load_mod_routes(app, mod_manager: ModManager | None = None) -> None:
@@ -875,6 +1223,7 @@ def load_mod_routes(app, mod_manager: ModManager | None = None) -> None:
     if mod_manager is None:
         mod_manager = get_mod_manager()
 
+    mount_on_disk_primary_client_mods(mod_manager)
     mod_manager._blueprint_failures = []
     registry = get_mod_registry()
 
@@ -904,42 +1253,7 @@ def load_mod_routes(app, mod_manager: ModManager | None = None) -> None:
             seen2.add(mid)
 
     for mod_id in ordered_ids:
-        metadata = registry.get_mod_metadata(mod_id)
-        if not metadata or not metadata.backend_entry:
-            continue
-
-        try:
-            mod_fs_path = metadata.mod_path
-            if not mod_fs_path:
-                logger.error("Mod %s missing mod_path; skip route registration", mod_id)
-                mod_manager.record_blueprint_failure(mod_id, "manifest 缺少 mod_path，无法注册路由")
-                continue
-            module = import_mod_backend_py(mod_fs_path, mod_id, metadata.backend_entry)
-            registered = False
-
-            # Preferred: native FastAPI route registration.
-            if hasattr(module, "register_fastapi_routes"):
-                register_fastapi_fn = module.register_fastapi_routes
-                if callable(register_fastapi_fn):
-                    register_fastapi_fn(app, mod_id)
-                    logger.info(f"FastAPI routes registered for mod: {mod_id}")
-                    registered = True
-
-            # Optional websocket hook for FastAPI mods.
-            if hasattr(module, "register_websocket_routes"):
-                ws_register_fn = module.register_websocket_routes
-                if callable(ws_register_fn):
-                    ws_result = ws_register_fn(app)
-                    if ws_result is False:
-                        logger.warning("WebSocket routes not registered for mod: %s", mod_id)
-                    else:
-                        logger.info(f"WebSocket routes registered for mod: {mod_id}")
-
-            if not registered:
-                logger.info("Mod %s has no HTTP route registrar, skip", mod_id)
-        except Exception as e:
-            logger.error(f"Failed to register routes for {mod_id}: {e}", exc_info=True)
-            mod_manager.record_blueprint_failure(mod_id, _short_exc_message(e))
+        _register_single_mod_http_routes(app, mod_manager, mod_id)
 
     load_employee_pack_routes(app, mod_manager)
     _move_history_fallback_to_end(app)

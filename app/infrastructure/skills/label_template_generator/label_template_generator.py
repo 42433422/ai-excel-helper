@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 标签模板生成技能 — 实现已迁移至 app.services.skills.label_template_generator（单一源码）。
 

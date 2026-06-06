@@ -10,7 +10,7 @@
   set DATABASE_URL=postgresql+psycopg://...
   python scripts/migrate_sqlite_templates_to_pg_document_templates.py [--sqlite PATH]
 
-详见 ``backend/document_template_legacy_migration`` 模块说明。
+详见仓库内文档模板迁移说明（原 ``backend/document_template_legacy_migration`` 已随 backend 包移除）。
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import sys
 import uuid
 from pathlib import Path
 
-# 保证可 import backend
+# 仓库根在 path 中，供 import app
 _REPO = Path(__file__).resolve().parents[1]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
@@ -111,15 +111,20 @@ def main() -> int:
     parser.add_argument(
         "--sqlite",
         default="",
-        help="templates.db 路径；默认使用 backend.template_database.get_db_path()/templates.db",
+        help="templates.db 路径；未指定时尝试仓库内默认位置（若不存在则失败）",
     )
     args = parser.parse_args()
 
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker
 
-    from backend.database import get_sync_engine
-    from backend.template_database import Base, Template, TemplateField, get_db_path
+    from app.infrastructure.db.sync_engine import get_sync_engine
+    from app.infrastructure.documents.sqlite_templates_legacy import (
+        Base,
+        Template,
+        TemplateField,
+        get_db_path,
+    )
 
     sqlite_path = Path(args.sqlite) if args.sqlite.strip() else (get_db_path() / "templates.db")
     if not sqlite_path.is_file():
@@ -169,15 +174,25 @@ def main() -> int:
             if not rel:
                 rel = _copy_into_storage(src)
 
-            ff = "docx" if t.type == "word" else ("xlsx" if t.type == "excel" else (src.suffix.lstrip(".")[:16] or "png"))
+            ff = (
+                "docx"
+                if t.type == "word"
+                else ("xlsx" if t.type == "excel" else (src.suffix.lstrip(".")[:16] or "png"))
+            )
             base_slug = f"excel-legacy-{legacy_id[:8]}-{_slugify(t.name)}"
             slug = base_slug[:63]
 
             with pg.begin() as conn:
-                existing = conn.execute(
-                    text("SELECT slug FROM document_templates WHERE legacy_sqlite_id = :lid LIMIT 1"),
-                    {"lid": legacy_id},
-                ).mappings().first()
+                existing = (
+                    conn.execute(
+                        text(
+                            "SELECT slug FROM document_templates WHERE legacy_sqlite_id = :lid LIMIT 1"
+                        ),
+                        {"lid": legacy_id},
+                    )
+                    .mappings()
+                    .first()
+                )
                 if existing:
                     slug = str(existing["slug"])
                     conn.execute(
@@ -198,7 +213,8 @@ def main() -> int:
                     for n in range(0, 50):
                         cand = slug if n == 0 else f"{base_slug[:50]}-{n}"[:63]
                         taken = conn.execute(
-                            text("SELECT 1 FROM document_templates WHERE slug = :s LIMIT 1"), {"s": cand}
+                            text("SELECT 1 FROM document_templates WHERE slug = :s LIMIT 1"),
+                            {"s": cand},
                         ).first()
                         if taken is None:
                             slug = cand

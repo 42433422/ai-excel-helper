@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 意图反向询问服务
 
@@ -6,10 +5,9 @@
 """
 
 import logging
-from typing import Any, Dict, List, Optional
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from typing import Any
 
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +20,7 @@ INTENT_REQUIRED_SLOTS = {
             "quantity_tins": "请问需要多少桶？",
             "tin_spec": "请问规格是多少？",
             "contact_phone": "请问联系电话是多少？",
-        }
+        },
     },
     "customer_supplement": {
         "required": [],
@@ -31,7 +29,7 @@ INTENT_REQUIRED_SLOTS = {
             "contact_person": "请问联系人是谁？",
             "contact_phone": "请问联系电话是多少？",
             "contact_address": "请问联系地址是多少？",
-        }
+        },
     },
     "customer_edit": {
         "required": ["unit_name"],
@@ -40,7 +38,7 @@ INTENT_REQUIRED_SLOTS = {
             "unit_name": "请问要修改哪个客户的信息？",
             "contact_person": "请问新的联系人是谁？",
             "contact_phone": "请问新的联系电话是多少？",
-        }
+        },
     },
     "wechat_send": {
         "required": ["unit_name"],
@@ -48,7 +46,7 @@ INTENT_REQUIRED_SLOTS = {
         "prompts": {
             "unit_name": "请问要发微信给哪个客户？",
             "contact_person": "请问联系人的姓名是？",
-        }
+        },
     },
     "products": {
         "required": [],
@@ -56,7 +54,7 @@ INTENT_REQUIRED_SLOTS = {
         "prompts": {
             "unit_name": "请问要查看哪个购买单位的产品？",
             "keyword": "请问要搜索什么关键词？",
-        }
+        },
     },
     "shipments": {
         "required": [],
@@ -64,7 +62,7 @@ INTENT_REQUIRED_SLOTS = {
         "prompts": {
             "unit_name": "请问要查看哪个客户的发货记录？",
             "order_no": "请问订单编号是多少？",
-        }
+        },
     },
     "print_label": {
         "required": ["unit_name"],
@@ -72,14 +70,14 @@ INTENT_REQUIRED_SLOTS = {
         "prompts": {
             "unit_name": "请问要打印哪个客户的标签？",
             "quantity_tins": "请问要打印多少个标签？",
-        }
+        },
     },
     "materials": {
         "required": [],
         "optional": ["keyword"],
         "prompts": {
             "keyword": "请问要查询什么材料？",
-        }
+        },
     },
 }
 
@@ -95,7 +93,7 @@ FALLBACK_QUESTIONS = {
 }
 
 
-def check_missing_slots(intent: str, slots: Dict[str, Any]) -> List[str]:
+def check_missing_slots(intent: str, slots: dict[str, Any]) -> list[str]:
     """
     检查缺失的必填槽位
 
@@ -120,7 +118,7 @@ def check_missing_slots(intent: str, slots: Dict[str, Any]) -> List[str]:
     return missing
 
 
-def generate_followup_question(intent: str, missing_slots: List[str]) -> str:
+def generate_followup_question(intent: str, missing_slots: list[str]) -> str:
     """
     生成追问问题
 
@@ -133,7 +131,9 @@ def generate_followup_question(intent: str, missing_slots: List[str]) -> str:
     """
     if intent in INTENT_REQUIRED_SLOTS:
         prompts = INTENT_REQUIRED_SLOTS[intent].get("prompts", {})
-        questions = [prompts.get(slot, f"请问{slot}是多少？") for slot in missing_slots if slot in prompts]
+        questions = [
+            prompts.get(slot, f"请问{slot}是多少？") for slot in missing_slots if slot in prompts
+        ]
 
         if questions:
             return " ".join(questions)
@@ -144,7 +144,9 @@ def generate_followup_question(intent: str, missing_slots: List[str]) -> str:
     return "请提供更多信息？"
 
 
-def build_slot_fill_prompt(intent: str, slots: Dict[str, Any], missing_slots: List[str]) -> Dict[str, Any]:
+def build_slot_fill_prompt(
+    intent: str, slots: dict[str, Any], missing_slots: list[str]
+) -> dict[str, Any]:
     """
     构建槽位填充提示
 
@@ -171,7 +173,7 @@ def build_slot_fill_prompt(intent: str, slots: Dict[str, Any], missing_slots: Li
     }
 
 
-class IntentConfirmationService:
+class IntentConfirmationService(NeuroEventPublisherMixin):
     """
     意图确认和追问服务
 
@@ -182,28 +184,9 @@ class IntentConfirmationService:
     """
 
     def __init__(self):
-        self.pending_intents: Dict[str, Dict[str, Any]] = {}
+        self.pending_intents: dict[str, dict[str, Any]] = {}
 
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
-    def check_and_build_prompt(self, intent_result: Dict[str, Any]) -> Dict[str, Any]:
+    def check_and_build_prompt(self, intent_result: dict[str, Any]) -> dict[str, Any]:
         """
         检查槽位并构建提示
 
@@ -264,11 +247,11 @@ class IntentConfirmationService:
             },
         }
 
-    def set_pending_intent(self, user_id: str, intent_data: Dict[str, Any]) -> None:
+    def set_pending_intent(self, user_id: str, intent_data: dict[str, Any]) -> None:
         """设置待填充的意图"""
         self.pending_intents[user_id] = intent_data
 
-    def get_pending_intent(self, user_id: str) -> Optional[Dict[str, Any]]:
+    def get_pending_intent(self, user_id: str) -> dict[str, Any] | None:
         """获取待填充的意图"""
         return self.pending_intents.get(user_id)
 
@@ -277,7 +260,7 @@ class IntentConfirmationService:
         if user_id in self.pending_intents:
             del self.pending_intents[user_id]
 
-    def merge_slots(self, user_id: str, new_slots: Dict[str, Any]) -> Dict[str, Any]:
+    def merge_slots(self, user_id: str, new_slots: dict[str, Any]) -> dict[str, Any]:
         """
         合并新槽位到待填充意图
 
@@ -297,6 +280,7 @@ class IntentConfirmationService:
 
         if "unit_name" in merged:
             from app.infrastructure.lookups.purchase_unit_resolver import resolve_purchase_unit
+
             resolved = resolve_purchase_unit(merged["unit_name"])
             if resolved:
                 merged["unit_name"] = resolved.unit_name
@@ -304,7 +288,7 @@ class IntentConfirmationService:
         return merged
 
 
-_confirmation_service: Optional[IntentConfirmationService] = None
+_confirmation_service: IntentConfirmationService | None = None
 
 
 def get_confirmation_service() -> IntentConfirmationService:
@@ -318,4 +302,6 @@ def get_confirmation_service() -> IntentConfirmationService:
 # NEURO-DDD: 为 Services 层类添加 instrumentation
 from app.neuro_bus.neuro_service_instrumentation import instrument_service_layer_class
 
-instrument_service_layer_class(IntentConfirmationService, "app.services.intent_confirmation_service")
+instrument_service_layer_class(
+    IntentConfirmationService, "app.services.intent_confirmation_service"
+)

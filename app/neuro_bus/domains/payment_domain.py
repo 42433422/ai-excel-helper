@@ -5,10 +5,10 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
 from decimal import Decimal
+from typing import Any
 
-from app.neuro_bus.domains.base import NeuroDomain, DomainChannel, get_domain_registry
+from app.neuro_bus.domains.base import DomainChannel, NeuroDomain, get_domain_registry
 from app.neuro_bus.events.base import EventPriority
 from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class PaymentNeuroDomain(NeuroDomain):
     """
     支付神经域
-    
+
     事件：
     - payment.created
     - payment.processing
@@ -27,17 +27,17 @@ class PaymentNeuroDomain(NeuroDomain):
     - payment.refunded
     - payment.disputed
     """
-    
+
     domain_name = "payment"
     default_channel = DomainChannel.CRITICAL
-    
+
     def __init__(self, bus=None):
         super().__init__(bus)
         self._total_amount = Decimal("0")
         self._transaction_count = 0
         self._failed_count = 0
         self._setup_handlers()
-    
+
     def _setup_handlers(self):
         @self.on("payment.completed", priority=0, channel=DomainChannel.CRITICAL)
         async def on_completed(event):
@@ -46,20 +46,20 @@ class PaymentNeuroDomain(NeuroDomain):
             self._total_amount += amount
             logger.info(f"Payment completed: amount={amount}")
             bump_domain_handler_metric("payment.completed")
-        
+
         @self.on("payment.failed", priority=0, channel=DomainChannel.CRITICAL)
         async def on_failed(event):
             self._failed_count += 1
             error = event.payload.get("error")
             logger.error(f"Payment failed: {error}")
             bump_domain_handler_metric("payment.failed")
-    
+
     async def initialize(self):
         logger.info("PaymentNeuroDomain initialized")
-    
+
     async def shutdown(self):
         logger.info("PaymentNeuroDomain shutdown")
-    
+
     def emit_payment_created(
         self,
         payment_id: str,
@@ -79,9 +79,9 @@ class PaymentNeuroDomain(NeuroDomain):
                 "currency": currency,
                 "method": method,
                 "customer_id": customer_id,
-            }
+            },
         )
-    
+
     def emit_payment_completed(
         self,
         payment_id: str,
@@ -97,9 +97,9 @@ class PaymentNeuroDomain(NeuroDomain):
                 "transaction_id": transaction_id,
                 "amount": str(amount),
                 "processed_at": processed_at,
-            }
+            },
         )
-    
+
     def emit_payment_failed(
         self,
         payment_id: str,
@@ -115,9 +115,9 @@ class PaymentNeuroDomain(NeuroDomain):
                 "error": error,
                 "error_code": error_code,
                 "retryable": retryable,
-            }
+            },
         )
-    
+
     def emit_payment_refunded(
         self,
         payment_id: str,
@@ -133,21 +133,22 @@ class PaymentNeuroDomain(NeuroDomain):
                 "refund_id": refund_id,
                 "amount": str(amount),
                 "reason": reason,
-            }
+            },
         )
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         base = super().get_stats()
         return {
             **base,
             "transactions": self._transaction_count,
             "failed": self._failed_count,
             "total_amount": str(self._total_amount),
-            "success_rate": (self._transaction_count - self._failed_count) / max(self._transaction_count, 1),
+            "success_rate": (self._transaction_count - self._failed_count)
+            / max(self._transaction_count, 1),
         }
 
 
-_payment_domain: Optional[PaymentNeuroDomain] = None
+_payment_domain: PaymentNeuroDomain | None = None
 
 
 def get_payment_domain() -> PaymentNeuroDomain:

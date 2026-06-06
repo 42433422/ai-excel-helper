@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class MaterialRepository(ABC):
@@ -10,23 +10,23 @@ class MaterialRepository(ABC):
     @abstractmethod
     def find_all(
         self,
-        search: Optional[str] = None,
-        category: Optional[str] = None,
+        search: str | None = None,
+        category: str | None = None,
         page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+        per_page: int = 20,
+    ) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def find_by_id(self, material_id: int) -> Optional[Dict[str, Any]]:
+    def find_by_id(self, material_id: int) -> dict[str, Any] | None:
         raise NotImplementedError
 
     @abstractmethod
-    def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create(self, data: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def update(self, material_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update(self, material_id: int, data: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
@@ -34,18 +34,18 @@ class MaterialRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def batch_delete(self, ids: List[int]) -> int:
+    def batch_delete(self, ids: list[int]) -> int:
         raise NotImplementedError
 
     @abstractmethod
-    def find_low_stock(self, threshold: Optional[float] = None) -> List[Dict[str, Any]]:
+    def find_low_stock(self, threshold: float | None = None) -> list[dict[str, Any]]:
         raise NotImplementedError
 
     @abstractmethod
     def export_to_excel(
         self,
-        search: Optional[str] = None,
-        category: Optional[str] = None,
-        template_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        search: str | None = None,
+        category: str | None = None,
+        template_id: str | None = None,
+    ) -> dict[str, Any]:
         raise NotImplementedError

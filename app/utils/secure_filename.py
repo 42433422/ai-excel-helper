@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 纯 stdlib 的 ``secure_filename`` 实现，替代 ``werkzeug.utils.secure_filename``。
 
@@ -55,11 +54,7 @@ def secure_filename(filename: str) -> str:
     filename = "_".join(filename.split())
     filename = str(_FILENAME_ASCII_STRIP_RE.sub("", filename)).strip("._- ")
 
-    if (
-        os.name == "nt"
-        and filename
-        and filename.split(".")[0].upper() in _WINDOWS_DEVICE_FILES
-    ):
+    if os.name == "nt" and filename and filename.split(".")[0].upper() in _WINDOWS_DEVICE_FILES:
         filename = f"_{filename}"
 
     return filename

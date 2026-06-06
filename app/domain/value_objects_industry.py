@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 值对象行业配置访问层
 
@@ -6,13 +5,13 @@
 避免循环导入问题
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 _current_industry: str = "涂料"
 
-_industry_units_cache: Dict[str, Dict[str, Any]] = {}
+_industry_units_cache: dict[str, dict[str, Any]] = {}
 
-_industry_fields_cache: Dict[str, Dict[str, str]] = {}
+_industry_fields_cache: dict[str, dict[str, str]] = {}
 
 
 def _load_from_yaml():
@@ -21,10 +20,11 @@ def _load_from_yaml():
 
     try:
         from resources.config.industry_config import (
-            _load_config,
             _industries_dict_from_config,
+            _load_config,
             _resolve_default_industry,
         )
+
         config = _load_config()
         industries = _industries_dict_from_config(config)
         default_ind = _resolve_default_industry(config)
@@ -55,7 +55,7 @@ def _load_from_yaml():
                 "spec_field": "spec_per_tin",
                 "conversion": {
                     "桶_to_kg": 20.0,
-                }
+                },
             }
         }
         _industry_fields_cache = {
@@ -84,17 +84,19 @@ def set_current_industry(industry_id: str) -> bool:
     return False
 
 
-def get_current_industry_config() -> Dict[str, Any]:
+def get_current_industry_config() -> dict[str, Any]:
     """获取当前行业的完整单位配置"""
     return _industry_units_cache.get(_current_industry, _industry_units_cache.get("涂料", {}))
 
 
-def get_current_industry_fields() -> Dict[str, str]:
+def get_current_industry_fields() -> dict[str, str]:
     """获取当前行业的字段配置"""
     return _industry_fields_cache.get(_current_industry, _industry_fields_cache.get("涂料", {}))
 
 
-def register_industry_units(industry_id: str, units_config: Dict[str, Any], fields_config: Dict[str, str]) -> None:
+def register_industry_units(
+    industry_id: str, units_config: dict[str, Any], fields_config: dict[str, str]
+) -> None:
     """注册行业配置"""
     _industry_units_cache[industry_id] = units_config
     _industry_fields_cache[industry_id] = fields_config

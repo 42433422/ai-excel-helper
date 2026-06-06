@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.domain.neuro.processors.coordinator import ProcessorType, RoutingDecision
 from app.neuro_bus.events.base import NeuroEvent
@@ -20,11 +20,11 @@ _ACTION_ORDER = (ProcessorType.REFLEX, ProcessorType.SUBCONSCIOUS, ProcessorType
 
 def decide_processor_with_policy(
     text: str,
-    event: Optional[NeuroEvent] = None,
+    event: NeuroEvent | None = None,
     *,
-    trace_id: Optional[str] = None,
-    extra: Optional[Dict[str, Any]] = None,
-) -> Optional[RoutingDecision]:
+    trace_id: str | None = None,
+    extra: dict[str, Any] | None = None,
+) -> RoutingDecision | None:
     raw = (os.environ.get("XCAGI_ROUTING_POLICY_ENABLED") or "").strip().lower()
     if raw not in {"1", "true", "yes", "on"}:
         return None

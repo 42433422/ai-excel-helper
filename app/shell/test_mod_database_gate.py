@@ -13,7 +13,9 @@ def test_gate_open_when_no_requirement(monkeypatch: pytest.MonkeyPatch) -> None:
     assert mod_database_gate.mod_db_gate_open() is True
 
 
-def test_gate_closed_raises_in_get_database_url(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_gate_closed_raises_in_get_database_url(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setenv("FHD_DB_MOD_GATE", "missing-mod-xyz")
     p = tmp_path / "mods.json"
     p.write_text(

@@ -13,9 +13,65 @@
 # 因此要新增一个行业：在对应 Mod 的 manifest.json 声明 industry 即可；
 # 不要再往下面 industries 增加条目（除非是跨 Mod 共享的兜底模板）。
 
-default_industry: "涂料"
+default_industry: "通用"
 
 industries:
+  通用:
+    name: "通用行业"
+    description: "多行业本地 AI 工作台，具体业务由 Mod 扩展"
+    units:
+      primary: "件"
+      primary_label: "数量"
+    product_fields:
+      name: "名称"
+      model: "编号"
+    order_types:
+      shipment: "业务单"
+      receipt: "入库单"
+      return: "退货单"
+
+  考勤:
+    name: "考勤/排班"
+    description: "适用于考勤、排班、请假与加班管理"
+    units:
+      primary: "天"
+      primary_label: "天数"
+    product_fields:
+      name: "人员"
+      model: "工号"
+    order_types:
+      shipment: "考勤单"
+      receipt: "补卡单"
+      return: "撤销单"
+
+  烤禽:
+    name: "烤禽/熟食"
+    description: "烤禽加工、冷链出货、门店与批发配送"
+    units:
+      primary: "箱"
+      primary_label: "箱数"
+    product_fields:
+      name: "品名"
+      model: "规格"
+    order_types:
+      shipment: "出货单"
+      receipt: "入库单"
+      return: "退货单"
+
+  批发:
+    name: "批发/分销"
+    description: "批发、分销、渠道与客户管理"
+    units:
+      primary: "件"
+      primary_label: "件数"
+    product_fields:
+      name: "商品名称"
+      model: "规格"
+    order_types:
+      shipment: "销售单"
+      receipt: "采购单"
+      return: "退货单"
+
   涂料:
     name: "涂料/油漆行业"
     description: "适用于涂料、油漆、固化剂等化工产品"

@@ -8,21 +8,22 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import logging
-from typing import Any, Coroutine, Optional, TypeVar
+from collections.abc import Coroutine
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-_neuro_main_loop: Optional[asyncio.AbstractEventLoop] = None
+_neuro_main_loop: asyncio.AbstractEventLoop | None = None
 
 
-def set_neuro_main_loop(loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
+def set_neuro_main_loop(loop: asyncio.AbstractEventLoop | None = None) -> None:
     global _neuro_main_loop
     _neuro_main_loop = loop or asyncio.get_running_loop()
 
 
-def get_neuro_main_loop() -> Optional[asyncio.AbstractEventLoop]:
+def get_neuro_main_loop() -> asyncio.AbstractEventLoop | None:
     return _neuro_main_loop
 
 

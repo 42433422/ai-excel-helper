@@ -1,4 +1,7 @@
 """
+import logging
+
+logger = logging.getLogger(__name__)
 路由层事件发布工具
 
 为 FastAPI 路由提供便捷的 Neuro 事件发布功能。
@@ -10,7 +13,8 @@ from __future__ import annotations
 import functools
 import time
 import uuid
-from typing import Any, Callable, Dict, Optional, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from fastapi import Request
 
@@ -24,7 +28,7 @@ def publish_route_event(
     event_type: str,
     domain: str = "api",
     include_payload: bool = True,
-    payload_extractor: Optional[Callable[..., Dict[str, Any]]] = None,
+    payload_extractor: Callable[..., dict[str, Any]] | None = None,
 ) -> Callable[[F], F]:
     """
     路由事件发布装饰器
@@ -48,7 +52,7 @@ def publish_route_event(
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs) -> Any:
             # 提取 request 对象
-            request: Optional[Request] = None
+            request: Request | None = None
             for arg in args:
                 if isinstance(arg, Request):
                     request = arg
@@ -61,18 +65,20 @@ def publish_route_event(
             start_time = time.perf_counter()
 
             # 构建 payload
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "trace_id": trace_id,
                 "route": func.__name__,
                 "timestamp": time.time(),
             }
 
             if request:
-                payload.update({
-                    "method": request.method,
-                    "path": str(request.url.path),
-                    "client": request.client.host if request.client else None,
-                })
+                payload.update(
+                    {
+                        "method": request.method,
+                        "path": str(request.url.path),
+                        "client": request.client.host if request.client else None,
+                    }
+                )
 
             # 自定义提取
             if payload_extractor:
@@ -81,7 +87,7 @@ def publish_route_event(
                     if custom:
                         payload.update(custom)
                 except Exception:
-                    pass
+                    logger.debug("suppressed exception", exc_info=True)
 
             # 发布开始事件
             if is_neuro_stack_enabled():
@@ -144,7 +150,7 @@ def publish_route_event(
         # 同步版本处理
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs) -> Any:
-            request: Optional[Request] = None
+            request: Request | None = None
             for arg in args:
                 if isinstance(arg, Request):
                     request = arg
@@ -155,18 +161,20 @@ def publish_route_event(
             trace_id = str(uuid.uuid4())
             start_time = time.perf_counter()
 
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "trace_id": trace_id,
                 "route": func.__name__,
                 "timestamp": time.time(),
             }
 
             if request:
-                payload.update({
-                    "method": request.method,
-                    "path": str(request.url.path),
-                    "client": request.client.host if request.client else None,
-                })
+                payload.update(
+                    {
+                        "method": request.method,
+                        "path": str(request.url.path),
+                        "client": request.client.host if request.client else None,
+                    }
+                )
 
             if is_neuro_stack_enabled():
                 publish_neuro_event(
@@ -217,6 +225,7 @@ def publish_route_event(
 
         # 根据函数类型返回适当的包装器
         import asyncio
+
         wrapper = async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
 
         # 预解析 func 的类型注解，避免 ``from __future__ import annotations`` 场景下
@@ -236,7 +245,7 @@ def publish_route_event(
             except (AttributeError, TypeError):
                 pass
         except Exception:
-            pass
+            logger.debug("suppressed exception", exc_info=True)
 
         return wrapper  # type: ignore[return-value]
 
@@ -245,7 +254,7 @@ def publish_route_event(
 
 def publish_simple_event(
     event_type: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     domain: str = "api",
 ) -> bool:
     """

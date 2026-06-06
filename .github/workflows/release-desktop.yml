@@ -6,10 +6,10 @@ on:
       version:
         description: "Release version"
         required: true
-        default: "7.0.0"
+        default: "8.0.0"
   push:
     tags:
-      - "v7.*"
+      - "v8.*"
 
 permissions:
   contents: write
@@ -30,13 +30,20 @@ jobs:
           cache-dependency-path: |
             frontend/package-lock.json
             desktop/package-lock.json
-      - name: Build Windows installer
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Build Windows installers (2 SKUs)
         shell: pwsh
-        run: scripts/package/build-installer.ps1 -Version "${{ github.event.inputs.version || github.ref_name }}"
+        run: |
+          $v = "${{ github.event.inputs.version || github.ref_name }}".TrimStart('v','V')
+          scripts/package/build-all-skus.ps1 -Version $v
       - uses: actions/upload-artifact@v4
         with:
           name: xcagi-desktop-windows
-          path: release/desktop-designed-final2/**
+          path: |
+            release/xcagi-v*/personal/**
+            release/xcagi-v*/enterprise/**
 
   macos:
     runs-on: macos-latest
@@ -57,13 +64,18 @@ jobs:
           cache-dependency-path: |
             frontend/package-lock.json
             desktop/package-lock.json
-      - name: Build macOS installer
+      - name: Build macOS installers (2 SKUs)
         shell: bash
-        run: scripts/package/build-installer.sh "${{ github.event.inputs.version || github.ref_name }}"
+        run: |
+          v="${{ github.event.inputs.version || github.ref_name }}"
+          v="${v#v}"
+          scripts/package/build-installer.sh "$v" all
       - uses: actions/upload-artifact@v4
         with:
           name: xcagi-desktop-macos
-          path: release/desktop-designed-final2/**
+          path: |
+            release/xcagi-v*/personal/**
+            release/xcagi-v*/enterprise/**
 
   github-release:
     needs: [windows, macos]

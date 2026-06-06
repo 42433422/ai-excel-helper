@@ -6,7 +6,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any
 
 from fastapi import APIRouter, Body, File, Form, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -21,12 +21,12 @@ os.makedirs(TEMP_EXCEL_DIR, exist_ok=True)
 
 
 def _get_ai_product_parser():
-    from app.services import get_ai_product_parser
+    from app.application.facades.excel_facade import get_ai_product_parser
 
     return get_ai_product_parser()
 
 
-def _extract_from_excel(file_path, sheet_name=None, header_row=1) -> Tuple[dict, int]:
+def _extract_from_excel(file_path, sheet_name=None, header_row=1) -> tuple[dict, int]:
     try:
         from openpyxl import load_workbook
         from openpyxl.utils import get_column_letter
@@ -77,7 +77,7 @@ def _extract_from_excel(file_path, sheet_name=None, header_row=1) -> Tuple[dict,
         return {"success": False, "message": str(e)}, 500
 
 
-def _generate_excel(data, filename=None, sheet_name="Sheet1") -> Tuple[dict, int]:
+def _generate_excel(data, filename=None, sheet_name="Sheet1") -> tuple[dict, int]:
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Alignment, Font
@@ -123,7 +123,7 @@ def _generate_excel(data, filename=None, sheet_name="Sheet1") -> Tuple[dict, int
 
 def _extract_attendance_detail_roster(
     file_path: str, sheet_name: str | None = None
-) -> Tuple[dict, int]:
+) -> tuple[dict, int]:
     """解析太阳鸟/钉钉考勤统计表「明细」：自第 4 行起每 6 行一块，A 部门、B 性质、C 姓名。"""
     try:
         from openpyxl import load_workbook
@@ -193,7 +193,9 @@ def extract_from_excel(data: dict[str, Any] = Body(default_factory=dict)):
         sheet_name = data.get("sheet_name")
         header_row = data.get("header_row", 1)
         if not file_path:
-            return JSONResponse({"success": False, "message": "请提供 file_path 参数"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "请提供 file_path 参数"}, status_code=400
+            )
         result, status = _extract_from_excel(file_path, sheet_name, header_row)
         return JSONResponse(result, status_code=status)
     except Exception as e:
@@ -212,7 +214,9 @@ async def extract_upload(
         if excel_file is None or not excel_file.filename:
             return JSONResponse({"success": False, "message": "请上传 Excel 文件"}, status_code=400)
         if not excel_file.filename.lower().endswith((".xlsx", ".xls")):
-            return JSONResponse({"success": False, "message": "只支持 .xlsx 和 .xls 格式"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "只支持 .xlsx 和 .xls 格式"}, status_code=400
+            )
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"extract_{timestamp}_{excel_file.filename}"
         file_path = os.path.join(TEMP_EXCEL_DIR, filename)
@@ -239,7 +243,9 @@ def generate_excel(data: dict[str, Any] = Body(default_factory=dict)):
         filename = data.get("filename")
         sheet_name = data.get("sheet_name", "Sheet1")
         if not excel_data:
-            return JSONResponse({"success": False, "message": "请提供数据 data 参数"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "请提供数据 data 参数"}, status_code=400
+            )
         result, status = _generate_excel(excel_data, filename, sheet_name)
         return JSONResponse(result, status_code=status)
     except Exception as e:
@@ -254,7 +260,9 @@ def download_generated_excel(data: dict[str, Any] = Body(default_factory=dict)):
         filename = data.get("filename")
         sheet_name = data.get("sheet_name", "Sheet1")
         if not excel_data:
-            return JSONResponse({"success": False, "message": "请提供数据 data 参数"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "请提供数据 data 参数"}, status_code=400
+            )
         result, status = _generate_excel(excel_data, filename, sheet_name)
         if status != 200:
             return JSONResponse(result, status_code=status)
@@ -287,7 +295,7 @@ def extract_test():
 def import_products(data: dict[str, Any] = Body(default_factory=dict)):
     try:
         from app.application import get_extract_log_app_service
-        from app.services import get_product_import_service
+        from app.application.facades.excel_facade import get_product_import_service
 
         extracted_data = data.get("data", [])
         options = data.get("options", {})
@@ -334,9 +342,7 @@ def import_products(data: dict[str, Any] = Body(default_factory=dict)):
             skip_duplicates=options.get("skip_duplicates", True),
             validate_before_import=options.get("validate_before_import", True),
             clean_data=options.get("clean_data", True),
-            replace_attendance_detail_tagged=bool(
-                options.get("replace_attendance_detail_tagged")
-            ),
+            replace_attendance_detail_tagged=bool(options.get("replace_attendance_detail_tagged")),
         )
 
         log_service.update_log(

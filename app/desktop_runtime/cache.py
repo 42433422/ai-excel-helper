@@ -37,7 +37,9 @@ class DesktopMemoryCache:
         with self._lock:
             self._values.clear()
 
-    def get_or_set(self, key: str, factory: Callable[[], Any], ttl: int | float | None = None) -> Any:
+    def get_or_set(
+        self, key: str, factory: Callable[[], Any], ttl: int | float | None = None
+    ) -> Any:
         value = self.get(key, default=None)
         if value is not None:
             return value

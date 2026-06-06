@@ -19,7 +19,6 @@ import json
 import secrets
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 from app.security.lan_config import LAN_LICENSE_SECRET_MIN_LENGTH
 
@@ -40,7 +39,7 @@ class TokenPayload:
     iat: int
     exp: int
 
-    def is_expired(self, now: Optional[int] = None) -> bool:
+    def is_expired(self, now: int | None = None) -> bool:
         ts = int(now if now is not None else time.time())
         return ts >= self.exp
 
@@ -55,7 +54,9 @@ def issue_token(secret: str, kid: str, ttl_seconds: int) -> tuple[str, TokenPayl
     便于服务端主动吊销或踢出。
     """
     if not secret or len(secret) < LAN_LICENSE_SECRET_MIN_LENGTH:
-        raise TokenError(f"LAN_LICENSE_SECRET 未配置或长度不足（≥{LAN_LICENSE_SECRET_MIN_LENGTH} 字符）")
+        raise TokenError(
+            f"LAN_LICENSE_SECRET 未配置或长度不足（≥{LAN_LICENSE_SECRET_MIN_LENGTH} 字符）"
+        )
     if ttl_seconds <= 0:
         raise TokenError("ttl_seconds must be positive")
     now = int(time.time())
@@ -82,9 +83,7 @@ def parse_token(secret: str, token: str) -> TokenPayload:
     if not secret:
         raise TokenError("server license secret missing")
     body_b64, sig_b64 = token.rsplit(".", 1)
-    expected = hmac.new(
-        secret.encode("utf-8"), body_b64.encode("ascii"), hashlib.sha256
-    ).digest()
+    expected = hmac.new(secret.encode("utf-8"), body_b64.encode("ascii"), hashlib.sha256).digest()
     try:
         provided = _b64u_decode(sig_b64)
     except Exception as exc:

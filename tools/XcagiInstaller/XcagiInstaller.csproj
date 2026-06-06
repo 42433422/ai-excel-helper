@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyTitle>XCAGI 安装程序</AssemblyTitle>
+    <Product>XCAGI</Product>
+    <Version>8.0.0</Version>
+    <RootNamespace>XcagiInstaller</RootNamespace>
+    <!-- 打包时由 build-installer.ps1 传入 NSIS 产物路径 -->
+    <SetupPayloadPath Condition="'$(SetupPayloadPath)' == ''"></SetupPayloadPath>
+    <LicenseFilePath Condition="'$(LicenseFilePath)' == ''">Assets\LICENSE.zh-CN.txt</LicenseFilePath>
+    <!-- 下载包 exe / 任务栏图标：优先 Assets\app.ico（由 generate-desktop-resources.py 生成） -->
+    <InstallerIconPath Condition="Exists('Assets\app.ico')">Assets\app.ico</InstallerIconPath>
+    <InstallerIconPath Condition="'$(InstallerIconPath)' == '' and Exists('..\..\desktop\resources\icon.ico')">..\..\desktop\resources\icon.ico</InstallerIconPath>
+    <ApplicationIcon Condition="'$(InstallerIconPath)' != ''">$(InstallerIconPath)</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\desktop\branding\app-icon-source.png" Link="Assets\logo.png" />
+    <Resource Include="Assets\installer-hero.png" Condition="Exists('Assets\installer-hero.png')" />
+    <Resource Include="$(InstallerIconPath)" Link="Assets\app.ico" Condition="'$(InstallerIconPath)' != ''" />
+    <Resource Include="Assets\LICENSE.zh-CN.txt" Condition="Exists('Assets\LICENSE.zh-CN.txt')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(SetupPayloadPath)' != '' and Exists('$(SetupPayloadPath)')">
+    <EmbeddedResource Include="$(SetupPayloadPath)" LogicalName="XCAGI.SetupPayload" />
+  </ItemGroup>
+
+  <!-- 与 SetupPayload 分开声明，避免大文件嵌入时覆盖许可资源 -->
+  <ItemGroup Condition="Exists('Assets\LICENSE.zh-CN.txt')">
+    <EmbeddedResource Include="Assets\LICENSE.zh-CN.txt" LogicalName="XCAGI.LicenseText" />
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('Assets\LICENSE.zh-CN.txt') and Exists('$(LicenseFilePath)')">
+    <EmbeddedResource Include="$(LicenseFilePath)" LogicalName="XCAGI.LicenseText" />
+  </ItemGroup>
+
+</Project>

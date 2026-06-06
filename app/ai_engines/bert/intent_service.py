@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 BERT 意图分类推理服务
 
@@ -7,12 +6,9 @@ BERT 意图分类推理服务
 原始模块位于 app/services/bert_intent_service.py
 """
 
-import json
 import logging
 import os
-import sys
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import torch
 from transformers import (
@@ -71,11 +67,11 @@ class BertIntentClassifier:
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
+        model_path: str | None = None,
         model_name: str = "bert-base-chinese",
         max_length: int = 64,
         confidence_threshold: float = 0.7,
-        device: Optional[str] = None,
+        device: str | None = None,
         use_fp16: bool = False,
         local_files_only: bool = False,
     ):
@@ -144,7 +140,7 @@ class BertIntentClassifier:
             logger.error(f"BERT 模型加载失败：{e}")
             return False
 
-    def predict(self, text: str) -> Dict[str, Any]:
+    def predict(self, text: str) -> dict[str, Any]:
         if not self._initialized:
             self.load_model()
 
@@ -189,9 +185,8 @@ class BertIntentClassifier:
             logger.error(f"BERT 预测失败：{e}")
             return {"intent": "unk", "confidence": 0.0, "message": str(e)}
 
-    def predict_batch(self, texts: List[str]) -> List[Dict[str, Any]]:
+    def predict_batch(self, texts: list[str]) -> list[dict[str, Any]]:
         if not self._initialized:
             self.load_model()
 
         return [self.predict(text) for text in texts]
-

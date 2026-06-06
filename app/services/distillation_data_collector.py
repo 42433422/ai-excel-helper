@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 蒸馏数据采集服务
 
@@ -15,19 +14,12 @@
 import json
 import logging
 import os
-import sys
-from collections import Counter
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import text
 
 from app.db import engine as ENGINE
 from app.utils.distillation_paths import (
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
     get_distillation_db_path,
     get_distillation_logs_dir,
     get_distillation_root_dir,
@@ -38,10 +30,7 @@ DISTILL_DIR = get_distillation_root_dir()
 DB_PATH = get_distillation_db_path()
 LOG_DIR = get_distillation_logs_dir()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -188,7 +177,7 @@ SAMPLE_QUERIES = {
 
 
 def init_distillation_db():
-    """初始化蒸馏数据库（与 Flask app.db 主库一致）"""
+    """初始化蒸馏数据库（与 app.db 主库一致）"""
     from app.db.init_db import init_distillation_tables
 
     os.makedirs(DISTILL_DIR, exist_ok=True)
@@ -207,6 +196,7 @@ def get_deepseek_api_key() -> str:
     if os.path.exists(config_path):
         try:
             import importlib.util
+
             spec = importlib.util.spec_from_file_location("deepseek_config", config_path)
             if spec and spec.loader:
                 config_module = importlib.util.module_from_spec(spec)
@@ -218,7 +208,7 @@ def get_deepseek_api_key() -> str:
     return ""
 
 
-async def call_deepseek_intent(api_key: str, message: str) -> Optional[Dict[str, Any]]:
+async def call_deepseek_intent(api_key: str, message: str) -> dict[str, Any] | None:
     """调用 DeepSeek API 进行意图识别"""
     import httpx
 
@@ -226,33 +216,40 @@ async def call_deepseek_intent(api_key: str, message: str) -> Optional[Dict[str,
         logger.error("DeepSeek API Key 未配置")
         return None
 
-    intent_list = "\n".join([f"- {k}: {v}" for k, v in {
-        "shipment_generate": "生成发货单、开单、打单",
-        "customers": "查看客户列表",
-        "products": "查看产品列表",
-        "shipments": "查看发货记录",
-        "wechat_send": "发微信",
-        "print_label": "打印标签",
-        "upload_file": "上传文件",
-        "materials": "原材料库存",
-        "shipment_template": "发货单模板",
-        "excel_decompose": "分解Excel",
-        "show_images": "查看图片",
-        "show_videos": "查看视频",
-        "greet": "问候",
-        "goodbye": "告别",
-        "help": "请求帮助",
-        "negation": "否定指令",
-        "customer_export": "导出客户",
-        "customer_edit": "修改客户",
-        "customer_supplement": "补充客户",
-    }.items()])
+    intent_list = "\n".join(
+        [
+            f"- {k}: {v}"
+            for k, v in {
+                "shipment_generate": "生成发货单、开单、打单",
+                "customers": "查看客户列表",
+                "products": "查看产品列表",
+                "shipments": "查看发货记录",
+                "wechat_send": "发微信",
+                "print_label": "打印标签",
+                "upload_file": "上传文件",
+                "materials": "原材料库存",
+                "shipment_template": "发货单模板",
+                "excel_decompose": "分解Excel",
+                "show_images": "查看图片",
+                "show_videos": "查看视频",
+                "greet": "问候",
+                "goodbye": "告别",
+                "help": "请求帮助",
+                "negation": "否定指令",
+                "customer_export": "导出客户",
+                "customer_edit": "修改客户",
+                "customer_supplement": "补充客户",
+            }.items()
+        ]
+    )
 
-    slot_list = "\n".join([
-        "unit_name: 购买单位",
-        "quantity_tins: 桶数",
-        "tin_spec: 规格",
-    ])
+    slot_list = "\n".join(
+        [
+            "unit_name: 购买单位",
+            "quantity_tins: 桶数",
+            "tin_spec: 规格",
+        ]
+    )
 
     system_prompt = f"""你是一个业务助手意图分类器。根据用户消息，识别意图和提取关键信息。
 
@@ -265,40 +262,35 @@ async def call_deepseek_intent(api_key: str, message: str) -> Optional[Dict[str,
 回复格式（严格JSON）：
 {{"intent": "意图ID", "slots": {{"槽位名": "槽位值"}}}}"""
 
+    from app.infrastructure.llm.invoke import chat_completion_openai_format
+
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                "https://api.deepseek.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": message}
-                    ],
-                    "temperature": 0.1,
-                    "max_tokens": 200
-                }
-            )
-            result = response.json()
-            if result.get("choices"):
-                content = result["choices"][0]["message"]["content"]
-                data = json.loads(content)
-                return {
-                    "intent": data.get("intent", "unk"),
-                    "slots": data.get("slots", {}),
-                    "confidence": 1.0
-                }
+        result = await chat_completion_openai_format(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message},
+            ],
+            temperature=0.1,
+            max_tokens=200,
+            profile="distillation",
+        )
+        if result and result.get("choices"):
+            content = result["choices"][0]["message"]["content"]
+            data = json.loads(content)
+            return {
+                "intent": data.get("intent", "unk"),
+                "slots": data.get("slots", {}),
+                "confidence": 1.0,
+            }
     except Exception as e:
         logger.error(f"DeepSeek API 调用失败: {e}")
 
     return None
 
 
-def save_distillation_sample(query: str, intent: str, slots: Dict, confidence: float = 1.0, source: str = "manual"):
+def save_distillation_sample(
+    query: str, intent: str, slots: dict, confidence: float = 1.0, source: str = "manual"
+):
     """保存蒸馏样本到数据库"""
     with ENGINE.begin() as conn:
         conn.execute(
@@ -318,7 +310,7 @@ def save_distillation_sample(query: str, intent: str, slots: Dict, confidence: f
         )
 
 
-def generate_samples_from_queries(queries: Dict[str, List[str]]) -> int:
+def generate_samples_from_queries(queries: dict[str, list[str]]) -> int:
     """基于预定义 query 生成蒸馏样本（使用规则匹配，模拟 DeepSeek 结果）"""
     count = 0
 
@@ -328,16 +320,17 @@ def generate_samples_from_queries(queries: Dict[str, List[str]]) -> int:
 
             if "给" in query:
                 idx = query.index("给")
-                after_give = query[idx+1:].strip().split()[0]
+                after_give = query[idx + 1 :].strip().split()[0]
                 if after_give and len(after_give) > 1:
                     slots["unit_name"] = after_give
 
             import re
-            qty_match = re.search(r'(\d+)\s*桶', query)
+
+            qty_match = re.search(r"(\d+)\s*桶", query)
             if qty_match:
                 slots["quantity_tins"] = int(qty_match.group(1))
 
-            spec_match = re.search(r'规格\s*(\d+)', query)
+            spec_match = re.search(r"规格\s*(\d+)", query)
             if spec_match:
                 slots["tin_spec"] = float(spec_match.group(1))
 
@@ -368,7 +361,7 @@ async def collect_samples_via_deepseek(api_key: str, target_count: int = 500) ->
     batch_size = 10
 
     for i in range(0, min(needed, 100), batch_size):
-        batch = all_queries[i:i+batch_size]
+        batch = all_queries[i : i + batch_size]
         tasks = [call_deepseek_intent(api_key, q) for q in batch]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -377,10 +370,11 @@ async def collect_samples_via_deepseek(api_key: str, target_count: int = 500) ->
                 intent = result["intent"]
                 if intent in INTENT_LABELS:
                     save_distillation_sample(
-                        query, intent,
+                        query,
+                        intent,
                         result.get("slots", {}),
                         result.get("confidence", 0.9),
-                        source="deepseek"
+                        source="deepseek",
                     )
                     count += 1
                 else:
@@ -394,7 +388,7 @@ async def collect_samples_via_deepseek(api_key: str, target_count: int = 500) ->
     return count
 
 
-def get_sample_count(intent: Optional[str] = None) -> int:
+def get_sample_count(intent: str | None = None) -> int:
     """获取样本数量"""
     with ENGINE.begin() as conn:
         if intent:
@@ -407,14 +401,16 @@ def get_sample_count(intent: Optional[str] = None) -> int:
         return int(result.scalar() or 0)
 
 
-def get_sample_stats() -> Dict[str, int]:
+def get_sample_stats() -> dict[str, int]:
     """获取各类别样本统计"""
     with ENGINE.begin() as conn:
-        rows = conn.execute(text("SELECT intent, COUNT(*) FROM distillation_log GROUP BY intent")).fetchall()
+        rows = conn.execute(
+            text("SELECT intent, COUNT(*) FROM distillation_log GROUP BY intent")
+        ).fetchall()
         return {str(intent): int(count) for intent, count in rows}
 
 
-def export_training_data(output_path: Optional[str] = None, format: str = "jsonl") -> str:
+def export_training_data(output_path: str | None = None, format: str = "jsonl") -> str:
     """导出训练数据"""
     if output_path is None:
         output_path = os.path.join(DISTILL_DIR, "training_data.jsonl")
@@ -434,11 +430,7 @@ def export_training_data(output_path: Optional[str] = None, format: str = "jsonl
     if format == "jsonl":
         with open(output_path, "w", encoding="utf-8") as f:
             for query, intent, slots in rows:
-                data = {
-                    "text": query,
-                    "label": intent,
-                    "slots": json.loads(slots) if slots else {}
-                }
+                data = {"text": query, "label": intent, "slots": json.loads(slots) if slots else {}}
                 f.write(json.dumps(data, ensure_ascii=False) + "\n")
     elif format == "bert":
         with open(output_path.replace(".jsonl", "_bert.tsv"), "w", encoding="utf-8") as f:
@@ -450,7 +442,7 @@ def export_training_data(output_path: Optional[str] = None, format: str = "jsonl
     return output_path
 
 
-def mark_samples_as_used(ids: List[int]):
+def mark_samples_as_used(ids: list[int]):
     """标记样本已用于训练"""
     if not ids:
         return
@@ -507,4 +499,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

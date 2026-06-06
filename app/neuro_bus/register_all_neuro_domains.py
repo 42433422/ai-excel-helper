@@ -4,12 +4,11 @@
 from __future__ import annotations
 
 import logging
-from typing import List
 
 logger = logging.getLogger(__name__)
 
 
-def register_all_neuro_domains() -> List[str]:
+def register_all_neuro_domains() -> list[str]:
     """
     触发各域单例的 ``get_*_domain()``，完成 DomainRegistry.register。
 
@@ -17,6 +16,7 @@ def register_all_neuro_domains() -> List[str]:
         当前已注册域名称列表。
     """
     from app.neuro_bus.domains.ai_service_domain import get_ai_service_domain
+    from app.neuro_bus.domains.base import get_domain_registry
     from app.neuro_bus.domains.customer_domain import get_customer_domain
     from app.neuro_bus.domains.intent_domain import get_intent_domain
     from app.neuro_bus.domains.inventory_domain import get_inventory_domain
@@ -28,7 +28,6 @@ def register_all_neuro_domains() -> List[str]:
     from app.neuro_bus.domains.safety_domain import get_safety_domain
     from app.neuro_bus.domains.shipment_domain import get_shipment_domain
     from app.neuro_bus.domains.wechat_domain import get_wechat_domain
-    from app.neuro_bus.domains.base import get_domain_registry
 
     getters = (
         get_intent_domain,

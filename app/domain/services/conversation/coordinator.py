@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 统一对话编排器
 
@@ -23,17 +22,14 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.domain.services.conversation.context import (
     ContextFacade,
+)
+from app.domain.services.conversation.context import PendingIntent as ContextPendingIntent
+from app.domain.services.conversation.context import (
     get_context_facade,
-    ProcessingAction as ContextProcessingAction,
-    IntentResult as ContextIntentResult,
-    PendingIntent as ContextPendingIntent,
-    SPECIAL_INTENTS as _SPECIAL_INTENTS,
-    LOW_PRIORITY_INTENTS as _LOW_PRIORITY_INTENTS,
-    HIGH_PRIORITY_INTENTS as _HIGH_PRIORITY_INTENTS,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 class ProcessingAction(Enum):
     """处理动作枚举（向后兼容）"""
+
     GREETING = "greeting"
     GOODBYE = "goodbye"
     HELP = "help"
@@ -60,9 +57,10 @@ class PendingIntent:
     为了保持向后兼容，保留原有的 PendingIntent dataclass。
     新代码应使用 context 模块中的 PendingIntent。
     """
+
     intent: str
-    slots: Dict[str, Any]
-    missing_slots: List[str]
+    slots: dict[str, Any]
+    missing_slots: list[str]
     created_at: float = field(default_factory=time.time)
     source: str = "unknown"
     last_updated_at: float = field(default_factory=time.time)
@@ -72,7 +70,7 @@ class PendingIntent:
         """检查是否过期"""
         return time.time() - self.last_updated_at > max_age_seconds
 
-    def merge_slots(self, new_slots: Dict[str, Any]) -> 'PendingIntent':
+    def merge_slots(self, new_slots: dict[str, Any]) -> "PendingIntent":
         """合并新槽位"""
         merged = self.slots.copy()
         merged.update(new_slots)
@@ -86,16 +84,17 @@ class PendingIntent:
             created_at=self.created_at,
             source=self.source,
             last_updated_at=time.time(),
-            turn_count=self.turn_count + 1
+            turn_count=self.turn_count + 1,
         )
 
 
 @dataclass
 class IntentResult:
     """意图识别结果（向后兼容）"""
-    primary_intent: Optional[str]
-    tool_key: Optional[str]
-    slots: Dict[str, Any]
+
+    primary_intent: str | None
+    tool_key: str | None
+    slots: dict[str, Any]
     is_greeting: bool = False
     is_goodbye: bool = False
     is_help: bool = False
@@ -104,16 +103,17 @@ class IntentResult:
     is_negated: bool = False
     confidence: float = 0.0
     source: str = "unknown"
-    intent_hints: List[str] = field(default_factory=list)
+    intent_hints: list[str] = field(default_factory=list)
 
 
 @dataclass
 class ProcessingResult:
     """处理结果（向后兼容）"""
+
     action: ProcessingAction
     text: str
-    data: Dict[str, Any]
-    pending_intent: Optional[PendingIntent] = None
+    data: dict[str, Any]
+    pending_intent: PendingIntent | None = None
 
 
 class UnifiedConversationCoordinator:
@@ -142,6 +142,7 @@ class UnifiedConversationCoordinator:
         """延迟加载 TaskAgent"""
         if self._task_agent is None:
             from app.services.task_agent import get_task_agent
+
             self._task_agent = get_task_agent()
         return self._task_agent
 
@@ -152,7 +153,9 @@ class UnifiedConversationCoordinator:
             self._context_facade = get_context_facade()
         return self._context_facade
 
-    def process(self, user_id: str, message: str, context_data: Dict[str, Any] = None) -> ProcessingResult:
+    def process(
+        self, user_id: str, message: str, context_data: dict[str, Any] = None
+    ) -> ProcessingResult:
         """
         处理用户消息的唯一入口
 
@@ -176,7 +179,7 @@ class UnifiedConversationCoordinator:
                 return ProcessingResult(
                     action=ProcessingAction.NEGATED,
                     text="好的，已取消。有其他需要帮助的吗？",
-                    data={}
+                    data={},
                 )
 
         if intent_result.is_greeting:
@@ -190,18 +193,15 @@ class UnifiedConversationCoordinator:
             return self._handle_pending_continuation(user_id, message, intent_result, pending)
 
         is_complete, missing = self.slot_validator.validate(
-            intent_result.primary_intent,
-            intent_result.slots
+            intent_result.primary_intent, intent_result.slots
         )
 
         if not is_complete:
-            return self._handle_slot_missing(
-                user_id, message, intent_result, missing
-            )
+            return self._handle_slot_missing(user_id, message, intent_result, missing)
 
         return self._handle_execution(user_id, message, intent_result)
 
-    def _get_pending(self, user_id: str) -> Optional[PendingIntent]:
+    def _get_pending(self, user_id: str) -> PendingIntent | None:
         """获取 pending 状态"""
         ctx_pending = self.context_facade.intent_context.get_pending(user_id)
         if ctx_pending:
@@ -212,17 +212,24 @@ class UnifiedConversationCoordinator:
                 created_at=ctx_pending.created_at,
                 source=ctx_pending.source,
                 last_updated_at=ctx_pending.last_updated_at,
-                turn_count=ctx_pending.turn_count
+                turn_count=ctx_pending.turn_count,
             )
         return None
 
-    def _recognize_intent(self, message: str, context_data: Dict[str, Any]) -> IntentResult:
-        """意图识别"""
+    def _recognize_intent(self, message: str, context_data: dict[str, Any]) -> IntentResult:
+        """意图识别 — 通过 NeuroDDD 反射弧 + 规则引擎"""
+        from app.domain.neuro.reflex_arc import ReflexType, get_reflex_arc
         from app.services.intent_service import recognize_intents
-        from app.domain.services.intent import get_intent_coordinator
 
-        coordinator = get_intent_coordinator()
-        basic = coordinator.detect_basic_intents(message)
+        reflex = get_reflex_arc()
+        rr = reflex.process(message)
+        basic = {
+            "is_greeting": rr.reflex_type == ReflexType.GREETING and rr.triggered,
+            "is_goodbye": rr.reflex_type == ReflexType.EMERGENCY_STOP and rr.triggered,
+            "is_help": rr.reflex_type == ReflexType.HELP and rr.triggered,
+            "is_confirmation": rr.reflex_type == ReflexType.CONFIRMATION and rr.triggered,
+            "is_negation_intent": rr.reflex_type == ReflexType.DENIAL and rr.triggered,
+        }
 
         rule_result = recognize_intents(message)
 
@@ -237,12 +244,14 @@ class UnifiedConversationCoordinator:
             is_negation_intent=basic.get("is_negation_intent", False),
             is_negated=rule_result.get("is_negated", False),
             confidence=0.8,
-            source="rule"
+            source="neuro_reflex+rule",
         )
 
         return result
 
-    def _handle_confirmation(self, user_id: str, message: str, pending: PendingIntent) -> ProcessingResult:
+    def _handle_confirmation(
+        self, user_id: str, message: str, pending: PendingIntent
+    ) -> ProcessingResult:
         """处理确认意图"""
         logger.info(f"[COORDINATOR] User confirmed: user={user_id}, intent={pending.intent}")
 
@@ -254,32 +263,35 @@ class UnifiedConversationCoordinator:
             action=ProcessingAction.TOOL_CALL,
             text=f"好的，正在执行【{pending.intent}】...",
             data=result,
-            pending_intent=None
+            pending_intent=None,
         )
 
-    def _handle_greeting(self, user_id: str, message: str, pending: Optional[PendingIntent]) -> ProcessingResult:
+    def _handle_greeting(
+        self, user_id: str, message: str, pending: PendingIntent | None
+    ) -> ProcessingResult:
         """处理问候（保留 pending）"""
         response = "您好！我是 XCAGI 智能助手，很高兴为您服务！"
         if pending:
             response += f"\n\n（您之前有一个{pending.intent}的任务尚未完成，是否需要继续？）"
 
         return ProcessingResult(
-            action=ProcessingAction.GREETING,
-            text=response,
-            data={},
-            pending_intent=pending
+            action=ProcessingAction.GREETING, text=response, data={}, pending_intent=pending
         )
 
-    def _handle_goodbye(self, user_id: str, message: str, pending: Optional[PendingIntent]) -> ProcessingResult:
+    def _handle_goodbye(
+        self, user_id: str, message: str, pending: PendingIntent | None
+    ) -> ProcessingResult:
         """处理告别"""
         return ProcessingResult(
             action=ProcessingAction.GOODBYE,
             text="再见！祝您工作顺利！如有需要，随时联系我。",
             data={},
-            pending_intent=pending
+            pending_intent=pending,
         )
 
-    def _handle_help(self, user_id: str, message: str, pending: Optional[PendingIntent]) -> ProcessingResult:
+    def _handle_help(
+        self, user_id: str, message: str, pending: PendingIntent | None
+    ) -> ProcessingResult:
         """处理帮助请求"""
         help_text = """🤖 XCAGI 智能助手功能介绍
 
@@ -291,18 +303,11 @@ class UnifiedConversationCoordinator:
 直接说出您的需求，我会智能识别处理。"""
 
         return ProcessingResult(
-            action=ProcessingAction.HELP,
-            text=help_text,
-            data={},
-            pending_intent=pending
+            action=ProcessingAction.HELP, text=help_text, data={}, pending_intent=pending
         )
 
     def _handle_pending_continuation(
-        self,
-        user_id: str,
-        message: str,
-        intent_result: IntentResult,
-        pending: PendingIntent
+        self, user_id: str, message: str, intent_result: IntentResult, pending: PendingIntent
     ) -> ProcessingResult:
         """处理 pending 任务的续接"""
         logger.info(f"[COORDINATOR] Pending continuation: user={user_id}, pending={pending.intent}")
@@ -319,21 +324,21 @@ class UnifiedConversationCoordinator:
                 action=ProcessingAction.TOOL_CALL,
                 text=f"好的，{self._get_action_description(pending.intent, merged.slots)}...",
                 data=result,
-                pending_intent=None
+                pending_intent=None,
             )
         else:
             updated = PendingIntent(
                 intent=pending.intent,
                 slots=merged.slots,
                 missing_slots=missing,
-                source=pending.source
+                source=pending.source,
             )
 
             ctx_pending = ContextPendingIntent(
                 intent=updated.intent,
                 slots=updated.slots,
                 missing_slots=updated.missing_slots,
-                source=updated.source
+                source=updated.source,
             )
             self.context_facade.intent_context.set_pending(user_id, ctx_pending)
 
@@ -342,41 +347,31 @@ class UnifiedConversationCoordinator:
             return ProcessingResult(
                 action=ProcessingAction.SLOT_FILL,
                 text=question,
-                data={
-                    "intent": pending.intent,
-                    "slots": merged.slots,
-                    "missing_slots": missing
-                },
-                pending_intent=updated
+                data={"intent": pending.intent, "slots": merged.slots, "missing_slots": missing},
+                pending_intent=updated,
             )
 
     def _handle_slot_missing(
-        self,
-        user_id: str,
-        message: str,
-        intent_result: IntentResult,
-        missing: List[str]
+        self, user_id: str, message: str, intent_result: IntentResult, missing: list[str]
     ) -> ProcessingResult:
         """处理槽位缺失"""
         pending = PendingIntent(
             intent=intent_result.primary_intent,
             slots=intent_result.slots,
             missing_slots=missing,
-            source=intent_result.source
+            source=intent_result.source,
         )
 
         ctx_pending = ContextPendingIntent(
             intent=pending.intent,
             slots=pending.slots,
             missing_slots=pending.missing_slots,
-            source=pending.source
+            source=pending.source,
         )
         self.context_facade.intent_context.set_pending(user_id, ctx_pending)
 
         question = self.slot_validator.build_followup(
-            intent_result.primary_intent,
-            missing,
-            intent_result.slots
+            intent_result.primary_intent, missing, intent_result.slots
         )
 
         return ProcessingResult(
@@ -385,16 +380,13 @@ class UnifiedConversationCoordinator:
             data={
                 "intent": intent_result.primary_intent,
                 "slots": intent_result.slots,
-                "missing_slots": missing
+                "missing_slots": missing,
             },
-            pending_intent=pending
+            pending_intent=pending,
         )
 
     def _handle_execution(
-        self,
-        user_id: str,
-        message: str,
-        intent_result: IntentResult
+        self, user_id: str, message: str, intent_result: IntentResult
     ) -> ProcessingResult:
         """处理执行"""
         result = self._execute_plan(intent_result.tool_key, intent_result.slots)
@@ -403,25 +395,24 @@ class UnifiedConversationCoordinator:
             action=ProcessingAction.TOOL_CALL,
             text=self._get_action_description(intent_result.tool_key, intent_result.slots),
             data=result,
-            pending_intent=None
+            pending_intent=None,
         )
 
-    def _execute_plan(self, intent: str, slots: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_plan(self, intent: str, slots: dict[str, Any]) -> dict[str, Any]:
         """执行计划（委托给 TaskAgent）"""
         return self.task_agent.execute_plan(
-            {"task_type": intent, "slots": slots},
-            original_message=""
+            {"task_type": intent, "slots": slots}, original_message=""
         )
 
-    def _get_action_description(self, intent: str, slots: Dict[str, Any]) -> str:
+    def _get_action_description(self, intent: str, slots: dict[str, Any]) -> str:
         """获取动作描述"""
         descriptions = {
             "shipment_generate": f"正在为 {slots.get('unit_name', '该客户')} 生成发货单",
             "products": f"正在查询 {slots.get('keyword', '该产品')} 的产品信息",
-            "customers": f"正在查询客户信息",
-            "shipments": f"正在查询发货记录",
-            "print_label": f"正在处理标签打印",
-            "wechat_send": f"正在发送微信消息",
+            "customers": "正在查询客户信息",
+            "shipments": "正在查询发货记录",
+            "print_label": "正在处理标签打印",
+            "wechat_send": "正在发送微信消息",
         }
         return descriptions.get(intent, f"正在处理 {intent}")
 
@@ -472,7 +463,7 @@ class SlotValidator:
         "field_value": "字段值",
     }
 
-    def validate(self, intent: str, slots: Dict[str, Any]) -> tuple[bool, List[str]]:
+    def validate(self, intent: str, slots: dict[str, Any]) -> tuple[bool, list[str]]:
         """验证槽位"""
         if intent not in self.REQUIRED_SLOTS:
             return True, []
@@ -482,7 +473,9 @@ class SlotValidator:
 
         return len(missing) == 0, missing
 
-    def build_followup(self, intent: str, missing_slots: List[str], current_slots: Dict[str, Any] = None) -> str:
+    def build_followup(
+        self, intent: str, missing_slots: list[str], current_slots: dict[str, Any] = None
+    ) -> str:
         """生成追问文本"""
         if not missing_slots:
             return ""
@@ -509,7 +502,7 @@ class SlotValidator:
         return f"请问{self.SLOT_LABELS.get(slot, slot)}是多少呢？"
 
 
-_coordinator: Optional[UnifiedConversationCoordinator] = None
+_coordinator: UnifiedConversationCoordinator | None = None
 
 
 def get_conversation_coordinator() -> UnifiedConversationCoordinator:

@@ -18,7 +18,8 @@ spec:
     spec:
       containers:
       - name: xcagi
-        image: xcagi:latest
+        # Replaced by CI (.github/workflows/deploy.yml sed) or local: set to ghcr.io/<org>/<repo>/backend:<sha-or-semver>
+        image: __DEPLOY_BACKEND_IMAGE__
         ports:
         - containerPort: 5000
           name: http

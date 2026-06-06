@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import difflib
 import re
-from typing import Any, Callable, Dict, List, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from app.bootstrap import get_shipment_app_service
 from app.db.models import Product
 from app.db.session import get_db
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
 
 
 class ShipmentNumberModeService:
@@ -32,9 +31,9 @@ class ShipmentNumberModeService:
         text = re.sub(r"[\s\-_()（）【】\[\]·,，.。/\\]+", "", text)
         return text
 
-    def _query_active_purchase_unit_names(self) -> List[str]:
-        from app.db.session import get_db
+    def _query_active_purchase_unit_names(self) -> list[str]:
         from app.db.models.purchase_unit import PurchaseUnit
+        from app.db.session import get_db
 
         with get_db() as db:
             rows = (
@@ -45,7 +44,7 @@ class ShipmentNumberModeService:
             )
             return [str(r[0]).strip() for r in rows if r and str(r[0]).strip()]
 
-    def _resolve_unit_alias(self, typed_unit: str, unit_pool: List[str]) -> str:
+    def _resolve_unit_alias(self, typed_unit: str, unit_pool: list[str]) -> str:
         typed = (typed_unit or "").strip()
         if not typed or not unit_pool:
             return ""
@@ -71,14 +70,14 @@ class ShipmentNumberModeService:
 
         for normalized_typed in normalized_candidates:
             normalized_exact = [
-                unit for unit in unit_pool
-                if self._normalize_unit_name(unit) == normalized_typed
+                unit for unit in unit_pool if self._normalize_unit_name(unit) == normalized_typed
             ]
             if len(normalized_exact) == 1:
                 return normalized_exact[0]
 
             contains = [
-                unit for unit in unit_pool
+                unit
+                for unit in unit_pool
                 if normalized_typed in self._normalize_unit_name(unit)
                 or self._normalize_unit_name(unit) in normalized_typed
             ]
@@ -115,14 +114,14 @@ class ShipmentNumberModeService:
                 return top_name
         return ""
 
-    def _extract_existing_unit_from_modify_text(self, text: str, all_units: List[str]) -> str:
+    def _extract_existing_unit_from_modify_text(self, text: str, all_units: list[str]) -> str:
         source_text = (text or "").strip()
         if not source_text or not all_units:
             return ""
         action_match = self.MODIFY_VERB_PATTERN.search(source_text)
         if not action_match:
             return ""
-        prefix = source_text[:action_match.start()]
+        prefix = source_text[: action_match.start()]
         matches = [unit for unit in all_units if unit and unit in prefix]
         if not matches:
             return ""
@@ -133,9 +132,9 @@ class ShipmentNumberModeService:
         self,
         *,
         text: str,
-        unit_pool: List[str],
-        model_pool: List[str],
-    ) -> Dict[str, Any]:
+        unit_pool: list[str],
+        model_pool: list[str],
+    ) -> dict[str, Any]:
         """
         基于 XCAGI 实际词条做轻量解析：
         - 单位：最长子串命中 purchase_units
@@ -221,15 +220,15 @@ class ShipmentNumberModeService:
         }
 
     def _build_unit_not_found_payload(
-        self, typed_unit: str, all_units: List[str]
-    ) -> Dict[str, Any]:
+        self, typed_unit: str, all_units: list[str]
+    ) -> dict[str, Any]:
         typed = str(typed_unit or "").strip()
         if any(unit == typed for unit in all_units):
             return {}
 
         contains = [unit for unit in all_units if typed and (typed in unit or unit in typed)]
         fuzzy = difflib.get_close_matches(typed, all_units, n=5, cutoff=0.35) if typed else []
-        suggestions: List[str] = []
+        suggestions: list[str] = []
         for unit in contains + fuzzy:
             if unit and unit not in suggestions:
                 suggestions.append(unit)
@@ -244,8 +243,7 @@ class ShipmentNumberModeService:
             )
         else:
             message = (
-                f"未找到购买单位：{typed}。"
-                "请先创建该购买单位，或输入已存在的单位名称后再生成。"
+                f"未找到购买单位：{typed}。" "请先创建该购买单位，或输入已存在的单位名称后再生成。"
             )
 
         return {
@@ -260,7 +258,7 @@ class ShipmentNumberModeService:
         }
 
     @staticmethod
-    def _normalize_success_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_success_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(payload, dict):
             return payload
 
@@ -308,9 +306,9 @@ class ShipmentNumberModeService:
         order_text: str,
         custom_order_number: str,
         direct_unit_name: str,
-        direct_products: List[Dict[str, Any]],
-        parse_order_text: Callable[[str], Dict[str, Any]],
-    ) -> Tuple[Dict[str, Any], int]:
+        direct_products: list[dict[str, Any]],
+        parse_order_text: Callable[[str], dict[str, Any]],
+    ) -> tuple[dict[str, Any], int]:
         text = str(order_text or "").strip()
         if not text and not (direct_unit_name and direct_products):
             return {
@@ -323,7 +321,7 @@ class ShipmentNumberModeService:
         unit_to_use = str(direct_unit_name or "").strip()
         parsed = {"success": False, "unit_name": "", "products": []}
 
-        model_pool: List[str] = []
+        model_pool: list[str] = []
         if text:
             parsed = parse_order_text(text) or {}
 
@@ -332,7 +330,11 @@ class ShipmentNumberModeService:
                 with get_db() as db:
                     model_rows = (
                         db.query(Product.model_number)
-                        .filter((Product.is_active == 1) | (Product.is_active == True) | (Product.is_active.is_(None)))
+                        .filter(
+                            (Product.is_active == 1)
+                            | (Product.is_active == True)
+                            | (Product.is_active.is_(None))
+                        )
                         .all()
                     )
                 model_pool = [
@@ -399,7 +401,11 @@ class ShipmentNumberModeService:
         with get_db() as db:
             product_rows = (
                 db.query(Product.model_number, Product.name)
-                .filter((Product.is_active == 1) | (Product.is_active == True) | (Product.is_active.is_(None)))
+                .filter(
+                    (Product.is_active == 1)
+                    | (Product.is_active == True)
+                    | (Product.is_active.is_(None))
+                )
                 .all()
             )
 
@@ -409,9 +415,7 @@ class ShipmentNumberModeService:
             if str(model or "").strip()
         }
         name_pool = {
-            str(name or "").strip()
-            for _model, name in product_rows
-            if str(name or "").strip()
+            str(name or "").strip() for _model, name in product_rows if str(name or "").strip()
         }
 
         for idx, product in enumerate(products, start=1):
@@ -489,5 +493,6 @@ class ShipmentNumberModeService:
 # NEURO-DDD: 为 Services 层类添加 instrumentation
 from app.neuro_bus.neuro_service_instrumentation import instrument_service_layer_class
 
-instrument_service_layer_class(ShipmentNumberModeService, "app.services.shipment_number_mode_service")
-
+instrument_service_layer_class(
+    ShipmentNumberModeService, "app.services.shipment_number_mode_service"
+)

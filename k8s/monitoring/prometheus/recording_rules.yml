@@ -1,0 +1,31 @@
+# SLO recording rules — 与 docs/SLO.md / alert_rules.yml 指标名对齐
+groups:
+  - name: xcagi_slo_recording
+    interval: 30s
+    rules:
+      - record: xcagi:api_requests:rate5m
+        expr: sum(rate(api_requests_total{job="xcagi-backend"}[5m]))
+
+      - record: xcagi:api_errors:rate5m
+        expr: sum(rate(api_requests_total{job="xcagi-backend",status=~"5.."}[5m]))
+
+      - record: xcagi:api_error_ratio:rate5m
+        expr: |
+          xcagi:api_errors:rate5m
+          / clamp_min(xcagi:api_requests:rate5m, 1)
+
+      - record: xcagi:api_latency_p95:5m
+        expr: histogram_quantile(
+          0.95,
+          sum by (le) (rate(api_request_duration_seconds_bucket{job="xcagi-backend"}[5m]))
+          )
+
+      - alert: SLOBudgetBurningFast
+        expr: xcagi:api_error_ratio:rate5m > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "SLO 错误预算快速燃烧（5xx > 5%）"
+          description: "5m 错误率 {{ $value | humanizePercentage }}，考虑 canary 回滚。"

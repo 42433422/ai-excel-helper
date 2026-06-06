@@ -2,6 +2,7 @@ from docx import Document
 import os
 from datetime import datetime
 
+
 def create_sales_contract(
     template_path: str,
     output_path: str,
@@ -10,7 +11,7 @@ def create_sales_contract(
     contract_date: str = None,
     return_buckets_expected: int = 0,
     return_buckets_actual: int = 0,
-    products: list = None
+    products: list = None,
 ):
     """
     创建销售合同及送货凭证
@@ -40,7 +41,9 @@ def create_sales_contract(
                 if "TEL" in run.text:
                     run.text = f"电话：{customer_phone}\t" if customer_phone else "电话：\t"
 
-        if full_text.strip().startswith("ADDRESS") or ("ADDRESS" in full_text and "DATE" in full_text):
+        if full_text.strip().startswith("ADDRESS") or (
+            "ADDRESS" in full_text and "DATE" in full_text
+        ):
             for run in para.runs:
                 if "ADDRESS" in run.text:
                     run.text = run.text.replace("ADDRESS", customer_name)
@@ -58,7 +61,7 @@ def create_sales_contract(
                 "unit": "桶",
                 "quantity": "10 KG",
                 "unit_price": "39.2",
-                "amount": "392"
+                "amount": "392",
             }
         ]
 
@@ -116,7 +119,9 @@ def create_sales_contract(
             if "实退桶(  )" in cell.text:
                 cell.text = cell.text.replace("(  )", f"({return_buckets_actual})")
 
-    os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
+    os.makedirs(
+        os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True
+    )
     doc.save(output_path)
     print(f"销售合同已生成: {output_path}")
     return output_path
@@ -142,7 +147,7 @@ if __name__ == "__main__":
                 "unit": "桶",
                 "quantity": "10 KG",
                 "unit_price": "39.2",
-                "amount": "392"
+                "amount": "392",
             }
-        ]
+        ],
     )

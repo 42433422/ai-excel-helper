@@ -1,0 +1,35 @@
+name: Intent Accuracy Benchmark
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r deploy/requirements-server-api.txt pytest
+
+      - name: Run intent golden set benchmark
+        env:
+          XCAGI_SKIP_INTENT_LLM: "1"
+        run: |
+          python -m pytest tests/benchmarks/test_intent_accuracy.py -v --tb=short
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: intent-benchmark-report
+          path: test_reports/intent_benchmark_latest.json
+          if-no-files-found: ignore

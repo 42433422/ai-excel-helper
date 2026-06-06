@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 from app.domain.value_objects import ContactInfo
 
@@ -8,7 +7,8 @@ from app.domain.value_objects import ContactInfo
 @dataclass
 class Customer:
     """客户实体"""
-    id: Optional[int] = None
+
+    id: int | None = None
     customer_name: str = ""
     contact_info: ContactInfo = field(default_factory=lambda: ContactInfo("", ""))
     created_at: datetime = field(default_factory=datetime.now)
@@ -30,7 +30,9 @@ class Customer:
         }
 
     @classmethod
-    def create(cls, customer_name: str, contact_person: str = "", phone: str = "", address: str = "") -> 'Customer':
+    def create(
+        cls, customer_name: str, contact_person: str = "", phone: str = "", address: str = ""
+    ) -> "Customer":
         return cls(
             customer_name=customer_name,
             contact_info=ContactInfo(person=contact_person, phone=phone, address=address),
@@ -40,7 +42,8 @@ class Customer:
 @dataclass
 class PurchaseUnit:
     """购买单位实体"""
-    id: Optional[int] = None
+
+    id: int | None = None
     unit_name: str = ""
     contact_person: str = ""
     contact_phone: str = ""
@@ -58,9 +61,7 @@ class PurchaseUnit:
 
     def get_contact_info(self) -> ContactInfo:
         return ContactInfo(
-            person=self.contact_person,
-            phone=self.contact_phone,
-            address=self.address
+            person=self.contact_person, phone=self.contact_phone, address=self.address
         )
 
     def apply_discount(self, original_price: float) -> float:
@@ -80,5 +81,5 @@ class PurchaseUnit:
         }
 
     @classmethod
-    def create(cls, unit_name: str, discount_rate: float = 1.0) -> 'PurchaseUnit':
+    def create(cls, unit_name: str, discount_rate: float = 1.0) -> "PurchaseUnit":
         return cls(unit_name=unit_name, discount_rate=discount_rate)

@@ -171,6 +171,14 @@ const menuItemsBase = [
 ]
 
 const industryMenuNameMap = {
+  考勤: {
+    products: '人员管理',
+    materials: '排班资源',
+    orders: '考勤单管理',
+    'shipment-records': '考勤记录',
+    customers: '部门管理',
+    print: '考勤表打印'
+  },
   涂料: {
     products: '产品管理',
     materials: '原材料仓库',
@@ -206,8 +214,8 @@ const industryMenuNameMap = {
 }
 
 const menuItems = computed(() => {
-  const industryId = String(industryStore.currentIndustryId || '涂料')
-  const byIndustry = industryMenuNameMap[industryId] || industryMenuNameMap['涂料']
+  const industryId = String(industryStore.currentIndustryId || '考勤')
+  const byIndustry = industryMenuNameMap[industryId] || industryMenuNameMap['考勤']
   const localized = menuItemsBase.map((item) => ({
     ...item,
     name: byIndustry[item.key] || item.name

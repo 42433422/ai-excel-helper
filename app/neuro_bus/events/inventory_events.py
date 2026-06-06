@@ -5,18 +5,17 @@ Inventory 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class InventoryStockChangedEvent(NeuroEvent):
     """库存变动事件"""
-    
+
     event_type: str = "inventory.stock_changed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["product_id", "warehouse_id", "quantity_delta", "reason"]
@@ -28,10 +27,10 @@ class InventoryStockChangedEvent(NeuroEvent):
 @dataclass
 class InventoryLowStockAlertEvent(NeuroEvent):
     """库存不足预警事件"""
-    
+
     event_type: str = "inventory.low_stock_alert"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["product_id", "current_stock", "threshold"]
@@ -43,10 +42,10 @@ class InventoryLowStockAlertEvent(NeuroEvent):
 @dataclass
 class InventoryStockInEvent(NeuroEvent):
     """入库事件"""
-    
+
     event_type: str = "inventory.stock_in"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["product_id", "warehouse_id", "quantity", "batch_no"]
@@ -58,10 +57,10 @@ class InventoryStockInEvent(NeuroEvent):
 @dataclass
 class InventoryStockOutEvent(NeuroEvent):
     """出库事件"""
-    
+
     event_type: str = "inventory.stock_out"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["product_id", "warehouse_id", "quantity", "reference_id"]
@@ -73,10 +72,10 @@ class InventoryStockOutEvent(NeuroEvent):
 @dataclass
 class InventoryTransferEvent(NeuroEvent):
     """库存调拨事件"""
-    
+
     event_type: str = "inventory.transfer"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["product_id", "from_warehouse", "to_warehouse", "quantity"]
@@ -88,10 +87,10 @@ class InventoryTransferEvent(NeuroEvent):
 @dataclass
 class InventoryCheckCompletedEvent(NeuroEvent):
     """库存盘点完成事件"""
-    
+
     event_type: str = "inventory.check_completed"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["warehouse_id", "check_date", "differences"]

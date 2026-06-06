@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 import random
 from functools import lru_cache
-from typing import Dict
 
 
 def _truthy(raw: str) -> bool:
@@ -73,7 +72,12 @@ def is_neuro_domain_metrics_enabled() -> bool:
 
 def is_neuro_service_layer_trace_enabled() -> bool:
     """Services 层 trace；默认开启，设 XCAGI_NEURO_SERVICE_TRACE=0 关闭。"""
-    return os.environ.get("XCAGI_NEURO_SERVICE_TRACE", "1").strip().lower() not in {"0", "false", "off", "no"}
+    return os.environ.get("XCAGI_NEURO_SERVICE_TRACE", "1").strip().lower() not in {
+        "0",
+        "false",
+        "off",
+        "no",
+    }
 
 
 def clear_neuro_trace_config_cache() -> None:
@@ -82,7 +86,7 @@ def clear_neuro_trace_config_cache() -> None:
 
 
 # 各 NeuroDomain handler 在 XCAGI_NEURO_DOMAIN_METRICS=1 时的轻量计数（无副作用）。
-_DOMAIN_HANDLER_METRICS: Dict[str, int] = {}
+_DOMAIN_HANDLER_METRICS: dict[str, int] = {}
 
 
 def bump_domain_handler_metric(metric_key: str) -> None:
@@ -95,7 +99,7 @@ def bump_domain_handler_metric(metric_key: str) -> None:
         pass
 
 
-def get_domain_handler_metrics() -> Dict[str, int]:
+def get_domain_handler_metrics() -> dict[str, int]:
     return dict(_DOMAIN_HANDLER_METRICS)
 
 

@@ -5,9 +5,9 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
 
-from app.neuro_bus.domains.base import NeuroDomain, DomainChannel, get_domain_registry
+from app.neuro_bus.domains.base import DomainChannel, NeuroDomain, get_domain_registry
 from app.neuro_bus.events.base import EventPriority
 from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class PrintNeuroDomain(NeuroDomain):
     """
     打印神经域
-    
+
     事件：
     - print.job.submitted
     - print.job.started
@@ -25,16 +25,16 @@ class PrintNeuroDomain(NeuroDomain):
     - print.job.failed
     - print.printer.error
     """
-    
+
     domain_name = "print"
     default_channel = DomainChannel.STANDARD
-    
+
     def __init__(self, bus=None):
         super().__init__(bus)
         self._active_jobs = 0
         self._completed_jobs = 0
         self._setup_handlers()
-    
+
     def _setup_handlers(self):
         @self.on("print.job.started", priority=2)
         async def on_started(event):
@@ -42,7 +42,7 @@ class PrintNeuroDomain(NeuroDomain):
             job_id = event.payload.get("job_id")
             logger.info(f"Print started: {job_id}")
             bump_domain_handler_metric("print.job.started")
-        
+
         @self.on("print.job.completed", priority=2)
         async def on_completed(event):
             self._active_jobs -= 1
@@ -50,13 +50,13 @@ class PrintNeuroDomain(NeuroDomain):
             job_id = event.payload.get("job_id")
             logger.info(f"Print completed: {job_id}")
             bump_domain_handler_metric("print.job.completed")
-    
+
     async def initialize(self):
         logger.info("PrintNeuroDomain initialized")
-    
+
     async def shutdown(self):
         logger.info("PrintNeuroDomain shutdown")
-    
+
     def emit_job_submitted(
         self,
         job_id: str,
@@ -72,9 +72,9 @@ class PrintNeuroDomain(NeuroDomain):
                 "document_name": document_name,
                 "printer_id": printer_id,
                 "copies": copies,
-            }
+            },
         )
-    
+
     def emit_job_completed(
         self,
         job_id: str,
@@ -88,10 +88,10 @@ class PrintNeuroDomain(NeuroDomain):
                 "job_id": job_id,
                 "pages_printed": pages_printed,
                 "duration_ms": duration_ms,
-            }
+            },
         )
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         base = super().get_stats()
         return {
             **base,
@@ -100,7 +100,7 @@ class PrintNeuroDomain(NeuroDomain):
         }
 
 
-_print_domain: Optional[PrintNeuroDomain] = None
+_print_domain: PrintNeuroDomain | None = None
 
 
 def get_print_domain() -> PrintNeuroDomain:

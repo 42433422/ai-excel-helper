@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """工作区相对路径安全解析（SDK re-export）。
 
 ``resolve_safe_workspace_relpath(rel)`` 防止 Mod 误用 ``../`` 越狱到工作区外；

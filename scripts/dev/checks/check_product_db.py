@@ -23,7 +23,9 @@ for row in rows:
 
 # 查看特定型号
 print("\n特定型号数据 (3721, 1870D, 8828):")
-cur.execute("SELECT model_number, name, specification, unit, price FROM products WHERE model_number IN ('3721', '1870D', '8828')")
+cur.execute(
+    "SELECT model_number, name, specification, unit, price FROM products WHERE model_number IN ('3721', '1870D', '8828')"
+)
 rows = cur.fetchall()
 for row in rows:
     print(f"  型号：{row[0]}, 名称：{row[1]}, 规格：{row[2]}, unit: {row[3]}, 价格：{row[4]}")

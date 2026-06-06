@@ -1,7 +1,7 @@
 /** 工作流员工说明文档（JSON / 远程加载），与实现逻辑解耦，便于单独更新文案 */
 
 /** 与副窗列表分类一致：四名 AI 为内置；微信电话/真实电话为固定扩展行；Mod 员工由 manifest 追加 */
-export type WorkflowEmployeeKind = 'core' | 'fixed_extension'
+export type WorkflowEmployeeKind = 'core' | 'fixed_extension' | 'mod_extension'
 
 export type WorkflowBranchDoc = {
   id: string

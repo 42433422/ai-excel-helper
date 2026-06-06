@@ -7,9 +7,9 @@ import json
 import os
 import shutil
 import urllib.request
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
 
 from .paths import ensure_desktop_dirs
 
@@ -79,5 +79,7 @@ def download_model(
     return target
 
 
-def ensure_models(assets: Iterable[ModelAsset], *, data_dir: str | os.PathLike[str] | None = None) -> list[Path]:
+def ensure_models(
+    assets: Iterable[ModelAsset], *, data_dir: str | os.PathLike[str] | None = None
+) -> list[Path]:
     return [download_model(asset, data_dir=data_dir) for asset in assets]

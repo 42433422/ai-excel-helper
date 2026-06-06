@@ -7,7 +7,7 @@
       aria-modal="true"
       aria-labelledby="fhd-global-read-title"
     >
-      <div class="fhd-read-gate-backdrop" @click="fabOpen = false" />
+      <div class="fhd-read-gate-backdrop" @click="onDismissSession" />
       <div class="fhd-read-gate-panel" @click.stop>
         <h2 id="fhd-global-read-title" class="fhd-read-gate-title">一级数据库口令（只读受保护接口）</h2>
         <p class="fhd-read-gate-desc">
@@ -24,11 +24,18 @@
           @keydown.enter.prevent="onUnlock"
         />
         <p v-if="errorText" class="fhd-read-gate-error">{{ errorText }}</p>
-        <div class="fhd-read-gate-actions">
+        <div class="fhd-read-gate-actions fhd-read-gate-actions-row">
           <button type="button" class="fhd-read-gate-btn" :disabled="busy" @click="onUnlock">
             {{ busy ? '验证中…' : '保存并继续' }}
           </button>
+          <button type="button" class="fhd-read-gate-btn-secondary" :disabled="busy" @click="onDismissSession">
+            关闭提示（本标签页）
+          </button>
         </div>
+        <p class="fhd-read-gate-hint">
+          点灰色背景或按 Esc 与「关闭提示」相同：本标签页内不再弹出（新开标签页不受影响）。若不需要弹窗：构建或 <code>.env.local</code> 设
+          <code>VITE_DISABLE_GLOBAL_READ_TOKEN_PROMPT=1</code>；或服务器取消 <code>FHD_DB_READ_TOKEN</code> / 设 <code>FHD_DISABLE_DB_READ_LOCK=1</code>。
+        </p>
       </div>
     </div>
     <button
@@ -57,6 +64,18 @@ import {
 
 const props = defineProps<{ apiBase?: string }>();
 
+/** 本标签页内用户主动关闭一级口令弹窗后不再弹出（受保护 GET 仍可能 403，直至输入正确口令或关读锁）。 */
+const SS_SKIP_READ_GATE = 'xcagi_skip_fhd_read_gate_session';
+
+function isReadPromptSuppressed(): boolean {
+  if (import.meta.env.VITE_DISABLE_GLOBAL_READ_TOKEN_PROMPT === '1') return true;
+  try {
+    return sessionStorage.getItem(SS_SKIP_READ_GATE) === '1';
+  } catch {
+    return false;
+  }
+}
+
 const booting = ref(true);
 const blocked = ref(false);
 const fabOpen = ref(false);
@@ -73,8 +92,32 @@ function dispatchUnlocked() {
   }
 }
 
+function onDismissSession() {
+  try {
+    sessionStorage.setItem(SS_SKIP_READ_GATE, '1');
+  } catch {
+    /* ignore */
+  }
+  blocked.value = false;
+  fabOpen.value = false;
+  booting.value = false;
+  errorText.value = '';
+}
+
+function onEscapeDismiss(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || !showOverlay.value) return;
+  e.preventDefault();
+  onDismissSession();
+}
+
 async function evaluate() {
   errorText.value = '';
+  if (isReadPromptSuppressed()) {
+    booting.value = false;
+    blocked.value = false;
+    fabOpen.value = false;
+    return;
+  }
   const state = await getProductsReadLockState(props.apiBase || '');
   booting.value = false;
   if (state === 'open') {
@@ -131,6 +174,7 @@ function onStorage(e: StorageEvent) {
 
 /** 受保护接口 403（如销售合同话术解析）时由 api/core 派发，避免只报错不弹窗。 */
 function onPromptFromApi() {
+  if (isReadPromptSuppressed()) return;
   booting.value = false;
   blocked.value = true;
   fabOpen.value = true;
@@ -146,6 +190,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', onEscapeDismiss);
   window.removeEventListener('storage', onStorage);
   window.removeEventListener(XCAGI_PROMPT_DB_READ_TOKEN_EVENT, onPromptFromApi);
 });
@@ -156,6 +201,15 @@ watch(
     booting.value = true;
     void evaluate();
   },
+);
+
+watch(
+  showOverlay,
+  (open) => {
+    if (open) window.addEventListener('keydown', onEscapeDismiss);
+    else window.removeEventListener('keydown', onEscapeDismiss);
+  },
+  { flush: 'post' },
 );
 </script>
 
@@ -216,6 +270,34 @@ watch(
 }
 .fhd-read-gate-actions {
   margin-top: 18px;
+}
+.fhd-read-gate-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.fhd-read-gate-btn-secondary {
+  padding: 10px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.fhd-read-gate-btn-secondary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.fhd-read-gate-hint {
+  margin: 14px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #64748b;
+}
+.fhd-read-gate-hint code {
+  font-size: 0.76rem;
 }
 .fhd-read-gate-btn {
   padding: 10px 20px;

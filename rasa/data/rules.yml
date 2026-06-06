@@ -1,0 +1,13 @@
+version: "3.1"
+
+rules:
+- rule: handle_negation
+  steps:
+  - intent: negation_test
+  - action: utter_cancel
+
+- rule: default_fallback
+  steps:
+  - intent: nlu_fallback
+  - action: utter_default
+

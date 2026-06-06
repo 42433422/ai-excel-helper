@@ -1,11 +1,11 @@
-"""原材料 API（自归档 Flask materials 蓝图迁移）。"""
+"""原材料 API（继承自归档 materials 蓝图的端点契约）。"""
 
 from __future__ import annotations
 
 import logging
 import os
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Body, Query
 from fastapi.responses import FileResponse, JSONResponse
@@ -25,12 +25,16 @@ def _svc():
 def add_material(data: dict[str, Any] = Body(default_factory=dict)):
     try:
         if "name" not in data:
-            return JSONResponse({"success": False, "message": "原材料名称不能为空"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "原材料名称不能为空"}, status_code=400
+            )
 
         name = data.get("name")
         if isinstance(name, str):
             if name == "":
-                return JSONResponse({"success": False, "message": "原材料名称不能为空"}, status_code=400)
+                return JSONResponse(
+                    {"success": False, "message": "原材料名称不能为空"}, status_code=400
+                )
             name_str = name
         else:
             name_str = str(name)
@@ -59,8 +63,8 @@ def add_material(data: dict[str, Any] = Body(default_factory=dict)):
 def get_materials(
     search: str = "",
     category: str = "",
-    page: Optional[int] = Query(default=None),
-    per_page: Optional[int] = Query(default=None),
+    page: int | None = Query(default=None),
+    per_page: int | None = Query(default=None),
 ):
     try:
         page_v = page if isinstance(page, int) and page > 0 else 1
@@ -89,7 +93,9 @@ def update_material(material_id: int, data: dict[str, Any] = Body(default_factor
             for k, v in (data or {}).items():
                 if v is not None:
                     payload[k] = v
-        return JSONResponse({"success": True, "message": "更新成功", "data": payload}, status_code=200)
+        return JSONResponse(
+            {"success": True, "message": "更新成功", "data": payload}, status_code=200
+        )
     except Exception as e:
         logger.error("更新原材料失败：%s", e)
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
@@ -109,7 +115,9 @@ def delete_material(material_id: int):
 def batch_delete_materials(data: dict[str, Any] = Body(default_factory=dict)):
     try:
         if not isinstance(data, dict):
-            return JSONResponse({"success": False, "message": "请求体必须是 JSON 对象"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "请求体必须是 JSON 对象"}, status_code=400
+            )
 
         ids = data.get("material_ids")
         if ids is None:
@@ -142,7 +150,7 @@ def batch_delete_materials(data: dict[str, Any] = Body(default_factory=dict)):
 
 
 @router.get("/api/materials/low-stock")
-def get_low_stock_materials(threshold: Optional[float] = Query(default=None)):
+def get_low_stock_materials(threshold: float | None = Query(default=None)):
     try:
         result = _svc().get_low_stock_materials(threshold=threshold)
         return JSONResponse(result, status_code=200)
@@ -153,9 +161,9 @@ def get_low_stock_materials(threshold: Optional[float] = Query(default=None)):
 
 @router.get("/api/materials/export")
 def export_materials(
-    search: Optional[str] = Query(default=None),
-    category: Optional[str] = Query(default=None),
-    template_id: Optional[str] = Query(default=None),
+    search: str | None = Query(default=None),
+    category: str | None = Query(default=None),
+    template_id: str | None = Query(default=None),
 ):
     try:
         result = _svc().export_to_excel(search=search, category=category, template_id=template_id)

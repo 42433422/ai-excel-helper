@@ -1,4 +1,4 @@
-"""打印 API（自归档 Flask print 蓝图迁移）。"""
+"""打印 API（继承自归档 print 蓝图的端点契约）。"""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def _consume_print_confirm_token(token: str) -> dict[str, Any]:
 
 def _svc():
     # 仅打印相关接口应保持轻量，避免 `import app.services` 触发重型依赖/循环导入导致卡死。
-    from app.services.printer_service import printer_service
+    from app.application.facades.print_facade import printer_service
 
     return printer_service
 
@@ -110,7 +110,9 @@ def save_printer_selection(data: dict[str, Any] = Body(default_factory=dict)):
                 status_code=400,
             )
         result = service.save_printer_selection(
-            document_printer=str(document_printer).strip() if document_printer is not None else None,
+            document_printer=(
+                str(document_printer).strip() if document_printer is not None else None
+            ),
             label_printer=str(label_printer).strip() if label_printer is not None else None,
         )
         result.update(service.classify_printers(printers))
@@ -142,7 +144,9 @@ def print_document(data: dict[str, Any] = Body(default_factory=dict)):
         if not file_path:
             return JSONResponse({"success": False, "message": "文件路径不能为空"}, status_code=400)
         if not os.path.exists(file_path):
-            return JSONResponse({"success": False, "message": f"文件不存在: {file_path}"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": f"文件不存在: {file_path}"}, status_code=400
+            )
         result = _svc().print_document(file_path, printer_name, use_automation)
         status_code = 200 if result.get("success") else 400
         return JSONResponse(result, status_code=status_code)
@@ -167,9 +171,13 @@ def print_label(data: dict[str, Any] = Body(default_factory=dict)):
         if not file_path:
             return JSONResponse({"success": False, "message": "文件路径不能为空"}, status_code=400)
         if not os.path.exists(file_path):
-            return JSONResponse({"success": False, "message": f"文件不存在: {file_path}"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": f"文件不存在: {file_path}"}, status_code=400
+            )
         if copies < 1 or copies > 100:
-            return JSONResponse({"success": False, "message": "打印份数必须在1-100之间"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "打印份数必须在1-100之间"}, status_code=400
+            )
 
         service = _svc()
         if require_confirm:
@@ -230,7 +238,9 @@ def print_label(data: dict[str, Any] = Body(default_factory=dict)):
         return JSONResponse(result, status_code=status_code)
     except Exception as e:
         logger.error("打印标签失败: %s", e, exc_info=True)
-        return JSONResponse({"success": False, "message": f"打印标签失败: {str(e)}"}, status_code=500)
+        return JSONResponse(
+            {"success": False, "message": f"打印标签失败: {str(e)}"}, status_code=500
+        )
 
 
 @router.post("/test")
@@ -238,7 +248,9 @@ def test_printer_post(data: dict[str, Any] = Body(default_factory=dict)):
     try:
         printer_name = data.get("printer_name", "")
         if not printer_name:
-            return JSONResponse({"success": False, "message": "打印机名称不能为空"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "打印机名称不能为空"}, status_code=400
+            )
         result = _svc().test_printer(printer_name)
         return JSONResponse(result)
     except Exception as e:
@@ -291,6 +303,62 @@ def test_print_service_get():
             "message": "打印服务运行正常",
         }
     )
+
+
+@router.post("/workflow/label-print/dispatch")
+def workflow_label_print_dispatch(data: dict[str, Any] = Body(default_factory=dict)):
+    """工作流标签打印调度接口——幂等，同一 idempotency_key 重复调用仅执行一次打印。"""
+    idempotency_key = str(data.get("idempotency_key") or "").strip()
+    model_number = str(data.get("model_number") or "").strip()
+    quantity = max(1, min(100, int(data.get("quantity") or 1)))
+
+    if not model_number:
+        return JSONResponse({"success": False, "message": "model_number 不能为空"}, status_code=400)
+
+    # 检查幂等缓存（5 分钟 TTL，与打印确认 token 同机制）
+    if idempotency_key:
+        cached = _print_confirm_cache.get(f"wf_lp:{idempotency_key}")
+        if cached and float(cached.get("expires_at", 0)) > time.time():
+            return JSONResponse(
+                {"success": True, "message": "已在幂等窗口内执行过，跳过重复打印", "skipped": True},
+                status_code=200,
+            )
+        # 写入幂等标记
+        _print_confirm_cache[f"wf_lp:{idempotency_key}"] = {
+            "model_number": model_number,
+            "expires_at": time.time() + _PRINT_CONFIRM_TTL_SECONDS,
+        }
+
+    try:
+        from app.application.print_app_service import get_print_application_service
+
+        product_name = model_number
+        specification: str | None = None
+        unit = "个"
+        try:
+            from app.application import get_product_app_service
+
+            products = get_product_app_service().search_products(keyword=model_number, limit=1)
+            if products and isinstance(products, list):
+                p = products[0]
+                product_name = str(p.get("name") or p.get("product_name") or model_number)
+                specification = str(p.get("specification") or p.get("spec") or "") or None
+                unit = str(p.get("unit") or "个")
+        except Exception as lookup_err:
+            logger.warning("workflow_label_print_dispatch: 产品查找失败: %s", lookup_err)
+
+        result = get_print_application_service().print_single_label(
+            product_name=product_name,
+            model_number=model_number or None,
+            specification=specification,
+            unit=unit,
+            quantity=quantity,
+        )
+        status = 200 if result.get("success") else 400
+        return JSONResponse(result, status_code=status)
+    except Exception as e:
+        logger.error("workflow_label_print_dispatch 失败: %s", e, exc_info=True)
+        return JSONResponse({"success": False, "message": f"打印失败: {e}"}, status_code=500)
 
 
 @router.get("/list_labels")

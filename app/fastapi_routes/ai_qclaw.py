@@ -164,8 +164,15 @@ def ai_qclaw_openclaw_chat(body: dict = Body(default_factory=dict)):
     except urllib.error.HTTPError as err:
         b = err.read().decode("utf-8", errors="replace")
         return JSONResponse(
-            {"success": False, "target": target_url, "status_code": err.code, "message": b or str(err)},
+            {
+                "success": False,
+                "target": target_url,
+                "status_code": err.code,
+                "message": b or str(err),
+            },
             status_code=502,
         )
     except Exception as err:
-        return JSONResponse({"success": False, "target": target_url, "message": str(err)}, status_code=502)
+        return JSONResponse(
+            {"success": False, "target": target_url, "message": str(err)}, status_code=502
+        )

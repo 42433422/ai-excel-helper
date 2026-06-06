@@ -4,13 +4,15 @@
 负责价格计算和折扣策略
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 class CustomerType(Enum):
     """客户类型"""
+
     RETAIL = "retail"
     WHOLESALE = "wholesale"
     VIP = "vip"
@@ -20,6 +22,7 @@ class CustomerType(Enum):
 @dataclass
 class PriceBreakdown:
     """价格明细"""
+
     base_price: float
     discount: float
     tax: float
@@ -37,7 +40,7 @@ class PricingEngine:
     """
 
     def __init__(self):
-        self._discount_strategies: Dict[CustomerType, Callable] = {
+        self._discount_strategies: dict[CustomerType, Callable] = {
             CustomerType.VIP: self._vip_discount,
             CustomerType.DISTRIBUTOR: self._distributor_discount,
             CustomerType.WHOLESALE: self._wholesale_discount,
@@ -50,7 +53,7 @@ class PricingEngine:
         base_price: float,
         quantity: int,
         customer_type: CustomerType = CustomerType.RETAIL,
-        **kwargs
+        **kwargs,
     ) -> PriceBreakdown:
         """
         计算价格
@@ -66,10 +69,7 @@ class PricingEngine:
         """
         subtotal = base_price * quantity
 
-        discount_strategy = self._discount_strategies.get(
-            customer_type,
-            self._retail_discount
-        )
+        discount_strategy = self._discount_strategies.get(customer_type, self._retail_discount)
         discount = discount_strategy(subtotal, **kwargs)
 
         discounted_subtotal = subtotal - discount
@@ -79,10 +79,7 @@ class PricingEngine:
         total = discounted_subtotal + tax
 
         return PriceBreakdown(
-            base_price=base_price,
-            discount=discount,
-            tax=round(tax, 2),
-            total=round(total, 2)
+            base_price=base_price, discount=discount, tax=round(tax, 2), total=round(total, 2)
         )
 
     def _vip_discount(self, subtotal: float, **kwargs) -> float:
@@ -111,11 +108,7 @@ class PricingEngine:
         """零售客户折扣"""
         return 0.0
 
-    def calculate_bulk_discount(
-        self,
-        items: List[Dict[str, Any]],
-        threshold: int = 10
-    ) -> float:
+    def calculate_bulk_discount(self, items: list[dict[str, Any]], threshold: int = 10) -> float:
         """
         计算批量折扣
 
@@ -129,10 +122,7 @@ class PricingEngine:
         if len(items) < threshold:
             return 0.0
 
-        subtotal = sum(
-            item.get("price", 0.0) * item.get("quantity", 1)
-            for item in items
-        )
+        subtotal = sum(item.get("price", 0.0) * item.get("quantity", 1) for item in items)
 
         if len(items) >= 20:
             return subtotal * 0.05

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """RASA NLU 意图识别服务（深度落地版）。
 
 此模块是 RASA 能力在 FHD 里的 **真实落地点**，提供：
@@ -34,7 +33,7 @@ import asyncio
 import glob
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_CONFIDENCE = 0.7
 
 
-def _find_latest_local_model() -> Optional[str]:
+def _find_latest_local_model() -> str | None:
     """在仓库内查找最新的 RASA 模型文件。
 
     查找顺序（取首个存在的目录）：
@@ -55,7 +54,7 @@ def _find_latest_local_model() -> Optional[str]:
     # app/ai_engines/rasa/nlu_service.py -> repo root = four levels up
     here = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
-    candidates: List[str] = [
+    candidates: list[str] = [
         os.path.join(repo_root, "rasa", "models"),
         os.path.join(repo_root, "XCAGI", "rasa", "models"),
     ]
@@ -77,18 +76,20 @@ class RasaNLUService:
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
-        rasa_url: Optional[str] = None,
-        use_server: Optional[bool] = None,
-        confidence_threshold: Optional[float] = None,
+        model_path: str | None = None,
+        rasa_url: str | None = None,
+        use_server: bool | None = None,
+        confidence_threshold: float | None = None,
         *,
-        enabled: Optional[bool] = None,
+        enabled: bool | None = None,
     ) -> None:
         enable_flag = (os.environ.get("ENABLE_RASA", "1") or "1").strip().lower()
         self._enabled = enabled if enabled is not None else enable_flag not in {"0", "false", "no"}
 
         self.model_path = model_path or os.environ.get("RASA_MODEL_PATH") or None
-        self.rasa_url = (rasa_url or os.environ.get("RASA_SERVER_URL") or "http://localhost:5005").rstrip("/")
+        self.rasa_url = (
+            rasa_url or os.environ.get("RASA_SERVER_URL") or "http://localhost:5005"
+        ).rstrip("/")
 
         if use_server is None:
             env_flag = (os.environ.get("RASA_USE_SERVER", "") or "").strip().lower()
@@ -98,14 +99,16 @@ class RasaNLUService:
 
         if confidence_threshold is None:
             try:
-                confidence_threshold = float(os.environ.get("RASA_CONFIDENCE_THRESHOLD", _DEFAULT_CONFIDENCE))
+                confidence_threshold = float(
+                    os.environ.get("RASA_CONFIDENCE_THRESHOLD", _DEFAULT_CONFIDENCE)
+                )
             except (TypeError, ValueError):
                 confidence_threshold = _DEFAULT_CONFIDENCE
         self.confidence_threshold = float(confidence_threshold)
 
         self._agent: Any = None
-        self._load_error: Optional[str] = None
-        self._last_status: Dict[str, Any] = {
+        self._load_error: str | None = None
+        self._last_status: dict[str, Any] = {
             "mode": "server" if self.use_server else "embedded",
             "model_path": None,
             "agent_loaded": False,
@@ -157,7 +160,7 @@ class RasaNLUService:
     # ------------------------------------------------------------------
     # Parsing
     # ------------------------------------------------------------------
-    def parse(self, text: str) -> Dict[str, Any]:
+    def parse(self, text: str) -> dict[str, Any]:
         """同步解析（阻塞式，供规则层 / UnifiedIntentRecognizer 使用）。"""
 
         if not text or not str(text).strip():
@@ -174,12 +177,12 @@ class RasaNLUService:
                 return self._empty_result(self._load_error or "not_loaded")
         return self._parse_via_embedded(text)
 
-    async def parse_async(self, text: str) -> Dict[str, Any]:
+    async def parse_async(self, text: str) -> dict[str, Any]:
         """Async 包装，便于复用历史 ``async def parse`` 调用点。"""
 
         return await asyncio.to_thread(self.parse, text)
 
-    def _parse_via_server(self, text: str) -> Dict[str, Any]:
+    def _parse_via_server(self, text: str) -> dict[str, Any]:
         try:
             import requests  # type: ignore
         except Exception as e:
@@ -204,7 +207,7 @@ class RasaNLUService:
         except Exception as e:
             return self._empty_result(f"server_bad_json: {e}")
 
-    def _parse_via_embedded(self, text: str) -> Dict[str, Any]:
+    def _parse_via_embedded(self, text: str) -> dict[str, Any]:
         try:
             # rasa 的 parse_message 是 async；这里同步等待。
             result = asyncio.run(self._agent.parse_message(text))
@@ -222,7 +225,7 @@ class RasaNLUService:
     # ------------------------------------------------------------------
     # Status helpers
     # ------------------------------------------------------------------
-    def _empty_result(self, reason: str) -> Dict[str, Any]:
+    def _empty_result(self, reason: str) -> dict[str, Any]:
         return {
             "intent": {"name": None, "confidence": 0.0},
             "entities": [],
@@ -238,6 +241,7 @@ class RasaNLUService:
         if self.use_server:
             try:
                 import requests  # type: ignore
+
                 resp = requests.get(f"{self.rasa_url}/status", timeout=2)
                 self._last_status["server_reachable"] = resp.status_code == 200
                 return resp.status_code == 200
@@ -248,14 +252,14 @@ class RasaNLUService:
             self.load_model()
         return self._agent is not None
 
-    def get_intent_with_confidence(self, text: str) -> Tuple[Optional[str], float]:
+    def get_intent_with_confidence(self, text: str) -> tuple[str | None, float]:
         """取意图名 + 置信度（阈值不在此过滤，留给调用方）。"""
 
         result = self.parse(text)
         intent = (result.get("intent") or {}) if isinstance(result, dict) else {}
         return intent.get("name"), float(intent.get("confidence") or 0.0)
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """返回结构化状态，供健康检查/诊断端点消费。
 
         该方法不触发模型加载，以便健康探针廉价可用。
@@ -275,7 +279,7 @@ class RasaNLUService:
         return status
 
 
-_rasa_nlu_service: Optional[RasaNLUService] = None
+_rasa_nlu_service: RasaNLUService | None = None
 
 
 def get_rasa_nlu_service() -> RasaNLUService:

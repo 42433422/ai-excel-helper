@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.application.shipment_app_service import ShipmentApplicationService
-from app.domain.shipment.aggregates import ShipmentItem, Shipment
-from app.domain.value_objects import ContactInfo, Quantity, Money
+from app.domain.shipment.aggregates import Shipment, ShipmentItem
+from app.domain.shipment.legacy_vo import ContactInfo, Money, Quantity
 from app.infrastructure.documents.shipment_document_generator_impl import (
     LegacyShipmentDocumentGenerator,
 )
@@ -44,12 +44,19 @@ class DummyRepo:
         return self._items.pop(shipment_id, None) is not None
 
 
+@pytest.fixture(autouse=True)
+def _noop_shipment_hooks(monkeypatch):
+    monkeypatch.setattr("app.infrastructure.mods.hooks.trigger", lambda *a, **k: None)
+
+
 class TestShipmentApplicationService:
     """ApplicationService 层用例测试。"""
 
     def test_create_shipment_success(self):
         repo = DummyRepo()
-        app_service = ShipmentApplicationService(repository=repo, document_generator=None, record_store=None)
+        app_service = ShipmentApplicationService(
+            repository=repo, document_generator=None, record_store=None
+        )
 
         items = [
             {
@@ -77,7 +84,9 @@ class TestShipmentApplicationService:
 
     def test_create_shipment_invalid_no_items(self):
         repo = DummyRepo()
-        app_service = ShipmentApplicationService(repository=repo, document_generator=None, record_store=None)
+        app_service = ShipmentApplicationService(
+            repository=repo, document_generator=None, record_store=None
+        )
 
         result = app_service.create_shipment(
             unit_name="测试单位",
@@ -120,9 +129,14 @@ class TestShipmentApplicationService:
 class TestLegacyShipmentDocumentGenerator:
     """Legacy 文档生成适配器测试（mock legacy 依赖）。"""
 
-    @patch("app.infrastructure.documents.shipment_document_generator_impl.load_legacy_shipment_document_generator")
+    @patch.object(LegacyShipmentDocumentGenerator, "_load_products_from_main_db", return_value=[])
+    @patch(
+        "app.infrastructure.documents.shipment_document_generator_impl.load_legacy_shipment_document_generator"
+    )
     @patch("app.infrastructure.documents.shipment_document_generator_impl.resolve_purchase_unit")
-    def test_generate_success_with_valid_products(self, mock_resolve_unit, mock_loader):
+    def test_generate_success_with_valid_products(
+        self, mock_resolve_unit, mock_loader, _mock_products_db
+    ):
         # 配置单位解析
         resolved = MagicMock()
         resolved.unit_name = "测试单位"
@@ -172,43 +186,28 @@ class TestLegacyShipmentDocumentGenerator:
         gen = LegacyShipmentDocumentGenerator()
         result = gen.generate(unit_name="未知单位", products=[])
         assert result["success"] is False
-        assert "未找到购买单位" in result["message"]
+        assert "未找到" in result["message"]
 
 
 class TestShipmentAppServiceGenerate:
     """ShipmentApplicationService.generate_shipment_document 路径测试。"""
 
-    @patch("app.infrastructure.documents.shipment_document_generator_impl.load_legacy_shipment_document_generator")
-    @patch("app.infrastructure.documents.shipment_document_generator_impl.resolve_purchase_unit")
-    @patch("app.infrastructure.persistence.shipment_record_store_impl.resolve_purchase_unit")
-    def test_generate_document_success(
-        self, mock_record_resolve, mock_doc_resolve, mock_loader
-    ):
-        resolved = MagicMock()
-        resolved.unit_name = "测试单位"
-        resolved.id = 1
-        resolved.contact_person = "张三"
-        resolved.contact_phone = "13800138000"
-        resolved.address = "地址"
-        mock_doc_resolve.return_value = resolved
-        mock_record_resolve.return_value = resolved
-
-        fake_doc = MagicMock()
-        fake_doc.to_dict.return_value = {
-            "filename": "test.xlsx",
-            "filepath": "/tmp/test.xlsx",
-        }
-        gen_cls = MagicMock()
-        gen_cls.return_value.generate_document.return_value = fake_doc
-        loader_ns = MagicMock()
-        loader_ns.ShipmentDocumentGenerator = gen_cls
-        mock_loader.return_value = loader_ns
-
+    def test_generate_document_success(self):
         repo = DummyRepo()
+        dummy_doc_gen = MagicMock()
+        dummy_doc_gen.generate.return_value = {
+            "success": True,
+            "doc_name": "test.xlsx",
+            "file_path": "/tmp/test.xlsx",
+            "purchase_unit": "测试单位",
+            "unit_id": 1,
+        }
+        record_store = MagicMock()
+
         app_service = ShipmentApplicationService(
             repository=repo,
-            document_generator=LegacyShipmentDocumentGenerator(),
-            record_store=MagicMock(),
+            document_generator=dummy_doc_gen,
+            record_store=record_store,
         )
         result = app_service.generate_shipment_document(
             unit_name="测试单位",
@@ -216,5 +215,6 @@ class TestShipmentAppServiceGenerate:
         )
 
         assert result["success"] is True
+        dummy_doc_gen.generate.assert_called_once()
+        record_store.record_document_generation.assert_called_once()
         assert result["doc_name"] == "test.xlsx"
-

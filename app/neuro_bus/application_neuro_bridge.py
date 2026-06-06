@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,29 +22,19 @@ def _stack_on() -> bool:
         return False
 
 
-def _publish(event_type: str, payload: Dict[str, Any], domain: str) -> bool:
+def _publish(event_type: str, payload: dict[str, Any], domain: str) -> bool:
     if not _stack_on():
         return False
     try:
-        from app.neuro_bus.bus import get_neuro_bus
-        from app.neuro_bus.events.base import EventPriority, NeuroEvent
+        from app.mod_sdk.neuro_bus_runtime import publish_neuro_event_runtime
 
-        bus = get_neuro_bus()
-        if not bus.is_running:
-            return False
-        ev = NeuroEvent(
-            event_type=event_type,
-            payload=payload,
-            priority=EventPriority.NORMAL,
-        )
-        ev.with_domain(domain)
-        return bool(bus.publish(ev))
+        return publish_neuro_event_runtime(event_type, payload, domain)
     except Exception:
         logger.debug("application_neuro_bridge publish failed", exc_info=True)
         return False
 
 
-def publish_neuro_event(event_type: str, payload: Dict[str, Any], domain: str = "global") -> bool:
+def publish_neuro_event(event_type: str, payload: dict[str, Any], domain: str = "global") -> bool:
     """HTTP 中间件等外部入口使用的同步发布。"""
     return _publish(event_type, payload, domain)
 
@@ -86,12 +76,12 @@ def neuro_trace_app_service_call(
     method: str,
     phase: str,
     *,
-    duration_ms: Optional[float] = None,
-    error: Optional[str] = None,
-    extra: Optional[Dict[str, Any]] = None,
+    duration_ms: float | None = None,
+    error: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> None:
     """Application 层通用 trace（phase=start|end|error）。"""
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "service": service_name,
         "method": method,
         "phase": phase,
@@ -114,9 +104,9 @@ def neuro_trace_service_call(
     func_name: str,
     phase: str,
     *,
-    duration_ms: Optional[float] = None,
-    error: Optional[str] = None,
-    extra: Optional[Dict[str, Any]] = None,
+    duration_ms: float | None = None,
+    error: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> None:
     """Services 层通用 trace。"""
     try:
@@ -128,7 +118,7 @@ def neuro_trace_service_call(
         pass
     if not _stack_on():
         return
-    payload: Dict[str, Any] = {"module": module, "function": func_name, "phase": phase}
+    payload: dict[str, Any] = {"module": module, "function": func_name, "phase": phase}
     if duration_ms is not None:
         payload["duration_ms"] = round(duration_ms, 4)
     if error:
@@ -146,7 +136,7 @@ def neuro_trace_service_call(
 def neuro_notify_chat_received(
     user_id: str,
     message: str,
-    source: Optional[str] = None,
+    source: str | None = None,
 ) -> None:
     """AI 聊天应用服务：用户消息进入编排（Application 层）。"""
     _publish(
@@ -164,7 +154,7 @@ def neuro_notify_chat_received(
 def neuro_notify_chat_completed(
     user_id: str,
     user_message: str,
-    response: Dict[str, Any],
+    response: dict[str, Any],
 ) -> None:
     """AI 聊天应用服务：单次编排返回前（含 workflow 早退）。"""
     ok = bool(response.get("success", True))
@@ -200,14 +190,15 @@ def neuro_notify_conversation_message_saved(
     )
 
 
-def neuro_notify_intent_resolved(user_id: str, intent_result: Dict[str, Any]) -> None:
+def neuro_notify_intent_resolved(user_id: str, intent_result: dict[str, Any]) -> None:
     """Services 层：一次意图识别结果已定（含 reflex / hybrid / unified）。"""
     _publish(
         "service.intent.resolved",
         {
             "user_id": user_id,
             "intent_source": intent_result.get("intent_source"),
-            "primary_intent": intent_result.get("primary_intent") or intent_result.get("final_intent"),
+            "primary_intent": intent_result.get("primary_intent")
+            or intent_result.get("final_intent"),
             "tool_key": intent_result.get("tool_key"),
             "ai_mode": intent_result.get("ai_mode"),
         },

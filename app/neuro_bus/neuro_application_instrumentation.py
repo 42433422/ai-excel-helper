@@ -9,7 +9,8 @@ from __future__ import annotations
 import inspect
 import threading
 import time
-from typing import Any, Callable, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 from app.neuro_bus.application_neuro_bridge import neuro_trace_app_service_call
 
@@ -35,7 +36,9 @@ def _app_exit() -> None:
         _tls.app_emit = False
 
 
-def _wrap_function(service_label: str, method_name: str, fn: Callable[..., Any]) -> Callable[..., Any]:
+def _wrap_function(
+    service_label: str, method_name: str, fn: Callable[..., Any]
+) -> Callable[..., Any]:
     if inspect.iscoroutinefunction(fn):
 
         async def awrapped(*args: Any, **kwargs: Any) -> Any:
@@ -105,9 +108,9 @@ _SKIP_NAMES = frozenset({"__init__", "__new__", "__del__", "__repr__", "__str__"
 
 
 def instrument_application_service_class(
-    cls: Type[Any],
-    service_name: Optional[str] = None,
-) -> Type[Any]:
+    cls: type[Any],
+    service_name: str | None = None,
+) -> type[Any]:
     label = service_name or cls.__name__
     for name, member in list(cls.__dict__.items()):
         if name.startswith("_") or name in _SKIP_NAMES:
@@ -120,6 +123,6 @@ def instrument_application_service_class(
     return cls
 
 
-def instrument_approval_service_class(cls: Type[Any]) -> Type[Any]:
+def instrument_approval_service_class(cls: type[Any]) -> type[Any]:
     """workflow.ApprovalService 等非 *ApplicationService 命名。"""
     return instrument_application_service_class(cls, service_name=cls.__name__)

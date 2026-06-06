@@ -25,5 +25,5 @@ jobs:
         run: pip install -e ".[web,dev]"
       - name: Test
         run: pytest tests -q
-      - name: Coverage (optional)
-        run: pytest tests --cov=modman --cov=modstore_server --cov-report=term-missing -q
+      - name: Coverage
+        run: pytest tests --cov=modman --cov=modstore_server --cov-report=term-missing -q --cov-fail-under=40

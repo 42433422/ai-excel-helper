@@ -11,10 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +35,7 @@ class AIProductParser:
         raw_text: str,
         use_ai: bool = True,
         fallback_to_rule: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """解析单条产品语句。"""
         text = (raw_text or "").strip()
         if not text:
@@ -79,10 +76,10 @@ class AIProductParser:
 
     def parse_batch(
         self,
-        raw_texts: List[str],
+        raw_texts: list[str],
         use_ai: bool = True,
         fallback_to_rule: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """批量解析。"""
         return [
             self.parse_single(text, use_ai=use_ai, fallback_to_rule=fallback_to_rule)
@@ -97,12 +94,12 @@ class AIProductParser:
         unit_match = self.UNIT_PATTERN.search(text)
         return unit_match.group(1) if unit_match else ""
 
-    def _rule_parse(self, text: str) -> Dict[str, Any]:
+    def _rule_parse(self, text: str) -> dict[str, Any]:
         """
         规则解析（槽位抽取）。
         顺序无关：分别抽取 quantity/unit/spec/product，再组合。
         """
-        quantity: Optional[float] = None
+        quantity: float | None = None
         unit = self._extract_unit(text)
         qty_match = self.QUANTITY_WITH_UNIT_PATTERN.search(text)
         if qty_match:
@@ -165,9 +162,9 @@ class AIProductParser:
             "parse_method": "rule",
         }
 
-    def _validate_required_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _validate_required_fields(self, data: dict[str, Any]) -> dict[str, Any]:
         """统一必备字段校验：单位+数量+规格+（型号或名称）。"""
-        missing_fields: List[str] = []
+        missing_fields: list[str] = []
         if not data.get("unit"):
             missing_fields.append("unit")
         if data.get("quantity") in (None, ""):
@@ -195,10 +192,10 @@ class AIProductParser:
         self,
         raw_text: str,
         parse_method: str,
-        missing_fields: List[str],
+        missing_fields: list[str],
         invalid_reason: str,
-        partial_data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        partial_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         base = {
             "success": False,
             "product_code": "",
@@ -223,7 +220,7 @@ class AIProductParser:
     # 自定义"值得缓存"的判定：API 返回 None（解析失败）或者两个主字段都空的
     # 结果都不进缓存，避免把一次短暂故障固化 1 小时。
     @staticmethod
-    def _should_cache_ai_result(result: Optional[Dict[str, Any]]) -> bool:
+    def _should_cache_ai_result(result: dict[str, Any] | None) -> bool:
         if not isinstance(result, dict):
             return False
         if not (result.get("product_code") or result.get("product_name")):
@@ -231,7 +228,7 @@ class AIProductParser:
         conf = result.get("confidence") or 0
         return float(conf) > 0
 
-    def _cached_call_ai_api(self, text: str) -> Optional[Dict[str, Any]]:
+    def _cached_call_ai_api(self, text: str) -> dict[str, Any] | None:
         """``_call_ai_api`` 的缓存包装器。
 
         key 归一化 / 租户隔离 / 指标 / 降级逻辑全部由
@@ -239,7 +236,6 @@ class AIProductParser:
         把参数喂进去，并用独立 scope / version 跟意图识别的缓存隔离开。
         """
         try:
-            from app.infrastructure.cache.intent_cache import IntentCache
             from app.request_active_mod_ctx import get_request_active_mod_id
 
             cache = _get_product_parse_cache()
@@ -254,7 +250,7 @@ class AIProductParser:
             logger.debug("product-parse cache path failed, falling back: %s", e)
             return self._call_ai_api(text)
 
-    def _call_ai_api(self, text: str) -> Optional[Dict[str, Any]]:
+    def _call_ai_api(self, text: str) -> dict[str, Any] | None:
         """
         调用 DeepSeek AI 接口解析产品信息。
         解析失败时返回 None，触发规则降级。
@@ -294,27 +290,20 @@ class AIProductParser:
             response_text = text.strip()
 
             async def call_api():
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    resp = await client.post(
-                        "https://api.deepseek.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": "deepseek-chat",
-                            "messages": [
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": response_text}
-                            ],
-                            "temperature": 0.1,
-                            "max_tokens": 200
-                        }
-                    )
-                    result = resp.json()
-                    if result.get("choices"):
-                        return result["choices"][0]["message"]["content"]
-                    return None
+                from app.infrastructure.llm.invoke import chat_completion_openai_format
+
+                result = await chat_completion_openai_format(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": response_text},
+                    ],
+                    temperature=0.1,
+                    max_tokens=200,
+                    profile="product_parser",
+                )
+                if result and result.get("choices"):
+                    return result["choices"][0]["message"]["content"]
+                return None
 
             try:
                 loop = asyncio.get_event_loop()
@@ -330,19 +319,20 @@ class AIProductParser:
                 return None
 
             content = content.strip()
-            if content.startswith('```'):
-                lines = content.split('\n')
+            if content.startswith("```"):
+                lines = content.split("\n")
                 for i, line in enumerate(lines):
-                    if '{' in line:
-                        content = '\n'.join(lines[i:])
+                    if "{" in line:
+                        content = "\n".join(lines[i:])
                         break
 
-            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            json_match = re.search(r"\{.*\}", content, re.DOTALL)
             if json_match:
                 data = json.loads(json_match.group())
                 quantity = data.get("quantity")
                 if isinstance(quantity, str):
                     from .deepseek_intent_service import cn_to_number
+
                     quantity = cn_to_number(quantity)
                 elif quantity is None:
                     quantity = None

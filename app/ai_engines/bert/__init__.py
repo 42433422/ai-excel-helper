@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 BERT 意图分类服务
 
@@ -23,5 +22,6 @@ except ModuleNotFoundError as exc:
 
         def predict(self, *args, **kwargs):
             return []
+
 
 __all__ = ["BertIntentClassifier"]

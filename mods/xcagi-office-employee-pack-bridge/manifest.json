@@ -1,0 +1,33 @@
+{
+  "id": "xcagi-office-employee-pack-bridge",
+  "name": "办公 employee_pack 桥接 Mod",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "里程碑 3b：办公 CSV/Excel/PDF/PPT/Word 员工包目录与已安装清单。家具由 MODstore seed 生成，安装于 mods/_employees/<pack_id>/。",
+  "primary": false,
+  "dependencies": { "xcagi": ">=8.0.0" },
+  "backend": { "entry": "blueprints", "init": "mod_init" },
+  "frontend": {
+    "routes": "frontend/routes",
+    "menu": [
+      { "id": "mod-office-tools", "label": "工具", "icon": "fa-wrench", "path": "/mod/xcagi-office-employee-pack-bridge/tools" },
+      { "id": "mod-office-other-tools", "label": "员工工作流", "icon": "fa-users", "path": "/mod/xcagi-office-employee-pack-bridge/other-tools" }
+    ],
+    "menu_overrides": [
+      { "key": "tools", "hidden": true },
+      { "key": "other-tools", "hidden": true }
+    ]
+  },
+  "hooks": {},
+  "comms": { "exports": [] },
+  "config": {
+    "employee_pack_facade": true,
+    "install_root": "mods/_employees",
+    "seed_script": "MODstore_deploy/modstore_server/scripts/seed_csv_employees.py",
+    "catalog_file": "config/office_pack_catalog.json",
+    "office_employee_pages_via_mod": true,
+    "views_physical": true,
+    "physical_views": ["ToolsView.vue", "OtherToolsView.vue"],
+    "phase": "R"
+  }
+}

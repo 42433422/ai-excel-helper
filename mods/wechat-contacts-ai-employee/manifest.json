@@ -1,0 +1,40 @@
+{
+  "id": "wechat-contacts-ai-employee",
+  "name": "微信触点 AI 员工",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "将宿主「微信联系人」作为独立扩展上架：侧栏提供入口，manifest 声明 workflow_employees「微信触点管家」（占位型，与宿主页联动）。复制到 XCAGI/FHD 的 mods/ 后重启后端即可加载；MODstore 上架可走工作台员工/Mod 导出与目录同步流程。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=1.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes",
+    "pro_entry_path": "/wechat-contacts",
+    "menu": [
+      {
+        "id": "wechat-contacts-ai-employee-entry",
+        "label": "微信联系人",
+        "icon": "fa-weixin",
+        "path": "/wechat-contacts"
+      }
+    ]
+  },
+  "hooks": {},
+  "comms": {
+    "exports": []
+  },
+  "workflow_employees": [
+    {
+      "id": "wechat_contacts_hub",
+      "label": "微信触点管家",
+      "panel_title": "工作流 · 微信触点",
+      "panel_summary": "在侧栏打开「微信联系人」：同步微信缓存、搜索与星标、查看聊天记录；与智能对话副窗「推送」及「星标聊天自动刷新」配合。执行业务在宿主页完成，本条为触点类 AI 员工名片（占位，无独立 phone-agent）。",
+      "workflow_placeholder": true
+    }
+  ]
+}

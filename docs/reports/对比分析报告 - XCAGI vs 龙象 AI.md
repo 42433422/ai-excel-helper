@@ -2,7 +2,7 @@
 
 > **分析日期**: 2026-04-02  
 > **分析对象（历史基线）**: XCAGI v4.0 vs 龙象企业 AI 服务  
-> **说明**：正文表格仍以 v4.0 为当时对比口径；**当前产品主线为 v7.0**（见根目录 `VERSION.md` / `CHANGELOG.md`）。
+> **说明**：正文表格仍以 v4.0 为当时对比口径；**当前产品主线为 v8.0**（见根目录 `VERSION.md` / `CHANGELOG.md`）。
 > **报告版本**: v1.0
 
 ---
@@ -159,7 +159,7 @@
 ### 3.1 XCAGI 核心功能
 
 **🤖 AI 员工核心能力**:
-1. **混合意图识别引擎 v2** - 准确率 99%+
+1. **混合意图识别引擎 v2** - 规则路径准确率以 [`tests/benchmarks/test_intent_accuracy.py`](../../tests/benchmarks/test_intent_accuracy.py) golden set 为准（非 LLM 路径）；营销「99%+」须 `INTENT_BENCHMARK_MIN_ACCURACY=0.99` 门禁通过后方可对外宣称
 2. **LLM 工作流规划** - 动态生成可执行计划
 3. **全自动化处理** - 业务流程自动执行
 4. **多模态交互** - TTS 语音 + 自然语言 + 微信

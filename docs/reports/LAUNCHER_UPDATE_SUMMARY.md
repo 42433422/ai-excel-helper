@@ -30,7 +30,7 @@
 ### 1. `start-xcagi.bat`
 
 **变更**:
-- 更新标题: 历史记录曾使用 `XCAGI v6.0`；**当前主线文档与安装标题为 v7.0**（FastAPI 唯一入口 + 可选 Electron 桌面壳）。
+- 更新标题: 历史记录曾使用 `XCAGI v6.0`；**当前主线文档与安装标题为 v8.0**（FastAPI 唯一入口 + 可选 Electron 桌面壳 + 跨行业适配）。
 - 添加 CHANGELOG 信息到启动画面
 - 端口 8000 → 5000（健康检查、启动等待、摘要输出）
 - 删除 `XCAGI_API_STACK=compact` 环境变量说明

@@ -1,105 +1,70 @@
-# -*- coding: utf-8 -*-
 """
 原材料管理服务
 """
+
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.application.ports.material_repository import MaterialRepository
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 
 logger = logging.getLogger(__name__)
 
 
-class MaterialsService:
+class MaterialsService(NeuroEventPublisherMixin):
     """原材料管理服务类"""
 
-    def __init__(self, repository: Optional[MaterialRepository] = None):
+    def __init__(self, repository: MaterialRepository | None = None):
         if repository is None:
             from app.application.ports.material_repository import MaterialRepository
+
             repository = MaterialRepository()
         self._repository = repository
-
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
 
     def set_repository(self, repository: MaterialRepository):
         self._repository = repository
 
     def get_all_materials(
         self,
-        search: Optional[str] = None,
-        category: Optional[str] = None,
+        search: str | None = None,
+        category: str | None = None,
         page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+        per_page: int = 20,
+    ) -> dict[str, Any]:
         if self._repository is None:
             logger.error("MaterialRepository 未注入")
-            return {
-                "success": False,
-                "message": "服务未正确初始化",
-                "data": [],
-                "total": 0
-            }
-        return self._repository.find_all(search=search, category=category, page=page, per_page=per_page)
+            return {"success": False, "message": "服务未正确初始化", "data": [], "total": 0}
+        return self._repository.find_all(
+            search=search, category=category, page=page, per_page=per_page
+        )
 
-    def get_material_by_id(self, material_id: int) -> Dict[str, Any]:
+    def get_material_by_id(self, material_id: int) -> dict[str, Any]:
         if self._repository is None:
             logger.error("MaterialRepository 未注入")
-            return {
-                "success": False,
-                "message": "服务未正确初始化"
-            }
+            return {"success": False, "message": "服务未正确初始化"}
         result = self._repository.find_by_id(material_id)
         if result is None:
-            return {
-                "success": False,
-                "message": "原材料不存在"
-            }
-        return {
-            "success": True,
-            "data": result
-        }
+            return {"success": False, "message": "原材料不存在"}
+        return {"success": True, "data": result}
 
     def create_material(
         self,
         material_code: str,
         name: str,
-        category: Optional[str] = None,
-        specification: Optional[str] = None,
+        category: str | None = None,
+        specification: str | None = None,
         unit: str = "个",
         quantity: float = 0,
         unit_price: float = 0,
-        supplier: Optional[str] = None,
-        warehouse_location: Optional[str] = None,
+        supplier: str | None = None,
+        warehouse_location: str | None = None,
         min_stock: float = 0,
         max_stock: float = 0,
-        description: Optional[str] = None
-    ) -> Dict[str, Any]:
+        description: str | None = None,
+    ) -> dict[str, Any]:
         if self._repository is None:
             logger.error("MaterialRepository 未注入")
-            return {
-                "success": False,
-                "message": "服务未正确初始化"
-            }
+            return {"success": False, "message": "服务未正确初始化"}
         data = {
             "material_code": material_code,
             "name": name,
@@ -116,69 +81,38 @@ class MaterialsService:
         }
         return self._repository.create(data)
 
-    def update_material(
-        self,
-        material_id: int,
-        **kwargs
-    ) -> Dict[str, Any]:
+    def update_material(self, material_id: int, **kwargs) -> dict[str, Any]:
         if self._repository is None:
             logger.error("MaterialRepository 未注入")
-            return {
-                "success": False,
-                "message": "服务未正确初始化"
-            }
+            return {"success": False, "message": "服务未正确初始化"}
         return self._repository.update(material_id, kwargs)
 
-    def delete_material(self, material_id: int) -> Dict[str, Any]:
+    def delete_material(self, material_id: int) -> dict[str, Any]:
         if self._repository is None:
             logger.error("MaterialRepository 未注入")
-            return {
-                "success": False,
-                "message": "服务未正确初始化"
-            }
+            return {"success": False, "message": "服务未正确初始化"}
         success = self._repository.delete(material_id)
         if success:
-            return {
-                "success": True,
-                "message": "原材料删除成功"
-            }
-        return {
-            "success": False,
-            "message": "删除失败"
-        }
+            return {"success": True, "message": "原材料删除成功"}
+        return {"success": False, "message": "删除失败"}
 
-    def batch_delete_materials(self, ids: List[int]) -> Dict[str, Any]:
+    def batch_delete_materials(self, ids: list[int]) -> dict[str, Any]:
         if self._repository is None:
             logger.error("MaterialRepository 未注入")
-            return {
-                "success": False,
-                "message": "服务未正确初始化"
-            }
+            return {"success": False, "message": "服务未正确初始化"}
         deleted_count = self._repository.batch_delete(ids)
         return {
             "success": True,
             "message": f"已删除 {deleted_count} 条记录",
-            "deleted_count": deleted_count
+            "deleted_count": deleted_count,
         }
 
-    def get_low_stock_materials(
-        self,
-        threshold: Optional[float] = None
-    ) -> Dict[str, Any]:
+    def get_low_stock_materials(self, threshold: float | None = None) -> dict[str, Any]:
         if self._repository is None:
             logger.error("MaterialRepository 未注入")
-            return {
-                "success": False,
-                "message": "服务未正确初始化",
-                "data": [],
-                "count": 0
-            }
+            return {"success": False, "message": "服务未正确初始化", "data": [], "count": 0}
         materials = self._repository.find_low_stock(threshold)
-        return {
-            "success": True,
-            "data": materials,
-            "count": len(materials)
-        }
+        return {"success": True, "data": materials, "count": len(materials)}
 
 
 # NEURO-DDD: 为 Services 层类添加 instrumentation

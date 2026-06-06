@@ -38,7 +38,9 @@ def test_code_editor_analyze_no_path(client: TestClient) -> None:
     assert body.get("kind") == "noop"
 
 
-def test_code_editor_analyze_text_preview(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def test_code_editor_analyze_text_preview(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
     monkeypatch.setenv("WORKSPACE_ROOT", str(tmp_path))
     (tmp_path / "note.txt").write_text("hello brain", encoding="utf-8")
     r = client.post("/api/code-editor/analyze", json={"path": "note.txt", "message": "peek"})
@@ -49,17 +51,23 @@ def test_code_editor_analyze_text_preview(client: TestClient, monkeypatch: pytes
     assert "hello brain" in (body.get("preview") or "")
 
 
-def test_code_editor_analyze_escape_rejected(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def test_code_editor_analyze_escape_rejected(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
     monkeypatch.setenv("WORKSPACE_ROOT", str(tmp_path))
     r = client.post("/api/code-editor/analyze", json={"path": "../outside.txt"})
     assert r.status_code == 400
 
 
-def test_code_editor_edit_diff_apply_flow(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def test_code_editor_edit_diff_apply_flow(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
     monkeypatch.setenv("WORKSPACE_ROOT", str(tmp_path))
     monkeypatch.setenv("FHD_AI_ELEVATED_TOKEN", "sekrit")
     (tmp_path / "x.txt").write_text("line1\n", encoding="utf-8")
-    r_edit = client.post("/api/code-editor/edit", json={"path": "x.txt", "new_content": "line1\nline2\n"})
+    r_edit = client.post(
+        "/api/code-editor/edit", json={"path": "x.txt", "new_content": "line1\nline2\n"}
+    )
     assert r_edit.status_code == 200
     body = r_edit.json()
     assert body.get("success") is True

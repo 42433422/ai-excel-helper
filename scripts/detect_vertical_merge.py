@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 # 读取测试图片
-test_image_path = r'e:\FHD\test_vertical_merge2.png'
+test_image_path = r"e:\FHD\test_vertical_merge2.png"
 print(f"读取图片：{test_image_path}")
 
 img_array = cv2.imread(test_image_path)
@@ -53,6 +53,7 @@ for x in range(gray.shape[1]):
     if max_continuous > gray.shape[0] * 0.5:
         vertical_lines.append(x)
 
+
 # 合并线条
 def merge_very_close(lines, threshold=5):
     if not lines:
@@ -65,6 +66,7 @@ def merge_very_close(lines, threshold=5):
             merged[-1] = (merged[-1] + line) // 2
     return merged
 
+
 def merge_lines(lines, threshold=30):
     if not lines:
         return []
@@ -73,6 +75,7 @@ def merge_lines(lines, threshold=30):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 horizontal_lines = sorted(list(set(horizontal_lines)))
 vertical_lines = sorted(list(set(vertical_lines)))
@@ -99,16 +102,16 @@ for i in range(rows):
         h = horizontal_lines[i + 1] - horizontal_lines[i]
 
         cell = {
-            'row': i,
-            'col': j,
-            'x': x,
-            'y': y,
-            'width': w,
-            'height': h,
-            'should_merge_right': False,
-            'should_merge_down': False,
-            'right_border_ratio': 0,
-            'bottom_border_ratio': 0
+            "row": i,
+            "col": j,
+            "x": x,
+            "y": y,
+            "width": w,
+            "height": h,
+            "should_merge_right": False,
+            "should_merge_down": False,
+            "right_border_ratio": 0,
+            "bottom_border_ratio": 0,
         }
 
         # 检测右侧边框（水平合并）
@@ -119,9 +122,9 @@ for i in range(rows):
                 if check_y < gray.shape[0] and right_border_x < gray.shape[1]:
                     if binary[check_y, right_border_x] > 0:
                         border_black_count += 1
-            cell['right_border_ratio'] = border_black_count / h
+            cell["right_border_ratio"] = border_black_count / h
             if h > 0 and border_black_count < h * 0.5:
-                cell['should_merge_right'] = True
+                cell["should_merge_right"] = True
 
         # 检测底部边框（垂直合并）
         if i < rows - 1:
@@ -131,9 +134,9 @@ for i in range(rows):
                 if check_x < gray.shape[1] and bottom_border_y < gray.shape[0]:
                     if binary[bottom_border_y, check_x] > 0:
                         border_black_count += 1
-            cell['bottom_border_ratio'] = border_black_count / w if w > 0 else 0
+            cell["bottom_border_ratio"] = border_black_count / w if w > 0 else 0
             if w > 0 and border_black_count < w * 0.5:
-                cell['should_merge_down'] = True
+                cell["should_merge_down"] = True
 
         cells.append(cell)
 
@@ -143,9 +146,9 @@ for cell in cells:
     bottom_info = f"底部{cell['bottom_border_ratio']*100:.0f}%"
 
     status = []
-    if cell['should_merge_right']:
+    if cell["should_merge_right"]:
         status.append("水平合并")
-    if cell['should_merge_down']:
+    if cell["should_merge_down"]:
         status.append("垂直合并✓")
     status_str = ", ".join(status) if status else "独立"
 

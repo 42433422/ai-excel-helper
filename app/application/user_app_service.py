@@ -4,13 +4,11 @@
 此模块已迁移到 app/application/
 """
 
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-
-from app.utils.password_hash import check_password_hash, generate_password_hash
+from typing import Any
 
 from app.db.models import User
 from app.db.session import get_db
+from app.utils.password_hash import generate_password_hash
 
 
 class UserApplicationService:
@@ -19,7 +17,7 @@ class UserApplicationService:
     def __init__(self):
         pass
 
-    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+    def get_user_by_id(self, user_id: int) -> dict[str, Any] | None:
         with get_db() as db:
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
@@ -32,10 +30,10 @@ class UserApplicationService:
                 "role": user.role,
                 "is_active": user.is_active,
                 "last_login": user.last_login.isoformat() if user.last_login else None,
-                "created_at": user.created_at.isoformat() if user.created_at else None
+                "created_at": user.created_at.isoformat() if user.created_at else None,
             }
 
-    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+    def get_user_by_username(self, username: str) -> dict[str, Any] | None:
         with get_db() as db:
             user = db.query(User).filter(User.username == username).first()
             if not user:
@@ -46,10 +44,10 @@ class UserApplicationService:
                 "display_name": user.display_name,
                 "email": user.email,
                 "role": user.role,
-                "is_active": user.is_active
+                "is_active": user.is_active,
             }
 
-    def list_users(self, skip: int = 0, limit: int = 100) -> List[Dict[str, Any]]:
+    def list_users(self, skip: int = 0, limit: int = 100) -> list[dict[str, Any]]:
         with get_db() as db:
             users = db.query(User).offset(skip).limit(limit).all()
             return [
@@ -59,7 +57,7 @@ class UserApplicationService:
                     "display_name": u.display_name,
                     "email": u.email,
                     "role": u.role,
-                    "is_active": u.is_active
+                    "is_active": u.is_active,
                 }
                 for u in users
             ]
@@ -70,8 +68,8 @@ class UserApplicationService:
         password: str,
         display_name: str = "",
         email: str = "",
-        role: str = "user"
-    ) -> Dict[str, Any]:
+        role: str = "user",
+    ) -> dict[str, Any]:
         with get_db() as db:
             try:
                 user = User(
@@ -80,7 +78,7 @@ class UserApplicationService:
                     display_name=display_name or username,
                     email=email,
                     role=role,
-                    is_active=True
+                    is_active=True,
                 )
                 db.add(user)
                 db.commit()
@@ -92,23 +90,20 @@ class UserApplicationService:
                         "username": user.username,
                         "display_name": user.display_name,
                         "email": user.email,
-                        "role": user.role
-                    }
+                        "role": user.role,
+                    },
                 }
             except Exception as e:
                 db.rollback()
-                return {
-                    "success": False,
-                    "message": str(e)
-                }
+                return {"success": False, "message": str(e)}
 
     def update_user(
         self,
         user_id: int,
-        display_name: Optional[str] = None,
-        email: Optional[str] = None,
-        role: Optional[str] = None
-    ) -> Dict[str, Any]:
+        display_name: str | None = None,
+        email: str | None = None,
+        role: str | None = None,
+    ) -> dict[str, Any]:
         with get_db() as db:
             try:
                 user = db.query(User).filter(User.id == user_id).first()
@@ -130,14 +125,14 @@ class UserApplicationService:
                         "username": user.username,
                         "display_name": user.display_name,
                         "email": user.email,
-                        "role": user.role
-                    }
+                        "role": user.role,
+                    },
                 }
             except Exception as e:
                 db.rollback()
                 return {"success": False, "message": str(e)}
 
-    def delete_user(self, user_id: int) -> Dict[str, Any]:
+    def delete_user(self, user_id: int) -> dict[str, Any]:
         with get_db() as db:
             try:
                 user = db.query(User).filter(User.id == user_id).first()
@@ -156,7 +151,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(UserApplicationService)
 
-_user_app_service: Optional[UserApplicationService] = None
+_user_app_service: UserApplicationService | None = None
 
 
 def get_user_app_service() -> UserApplicationService:
@@ -164,4 +159,3 @@ def get_user_app_service() -> UserApplicationService:
     if _user_app_service is None:
         _user_app_service = UserApplicationService()
     return _user_app_service
-

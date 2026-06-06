@@ -6,13 +6,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 
 from sqlalchemy import text
 
 from app.db import SessionLocal
+from app.utils.password_hash import generate_password_hash
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def create_admin_user(
         if row:
             return {"success": True, "message": "管理员已存在"}
 
-        hashed_password = hashlib.sha256(password.encode("utf-8")).hexdigest()
+        hashed_password = generate_password_hash(password)
         db.execute(
             text(
                 """
@@ -74,4 +74,3 @@ def create_admin_from_env() -> dict:
     if not username or not password:
         return {"success": False, "message": "缺少 ADMIN_USERNAME/ADMIN_PASSWORD"}
     return create_admin_user(username=username, password=password, display_name=display_name)
-

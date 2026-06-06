@@ -3,28 +3,50 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useModsStore, CLIENT_MODS_UI_OFF_KEY } from '@/stores/mods'
 import { useWorkflowAiEmployeesStore } from '@/stores/workflowAiEmployees'
+import { authApi } from '@/api/auth'
+import { fetchSessionMarketHandoff, persistMarketTokensFromHandoff } from '@/api/marketAccount'
 import { apiFetch, isApiFetchTimeoutError } from '@/utils/apiBase'
+import { fetchModLoadingStatusShared } from '@/utils/modLoadingStatusShared'
 import { summarizeModLoadingData } from '@/utils/modLoadingStatus'
 import MainLayout from './components/MainLayout.vue'
-import ProMode from './components/ProMode.vue'
 import GlobalReadTokenPrompt from './fhd/GlobalReadTokenPrompt.vue'
 import GlobalWriteTokenPrompt from './fhd/GlobalWriteTokenPrompt.vue'
 import AppDialogHost from './components/AppDialogHost.vue'
 import GlobalLanGateModal from './components/lan/GlobalLanGateModal.vue'
+import { isPlatformShellModeEnabled } from '@/constants/platformShellMode'
+import { fetchProductSku, isEnterpriseEdition } from '@/utils/productSku'
+import { useStartupRevealStore } from '@/stores/startupReveal'
+import StartupGiftReveal from '@/components/startup/StartupGiftReveal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const modsStore = useModsStore()
+const startupReveal = useStartupRevealStore()
 const isProMode = ref(false)
 const appReady = ref(false)
 const startupVisible = ref(true)
+const hideChrome = computed(() => route.meta?.hideChrome === true)
+
+const isSandboxMode = new URLSearchParams(window.location.search).has('sandbox')
+const skipSplashByUrl = new URLSearchParams(window.location.search).has('nosplash')
+
+function isPublicEntryRoute(r = route) {
+  const name = String(r?.name || '')
+  return (
+    name === 'login' ||
+    name === 'lan-gate' ||
+    name === 'product-onboarding' ||
+    r?.meta?.hideChrome === true
+  )
+}
 
 /** 过长的启动遮罩会拖慢「可交互」时间；略长于 logo 文案渐显（约 1.65s）即可 */
-const STARTUP_SPLASH_MS = 1800
+const STARTUP_SPLASH_MS = 1200
 /** 为在关屏前展示 Mod 摘要，最多额外等待 loading-status（避免后端极慢时无限停留） */
-const STARTUP_MOD_FETCH_CAP_MS = 4000
+const STARTUP_MOD_FETCH_CAP_MS = 2500
 /** 无论开屏逻辑是否异常，超时后强制显示主界面，避免永久 opacity:0 白屏 */
-const STARTUP_FAILSAFE_MS = 12000
+const STARTUP_FAILSAFE_MS = 6000
+const STARTUP_AUTH_TIMEOUT_MS = 8_000
 /** 开屏仅拉 loading-status：勿用 180s Mod 超时，后端未起时尽快结束请求并交给开屏 cap / failsafe */
 const STARTUP_LOADING_STATUS_TIMEOUT_MS = 12_000
 
@@ -95,6 +117,183 @@ let startupAudio = null
 let startupAudioFallbackPlayed = false
 let startupAudioUserGestureHandler = null
 
+function finishStartupUi() {
+  startupVisible.value = false
+  appReady.value = true
+  startupReveal.notifyAppReady()
+}
+
+const isDesktopShell = () => {
+  if (typeof window === 'undefined') return false
+  if (window.xcagiDesktop) return true
+  // 旧版 Electron 壳可能未注入 preload，用 UA 识别桌面 WebView
+  return typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent)
+}
+
+/** 仅跳过开屏动画（桌面仍需走企业版登录校验，见 runEnterpriseStartupAuth） */
+const shouldSkipSplashVisual = () =>
+  isSandboxMode ||
+  skipSplashByUrl ||
+  isDesktopShell() ||
+  isPlatformShellModeEnabled() ||
+  isPublicEntryRoute()
+
+/** @deprecated 使用 shouldSkipSplashVisual；保留别名避免遗漏引用 */
+const shouldSkipStartupSplash = shouldSkipSplashVisual
+
+/** 登录/授权等页必须立刻收起开屏，否则会挡住表单（z-index 10000） */
+function dismissStartupSplashImmediate() {
+  startupReveal.disableGiftFlow()
+  finishStartupUi()
+  stopStartupProgressLoop()
+  startupProgressPct.value = 100
+  if (splashFinishOnce) return
+  splashFinishOnce = true
+  if (startupFailsafeTimer != null) {
+    window.clearTimeout(startupFailsafeTimer)
+    startupFailsafeTimer = null
+  }
+  if (startupRevealTimer) {
+    window.clearTimeout(startupRevealTimer)
+    startupRevealTimer = null
+  }
+  if (resolveStartupMinWait) {
+    resolveStartupMinWait()
+    resolveStartupMinWait = null
+  }
+}
+
+if (shouldSkipSplashVisual()) {
+  startupReveal.disableGiftFlow()
+  dismissStartupSplashImmediate()
+}
+
+async function runEnterpriseStartupAuth() {
+  if (isPublicEntryRoute()) return true
+  let sku = 'generic'
+  try {
+    sku = await fetchProductSku()
+  } catch {
+    /* ignore */
+  }
+  const authResult = await ensureStartupAuthenticated()
+  if (!authResult.ok) return false
+  let sunbirdAccount = false
+  try {
+    const { isSunbirdAccountUsername } = await import('@/constants/accountModBinding')
+    sunbirdAccount = isSunbirdAccountUsername(authResult.accountUsername)
+  } catch {
+    /* ignore */
+  }
+  if (!isEnterpriseEdition(sku) && !sunbirdAccount) return true
+  try {
+    await modsStore.initialize(true, {
+      entitledModIds: authResult.entitledModIds,
+      forceFromEntitlements: sunbirdAccount || authResult.entitledModIds.length > 0,
+      accountUsername: authResult.accountUsername,
+    })
+  } catch (e) {
+    console.warn('[App] mods initialize after auth:', e)
+  }
+  return true
+}
+
+/**
+ * 构造登录回跳路径：严禁把「当前已在 /login?redirect=…」整串再次嵌套进 redirect（会产生无限 ?redirect=/login?redirect=…）。
+ */
+function safeRedirectFromLocation() {
+  const path = window.location.pathname || '/'
+  const search = window.location.search || ''
+  const hash = window.location.hash || ''
+
+  if (path !== '/login' && !path.endsWith('/login')) {
+    return `${path}${search}${hash}`
+  }
+
+  try {
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : '')
+    let inner = params.get('redirect')
+    if (!inner || typeof inner !== 'string') return '/'
+    inner = decodeURIComponent(inner.trim())
+    // 剥洋葱：内层仍是 /login?redirect=… 时继续取内层 redirect，最多 5 层防循环
+    for (let i = 0; i < 5 && inner.startsWith('/login'); i++) {
+      const q = inner.indexOf('?')
+      if (q < 0) {
+        inner = '/'
+        break
+      }
+      const nested = new URLSearchParams(inner.slice(q + 1)).get('redirect')
+      inner = nested ? decodeURIComponent(nested.trim()) : '/'
+    }
+    const cleanPath = inner.split('?')[0].split('#')[0]
+    if (cleanPath.startsWith('/') && !cleanPath.startsWith('//') && !cleanPath.startsWith('/login')) {
+      return cleanPath
+    }
+  } catch {
+    /* ignore */
+  }
+  return '/'
+}
+
+function buildLoginLocation() {
+  let redirect = safeRedirectFromLocation()
+  if (!redirect.startsWith('/') || redirect.startsWith('//') || redirect.startsWith('/login')) {
+    redirect = '/'
+  }
+  return {
+    name: 'login',
+    query: {
+      redirect,
+    },
+  }
+}
+
+async function syncMarketTokensFromSession() {
+  try {
+    const handoff = await fetchSessionMarketHandoff()
+    persistMarketTokensFromHandoff(handoff)
+  } catch (error) {
+    console.debug(
+      '[App] session-handoff skipped:',
+      error instanceof Error ? error.message : error
+    )
+  }
+}
+
+async function ensureStartupAuthenticated() {
+  try {
+    const res = await authApi.validateSession()
+    if (res?.success === true || res?.valid === true || res?.data?.valid === true) {
+      await syncMarketTokensFromSession()
+      try {
+        const { useAccountProfileStore } = await import('@/stores/accountProfile')
+        await useAccountProfileStore().refreshFromServer()
+      } catch {
+        /* ignore */
+      }
+      let entitledModIds = []
+      let accountUsername = ''
+      try {
+        const { readEntitledModIdsFromAuthPayload } = await import('@/stores/mods')
+        entitledModIds = readEntitledModIdsFromAuthPayload(res)
+        const data =
+          res?.data && typeof res.data === 'object' && !Array.isArray(res.data)
+            ? res.data
+            : res
+        accountUsername = String(data?.username || data?.user?.username || '').trim()
+      } catch {
+        /* ignore */
+      }
+      return { ok: true, entitledModIds, accountUsername }
+    }
+  } catch {
+    // Fall through to the local login page.
+  }
+  dismissStartupSplashImmediate()
+  void router.replace(buildLoginLocation())
+  return { ok: false, entitledModIds: [] }
+}
+
 const loadModsForStartup = async () => {
   if (typeof localStorage !== 'undefined' && localStorage.getItem(CLIENT_MODS_UI_OFF_KEY) === '1') {
     startupModPreview.value = []
@@ -104,25 +303,16 @@ const loadModsForStartup = async () => {
   modsLoading.value = true
   modsLoadError.value = null
   try {
-    const response = await apiFetch('/api/mods/loading-status', {
-      timeoutMs: STARTUP_LOADING_STATUS_TIMEOUT_MS,
-    })
-    if (!response.ok) {
+    const d = await fetchModLoadingStatusShared()
+    if (!d) {
       startupModPreview.value = []
       return
     }
-    const data = await response.json()
-    if (data.success) {
-      const d = data.data || {}
-      const raw = d.mods
-      startupModPreview.value = Array.isArray(raw) ? raw : []
-      const hint = summarizeModLoadingData(d)
-      if (hint) {
-        modsLoadError.value = hint
-      }
-    } else {
-      startupModPreview.value = []
-      modsLoadError.value = typeof data.error === 'string' ? data.error : 'Mod 加载失败'
+    const raw = d.mods
+    startupModPreview.value = Array.isArray(raw) ? raw : []
+    const hint = summarizeModLoadingData(d)
+    if (hint) {
+      modsLoadError.value = hint
     }
   } catch (error) {
     startupModPreview.value = []
@@ -143,24 +333,35 @@ const loadModsForStartup = async () => {
 }
 
 function completeStartupSplash() {
-  if (splashFinishOnce) return
-  splashFinishOnce = true
-  if (startupFailsafeTimer != null) {
-    window.clearTimeout(startupFailsafeTimer)
-    startupFailsafeTimer = null
+  const firstRun = !splashFinishOnce
+  if (firstRun) {
+    splashFinishOnce = true
+    if (startupFailsafeTimer != null) {
+      window.clearTimeout(startupFailsafeTimer)
+      startupFailsafeTimer = null
+    }
+    stopStartupProgressLoop()
+    startupProgressPct.value = 100
+    if (startupRevealTimer) {
+      window.clearTimeout(startupRevealTimer)
+      startupRevealTimer = null
+    }
+    if (resolveStartupMinWait) {
+      resolveStartupMinWait()
+      resolveStartupMinWait = null
+    }
+  } else {
+    // 兜底/跳过时可能已标记 finish 但遮罩未关，必须强制收起（避免永久卡在开屏）
+    finishStartupUi()
+    return
   }
-  stopStartupProgressLoop()
-  startupProgressPct.value = 100
-  if (startupRevealTimer) {
-    window.clearTimeout(startupRevealTimer)
-    startupRevealTimer = null
-  }
-  if (resolveStartupMinWait) {
-    resolveStartupMinWait()
-    resolveStartupMinWait = null
-  }
-  startupVisible.value = false
-  appReady.value = true
+  // 无论会进入主界面还是被重定向到登录页，都必须先收起启动遮罩，避免“看起来卡住”。
+  const authTimeout = new Promise((resolve) => {
+    window.setTimeout(() => resolve({ ok: false, entitledModIds: [] }), STARTUP_AUTH_TIMEOUT_MS)
+  })
+  void Promise.race([ensureStartupAuthenticated(), authTimeout])
+    .catch(() => ({ ok: false, entitledModIds: [] }))
+    .finally(finishStartupUi)
   startupAudioFallbackPlayed = true
   if (startupAudio) {
     startupAudio.pause()
@@ -196,8 +397,19 @@ const bindStartupAudioFallback = () => {
 
 const skipStartupSplash = () => {
   if (!startupVisible.value) return
+  startupReveal.skipToDone()
   completeStartupSplash()
 }
+
+watch(
+  () => route.name,
+  () => {
+    if (isPublicEntryRoute()) {
+      dismissStartupSplashImmediate()
+    }
+  },
+  { immediate: true },
+)
 
 const hasLegacyProModeRuntime = () => {
   const legacyToggle = window.__legacyToggleProMode || window.toggleProMode
@@ -206,6 +418,9 @@ const hasLegacyProModeRuntime = () => {
 
 const readProModeStateFromDom = () => {
   const overlay = document.getElementById('proModeOverlay')
+  if (!overlay && typeof window.__XCAGI_IS_PRO_MODE === 'boolean') {
+    return !!window.__XCAGI_IS_PRO_MODE
+  }
   const bodyActive = document.body.classList.contains('pro-mode-active')
   const overlayActive = !!overlay?.classList.contains('active')
   const overlayVisible = !!overlay && overlay.style.display !== 'none'
@@ -222,14 +437,55 @@ const syncProModeStateSoon = () => {
   }, 350)
 }
 
+const resolveModProEntryPath = () => {
+  const mods = Array.isArray(modsStore.modsForUi) ? modsStore.modsForUi : []
+  for (const mod of mods) {
+    const frontend = mod?.frontend && typeof mod.frontend === 'object' ? mod.frontend : {}
+    const explicit = typeof frontend.pro_entry_path === 'string' ? frontend.pro_entry_path.trim() : ''
+    if (explicit) return explicit
+    const menu = Array.isArray(mod?.menu) ? mod.menu : []
+    const firstPath = typeof menu[0]?.path === 'string' ? menu[0].path.trim() : ''
+    if (firstPath) return firstPath
+  }
+  return ''
+}
+
+const enterModProMode = async () => {
+  if (!Array.isArray(modsStore.modsForUi) || modsStore.modsForUi.length === 0) {
+    try {
+      await modsStore.initialize()
+    } catch (error) {
+      console.warn('加载 Mod 菜单失败，无法解析专业版入口:', error)
+    }
+  }
+  const targetPath = resolveModProEntryPath()
+  isProMode.value = true
+  if (targetPath && route.path !== targetPath) {
+    await router.push(targetPath).catch((error) => {
+      console.warn('跳转 Mod 专业版入口失败:', error)
+    })
+  }
+}
+
+const exitModProMode = async () => {
+  isProMode.value = false
+  if (route.name !== 'chat') {
+    await router.push({ name: 'chat' }).catch(() => undefined)
+  }
+}
+
 const handleToggleProMode = () => {
   const legacyToggle = window.__legacyToggleProMode || window.toggleProMode
-  if (typeof legacyToggle === 'function') {
+  if (!resolveModProEntryPath() && typeof legacyToggle === 'function') {
     legacyToggle()
     syncProModeStateSoon()
     return
   }
-  isProMode.value = !isProMode.value
+  if (isProMode.value) {
+    void exitModProMode()
+  } else {
+    void enterModProMode()
+  }
 }
 
 const syncGlobalProMode = () => {
@@ -246,8 +502,28 @@ let onModsVisibilityRetry = null
 let onPageShowBfCache = null
 
 onMounted(async () => {
-  // 不等待开屏：与侧栏 mount 并行尽早拉 /api/mods*（initialize 内部有 initInFlight 去重）
-  void modsStore.initialize()
+  if (isPublicEntryRoute()) {
+    dismissStartupSplashImmediate()
+  }
+
+  try {
+    if (new URLSearchParams(window.location.search).has('replayNav')) {
+      sessionStorage.removeItem('xcagi.navReveal.done')
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (shouldSkipSplashVisual()) {
+    dismissStartupSplashImmediate()
+    // 桌面壳：须等待路由就绪再校验，否则 replace('/login') 可能无效
+    void router.isReady().then(() => runEnterpriseStartupAuth())
+  }
+
+  // 非开屏场景（如桌面 shell）尽早拉 Mod；开屏流程内会 initialize(true)，避免重复 force
+  if (shouldSkipSplashVisual()) {
+    void modsStore.initialize()
+  }
   onModsVisibilityRetry = () => {
     if (document.visibilityState !== 'visible') return
     if (!modsStore.isLoaded) void modsStore.initialize()
@@ -301,34 +577,60 @@ onMounted(async () => {
       console.warn(
         '[App] 开屏超时兜底：强制结束启动遮罩（若仍白屏请看控制台其它报错）。'
       )
+      startupReveal.skipToDone()
       completeStartupSplash()
     }
   }, STARTUP_FAILSAFE_MS)
 
   void (async () => {
+    if (shouldSkipSplashVisual()) {
+      return
+    }
+    startupReveal.begin()
     try {
-      await Promise.all([minSplashElapsed, modWaitOrCap])
+      const authResult = await ensureStartupAuthenticated().catch(() => ({
+        ok: false,
+        entitledModIds: [],
+      }))
+      await minSplashElapsed
+      startupReveal.completeStep1()
+
+      await modWaitOrCap
       try {
         modsStore.applyLoadingStatusPreview(startupModPreview.value)
       } catch (e) {
         console.warn('[App] applyLoadingStatusPreview:', e)
       }
+      startupReveal.completeStep2()
+
+      try {
+        const { isSunbirdAccountUsername } = await import('@/constants/accountModBinding')
+        await modsStore.initialize(true, {
+          entitledModIds: authResult.entitledModIds,
+          forceFromEntitlements:
+            authResult.ok &&
+            (isSunbirdAccountUsername(authResult.accountUsername) ||
+              authResult.entitledModIds.length > 0),
+          accountUsername: authResult.accountUsername,
+        })
+        if (modsStore.clientModsUiOff) {
+          useWorkflowAiEmployeesStore().stripModWorkflowEmployeeKeys()
+        }
+      } catch (e) {
+        console.warn('[App] Mod initialize（开屏）:', e)
+      }
+
+      await startupReveal.startUnboxing()
+      startupReveal.markDone()
     } catch (e) {
       console.error('[App] 开屏等待阶段异常:', e)
+      startupReveal.skipToDone()
     } finally {
       if (startupFailsafeTimer != null) {
         window.clearTimeout(startupFailsafeTimer)
         startupFailsafeTimer = null
       }
       completeStartupSplash()
-    }
-    try {
-      await modsStore.initialize()
-      if (modsStore.clientModsUiOff) {
-        useWorkflowAiEmployeesStore().stripModWorkflowEmployeeKeys()
-      }
-    } catch (e) {
-      console.warn('[App] Mod initialize（开屏后）:', e)
     }
   })()
 
@@ -338,17 +640,19 @@ onMounted(async () => {
 
   window.setProModeEnabled = (enabled) => {
     const shouldEnable = !!enabled
-    const active = readProModeStateFromDom()
+    const active = isProMode.value || readProModeStateFromDom()
     if (shouldEnable === active) {
       isProMode.value = active
       return
     }
-    if (hasLegacyProModeRuntime()) {
+    if (!resolveModProEntryPath() && hasLegacyProModeRuntime()) {
       const legacyToggle = window.__legacyToggleProMode || window.toggleProMode
       legacyToggle()
       syncProModeStateSoon()
+    } else if (shouldEnable) {
+      void enterModProMode()
     } else {
-      isProMode.value = shouldEnable
+      void exitModProMode()
     }
   }
 
@@ -418,6 +722,15 @@ onMounted(async () => {
     }
   }
   window.addEventListener('xcagi:switch-view', switchViewEvent)
+
+  if (isSandboxMode) {
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'sandbox:navigate' && typeof e.data.path === 'string') {
+        router.push(e.data.path)
+      }
+    })
+    window.parent.postMessage({ type: 'sandbox:ready' }, '*')
+  }
 })
 
 watch(isProMode, () => {
@@ -475,8 +788,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div
+    v-if="startupVisible && !hideChrome"
     class="startup-splash"
-    :class="{ hide: !startupVisible }"
     aria-label="初始化动画，点击跳过"
     title="点击屏幕快速进入"
     @pointerdown.stop="skipStartupSplash"
@@ -521,6 +834,11 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+      <StartupGiftReveal
+        v-if="!startupReveal.giftFlowDisabled"
+        :primary-mod-name="primaryModName"
+        :mod-names="startupModNames"
+      />
       <div v-if="startupVisible" class="startup-progress-wrap" aria-hidden="true">
         <div class="startup-progress-track">
           <div
@@ -530,9 +848,10 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+    <div class="startup-version" aria-label="当前版本">v8.0.0</div>
   </div>
 
-  <div class="app-shell" :class="{ 'is-ready': appReady }">
+  <div class="app-shell" :class="{ 'is-ready': appReady || hideChrome }">
     <div class="transition-overlay" id="transitionOverlay"></div>
 
     <div class="preview-float-window" id="previewFloatWindow">
@@ -649,31 +968,34 @@ onBeforeUnmount(() => {
     </div>
   </div>
 
-    <ProMode v-model="isProMode" />
-
     <GlobalReadTokenPrompt api-base="" />
     <GlobalWriteTokenPrompt />
     <AppDialogHost />
     <GlobalLanGateModal />
 
+    <router-view v-if="hideChrome" />
     <MainLayout
+      v-else
       :is-pro-mode="isProMode"
       @toggle-pro-mode="handleToggleProMode"
     >
-      <router-view />
+      <router-view v-slot="{ Component, route }">
+        <keep-alive :max="12">
+          <component :is="Component" :key="route.name || route.path" />
+        </keep-alive>
+      </router-view>
     </MainLayout>
   </div>
 </template>
 
 <style>
 .app-shell {
-  opacity: 0;
-  transition: opacity 320ms ease;
-  background: #ffffff;
-}
-
-.app-shell.is-ready {
+  /* 不用 opacity:0 藏整页（开屏遮罩已 z-index 盖住）；否则 appReady 未置位时会长期白屏 */
   opacity: 1;
+  transition: opacity 320ms ease;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.88), transparent 42%),
+    linear-gradient(135deg, #edf5fb 0%, #e7eef6 48%, #eef3f8 100%);
 }
 
 .startup-splash {
@@ -682,13 +1004,42 @@ onBeforeUnmount(() => {
   z-index: 10000;
   display: grid;
   place-items: center;
-  background: #ffffff;
+  background:
+    radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.9), transparent 30%),
+    linear-gradient(135deg, #edf5fb 0%, #e7eef6 48%, #eef3f8 100%);
   opacity: 1;
   visibility: visible;
   transition: opacity 360ms ease, visibility 0s linear 360ms;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
+  overflow: hidden;
+}
+
+.startup-splash::before,
+.startup-splash::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  display: none;
+}
+
+.startup-splash::before {
+  width: min(760px, 74vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(24, 144, 255, 0.13) 0%, rgba(34, 211, 238, 0.08) 34%, transparent 68%);
+  filter: blur(10px);
+  animation: startupAuraPulse 3600ms ease-in-out infinite;
+}
+
+.startup-splash::after {
+  inset: 0;
+  background:
+    linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.26) 42%, transparent 58%),
+    radial-gradient(circle at 70% 72%, rgba(34, 211, 238, 0.09), transparent 24%);
+  transform: translateX(-18%);
+  animation: startupBackdropSheen 5200ms ease-in-out infinite;
 }
 
 .startup-splash.hide {
@@ -703,23 +1054,83 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 14px;
   max-width: min(480px, 92vw);
-  padding: 0 12px;
+  padding: 0 var(--app-space-md);
+  position: relative;
+  z-index: 1;
+  animation: startupContentEnter 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.startup-version {
+  position: absolute;
+  left: 24px;
+  bottom: 20px;
+  z-index: 1;
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(23, 32, 51, 0.56);
+  background: rgba(255, 255, 255, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  box-shadow:
+    0 8px 20px rgba(15, 76, 129, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .startup-logo-wrap {
-  width: min(420px, 72vw);
+  width: min(380px, 68vw);
   aspect-ratio: 1 / 1;
   position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 251, 255, 0.76) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 20px 50px rgba(15, 76, 129, 0.12),
+    0 8px 18px rgba(15, 76, 129, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  overflow: hidden;
+  animation: none;
+}
+
+.startup-logo-wrap::before,
+.startup-logo-wrap::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  display: none;
+}
+
+.startup-logo-wrap::before {
+  inset: 10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.22) 0%, rgba(24, 144, 255, 0.1) 42%, transparent 70%);
+  filter: blur(8px);
+}
+
+.startup-logo-wrap::after {
+  inset: -35%;
+  background: linear-gradient(115deg, transparent 34%, rgba(255, 255, 255, 0.58) 48%, transparent 62%);
+  transform: translateX(-42%) rotate(8deg);
+  animation: startupLogoSheen 2200ms ease-out 260ms both;
 }
 
 .startup-logo-wrap img {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: 8%;
+  width: 84%;
+  height: 84%;
   object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
+  z-index: 1;
 }
 
 .startup-logo-base {
@@ -734,42 +1145,48 @@ onBeforeUnmount(() => {
 @keyframes startupTextFadeIn {
   from {
     opacity: 0;
+    transform: translateY(6px) scale(0.985);
   }
   to {
     opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
 .startup-mod-title {
   font-size: 24px;
   font-weight: 700;
-  color: #262626;
+  color: #172033;
   text-align: center;
-  margin-top: 16px;
-  animation: fadeIn 800ms ease 600ms forwards;
+  margin-top: 10px;
+  letter-spacing: -0.02em;
+  animation: startupSoftEnter 800ms ease 600ms forwards;
   opacity: 0;
 }
 
 .startup-progress-wrap {
   width: 100%;
-  max-width: min(420px, 92vw);
-  margin-top: 8px;
-  animation: fadeIn 500ms ease 200ms forwards;
+  max-width: min(420px, 84vw);
+  margin-top: 10px;
+  animation: startupSoftEnter 500ms ease 200ms forwards;
   opacity: 0;
 }
 
 .startup-progress-track {
-  height: 4px;
+  height: 5px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(15, 76, 129, 0.1);
   overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .startup-progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #1890ff 0%, #69c0ff 100%);
+  background: linear-gradient(90deg, #0b63ce 0%, #12bde6 62%, #62d9ff 100%);
   transition: width 120ms ease-out;
+  animation: none;
+  box-shadow: none;
 }
 
 .startup-mod-chips-wrap {
@@ -779,13 +1196,14 @@ onBeforeUnmount(() => {
   gap: 8px;
   width: 100%;
   max-width: min(420px, 92vw);
+  animation: startupSoftEnter 600ms ease 420ms both;
 }
 
 .startup-mod-chips-hint {
-  font-size: 12px;
+  font-size: var(--app-font-size-caption);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #8c8c8c;
+  color: rgba(23, 32, 51, 0.55);
 }
 
 .startup-mod-chips {
@@ -796,13 +1214,16 @@ onBeforeUnmount(() => {
 }
 
 .startup-mod-chip {
-  padding: 6px 12px;
+  padding: var(--app-space-sm) var(--app-space-md);
   border-radius: 999px;
   font-size: 13px;
-  color: #262626;
-  background: linear-gradient(180deg, #f5f5f5 0%, #ebebeb 100%);
-  border: 1px solid #d9d9d9;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  color: #172033;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 8px 20px rgba(15, 76, 129, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -811,8 +1232,8 @@ onBeforeUnmount(() => {
 
 .startup-mod-status {
   text-align: center;
-  font-size: 14px;
-  color: #666;
+  font-size: var(--app-font-size-body);
+  color: rgba(23, 32, 51, 0.66);
   min-height: 28px;
 }
 
@@ -822,15 +1243,22 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.54);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 8px 20px rgba(15, 76, 129, 0.07);
+  backdrop-filter: blur(12px);
   animation: fadeIn 300ms ease;
 }
 
 .mod-loading i {
-  color: #1890ff;
+  color: var(--app-accent, #1890ff);
 }
 
 .mod-loaded i {
-  color: #52c41a;
+  color: #36b35f;
 }
 
 .mod-error i {
@@ -843,6 +1271,117 @@ onBeforeUnmount(() => {
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes startupContentEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes startupSoftEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes startupLogoFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow:
+      0 28px 80px rgba(15, 76, 129, 0.18),
+      0 12px 26px rgba(15, 76, 129, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+  50% {
+    transform: translateY(-6px);
+    box-shadow:
+      0 34px 92px rgba(15, 76, 129, 0.2),
+      0 16px 30px rgba(15, 76, 129, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+}
+
+@keyframes startupLogoSheen {
+  from {
+    transform: translateX(-42%) rotate(8deg);
+  }
+  to {
+    transform: translateX(42%) rotate(8deg);
+  }
+}
+
+@keyframes startupAuraPulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes startupBackdropSheen {
+  0%,
+  100% {
+    opacity: 0.52;
+    transform: translateX(-18%);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translateX(8%);
+  }
+}
+
+@keyframes startupProgressSheen {
+  from {
+    background-position: -120px 0, 0 0;
+  }
+  to {
+    background-position: 120px 0, 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .startup-splash,
+  .app-shell {
+    transition-duration: 1ms;
+  }
+
+  .startup-splash::before,
+  .startup-splash::after,
+  .startup-logo-wrap,
+  .startup-logo-wrap::after,
+  .startup-logo-text,
+  .startup-mod-title,
+  .startup-progress-wrap,
+  .startup-progress-fill,
+  .startup-mod-chips-wrap,
+  .mod-loading,
+  .mod-loaded,
+  .mod-error {
+    animation: none;
+  }
+
+  .startup-logo-text,
+  .startup-mod-title,
+  .startup-progress-wrap {
+    opacity: 1;
+    transform: none;
   }
 }
 </style>

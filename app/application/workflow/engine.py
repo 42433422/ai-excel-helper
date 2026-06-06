@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 import httpx
 
 from app.services import get_ai_conversation_service
 
-from .types import NodeExecutionResult, PlanGraph, WorkflowRunResult, WorkflowNode
+from .types import NodeExecutionResult, PlanGraph, WorkflowNode, WorkflowRunResult
 
 logger = logging.getLogger(__name__)
 
-_sync_http_client: Optional[httpx.Client] = None
+_sync_http_client: httpx.Client | None = None
 
 
 def _get_sync_http_client() -> httpx.Client:
@@ -32,27 +32,29 @@ class WorkflowEngine:
     def run(
         self,
         plan: PlanGraph,
-        runtime_context: Dict[str, Any] | None = None,
+        runtime_context: dict[str, Any] | None = None,
         max_retries: int = 1,
         agentic_loop: bool = False,
-        tool_registry: Dict[str, Any] | None = None,
+        tool_registry: dict[str, Any] | None = None,
         user_id: str | None = None,
     ) -> WorkflowRunResult:
         if agentic_loop and tool_registry:
-            return self._run_agentic_loop(plan, runtime_context, max_retries, tool_registry, user_id)
+            return self._run_agentic_loop(
+                plan, runtime_context, max_retries, tool_registry, user_id
+            )
         return self._run_batch(plan, runtime_context, max_retries)
 
     def _run_batch(
         self,
         plan: PlanGraph,
-        runtime_context: Dict[str, Any] | None = None,
+        runtime_context: dict[str, Any] | None = None,
         max_retries: int = 1,
     ) -> WorkflowRunResult:
         runtime_context = dict(runtime_context or {})
-        node_results: List[NodeExecutionResult] = []
-        executed: Set[str] = set()
+        node_results: list[NodeExecutionResult] = []
+        executed: set[str] = set()
 
-        pending: Dict[str, WorkflowNode] = {node.node_id: node for node in plan.nodes}
+        pending: dict[str, WorkflowNode] = {node.node_id: node for node in plan.nodes}
         stalled_rounds = 0
 
         while pending:
@@ -102,9 +104,9 @@ class WorkflowEngine:
     def _run_agentic_loop(
         self,
         plan: PlanGraph,
-        runtime_context: Dict[str, Any] | None,
+        runtime_context: dict[str, Any] | None,
         max_retries: int,
-        tool_registry: Dict[str, Any],
+        tool_registry: dict[str, Any],
         user_id: str | None,
     ) -> WorkflowRunResult:
         """
@@ -112,8 +114,8 @@ class WorkflowEngine:
         循环直到 LLM 说 done 或达到 max_steps。
         """
         runtime_context = dict(runtime_context or {})
-        all_node_results: List[NodeExecutionResult] = []
-        agent_history: List[Dict[str, Any]] = []
+        all_node_results: list[NodeExecutionResult] = []
+        agent_history: list[dict[str, Any]] = []
         max_steps = 10
         step = 0
 
@@ -140,17 +142,22 @@ class WorkflowEngine:
 
             logger.info(
                 "AgenticLoop step=%d action=%s.%s reasoning=%s",
-                step, tool_id, action, reasoning[:100]
+                step,
+                tool_id,
+                action,
+                reasoning[:100],
             )
 
-            agent_history.append({
-                "step": step,
-                "role": "assistant",
-                "tool_id": tool_id,
-                "action": action,
-                "params": params,
-                "reasoning": reasoning,
-            })
+            agent_history.append(
+                {
+                    "step": step,
+                    "role": "assistant",
+                    "tool_id": tool_id,
+                    "action": action,
+                    "params": params,
+                    "reasoning": reasoning,
+                }
+            )
 
             if action == "done":
                 break
@@ -168,18 +175,22 @@ class WorkflowEngine:
             runtime_context["node_outputs"][f"agent_step_{step}"] = node_result.output
 
             if not node_result.success:
-                agent_history.append({
-                    "step": step,
-                    "role": "system",
-                    "content": f"工具执行失败: {node_result.error}",
-                })
+                agent_history.append(
+                    {
+                        "step": step,
+                        "role": "system",
+                        "content": f"工具执行失败: {node_result.error}",
+                    }
+                )
             else:
                 output_preview = self._summarize_output(node_result.output)
-                agent_history.append({
-                    "step": step,
-                    "role": "system",
-                    "content": f"结果: {output_preview}",
-                })
+                agent_history.append(
+                    {
+                        "step": step,
+                        "role": "system",
+                        "content": f"结果: {output_preview}",
+                    }
+                )
 
         if step >= max_steps:
             logger.warning("AgenticLoop 达到最大步数限制 %d", max_steps)
@@ -195,11 +206,11 @@ class WorkflowEngine:
     def _llm_decide_next_step(
         self,
         user_message: str,
-        tool_registry: Dict[str, Any],
-        runtime_context: Dict[str, Any],
-        agent_history: List[Dict[str, Any]],
+        tool_registry: dict[str, Any],
+        runtime_context: dict[str, Any],
+        agent_history: list[dict[str, Any]],
         user_id: str | None,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         询问 LLM：下一步做什么（单步决策）。
         返回 {"action": "done"} 表示结束，或 {"tool_id": "...", "action": "...", "params": {...}, "reasoning": "..."}
@@ -219,23 +230,27 @@ class WorkflowEngine:
             for aname, ameta in actions.items():
                 if not isinstance(ameta, dict):
                     continue
-                action_list.append({
-                    "action": aname,
-                    "risk": ameta.get("risk", "low"),
-                    "idempotent": bool(ameta.get("idempotent", False)),
-                    "required_params": ameta.get("required_params", []),
-                })
-            tool_specs.append({
-                "tool_id": tid,
-                "description": spec.get("description", ""),
-                "actions": action_list,
-            })
+                action_list.append(
+                    {
+                        "action": aname,
+                        "risk": ameta.get("risk", "low"),
+                        "idempotent": bool(ameta.get("idempotent", False)),
+                        "required_params": ameta.get("required_params", []),
+                    }
+                )
+            tool_specs.append(
+                {
+                    "tool_id": tid,
+                    "description": spec.get("description", ""),
+                    "actions": action_list,
+                }
+            )
 
         history_lines = []
         for h in agent_history[-8:]:
             role = h.get("role", "")
             if role == "done":
-                history_lines.append(f"Assistant: 已完成任务")
+                history_lines.append("Assistant: 已完成任务")
             elif role == "assistant":
                 history_lines.append(
                     f"Assistant: 决定执行 {h.get('tool_id')}.{h.get('action')} "
@@ -253,8 +268,8 @@ class WorkflowEngine:
         prompt = {
             "task": "作为 Agent，决定下一步动作。",
             "rules": [
-                "如果任务已完成，返回 {\"action\": \"done\"}。",
-                "如果需要执行工具，返回 {\"tool_id\": \"...\", \"action\": \"...\", \"params\": {...}, \"reasoning\": \"...\"}。",
+                '如果任务已完成，返回 {"action": "done"}。',
+                '如果需要执行工具，返回 {"tool_id": "...", "action": "...", "params": {...}, "reasoning": "..."}。',
                 "params 必须填写所有 required_params（不能留空）。",
                 "优先使用低风险、幂等工具。",
                 "只决定下一步，不要一次决定多步。",
@@ -278,7 +293,9 @@ class WorkflowEngine:
         ]
 
         try:
-            api_url = getattr(ai_service, "api_url", "") or "https://api.deepseek.com/v1/chat/completions"
+            from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+
+            api_url = getattr(ai_service, "api_url", "") or default_chat_completions_url()
             model = getattr(ai_service, "model", "") or "deepseek-chat"
 
             response = _get_sync_http_client().post(
@@ -331,7 +348,7 @@ class WorkflowEngine:
             return None
 
     @staticmethod
-    def _summarize_output(output: Dict[str, Any]) -> str:
+    def _summarize_output(output: dict[str, Any]) -> str:
         if not isinstance(output, dict):
             return str(output)[:200]
         if output.get("success") is True:
@@ -352,8 +369,8 @@ class WorkflowEngine:
         self,
         tool_id: str,
         action: str,
-        params: Dict[str, Any],
-        runtime_context: Dict[str, Any],
+        params: dict[str, Any],
+        runtime_context: dict[str, Any],
         max_retries: int,
     ) -> NodeExecutionResult:
         merged_params = dict(params or {})
@@ -376,7 +393,9 @@ class WorkflowEngine:
                 last_error = str(output.get("message") or output.get("error") or "unknown error")
             except Exception as err:
                 last_error = str(err)
-                logger.warning("AgenticLoop 工具执行失败 %s.%s: %s", tool_id, action, err, exc_info=True)
+                logger.warning(
+                    "AgenticLoop 工具执行失败 %s.%s: %s", tool_id, action, err, exc_info=True
+                )
             retries += 1
 
         return NodeExecutionResult(
@@ -389,7 +408,7 @@ class WorkflowEngine:
         )
 
     @staticmethod
-    def _has_non_empty_param(params: Dict[str, Any], keys: tuple[str, ...]) -> bool:
+    def _has_non_empty_param(params: dict[str, Any], keys: tuple[str, ...]) -> bool:
         for k in keys:
             v = params.get(k)
             if v is not None and str(v).strip():
@@ -397,7 +416,7 @@ class WorkflowEngine:
         return False
 
     def _merge_runtime_fallback_params(
-        self, node: WorkflowNode, merged_params: Dict[str, Any], runtime_context: Dict[str, Any]
+        self, node: WorkflowNode, merged_params: dict[str, Any], runtime_context: dict[str, Any]
     ) -> None:
         user_msg = str(runtime_context.get("message") or "").strip()
         if not user_msg:
@@ -426,7 +445,7 @@ class WorkflowEngine:
     def _run_node(
         self,
         node: WorkflowNode,
-        runtime_context: Dict[str, Any],
+        runtime_context: dict[str, Any],
         max_retries: int = 1,
     ) -> NodeExecutionResult:
         retries = 0

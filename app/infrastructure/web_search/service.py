@@ -111,18 +111,32 @@ async def kitten_web_search(
     if len(q) > _MAX_QUERY_LEN:
         q = q[:_MAX_QUERY_LEN]
 
-    mr = max_results if max_results is not None else int(os.environ.get("WEB_SEARCH_MAX_RESULTS", str(_DEFAULT_MAX_RESULTS)))
+    mr = (
+        max_results
+        if max_results is not None
+        else int(os.environ.get("WEB_SEARCH_MAX_RESULTS", str(_DEFAULT_MAX_RESULTS)))
+    )
     mr = max(1, min(mr, 10))
 
     provider = (os.environ.get("WEB_SEARCH_PROVIDER") or "").strip().lower()
     if provider in ("", "none", "off", "0", "false"):
-        return {"success": False, "hits": [], "provider": None, "message": "联网搜索未配置（WEB_SEARCH_PROVIDER）"}
+        return {
+            "success": False,
+            "hits": [],
+            "provider": None,
+            "message": "联网搜索未配置（WEB_SEARCH_PROVIDER）",
+        }
 
     if not q:
         return {"success": False, "hits": [], "provider": provider, "message": "查询为空"}
 
     if not _rate_allow(user_key):
-        return {"success": False, "hits": [], "provider": provider, "message": "搜索过于频繁，请稍后再试"}
+        return {
+            "success": False,
+            "hits": [],
+            "provider": provider,
+            "message": "搜索过于频繁，请稍后再试",
+        }
 
     tavily_key = (os.environ.get("TAVILY_API_KEY") or "").strip()
     serp_key = (os.environ.get("SERPAPI_API_KEY") or "").strip()
@@ -130,11 +144,21 @@ async def kitten_web_search(
     try:
         if provider == "tavily":
             if not tavily_key:
-                return {"success": False, "hits": [], "provider": "tavily", "message": "缺少 TAVILY_API_KEY"}
+                return {
+                    "success": False,
+                    "hits": [],
+                    "provider": "tavily",
+                    "message": "缺少 TAVILY_API_KEY",
+                }
             hits = await _tavily_search(q, tavily_key, mr)
         elif provider in ("serpapi", "serp"):
             if not serp_key:
-                return {"success": False, "hits": [], "provider": "serpapi", "message": "缺少 SERPAPI_API_KEY"}
+                return {
+                    "success": False,
+                    "hits": [],
+                    "provider": "serpapi",
+                    "message": "缺少 SERPAPI_API_KEY",
+                }
             hits = await _serpapi_search(q, serp_key, mr)
         elif provider == "auto":
             if tavily_key:
@@ -144,7 +168,12 @@ async def kitten_web_search(
                 hits = await _serpapi_search(q, serp_key, mr)
                 provider = "serpapi"
             else:
-                return {"success": False, "hits": [], "provider": None, "message": "auto 模式需配置 TAVILY_API_KEY 或 SERPAPI_API_KEY"}
+                return {
+                    "success": False,
+                    "hits": [],
+                    "provider": None,
+                    "message": "auto 模式需配置 TAVILY_API_KEY 或 SERPAPI_API_KEY",
+                }
         else:
             return {
                 "success": False,

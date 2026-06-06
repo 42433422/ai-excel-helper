@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 微信小程序：code2Session 与本地用户绑定。
 
@@ -11,7 +10,7 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 import requests
 
@@ -24,14 +23,14 @@ class WechatMiniProgramError(Exception):
     """微信小程序 API 或配置错误。"""
 
 
-def get_wechat_config() -> Dict[str, str]:
+def get_wechat_config() -> dict[str, str]:
     return {
         "appid": os.environ.get("WECHAT_MINIPROGRAM_APPID", ""),
         "secret": os.environ.get("WECHAT_MINIPROGRAM_SECRET", ""),
     }
 
 
-def wechat_login_code2session(code: str) -> Dict[str, Any]:
+def wechat_login_code2session(code: str) -> dict[str, Any]:
     """
     调用微信 jscode2session。
 
@@ -64,7 +63,7 @@ def wechat_login_code2session(code: str) -> Dict[str, Any]:
         raise WechatMiniProgramError(f"请求微信 API 失败：{str(e)}") from e
 
 
-def miniprogram_login_data_for_wx_username_binding(code: str) -> Dict[str, Any]:
+def miniprogram_login_data_for_wx_username_binding(code: str) -> dict[str, Any]:
     """
     与历史 ``/api/wechat/login`` 行为一致：按 ``wx_{openid}`` 绑定 ``User.username``，
     返回成功时的 data 字段（token / expires_in / user）。
@@ -79,20 +78,29 @@ def miniprogram_login_data_for_wx_username_binding(code: str) -> Dict[str, Any]:
         raise WechatMiniProgramError("微信登录失败，未获取到 openid")
 
     with get_db() as db:
-        user = db.query(User).filter(User.username == f"wx_{openid}").first()
+        user = db.query(User).filter(User.wx_openid == openid).first()
+        if not user:
+            user = db.query(User).filter(User.username == f"wx_{openid}").first()
         if not user:
             user = User(
                 username=f"wx_{openid}",
                 password=uuid.uuid4().hex,
                 display_name="微信用户",
                 email="",
-                role="user",
+                role="mp_user",
                 is_active=True,
+                wx_openid=openid,
+                wx_unionid=result.get("unionid"),
                 created_at=datetime.now(),
             )
             db.add(user)
             db.commit()
             db.refresh(user)
+        elif not getattr(user, "wx_openid", None):
+            user.wx_openid = openid
+            if result.get("unionid"):
+                user.wx_unionid = result.get("unionid")
+            db.commit()
 
         user.last_login = datetime.now()
         db.commit()
@@ -104,10 +112,10 @@ def miniprogram_login_data_for_wx_username_binding(code: str) -> Dict[str, Any]:
             "user": {
                 "id": user.id,
                 "username": user.username,
-                "display_name": user.display_name,
+                "display_name": user.display_name or "微信用户",
                 "email": user.email,
                 "role": user.role,
-                "avatar": "",
+                "avatar": getattr(user, "wx_avatar_url", None) or "",
                 "created_at": user.created_at.isoformat() if user.created_at else None,
             },
         }

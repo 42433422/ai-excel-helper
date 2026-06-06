@@ -1,0 +1,160 @@
+﻿<Window x:Class="XcagiDownloader.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="XCAGI 安装包下载器"
+        Height="560"
+        Width="720"
+        MinHeight="480"
+        MinWidth="640">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,12"
+                   Foreground="#444"
+                   Text="从更新仓拉取 latest.yml，校验（可选 Ed25519）后断点下载完整 NSIS 安装包并校验 SHA512。适用于内网镜像、代理环境或应用内更新失败时的兜底安装。" />
+
+        <GroupBox Grid.Row="1" Header="更新仓地址" Padding="10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Label Grid.Row="0" Grid.Column="0" Content="预设(_P):" VerticalAlignment="Center" Target="{Binding ElementName=PresetCombo}" />
+                <ComboBox x:Name="PresetCombo"
+                          Grid.Row="0"
+                          Grid.Column="1"
+                          Margin="8,4,0,4"
+                          SelectionChanged="PresetCombo_OnSelectionChanged" />
+                <Label Grid.Row="1" Grid.Column="0" Content="Base URL(_U):" VerticalAlignment="Center" />
+                <TextBox x:Name="BaseUrlBox"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         Margin="8,4,0,4"
+                         ToolTip="与 XCAGI_UPDATE_URL 一致，指向包含 latest.yml 的目录" />
+            </Grid>
+        </GroupBox>
+
+        <GroupBox Grid.Row="2" Header="网络与校验" Padding="10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <CheckBox x:Name="UseSystemProxyCheck"
+                          Grid.Row="0"
+                          Grid.ColumnSpan="2"
+                          Content="使用系统代理(_S)"
+                          Margin="0,0,0,6" />
+                <Label Grid.Row="1" Grid.Column="0" Content="手动代理(_R):" VerticalAlignment="Center" />
+                <TextBox x:Name="ProxyBox"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         Margin="8,4,0,4"
+                         ToolTip="例如 http://127.0.0.1:7890；留空则仅在勾选系统代理时使用系统设置" />
+                <Label Grid.Row="2" Grid.Column="0" Content="Ed25519 公钥 PEM(_K):" VerticalAlignment="Top" Margin="0,6,0,0" />
+                <TextBox x:Name="PublicKeyBox"
+                         Grid.Row="2"
+                         Grid.Column="1"
+                         Margin="8,4,0,4"
+                         Height="72"
+                         AcceptsReturn="True"
+                         VerticalScrollBarVisibility="Auto"
+                         TextWrapping="Wrap"
+                         FontFamily="Consolas"
+                         ToolTip="与桌面环境变量 XCAGI_UPDATE_ED25519_PUBLIC_KEY 相同；留空则不要求 latest.yml 含签名" />
+            </Grid>
+        </GroupBox>
+
+        <GroupBox Grid.Row="3" Header="保存位置" Padding="10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="DownloadDirBox" Grid.Column="0" Margin="0,0,8,0" />
+                <Button Grid.Column="1"
+                        Content="浏览…(_B)"
+                        Padding="12,4"
+                        Click="BrowseDir_OnClick" />
+            </Grid>
+        </GroupBox>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,10">
+            <Button x:Name="FetchButton"
+                    Content="获取版本信息(_F)"
+                    Padding="14,6"
+                    Margin="0,0,8,0"
+                    Click="Fetch_OnClick" />
+            <Button x:Name="DownloadButton"
+                    Content="下载安装包(_D)"
+                    Padding="14,6"
+                    Margin="0,0,8,0"
+                    IsEnabled="False"
+                    Click="Download_OnClick" />
+            <Button x:Name="CancelButton"
+                    Content="取消(_C)"
+                    Padding="14,6"
+                    Margin="0,0,8,0"
+                    IsEnabled="False"
+                    Click="Cancel_OnClick" />
+            <Button x:Name="LaunchButton"
+                    Content="运行安装包(_L)"
+                    Padding="14,6"
+                    Margin="0,0,8,0"
+                    IsEnabled="False"
+                    Click="Launch_OnClick" />
+            <Button Content="打开日志目录(_O)"
+                    Padding="14,6"
+                    Click="OpenLogDir_OnClick" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="5" Margin="0,0,0,8">
+            <TextBlock x:Name="MetaLabel" TextWrapping="Wrap" FontWeight="SemiBold" />
+            <ProgressBar x:Name="DownloadProgress"
+                         Height="22"
+                         Margin="0,8,0,0"
+                         Minimum="0"
+                         Maximum="100"
+                         Value="0" />
+            <TextBlock x:Name="ProgressLabel" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <TextBox x:Name="LogBox"
+                 Grid.Row="6"
+                 Margin="0,8,0,8"
+                 IsReadOnly="True"
+                 VerticalScrollBarVisibility="Auto"
+                 TextWrapping="Wrap"
+                 FontFamily="Consolas"
+                 FontSize="11" />
+
+        <TextBlock Grid.Row="7"
+                   TextWrapping="Wrap"
+                   Foreground="#666"
+                   FontSize="11"
+                   Text="日志与 settings.json：%AppData%\XCAGI\downloader\ — NSIS 静默安装常见参数见 README（需在目标环境实测）。" />
+    </Grid>
+</Window>

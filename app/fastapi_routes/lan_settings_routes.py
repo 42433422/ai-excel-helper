@@ -19,9 +19,7 @@ from __future__ import annotations
 
 import logging
 import time
-from ipaddress import ip_address
-from ipaddress import ip_network
-from typing import Optional
+from ipaddress import ip_address, ip_network
 
 from fastapi import APIRouter, Body, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -40,7 +38,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/lan/admin", tags=["lan-admin"])
 
 
-def _is_admin_host_ip(ip: Optional[str]) -> bool:
+def _is_admin_host_ip(ip: str | None) -> bool:
     if not ip:
         return False
     cfg = get_lan_config()
@@ -109,20 +107,20 @@ class LanSettingsView(BaseModel):
 
 
 class LanSettingsUpdate(BaseModel):
-    enabled: Optional[bool] = Field(default=None, description="是否启用 LAN 守护；留空则不改")
-    license_secret: Optional[str] = Field(
+    enabled: bool | None = Field(default=None, description="是否启用 LAN 守护；留空则不改")
+    license_secret: str | None = Field(
         default=None,
         min_length=0,
         max_length=256,
         description=f"≥{LAN_LICENSE_SECRET_MIN_LENGTH} 字符的随机串；留空字符串表示清空覆写，回落到 env",
     )
-    admin_bootstrap_key: Optional[str] = Field(
+    admin_bootstrap_key: str | None = Field(
         default=None,
         min_length=0,
         max_length=256,
         description="一次性引导密钥；留空字符串表示清空覆写",
     )
-    allowed_cidrs: Optional[list[str]] = Field(
+    allowed_cidrs: list[str] | None = Field(
         default=None,
         description="CIDR 白名单；传空数组会被拒绝",
     )
@@ -198,7 +196,7 @@ async def update_settings(
     actor = _authorize(request)
 
     # 校验：若本次启用 LAN，则必须已有（或正在写入）足够长的 secret。
-    incoming_secret: Optional[str] = None
+    incoming_secret: str | None = None
     if payload.license_secret is not None:
         incoming_secret = payload.license_secret.strip()
         if incoming_secret and len(incoming_secret) < LAN_LICENSE_SECRET_MIN_LENGTH:
@@ -206,7 +204,7 @@ async def update_settings(
                 status_code=400,
                 detail="license_secret_too_short",
             )
-    next_cidrs: Optional[list[str]] = None
+    next_cidrs: list[str] | None = None
     if payload.allowed_cidrs is not None:
         next_cidrs = _normalize_cidrs(payload.allowed_cidrs)
 
@@ -215,6 +213,7 @@ async def update_settings(
         # 判定启用后最终会用哪个 secret
         existing = load_overrides().license_secret
         import os as _os
+
         env_secret = (_os.environ.get("LAN_LICENSE_SECRET") or "").strip()
         final_secret = (
             incoming_secret
@@ -232,9 +231,7 @@ async def update_settings(
         enabled=payload.enabled,
         license_secret=incoming_secret,
         admin_bootstrap_key=(
-            payload.admin_bootstrap_key.strip()
-            if payload.admin_bootstrap_key is not None
-            else None
+            payload.admin_bootstrap_key.strip() if payload.admin_bootstrap_key is not None else None
         ),
         allowed_cidrs=next_cidrs,
     )
@@ -247,13 +244,9 @@ async def update_settings(
     if payload.enabled is not None:
         changed.append(f"enabled={cfg.enabled}")
     if payload.license_secret is not None:
-        changed.append(
-            f"license_secret={'set' if cfg.license_secret else 'cleared'}"
-        )
+        changed.append(f"license_secret={'set' if cfg.license_secret else 'cleared'}")
     if payload.admin_bootstrap_key is not None:
-        changed.append(
-            f"admin_bootstrap_key={'set' if cfg.admin_bootstrap_key else 'cleared'}"
-        )
+        changed.append(f"admin_bootstrap_key={'set' if cfg.admin_bootstrap_key else 'cleared'}")
     if payload.allowed_cidrs is not None:
         changed.append(f"allowed_cidrs={len(cfg.allowed_cidrs)}")
     try:

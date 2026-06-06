@@ -1,0 +1,28 @@
+version: "3.1"
+
+nlu:
+- intent: shipment_generate
+  examples: |
+    - 给[张老师](customer_name)生成[10](quantity)[盒](specification)[红虫](product_name)的发货单
+    - 为[李四](customer_name)开一张[5](quantity)[袋](specification)[螺丝](product_name)的送货单
+    - 帮我给[供应商A](customer_name)生成[20](quantity)[箱](specification)[插座](product_name)的发货单
+    - 生成发货单：客户[王五](customer_name)，产品[电池](product_name)，数量[50](quantity)
+
+- intent: products
+  examples: |
+    - 查询产品[红虫](product_name)的规格
+    - 请展示关于[插头](product_name)的详情
+    - 我想了解[电池](product_name)的库存和规格
+
+- intent: customers
+  examples: |
+    - 查找客户[张三](customer_name)的联系方式
+    - 给[李四公司](customer_name)查询详情
+    - 显示购买单位[海鲜贸易有限公司](customer_name)的信息
+
+- intent: excel_decompose
+  examples: |
+    - 解析 Excel 中的字段 [order_123](order_number)
+    - 请分解表格并抽取字段，例如订单号 [ORD-2026-001](order_number)
+    - 从上传的 Excel 中抽取数量列 [数量](quantity)
+

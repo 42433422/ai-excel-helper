@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 纯 stdlib 的密码哈希实现，替代 ``werkzeug.security``。
 
@@ -26,11 +25,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
+import os
 import secrets
 import string
 
 SALT_CHARS = string.ascii_letters + string.digits
 DEFAULT_PBKDF2_ITERATIONS = 260000
+
+logger = logging.getLogger(__name__)
 DEFAULT_METHOD = f"pbkdf2:sha256:{DEFAULT_PBKDF2_ITERATIONS}"
 
 
@@ -133,6 +136,9 @@ def check_password_hash(pwhash: str, password: str) -> bool:
         return False
 
     if method == "plain":
+        if os.environ.get("XCAGI_DEBUG", "1") != "1":
+            logger.warning("plain-text password check rejected in non-debug environment")
+            return False
         return hmac.compare_digest(rest, password)
 
     salt, _, stored = rest.partition("$")

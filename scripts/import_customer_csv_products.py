@@ -21,10 +21,14 @@ import os
 import re
 import sqlite3
 import sys
-from datetime import datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from app.utils.time import utc_now_iso_z
 
 _NO_CODE_CHARS = frozenset({"—", "-", "－", "–", "\u2014", ""})
 
@@ -78,7 +82,7 @@ def _ensure_purchase_unit(cur: sqlite3.Cursor, customer: str) -> None:
     cols = {str(r[1]) for r in cur.fetchall()}
     fields = ["unit_name", "contact_person", "contact_phone", "address", "is_active"]
     vals: list = [customer, "", "", "", 1]
-    now = datetime.utcnow().isoformat(timespec="seconds")
+    now = utc_now_iso_z(timespec="seconds")
     if "created_at" in cols:
         fields.append("created_at")
         vals.append(now)

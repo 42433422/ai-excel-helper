@@ -5,9 +5,8 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
 
-from app.neuro_bus.domains.base import NeuroDomain, DomainChannel, get_domain_registry
+from app.neuro_bus.domains.base import DomainChannel, NeuroDomain, get_domain_registry
 from app.neuro_bus.events.base import EventPriority
 from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
 
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 class WechatNeuroDomain(NeuroDomain):
     """
     微信神经域
-    
+
     事件：
     - wechat.message.received
     - wechat.menu.click
@@ -25,14 +24,14 @@ class WechatNeuroDomain(NeuroDomain):
     - wechat.user.subscribe
     - wechat.user.unsubscribe
     """
-    
+
     domain_name = "wechat"
     default_channel = DomainChannel.STANDARD
-    
+
     def __init__(self, bus=None):
         super().__init__(bus)
         self._setup_handlers()
-    
+
     def _setup_handlers(self):
         @self.on("wechat.message.received", priority=1)
         async def on_message(event):
@@ -42,20 +41,20 @@ class WechatNeuroDomain(NeuroDomain):
             from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
 
             bump_domain_handler_metric("wechat.message.received")
-        
+
         @self.on("wechat.payment.callback", priority=0, channel=DomainChannel.RELIABLE)
         async def on_payment(event):
             order_id = event.payload.get("order_id")
             status = event.payload.get("status")
             logger.info(f"WeChat payment: order={order_id}, status={status}")
             bump_domain_handler_metric("wechat.payment.callback")
-    
+
     async def initialize(self):
         logger.info("WechatNeuroDomain initialized")
-    
+
     async def shutdown(self):
         logger.info("WechatNeuroDomain shutdown")
-    
+
     def emit_message_received(
         self,
         msg_id: str,
@@ -73,9 +72,9 @@ class WechatNeuroDomain(NeuroDomain):
                 "from_user": from_user,
                 "content": content,
                 "timestamp": timestamp,
-            }
+            },
         )
-    
+
     def emit_payment_callback(
         self,
         order_id: str,
@@ -91,11 +90,11 @@ class WechatNeuroDomain(NeuroDomain):
                 "transaction_id": transaction_id,
                 "status": status,
                 "amount": amount,
-            }
+            },
         )
 
 
-_wechat_domain: Optional[WechatNeuroDomain] = None
+_wechat_domain: WechatNeuroDomain | None = None
 
 
 def get_wechat_domain() -> WechatNeuroDomain:

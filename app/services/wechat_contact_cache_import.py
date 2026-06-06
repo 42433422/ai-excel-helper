@@ -1,7 +1,7 @@
 """
 从微信解密库同步联系人到 ``WechatContact`` 表（归档 ``refresh_contact_cache_compat`` 逻辑）。
 
-供原生 FastAPI 路由调用，避免依赖 Flask 请求上下文。
+供原生 FastAPI 路由调用，避免依赖 HTTP 请求上下文。
 """
 
 from __future__ import annotations
@@ -74,8 +74,9 @@ def ensure_decrypted_wechat_dbs() -> dict[str, Any]:
         if wechat_decrypt_path not in sys.path:
             sys.path.insert(0, wechat_decrypt_path)
 
-        from config import load_config
         from key_utils import get_key_info, strip_key_metadata
+
+        from config import load_config
 
         cfg = load_config()
         raw_db_dir = os.path.join(wechat_decrypt_path, "raw_db")
@@ -106,7 +107,10 @@ def ensure_decrypted_wechat_dbs() -> dict[str, Any]:
                             shutil.copy2(f, dst)
                     except Exception as copy_err:
                         logger.warning(
-                            "[WeChat] 复制原始库失败 section=%s file=%s err=%s", section, f, copy_err
+                            "[WeChat] 复制原始库失败 section=%s file=%s err=%s",
+                            section,
+                            f,
+                            copy_err,
                         )
                         continue
 
@@ -117,7 +121,7 @@ def ensure_decrypted_wechat_dbs() -> dict[str, Any]:
                 "message": "密钥文件不存在，请先运行 wechat-decrypt 获取密钥",
             }
 
-        with open(keys_file, "r", encoding="utf-8") as f:
+        with open(keys_file, encoding="utf-8") as f:
             keys = json.load(f)
         keys = strip_key_metadata(keys)
         if not keys:
@@ -184,7 +188,9 @@ def ensure_decrypted_wechat_dbs() -> dict[str, Any]:
             "message": f"wechat-decrypt 工具模块缺失: {e}。请确认工具目录包含 config.py / key_utils.py / decrypt_db.py。",
         }
     except Exception as e:
-        logger.error("[WeChat] ensure_decrypted_wechat_dbs 错误: %s\n%s", str(e), traceback.format_exc())
+        logger.error(
+            "[WeChat] ensure_decrypted_wechat_dbs 错误: %s\n%s", str(e), traceback.format_exc()
+        )
         return {"success": False, "message": f"同步解密失败: {str(e)}"}
 
 
@@ -223,7 +229,9 @@ def refresh_wechat_contacts_from_decrypt() -> tuple[dict[str, Any], int]:
                     select_cols = ["username"]
                     select_cols.append("nick_name" if "nick_name" in cols else "'' AS nick_name")
                     select_cols.append("remark" if "remark" in cols else "'' AS remark")
-                    select_cols.append("is_in_chat_room" if "is_in_chat_room" in cols else "0 AS is_in_chat_room")
+                    select_cols.append(
+                        "is_in_chat_room" if "is_in_chat_room" in cols else "0 AS is_in_chat_room"
+                    )
 
                     where_clause = "WHERE delete_flag = 0" if "delete_flag" in cols else ""
                     sql = f"SELECT {', '.join(select_cols)} FROM contact {where_clause}"
@@ -239,7 +247,9 @@ def refresh_wechat_contacts_from_decrypt() -> tuple[dict[str, Any], int]:
                     ).fetchone()
                     if table_exists:
                         source_desc = "message_0.db/Name2Id"
-                        rows = cur.execute("SELECT user_name, '', '', is_session FROM Name2Id").fetchall()
+                        rows = cur.execute(
+                            "SELECT user_name, '', '', is_session FROM Name2Id"
+                        ).fetchall()
 
         if not rows:
             return {
@@ -292,7 +302,9 @@ def refresh_wechat_contacts_from_decrypt() -> tuple[dict[str, Any], int]:
                     skipped += 1
                     continue
 
-                contact_type = "group" if (is_in_chat_room == "1" or "@chatroom" in username) else "contact"
+                contact_type = (
+                    "group" if (is_in_chat_room == "1" or "@chatroom" in username) else "contact"
+                )
                 contact_name = nick_name or remark or username
 
                 existing = existing_by_wechat_id.get(username)

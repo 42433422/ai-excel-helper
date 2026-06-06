@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.application.ports.material_repository import MaterialRepository
 from app.db.models.material import Material
@@ -11,7 +11,7 @@ from app.db.session import get_db
 class SQLAlchemyMaterialRepository(MaterialRepository):
     """原材料仓储 SQLAlchemy 实现"""
 
-    def _material_to_dict(self, material: Material) -> Dict[str, Any]:
+    def _material_to_dict(self, material: Material) -> dict[str, Any]:
         return {
             "id": material.id,
             "material_code": material.material_code,
@@ -28,16 +28,16 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
             "description": material.description,
             "is_active": material.is_active,
             "created_at": material.created_at.isoformat() if material.created_at else None,
-            "updated_at": material.updated_at.isoformat() if material.updated_at else None
+            "updated_at": material.updated_at.isoformat() if material.updated_at else None,
         }
 
     def find_all(
         self,
-        search: Optional[str] = None,
-        category: Optional[str] = None,
+        search: str | None = None,
+        category: str | None = None,
         page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+        per_page: int = 20,
+    ) -> dict[str, Any]:
         try:
             with get_db() as db:
                 query = db.query(Material).filter(Material.is_active == 1)
@@ -45,40 +45,41 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
                 if search:
                     pattern = f"%{search}%"
                     query = query.filter(
-                        (Material.name.like(pattern)) |
-                        (Material.material_code.like(pattern)) |
-                        (Material.supplier.like(pattern))
+                        (Material.name.like(pattern))
+                        | (Material.material_code.like(pattern))
+                        | (Material.supplier.like(pattern))
                     )
 
                 if category:
                     query = query.filter(Material.category == category)
 
                 total = query.count()
-                materials = query.order_by(Material.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+                materials = (
+                    query.order_by(Material.created_at.desc())
+                    .offset((page - 1) * per_page)
+                    .limit(per_page)
+                    .all()
+                )
 
                 return {
                     "success": True,
                     "data": [self._material_to_dict(m) for m in materials],
                     "total": total,
                     "page": page,
-                    "per_page": per_page
+                    "per_page": per_page,
                 }
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"获取失败：{str(e)}",
-                "data": [],
-                "total": 0
-            }
+            return {"success": False, "message": f"获取失败：{str(e)}", "data": [], "total": 0}
 
-    def find_by_id(self, material_id: int) -> Optional[Dict[str, Any]]:
+    def find_by_id(self, material_id: int) -> dict[str, Any] | None:
         try:
             with get_db() as db:
-                material = db.query(Material).filter(
-                    Material.id == material_id,
-                    Material.is_active == 1
-                ).first()
+                material = (
+                    db.query(Material)
+                    .filter(Material.id == material_id, Material.is_active == 1)
+                    .first()
+                )
 
                 if not material:
                     return None
@@ -88,7 +89,7 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
         except Exception:
             return None
 
-    def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create(self, data: dict[str, Any]) -> dict[str, Any]:
         try:
             with get_db() as db:
                 material = Material(
@@ -105,7 +106,7 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
                     max_stock=data.get("max_stock", 0),
                     description=data.get("description"),
                     created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    updated_at=datetime.now(),
                 )
 
                 db.add(material)
@@ -115,34 +116,37 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
                 return {
                     "success": True,
                     "message": "原材料创建成功",
-                    "data": self._material_to_dict(material)
+                    "data": self._material_to_dict(material),
                 }
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"创建失败：{str(e)}"
-            }
+            return {"success": False, "message": f"创建失败：{str(e)}"}
 
-    def update(self, material_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update(self, material_id: int, data: dict[str, Any]) -> dict[str, Any]:
         try:
             with get_db() as db:
-                material = db.query(Material).filter(
-                    Material.id == material_id,
-                    Material.is_active == 1
-                ).first()
+                material = (
+                    db.query(Material)
+                    .filter(Material.id == material_id, Material.is_active == 1)
+                    .first()
+                )
 
                 if not material:
-                    return {
-                        "success": False,
-                        "message": "原材料不存在"
-                    }
+                    return {"success": False, "message": "原材料不存在"}
 
                 allowed_fields = [
-                    'material_code', 'name', 'category', 'specification',
-                    'unit', 'quantity', 'unit_price', 'supplier',
-                    'warehouse_location', 'min_stock', 'max_stock',
-                    'description'
+                    "material_code",
+                    "name",
+                    "category",
+                    "specification",
+                    "unit",
+                    "quantity",
+                    "unit_price",
+                    "supplier",
+                    "warehouse_location",
+                    "min_stock",
+                    "max_stock",
+                    "description",
                 ]
 
                 for field, value in data.items():
@@ -157,22 +161,20 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
                 return {
                     "success": True,
                     "message": "原材料更新成功",
-                    "data": self._material_to_dict(material)
+                    "data": self._material_to_dict(material),
                 }
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"更新失败：{str(e)}"
-            }
+            return {"success": False, "message": f"更新失败：{str(e)}"}
 
     def delete(self, material_id: int) -> bool:
         try:
             with get_db() as db:
-                material = db.query(Material).filter(
-                    Material.id == material_id,
-                    Material.is_active == 1
-                ).first()
+                material = (
+                    db.query(Material)
+                    .filter(Material.id == material_id, Material.is_active == 1)
+                    .first()
+                )
 
                 if not material:
                     return False
@@ -185,13 +187,12 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
         except Exception:
             return False
 
-    def batch_delete(self, ids: List[int]) -> int:
+    def batch_delete(self, ids: list[int]) -> int:
         try:
             with get_db() as db:
-                materials = db.query(Material).filter(
-                    Material.id.in_(ids),
-                    Material.is_active == 1
-                ).all()
+                materials = (
+                    db.query(Material).filter(Material.id.in_(ids), Material.is_active == 1).all()
+                )
 
                 deleted_count = 0
                 for material in materials:
@@ -205,7 +206,7 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
         except Exception:
             return 0
 
-    def find_low_stock(self, threshold: Optional[float] = None) -> List[Dict[str, Any]]:
+    def find_low_stock(self, threshold: float | None = None) -> list[dict[str, Any]]:
         try:
             with get_db() as db:
                 query = db.query(Material).filter(Material.is_active == 1)
@@ -223,10 +224,10 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
 
     def export_to_excel(
         self,
-        search: Optional[str] = None,
-        category: Optional[str] = None,
-        template_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        search: str | None = None,
+        category: str | None = None,
+        template_id: str | None = None,
+    ) -> dict[str, Any]:
         try:
             import os
 
@@ -274,10 +275,16 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
                 try:
                     from app.application import get_template_app_service
 
-                    templates = (get_template_app_service().get_templates() or {}).get("templates") or []
-                    target = next((t for t in templates if str(t.get("id")) == str(template_id)), None)
+                    templates = (get_template_app_service().get_templates() or {}).get(
+                        "templates"
+                    ) or []
+                    target = next(
+                        (t for t in templates if str(t.get("id")) == str(template_id)), None
+                    )
                     if target:
-                        candidate_path = str(target.get("path") or target.get("file_path") or "").strip()
+                        candidate_path = str(
+                            target.get("path") or target.get("file_path") or ""
+                        ).strip()
                         if candidate_path and os.path.exists(candidate_path):
                             template_path = candidate_path
                 except Exception:
@@ -304,7 +311,9 @@ class SQLAlchemyMaterialRepository(MaterialRepository):
                 wb = Workbook()
                 ws = wb.active
                 ws.title = "原材料列表"
-                ws.append(["原材料编码", "名称", "分类", "规格", "单位", "库存数量", "单价", "供应商"])
+                ws.append(
+                    ["原材料编码", "名称", "分类", "规格", "单位", "库存数量", "单价", "供应商"]
+                )
                 for row in records:
                     ws.append(
                         [

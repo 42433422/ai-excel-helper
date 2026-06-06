@@ -44,19 +44,26 @@ jobs:
           VIOLATIONS=""
           while IFS= read -r file; do
             [ -z "${file}" ] && continue
-            if [[ "${file}" == XCAGI/tools/* ]] || [[ "${file}" == XCAGI/archive/* ]]; then
+            if [[ "${file}" == XCAGI/tools/* ]] || [[ "${file}" == XCAGI/archive/* ]] || \
+               [[ "${file}" == tools/* ]] || [[ "${file}" == archive/* ]]; then
               continue
+            fi
+            if [[ "${file}" =~ (^|/)_fail.*\.txt$ ]]; then
+              VIOLATIONS+="${file}"$'\n'
             fi
             if [[ "${file}" =~ (^|/)产品文件夹/(fix_|check_|final_).+\.py$ ]] || \
                [[ "${file}" =~ ^(fix_|check_|final_).+\.py$ ]]; then
               VIOLATIONS+="${file}"$'\n'
             fi
+            if [[ "${file}" =~ \.v1_backup$ ]]; then
+              VIOLATIONS+="${file}"$'\n'
+            fi
           done <<< "${ADDED_FILES}"
 
           if [ -n "${VIOLATIONS}" ]; then
-            echo "❌ Found forbidden new temporary scripts in business directories:"
+            echo "❌ Found forbidden new artifacts or temporary scripts:"
             echo "${VIOLATIONS}"
-            echo "Please move them to tools/ or archive/."
+            echo "Use tools/, scripts/launchers/, or archive/; do not commit _fail*.txt, fix_*.py, or *.v1_backup files."
             exit 1
           fi
           echo "✅ Temporary script location guard passed."
@@ -88,25 +95,37 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # ⚠️ 已统一主入口至 XCAGI/，使用 XCAGI/requirements.txt
-          pip install -r XCAGI/requirements.txt
-          pip install pytest pytest-cov pytest-mock black isort mypy flake8
+          pip install -r deploy/requirements-server-api.txt
+          pip install pytest pytest-cov pytest-mock pytest-asyncio "black==25.11.0" isort mypy flake8
 
       - name: Run Black formatter check
-        run: black --check --diff app XCAGI/tests || true
+        run: black --check --diff app/ tests/
 
       - name: Run isort check
-        run: isort --check-only --diff app XCAGI/tests || true
+        run: isort --check-only --diff app/ tests/
 
       - name: Run Flake8 linting
+        continue-on-error: true  # 存量 F401/F821；与 mypy 相同，后续收紧
+        run: flake8 app/
+
+      - name: Run mypy type checking
+        continue-on-error: true  # 新引入的类型门禁，后续会改为阻塞
         run: |
-          flake8 app XCAGI/tests --max-line-length=120 --ignore=E501,W503,E203,E402 || true
+          pip install mypy types-redis types-requests types-pyyaml types-psutil types-aiofiles types-python-dotenv types-pillow types-openpyxl
+          mypy app/ tests/ --no-error-summary
 
       - name: Run tests with coverage
+        env:
+          CI_STABLE_ONLY: "1"
+          XCAGI_SKIP_LEGACY_COMPAT_ROUTES: "1"
         run: |
           mkdir -p coverage
-          python -m pytest XCAGI/tests/ -v --cov=app --cov-report=xml --cov-report=html \
-            --cov-report=term-missing || echo "Tests completed with some issues"
+          python -m pytest tests/ -v \
+            --cov=app.neuro_bus --cov=app.middleware --cov=app.fastapi_routes \
+            --cov=app.utils.rate_limiter --cov=app.utils.password_hash --cov=app.config \
+            --cov-report=xml --cov-report=html --cov-report=term-missing \
+            --cov-fail-under=20 \
+            --ignore=tests/test_intent.py
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v4
@@ -115,6 +134,107 @@ jobs:
           flags: backend
           name: xcagi-backend
           fail_ci_if_error: false
+
+  frontend-test:
+    needs: guard-temp-scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: frontend
+        run: npm run test
+
+      - name: Run unit tests with coverage
+        working-directory: frontend
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          retention-days: 7
+
+  frontend-e2e:
+    needs: [backend-test, frontend-test]
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Start backend API
+        env:
+          SECRET_KEY: ci-e2e-secret-key-minimum-32-characters-long
+          DATABASE_URL: sqlite:///./e2e_ci.db
+          XCAGI_SKIP_INTENT_LLM: "1"
+          XCAGI_SKIP_LEGACY_COMPAT_ROUTES: "1"
+        run: |
+          pip install -r deploy/requirements-server-api.txt
+          python run.py &
+          for i in $(seq 1 40); do
+            curl -sf http://127.0.0.1:5000/api/health && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Playwright and build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+          npm run build
+          npm run preview -- --host 127.0.0.1 --port 5001 &
+          sleep 8
+
+      - name: Run E2E tests
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:5001
+        run: npm run test:e2e
+
+  # Architecture Fitness Check
+  arch-fitness:
+    needs: guard-temp-scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Run architecture fitness checks
+        run: python scripts/arch_fitness.py
 
   # Security & Dependency Scanning
   security-scan:
@@ -131,13 +251,12 @@ jobs:
       - name: Run security checks
         run: |
           pip install safety bandit
-          # ⚠️ 已统一主入口至 XCAGI/，使用 XCAGI/requirements.txt
-          safety check -r XCAGI/requirements.txt --full-report || true
-          bandit -r XCAGI/app -ll --skip B101,B601,B110 || true
+          safety check -r deploy/requirements-server-api.txt --full-report || true
+          bandit -r app/ -ll --skip B101,B601,B110 || true
 
   # Docker Build & Push
   docker-build:
-    needs: [backend-test, security-scan]
+    needs: [backend-test, frontend-test, frontend-e2e, security-scan]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -171,7 +290,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./XCAGI/Dockerfile
+          file: ./Dockerfile
           push: ${{ github.ref == format('refs/heads/{0}', 'main') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

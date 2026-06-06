@@ -6,6 +6,12 @@ Create Date: 2026-04-19
 
 Unifies three independent Alembic heads into a single lineage so
 `alembic upgrade head` is deterministic and downgrades can target one head.
+
+Operational note: ``alembic_version`` must hold only branch tip revision IDs.
+If both an ancestor and its descendant are stamped (e.g. ``f0c2a8e1_templates``
+and ``xcagi_v5_approval_system``), Alembic raises an overlap error; run
+``python scripts/repair_alembic_version_table.py --apply`` from ``FHD/`` to drop
+redundant ancestor rows.
 """
 from typing import Sequence, Union
 

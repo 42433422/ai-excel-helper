@@ -4,7 +4,22 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI 智能助手控制台 - 出货单管理系统</title>
+    <title>XCAGI · 登录</title>
+    <!-- 与服务器 PostgreSQL 账号库一致：登录等 /api 请求走 Nginx 前缀（如 /fhd-api）。构建时设 VITE_XCMAX_PUBLIC_API_PREFIX=/fhd-api 可自动注入下一行；或手动取消注释： -->
+    <!-- <script>window.__XCMAX_API_BASE__='/fhd-api'</script> -->
+    <script>
+      (function () {
+        if (!('serviceWorker' in navigator)) return;
+        var h = location.hostname;
+        var p = location.port;
+        if (h !== '127.0.0.1' && h !== 'localhost' && p !== '5000' && p !== '5001') return;
+        navigator.serviceWorker.getRegistrations().then(function (regs) {
+          regs.forEach(function (r) {
+            r.unregister();
+          });
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

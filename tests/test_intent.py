@@ -5,14 +5,13 @@
 测试意图识别的准确率和功能完整性
 """
 
-import sys
-import os
-
 # 直接导入意图服务模块
 import importlib.util
+import os
+import sys
+
 spec = importlib.util.spec_from_file_location(
-    "intent_service",
-    r"e:\FHD\XCAGI\app\services\intent_service.py"
+    "intent_service", r"e:\FHD\XCAGI\app\services\intent_service.py"
 )
 intent_service = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(intent_service)
@@ -28,7 +27,7 @@ def test_intent_recognition():
     print("=" * 60)
     print("意图识别测试")
     print("=" * 60)
-    
+
     # 测试用例
     test_cases = [
         # (输入消息，期望的主要意图，期望的工具 key)
@@ -48,16 +47,16 @@ def test_intent_recognition():
         ("原材料库存", "materials", "materials"),
         ("发微信给他", "wechat_send", "wechat_send"),
     ]
-    
+
     correct_count = 0
     total_count = len(test_cases)
-    
+
     for message, expected_intent, expected_tool in test_cases:
         result = recognize_intents(message)
-        
+
         intent_match = result["primary_intent"] == expected_intent
         tool_match = result["tool_key"] == expected_tool
-        
+
         # 检查特殊标志
         if "你好" in message or "你好" in message.lower():
             is_greeting_correct = result["is_greeting"] == True
@@ -73,16 +72,18 @@ def test_intent_recognition():
                 correct_count += 1
         else:
             status = "✓" if (intent_match and tool_match) else "✗"
-            print(f"{status} '{message}' => 意图：{result['primary_intent']}, 工具：{result['tool_key']}, 否定：{result['is_negated']}")
-            
+            print(
+                f"{status} '{message}' => 意图：{result['primary_intent']}, 工具：{result['tool_key']}, 否定：{result['is_negated']}"
+            )
+
             if intent_match and tool_match:
                 correct_count += 1
-    
+
     print("=" * 60)
     accuracy = correct_count / total_count * 100
     print(f"测试结果：{correct_count}/{total_count} 正确 ({accuracy:.1f}%)")
     print("=" * 60)
-    
+
     return accuracy >= 90
 
 
@@ -91,7 +92,7 @@ def test_negation_detection():
     print("\n" + "=" * 60)
     print("否定检测测试")
     print("=" * 60)
-    
+
     test_cases = [
         ("不要生成发货单", True),
         ("别上传文件", True),
@@ -100,23 +101,23 @@ def test_negation_detection():
         ("上传文件", False),
         ("我要开单", False),
     ]
-    
+
     correct_count = 0
     for message, expected_negated in test_cases:
         result = recognize_intents(message)
         is_correct = result["is_negated"] == expected_negated
-        
+
         status = "✓" if is_correct else "✗"
         print(f"{status} '{message}' => 否定：{result['is_negated']} (期望：{expected_negated})")
-        
+
         if is_correct:
             correct_count += 1
-    
+
     print("=" * 60)
     accuracy = correct_count / len(test_cases) * 100
     print(f"否定检测：{correct_count}/{len(test_cases)} 正确 ({accuracy:.1f}%)")
     print("=" * 60)
-    
+
     return accuracy >= 90
 
 
@@ -125,7 +126,7 @@ def test_greeting_goodbye():
     print("\n" + "=" * 60)
     print("问候/告别检测测试")
     print("=" * 60)
-    
+
     greeting_tests = [
         ("你好", True),
         ("您好", True),
@@ -133,7 +134,7 @@ def test_greeting_goodbye():
         ("在吗", True),
         ("生成发货单", False),
     ]
-    
+
     goodbye_tests = [
         ("再见", True),
         ("拜拜", True),
@@ -141,10 +142,10 @@ def test_greeting_goodbye():
         ("没事了", True),
         ("生成发货单", False),
     ]
-    
+
     correct_count = 0
     total_count = len(greeting_tests) + len(goodbye_tests)
-    
+
     print("问候检测:")
     for message, expected in greeting_tests:
         result = is_greeting(message)
@@ -153,7 +154,7 @@ def test_greeting_goodbye():
         print(f"{status} '{message}' => {result} (期望：{expected})")
         if is_correct:
             correct_count += 1
-    
+
     print("\n告别检测:")
     for message, expected in goodbye_tests:
         result = is_goodbye(message)
@@ -162,23 +163,23 @@ def test_greeting_goodbye():
         print(f"{status} '{message}' => {result} (期望：{expected})")
         if is_correct:
             correct_count += 1
-    
+
     print("=" * 60)
     accuracy = correct_count / total_count * 100
     print(f"问候/告别检测：{correct_count}/{total_count} 正确 ({accuracy:.1f}%)")
     print("=" * 60)
-    
+
     return accuracy >= 90
 
 
 def main():
     """运行所有测试"""
     print("\nXCAGI AI 对话系统 - 意图识别测试\n")
-    
+
     test1 = test_intent_recognition()
     test2 = test_negation_detection()
     test3 = test_greeting_goodbye()
-    
+
     print("\n" + "=" * 60)
     print("总体测试结果")
     print("=" * 60)
@@ -186,13 +187,13 @@ def main():
     print(f"否定检测测试：{'通过 ✓' if test2 else '失败 ✗'}")
     print(f"问候/告别检测：{'通过 ✓' if test3 else '失败 ✗'}")
     print("=" * 60)
-    
+
     all_passed = test1 and test2 and test3
     if all_passed:
         print("\n🎉 所有测试通过！意图识别准确率 > 90%\n")
     else:
         print("\n⚠️ 部分测试未通过，请检查实现\n")
-    
+
     return all_passed
 
 

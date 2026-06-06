@@ -12,17 +12,17 @@ from __future__ import annotations
 import json
 import os
 import threading
+from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from openai import OpenAI
 
-from app.application.tools import execute_workflow_tool
+from app.application.workflow.multimodal_user_content import build_openai_user_content
 from app.domain.context.session_context import (
     enrich_excel_tool_arguments,
     merge_system_prompt,
 )
-from app.application.workflow.multimodal_user_content import build_openai_user_content
 from app.infrastructure.llm.client import (
     get_openai_compatible_client,
     require_api_key,
@@ -43,9 +43,22 @@ _PLANNER_TOOL_STREAM_LABELS: dict[str, str] = {
 
 
 def _get_workflow_tool_registry():
+    from app.mod_sdk.planner_tools import (
+        get_planner_chat_tool_registry,
+        is_planner_tools_via_mod_enabled,
+    )
+
+    if is_planner_tools_via_mod_enabled():
+        return get_planner_chat_tool_registry()
     from app.application.tools.workflow import get_workflow_tool_registry as _impl
 
     return _impl()
+
+
+def _resolve_chat_execute_tool():
+    from app.mod_sdk.planner_tools import resolve_planner_tool_executor
+
+    return resolve_planner_tool_executor()
 
 
 _TOOL_DEDUP: set[str] = set()
@@ -53,6 +66,17 @@ _TOOL_DEDUP_LOCK = threading.Lock()
 
 # 这些工具可能在首轮就返回 requires_token,后续工具在串行语义下不应被执行;并行会改变该顺序。
 _TOKEN_ORDER_SENSITIVE_TOOLS = frozenset({"import_excel_to_database", "products_bulk_import"})
+
+
+def _resolve_chat_model_for_client(client: Any | None, explicit_model: str | None) -> str:
+    if explicit_model:
+        return explicit_model
+    if client is not None and getattr(client, "is_modstore_openai_compatible", False):
+        default_model = str(getattr(client, "default_model", "") or "").strip()
+        default_provider = str(getattr(client, "default_provider", "") or "").strip()
+        if default_model:
+            return f"{default_provider}/{default_model}" if default_provider else default_model
+    return resolve_chat_model()
 
 
 def reset_planner_tool_dedup_state() -> None:
@@ -96,7 +120,9 @@ def _slow_tool_wait_message(tool_name: str, raw_arguments: str) -> str | None:
         if fmt == "docx":
             return "\n（正在生成 Word 文档（.docx），通常需数十秒至数分钟，请稍候勿关闭页面。）\n"
         if fmt == "xlsx":
-            return "\n（正在生成 Excel 工作簿（.xlsx），通常需数十秒至数分钟，请稍候勿关闭页面。）\n"
+            return (
+                "\n（正在生成 Excel 工作簿（.xlsx），通常需数十秒至数分钟，请稍候勿关闭页面。）\n"
+            )
         return (
             "\n（正在生成可下载文件（Word 或 Excel），通常需数十秒至数分钟，请稍候勿关闭页面。）\n"
         )
@@ -171,7 +197,7 @@ def append_tool_messages(
     *,
     workspace_root: str | None,
     runtime_context: dict[str, Any] | None = None,
-    execute_tool=execute_workflow_tool,
+    execute_tool=None,
     db_write_token: str | None = None,
 ) -> dict[str, Any] | None:
     """执行工具调用并添加消息;如果需要令牌则返回令牌请求信息。
@@ -182,6 +208,9 @@ def append_tool_messages(
     """
     if not tool_calls:
         return None
+
+    if execute_tool is None:
+        execute_tool = _resolve_chat_execute_tool()
 
     parsed: list[tuple[Any, str, str, str]] = []
     for tc in tool_calls:
@@ -281,7 +310,7 @@ def _call_model_completion(
         cli = get_openai_compatible_client()
     else:
         cli = client
-    mdl = model or resolve_chat_model()
+    mdl = _resolve_chat_model_for_client(cli, model)
     c = cli.chat.completions.create(model=mdl, messages=messages)
     msg = c.choices[0].message
     return (msg.content or "").strip()
@@ -312,7 +341,7 @@ def chat(
         cli = get_openai_compatible_client()
     else:
         cli = client
-    mdl = model or resolve_chat_model()
+    mdl = _resolve_chat_model_for_client(cli, model)
     tools = _get_workflow_tool_registry()
     tool_outputs: list[str] = []
     for _ in range(max_iterations):
@@ -412,7 +441,7 @@ def chat_stream_text(
         cli = get_openai_compatible_client()
     else:
         cli = client
-    mdl = model or resolve_chat_model()
+    mdl = _resolve_chat_model_for_client(cli, model)
     tools = _get_workflow_tool_registry()
     for _ in range(max_iterations):
         stream = cli.chat.completions.create(
@@ -453,7 +482,7 @@ def chat_stream_text(
                 else:
                     fn = getattr(tc, "function", None)
                     if getattr(fn, "name", None):
-                        cur["function"]["name"] = getattr(fn, "name")
+                        cur["function"]["name"] = fn.name
                     cur["function"]["arguments"] += str(getattr(fn, "arguments", "") or "")
                 has_tool_call = True
         if has_tool_call and tool_calls_by_idx:

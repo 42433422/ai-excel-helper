@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 AI 引擎层
 
@@ -10,7 +9,10 @@ AI 引擎层
 - 模型训练器
 """
 
-from app.ai_engines.bert import BertIntentClassifier
+try:
+    from app.ai_engines.bert import BertIntentClassifier
+except ModuleNotFoundError:
+    BertIntentClassifier = None  # type: ignore[misc, assignment]
 
 __all__ = [
     "BertIntentClassifier",

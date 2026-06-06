@@ -10,11 +10,9 @@ import os
 import re
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +20,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OCRResult:
     """OCR识别结果"""
+
     text: str
     confidence: float
-    bounding_box: Tuple[int, int, int, int]
+    bounding_box: tuple[int, int, int, int]
     block_type: str = "text"
 
 
@@ -49,7 +48,10 @@ class OCRService:
 
         if backend in ("auto", "paddle"):
             try:
-                from app.services.paddle_ocr_runner import check_paddle_available, get_paddle_ocr_instance
+                from app.services.paddle_ocr_runner import (
+                    check_paddle_available,
+                    get_paddle_ocr_instance,
+                )
 
                 if check_paddle_available():
                     get_paddle_ocr_instance()
@@ -59,7 +61,9 @@ class OCRService:
                 logger.warning("PaddleOCR 初始化失败: %s", e)
 
         if backend == "paddle" and not self._paddle_enabled:
-            logger.error("XCAGI_OCR_BACKEND=paddle 但 PaddleOCR 不可用，请安装 paddlepaddle paddleocr")
+            logger.error(
+                "XCAGI_OCR_BACKEND=paddle 但 PaddleOCR 不可用，请安装 paddlepaddle paddleocr"
+            )
 
         if backend in ("auto", "easyocr") and not self._paddle_enabled:
             self._init_easyocr()
@@ -142,7 +146,7 @@ class OCRService:
 
         return ""
 
-    def recognize_text_blocks(self, image) -> List[Dict[str, Any]]:
+    def recognize_text_blocks(self, image) -> list[dict[str, Any]]:
         """
         返回带坐标的文本块（标签模板网格配对等使用）。Paddle 优先，否则 EasyOCR。
         """
@@ -163,8 +167,8 @@ class OCRService:
 
         return []
 
-    def _easyocr_text_blocks(self, image_array: np.ndarray) -> List[Dict[str, Any]]:
-        blocks: List[Dict[str, Any]] = []
+    def _easyocr_text_blocks(self, image_array: np.ndarray) -> list[dict[str, Any]]:
+        blocks: list[dict[str, Any]] = []
         try:
             for bbox, text, confidence in self.reader.readtext(image_array, detail=1):
                 text = (text or "").strip()
@@ -191,7 +195,7 @@ class OCRService:
             logger.error("EasyOCR 分块识别失败: %s", e)
         return blocks
 
-    def recognize_file(self, file_path: str) -> Dict[str, Any]:
+    def recognize_file(self, file_path: str) -> dict[str, Any]:
         """
         识别文件中的文字
 
@@ -203,35 +207,23 @@ class OCRService:
         """
         try:
             if not os.path.exists(file_path):
-                return {
-                    "success": False,
-                    "message": f"文件不存在: {file_path}",
-                    "text": ""
-                }
+                return {"success": False, "message": f"文件不存在: {file_path}", "text": ""}
 
             from PIL import Image
+
             image = Image.open(file_path)
 
             text = self.recognize(image)
 
-            return {
-                "success": True,
-                "message": "识别成功",
-                "text": text,
-                "file_path": file_path
-            }
+            return {"success": True, "message": "识别成功", "text": text, "file_path": file_path}
 
         except Exception as e:
             logger.exception(f"识别文件失败: {e}")
-            return {
-                "success": False,
-                "message": f"识别失败: {str(e)}",
-                "text": ""
-            }
+            return {"success": False, "message": f"识别失败: {str(e)}", "text": ""}
 
-    def recognize_with_details(self, image: np.ndarray) -> List[OCRResult]:
+    def recognize_with_details(self, image: np.ndarray) -> list[OCRResult]:
         """识别图像中的文字，返回详细信息"""
-        results: List[OCRResult] = []
+        results: list[OCRResult] = []
 
         try:
             if self._paddle_enabled:
@@ -256,7 +248,7 @@ class OCRService:
 
             easyocr_results = self.reader.readtext(image, detail=1)
 
-            for (bbox, text, confidence) in easyocr_results:
+            for bbox, text, confidence in easyocr_results:
                 ocr_result = OCRResult(
                     text=text,
                     confidence=confidence,
@@ -270,14 +262,14 @@ class OCRService:
 
         return results
 
-    def recognize_text(self, image_path: str) -> Dict[str, Any]:
+    def recognize_text(self, image_path: str) -> dict[str, Any]:
         """应用层：按路径识别（与 recognize_file 一致，补充 confidence）。"""
         out = self.recognize_file(image_path)
         if out.get("success") and "confidence" not in out:
             out["confidence"] = 0.0
         return out
 
-    def recognize_text_from_bytes(self, image_bytes: bytes) -> Dict[str, Any]:
+    def recognize_text_from_bytes(self, image_bytes: bytes) -> dict[str, Any]:
         """应用层：从字节识别。"""
         try:
             from PIL import Image
@@ -295,11 +287,11 @@ class OCRService:
             logger.exception("从字节 OCR 失败: %s", e)
             return {"success": False, "message": str(e), "text": "", "confidence": 0.0}
 
-    def recognize_trademark(self, image_path: str) -> Dict[str, Any]:
+    def recognize_trademark(self, image_path: str) -> dict[str, Any]:
         """商标图识别（当前与通用识别相同）。"""
         return self.recognize_text(image_path)
 
-    def recognize_product(self, image_path: str) -> Dict[str, Any]:
+    def recognize_product(self, image_path: str) -> dict[str, Any]:
         """产品信息图识别（当前与通用识别相同）。"""
         return self.recognize_text(image_path)
 
@@ -313,7 +305,7 @@ class OCRService:
             return "tesseract"
         return "none"
 
-    def extract_structured_data(self, text: str) -> Dict[str, Any]:
+    def extract_structured_data(self, text: str) -> dict[str, Any]:
         """从OCR文本中提取结构化数据"""
         structured_data = {
             "purchase_unit": None,
@@ -323,57 +315,57 @@ class OCRService:
             "order_number": None,
             "total_amount": None,
             "products": [],
-            "raw_text": text
+            "raw_text": text,
         }
 
-        unit_match = re.search(r'购货单位[：:]\s*(.+?)(?:\n|$)', text)
+        unit_match = re.search(r"购货单位[：:]\s*(.+?)(?:\n|$)", text)
         if unit_match:
             structured_data["purchase_unit"] = unit_match.group(1).strip()
 
-        contact_match = re.search(r'联系人[：:]\s*(.+?)(?:\n|$)', text)
+        contact_match = re.search(r"联系人[：:]\s*(.+?)(?:\n|$)", text)
         if contact_match:
             structured_data["contact_person"] = contact_match.group(1).strip()
 
-        phone_match = re.search(r'联系电话[：:]\s*([\d\-\+]+)', text)
+        phone_match = re.search(r"联系电话[：:]\s*([\d\-\+]+)", text)
         if phone_match:
             structured_data["contact_phone"] = phone_match.group(1).strip()
 
-        date_match = re.search(r'(\d{4}[-年]\d{1,2}[-月]\d{1,2}[日]?)', text)
+        date_match = re.search(r"(\d{4}[-年]\d{1,2}[-月]\d{1,2}[日]?)", text)
         if date_match:
             structured_data["purchase_date"] = date_match.group(1)
 
-        order_match = re.search(r'订单编号[：:]\s*(.+?)(?:\n|$)', text)
+        order_match = re.search(r"订单编号[：:]\s*(.+?)(?:\n|$)", text)
         if order_match:
             structured_data["order_number"] = order_match.group(1).strip()
 
-        amount_match = re.search(r'合计[：:]\s*([\d\.]+)', text)
+        amount_match = re.search(r"合计[：:]\s*([\d\.]+)", text)
         if amount_match:
             try:
                 structured_data["total_amount"] = float(amount_match.group(1))
             except ValueError:
                 pass
 
-        product_pattern = r'([A-Za-z0-9]+)\s+(.+?)\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)'
+        product_pattern = r"([A-Za-z0-9]+)\s+(.+?)\s+(\d+)\s+([\d\.]+)\s+([\d\.]+)"
         for match in re.finditer(product_pattern, text):
             product = {
                 "model": match.group(1),
                 "name": match.group(2),
                 "quantity": int(match.group(3)),
                 "unit_price": float(match.group(4)),
-                "total_price": float(match.group(5))
+                "total_price": float(match.group(5)),
             }
             structured_data["products"].append(product)
 
         return structured_data
 
-    def analyze_text(self, text: str) -> Dict[str, Any]:
+    def analyze_text(self, text: str) -> dict[str, Any]:
         """分析文本内容"""
         analysis = {
             "text_type": "unknown",
             "confidence": 0.0,
             "detected_fields": {},
             "missing_fields": [],
-            "suggestions": []
+            "suggestions": [],
         }
 
         if not text:
@@ -401,12 +393,12 @@ class OCRService:
                 analysis["confidence"] = min(1.0, type_scores[max_type] / 3)
 
         field_patterns = {
-            "purchase_unit": r'购货单位[：:]\s*(.+?)(?:\n|$)',
-            "contact_person": r'联系人[：:]\s*(.+?)(?:\n|$)',
-            "phone": r'电话[：:]\s*([\d\-\+]+)',
-            "date": r'(\d{4}[年-]\d{1,2}[月-]\d{1,2}[日]?)',
-            "order_id": r'订单[编号]?[：:]\s*(.+?)(?:\n|$)',
-            "total": r'合计[：:]\s*([\d\.]+)',
+            "purchase_unit": r"购货单位[：:]\s*(.+?)(?:\n|$)",
+            "contact_person": r"联系人[：:]\s*(.+?)(?:\n|$)",
+            "phone": r"电话[：:]\s*([\d\-\+]+)",
+            "date": r"(\d{4}[年-]\d{1,2}[月-]\d{1,2}[日]?)",
+            "order_id": r"订单[编号]?[：:]\s*(.+?)(?:\n|$)",
+            "total": r"合计[：:]\s*([\d\.]+)",
         }
 
         for field, pattern in field_patterns.items():
@@ -430,37 +422,40 @@ class OCRService:
         if not text:
             return ""
 
-        lines = text.split('\n')
+        lines = text.split("\n")
         cleaned_lines = [line.strip() for line in lines if line.strip()]
 
-        return '\n'.join(cleaned_lines)
+        return "\n".join(cleaned_lines)
 
     def _classify_text(self, text: str) -> str:
         """分类文本类型"""
         if not text:
             return "unknown"
 
-        if re.match(r'^[\d\.\,\-\+]+$', text):
+        if re.match(r"^[\d\.\,\-\+]+$", text):
             return "number"
 
-        date_patterns = [r'\d{4}[-年]\d{1,2}[-月]\d{1,2}', r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}']
+        date_patterns = [r"\d{4}[-年]\d{1,2}[-月]\d{1,2}", r"\d{1,2}[-/]\d{1,2}[-/]\d{2,4}"]
         for pattern in date_patterns:
             if re.search(pattern, text):
                 return "date"
 
-        if re.search(r'[\d\.]+\s*(元|¥|dollar|$|€)', text):
+        if re.search(r"[\d\.]+\s*(元|¥|dollar|$|€)", text):
             return "amount"
 
-        if re.match(r'^[\d\-\+\(\)]{7,}$', text):
+        if re.match(r"^[\d\-\+\(\)]{7,}$", text):
             return "phone"
 
         return "text"
 
 
-ocr_service = OCRService()
+ocr_service: OCRService | None = None
 
 
 def get_ocr_service() -> OCRService:
+    global ocr_service
+    if ocr_service is None:
+        ocr_service = OCRService()
     return ocr_service
 
 

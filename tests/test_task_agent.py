@@ -127,4 +127,3 @@ def test_task_agent_should_parse_compact_shipment_with_qty_verb():
     assert "9803" in result["data"]["params"]["order_text"]
     assert "12" in result["data"]["params"]["order_text"]
     assert "3 桶" in result["data"]["params"]["order_text"]
-

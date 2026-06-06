@@ -83,7 +83,7 @@ def test_portal_fetch_wallet_secret_ok(client, library: Path, monkeypatch):
         assert "Bearer" in authorization
         return {"ok": True, "wallet_secret": "from-portal"}
 
-    monkeypatch.setattr("modstore_server.app.fetch_wallet_secret", fake_fetch)
+    monkeypatch.setattr("modstore_server.fhd_routes_api.fetch_wallet_secret", fake_fetch)
     r = client.post(
         "/api/portal/fetch-wallet-secret",
         json={"sync_url": "", "authorization": "Bearer xxxxxxxx"},
@@ -195,6 +195,13 @@ def test_sync_push_pull(tmp_path, monkeypatch):
     monkeypatch.setattr("modstore_server.app.load_config", lambda: cfg)
     monkeypatch.setattr("modstore_server.app.save_config", lambda c: None)
     monkeypatch.setattr("modstore_server.app.project_root", lambda: tmp_path / "ph")
+    monkeypatch.setattr("modman.repo_config.load_config", lambda: cfg)
+    monkeypatch.setattr("modman.repo_config.save_config", lambda c: None)
+    monkeypatch.setattr("modman.store.project_root", lambda: tmp_path / "ph")
+    monkeypatch.setattr("modstore_server.fhd_routes_api.load_config", lambda: cfg)
+    monkeypatch.setattr("modstore_server.fhd_routes_api.save_config", lambda c: None)
+    monkeypatch.setattr("modstore_server.fhd_routes_api.project_root", lambda: tmp_path / "ph")
+    monkeypatch.setattr("modstore_server.fhd_modstore_state.load_config", lambda: cfg)
 
     c = TestClient(app)
     r = c.post("/api/mods/create", json={"mod_id": "sync-m", "display_name": "S"})

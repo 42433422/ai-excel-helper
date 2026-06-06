@@ -5,7 +5,7 @@
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from sqlalchemy import text
 
@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True, max_retries=3)
-def process_wechat_message(self, message_data: Dict[str, Any]) -> bool:
+def process_wechat_message(self, message_data: dict[str, Any]) -> bool:
     """
     处理单条微信消息
-    
+
     Args:
         message_data: 消息数据字典，包含：
             - contact_id: 联系人 ID
@@ -28,22 +28,23 @@ def process_wechat_message(self, message_data: Dict[str, Any]) -> bool:
             - message_id: 消息 ID
             - raw_text: 原始消息文本
             - msg_timestamp: 消息时间戳
-            
+
     Returns:
         是否处理成功
     """
     try:
         logger.info(f"开始处理微信消息：{message_data.get('message_id')}")
-        
+
         # 调用服务层处理消息（基于 task_id）
         from app.services import get_wechat_task_service
+
         service = get_wechat_task_service()
         task_id = message_data.get("id")
         result = service.process_message(task_id)
-        
+
         logger.info(f"微信消息处理完成：{result}")
-        return result.get('success', False)
-        
+        return result.get("success", False)
+
     except Exception as e:
         logger.exception(f"处理微信消息失败：{e}")
         # 重试逻辑
@@ -58,11 +59,11 @@ def process_wechat_message(self, message_data: Dict[str, Any]) -> bool:
 def scan_wechat_messages(self, contact_id: int | None = None, limit: int = 20) -> int:
     """
     扫描微信消息并创建任务
-    
+
     Args:
         contact_id: 联系人 ID（可选，为 None 时扫描所有联系人）
         limit: 扫描数量限制
-        
+
     Returns:
         发现的新消息数量
     """
@@ -84,7 +85,7 @@ def scan_wechat_messages(self, contact_id: int | None = None, limit: int = 20) -
         new_count = len(new_tasks)
         logger.info(f"扫描完成，发现 {new_count} 条新消息")
         return new_count
-        
+
     except Exception as e:
         logger.exception(f"扫描微信消息失败：{e}")
         try:
@@ -98,10 +99,10 @@ def scan_wechat_messages(self, contact_id: int | None = None, limit: int = 20) -
 def cleanup_old_tasks(days: int = 30) -> int:
     """
     清理旧任务
-    
+
     Args:
         days: 保留天数
-        
+
     Returns:
         清理的任务数量
     """
@@ -120,10 +121,10 @@ def cleanup_old_tasks(days: int = 30) -> int:
             )
             db.commit()
             cleaned_count = int(result.rowcount or 0)
-        
+
         logger.info(f"清理完成，共清理 {cleaned_count} 个任务")
         return cleaned_count
-        
+
     except Exception as e:
         logger.exception(f"清理旧任务失败：{e}")
         return 0

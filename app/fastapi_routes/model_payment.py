@@ -11,6 +11,15 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.infrastructure.payment import alipay as mp_ali
 from app.infrastructure.payment import order_store as mp_orders
+from app.infrastructure.payment.payment_sot import (
+    MODEL_PAYMENT_JSON_DEPRECATED_AFTER,
+    is_fhd_postgres_payment_sot,
+    is_json_legacy_payment_sot,
+    is_local_model_payment_sot,
+    is_modstore_payment_sot,
+    model_payment_backend,
+    modstore_payment_hint,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +56,12 @@ _DEMO_PLANS: list[dict[str, Any]] = [
 
 def _integration_flags() -> dict[str, bool]:
     """支付宝：APPID + 应用私钥 + 支付宝公钥 + 已安装 SDK 时为已开通。"""
-    return {"alipay_configured": mp_ali.alipay_ui_ready()}
+    return {
+        "alipay_configured": mp_ali.alipay_ui_ready(),
+        "market_sot": is_modstore_payment_sot(),
+        "postgres_sot": is_fhd_postgres_payment_sot(),
+        "backend": model_payment_backend(),
+    }
 
 
 def _plan_by_id(plan_id: str) -> dict[str, Any] | None:
@@ -70,11 +84,70 @@ def get_plans():
     )
 
 
+@router.get("/wechat-redirect")
+def wechat_redirect(plan_id: str, market_user_id: int = 0):
+    """FHD 宿主微信支付：重定向至修茈市场统一收银台。"""
+    from app.infrastructure.payment.modstore_payment_proxy import wechat_checkout_redirect_url
+
+    url = wechat_checkout_redirect_url(plan_id, market_user_id=market_user_id)
+    if not url:
+        return JSONResponse(
+            {"success": False, "message": "请配置 XCAGI_MARKET_BASE_URL"},
+            status_code=503,
+        )
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(url=url, status_code=302)
+
+
 @router.post("/checkout")
 def checkout(
     body: dict[str, Any] = Body(default_factory=dict),
     user_agent: str | None = Header(default=None),
 ):
+    if is_modstore_payment_sot():
+        channel = str(body.get("channel") or "alipay").strip().lower()
+        plan_id = str(body.get("plan_id") or "").strip()
+        uid = int(body.get("market_user_id") or 0)
+        proxied_err = None
+        if plan_id:
+            from app.infrastructure.payment.modstore_payment_proxy import proxy_checkout
+
+            proxied = proxy_checkout(plan_id=plan_id, channel=channel, market_user_id=uid)
+            if proxied.get("ok"):
+                return JSONResponse({"success": True, "data": proxied.get("data")})
+            proxied_err = proxied.get("error")
+        return JSONResponse(
+            {
+                "success": False,
+                "message": modstore_payment_hint(),
+                "data": {
+                    "use_checkout": "/api/market/payment/checkout",
+                    "use_plans": "/api/market/payment/plans",
+                    "proxy_error": proxied_err,
+                },
+            },
+            status_code=409,
+        )
+    if is_json_legacy_payment_sot():
+        import os
+
+        dbu = (os.environ.get("DATABASE_URL") or "").strip().lower()
+        if "postgresql" in dbu or "postgres://" in dbu:
+            return JSONResponse(
+                {
+                    "success": False,
+                    "message": (
+                        "检测到 PostgreSQL DATABASE_URL，请将 MODEL_PAYMENT_BACKEND 设为 postgres；"
+                        f"JSON 订单存储将于 {MODEL_PAYMENT_JSON_DEPRECATED_AFTER} 后废弃。"
+                    ),
+                    "data": {
+                        "migrate_script": "scripts/migrate_fhd_json_orders_to_postgres.py",
+                        "docs": "docs/guides/PAYMENT_SOT.md",
+                    },
+                },
+                status_code=409,
+            )
     plan_id = str(body.get("plan_id") or "").strip()
     legacy_channel = str(body.get("channel") or "").strip().lower()
     if legacy_channel and legacy_channel != "alipay":
@@ -186,6 +259,8 @@ async def alipay_trade_notify(request: Request):
     支付宝异步通知（需在开放平台配置 notify_url 指向本地址的公网 URL）。
     验签通过后返回纯文本 success；请勿在本接口中信任未验签参数做发货。
     """
+    if not is_local_model_payment_sot():
+        return PlainTextResponse("fail", status_code=410)
     try:
         form = await request.form()
     except Exception as e:
@@ -243,15 +318,35 @@ async def alipay_trade_notify(request: Request):
 def diagnostics():
     """只读诊断：返回支付宝配置是否就绪、各字段来源、notify URL 是否对齐等，不含密钥内容。"""
     data = mp_ali.diagnostics_snapshot()
+    backend = model_payment_backend()
+    data["sot_backend"] = backend
     data["store_path"] = str(mp_orders.order_store_path())
+    if is_fhd_postgres_payment_sot():
+        data["db_table"] = "model_payment_orders"
+        try:
+            data["order_count"] = mp_orders.count_orders()
+            data["json_migration_pending"] = mp_orders.json_store_has_unmigrated_orders()
+        except Exception as exc:
+            data["order_count_error"] = str(exc)[:200]
     return JSONResponse({"success": True, "data": data})
 
 
 @router.get("/entitlements")
 def entitlements():
     """已购权益列表（按 last_paid_at 倒序）。"""
+    if is_modstore_payment_sot():
+        return JSONResponse(
+            {
+                "success": False,
+                "message": modstore_payment_hint(),
+                "data": {"entitlements": []},
+            },
+            status_code=409,
+        )
     items = mp_orders.list_entitlements()
-    return JSONResponse({"success": True, "data": {"entitlements": items}})
+    return JSONResponse(
+        {"success": True, "data": {"entitlements": items, "backend": model_payment_backend()}}
+    )
 
 
 @router.get("/query/{out_trade_no}")
@@ -261,7 +356,11 @@ def query_trade(out_trade_no: str):
     local = mp_orders.get_order(out_trade_no)
     if not res["ok"]:
         return JSONResponse(
-            {"success": False, "message": res.get("message") or "查询失败", "data": {"local": local}}
+            {
+                "success": False,
+                "message": res.get("message") or "查询失败",
+                "data": {"local": local},
+            }
         )
     return JSONResponse(
         {
@@ -285,7 +384,9 @@ def refund_trade(body: dict[str, Any] = Body(default_factory=dict)):
     if not out_trade_no:
         return JSONResponse({"success": False, "message": "out_trade_no 必填"}, status_code=400)
     if not refund_amount:
-        return JSONResponse({"success": False, "message": "refund_amount 必填（元）"}, status_code=400)
+        return JSONResponse(
+            {"success": False, "message": "refund_amount 必填（元）"}, status_code=400
+        )
 
     res = mp_ali.refund_order(
         out_trade_no=out_trade_no,

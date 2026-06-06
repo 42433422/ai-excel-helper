@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 混合意图识别服务：规则 + RASA NLU + BERT 预训练模型
 
@@ -11,8 +10,9 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-from typing import Any, Dict, Optional
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 
 from .intent_service import recognize_intents as rule_recognize_intents
 from .rasa_nlu_service import RasaNLUService, get_rasa_nlu_service
@@ -84,7 +84,7 @@ BERT_INTENT_MAPPING = {
 }
 
 
-class HybridIntentService:
+class HybridIntentService(NeuroEventPublisherMixin):
     """
     混合意图识别服务
 
@@ -97,11 +97,11 @@ class HybridIntentService:
     def __init__(
         self,
         use_rasa: bool = False,
-        rasa_service: Optional[RasaNLUService] = None,
+        rasa_service: RasaNLUService | None = None,
         rasa_confidence_threshold: float = 0.7,
         rasa_fallback_to_rule: bool = True,
         use_bert: bool = True,
-        bert_model_path: Optional[str] = None,
+        bert_model_path: str | None = None,
         bert_confidence_threshold: float = 0.7,
         bert_fallback_to_rule: bool = True,
     ):
@@ -133,32 +133,13 @@ class HybridIntentService:
         if self.use_bert:
             self._init_bert_service()
 
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
     def _init_bert_service(self):
         """初始化 BERT 服务"""
         try:
             from .bert_intent_service import (
-                BertIntentService,
                 get_bert_intent_service,
             )
+
             self.bert_service = get_bert_intent_service(
                 model_path=self.bert_model_path,
                 model_name="bert-base-chinese",
@@ -170,7 +151,7 @@ class HybridIntentService:
             logger.warning(f"无法初始化 BERT 服务: {e}")
             self.use_bert = False
 
-    async def recognize(self, message: str) -> Dict[str, Any]:
+    async def recognize(self, message: str) -> dict[str, Any]:
         """
         混合意图识别
 
@@ -193,10 +174,9 @@ class HybridIntentService:
             if bert_result.get("fallback_recommended"):
                 rule_result["bert_low_confidence"] = True
 
-            if (
-                bert_result.get("confidence", 0.0) >= self.bert_confidence_threshold
-                and not rule_result.get("is_negated")
-            ):
+            if bert_result.get(
+                "confidence", 0.0
+            ) >= self.bert_confidence_threshold and not rule_result.get("is_negated"):
                 mapped_intent = BERT_INTENT_MAPPING.get(bert_result.get("intent", ""))
                 if mapped_intent:
                     rule_result["primary_intent"] = mapped_intent
@@ -235,7 +215,7 @@ class HybridIntentService:
 
         return rule_result
 
-    def recognize_sync(self, message: str) -> Dict[str, Any]:
+    def recognize_sync(self, message: str) -> dict[str, Any]:
         """
         同步版本的意图识别（兼容原有接口）
 
@@ -247,6 +227,7 @@ class HybridIntentService:
         """
         import asyncio
         import concurrent.futures
+
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
@@ -266,20 +247,18 @@ class HybridIntentService:
 
 
 from app.neuro_bus.neuro_service_instrumentation import instrument_service_layer_class
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 instrument_service_layer_class(HybridIntentService, "app.services.hybrid_intent_service")
 
-_hybrid_service_instance: Optional[HybridIntentService] = None
+_hybrid_service_instance: HybridIntentService | None = None
+
 
 def get_hybrid_intent_service(
     use_rasa: bool = False,
     use_bert: bool = True,
-    bert_model_path: Optional[str] = None,
+    bert_model_path: str | None = None,
     bert_confidence_threshold: float = 0.7,
-    **kwargs
+    **kwargs,
 ) -> HybridIntentService:
     """
     获取混合意图服务单例
@@ -311,13 +290,14 @@ def get_hybrid_intent_service(
 
     return _hybrid_service_instance
 
+
 def reset_hybrid_intent_service():
     """重置混合意图服务单例"""
     global _hybrid_service_instance
     _hybrid_service_instance = None
 
 
-async def hybrid_recognize_intents(message: str) -> Dict[str, Any]:
+async def hybrid_recognize_intents(message: str) -> dict[str, Any]:
     """
     混合意图识别入口函数
 
@@ -331,7 +311,7 @@ async def hybrid_recognize_intents(message: str) -> Dict[str, Any]:
     return await service.recognize(message)
 
 
-def hybrid_recognize_intents_sync(message: str) -> Dict[str, Any]:
+def hybrid_recognize_intents_sync(message: str) -> dict[str, Any]:
     """
     混合意图识别同步入口函数
 

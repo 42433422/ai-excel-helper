@@ -6,7 +6,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 def _default_log_path() -> Path:
@@ -17,13 +17,13 @@ def _default_log_path() -> Path:
 
 
 def append_routing_decision(
-    trace_id: Optional[str],
+    trace_id: str | None,
     features: list[float],
     action: str,
     latency_ms: float,
     outcome: str,
-    reward: Optional[float] = None,
-    extra: Optional[Dict[str, Any]] = None,
+    reward: float | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> None:
     row = {
         "ts": time.time(),

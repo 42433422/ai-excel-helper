@@ -22,7 +22,6 @@ import os
 import sys
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
@@ -85,8 +84,10 @@ def test_openapi_and_routes_are_consistent():
             where = f" {f.method} {f.path}" if f.path else ""
             lines.append(f"  [{f.code}]{where}  {f.message}")
         if len(errors) > 20:
-            lines.append(f"  … 还有 {len(errors) - 20} 条，运行 "
-                         "``python scripts/check_openapi_consistency.py`` 查看完整列表。")
+            lines.append(
+                f"  … 还有 {len(errors) - 20} 条，运行 "
+                "``python scripts/check_openapi_consistency.py`` 查看完整列表。"
+            )
         raise AssertionError("\n".join(lines))
 
 

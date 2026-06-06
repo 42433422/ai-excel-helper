@@ -1,9 +1,11 @@
 """
-检查 127.0.0.1:8000 上是否为当前仓库的 FHD backend.http_app（含 XCAGI 兼容路由）。
+检查给定 URL 上是否为当前仓库的 XCAGI FastAPI 主栈（历史脚本名保留）。
+
+默认探测 ``http://127.0.0.1:5000``（``XCAGI/run.py``）。兼容旧习惯可传 ``--url http://127.0.0.1:8000``。
 
 用法:
   python scripts/check_api_8000.py
-  python scripts/check_api_8000.py --url http://127.0.0.1:9000
+  python scripts/check_api_8000.py --url http://127.0.0.1:5000
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ import urllib.request
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--url", default="http://127.0.0.1:8000", help="API 根地址，无尾部斜杠")
+    p.add_argument("--url", default="http://127.0.0.1:5000", help="API 根地址，无尾部斜杠")
     args = p.parse_args()
     base = args.url.rstrip("/")
 
@@ -47,25 +49,24 @@ def main() -> int:
         except OSError as e:
             return -1, str(e)
 
-    code, body = get("/api/fhd/identity")
-    print(f"GET /api/fhd/identity -> {code}")
+    code, body = get("/api/ping")
+    print(f"GET /api/ping -> {code}")
     if code != 200:
         print(
-            "  Expected 200 with backend=fhd-http-app. If 404, port 8000 is NOT this repo's "
-            "backend.http_app (stop the other process, then from repo root: python -m backend.http_app).",
+            "  Expected 200 JSON with pong. Start the app: cd XCAGI && python run.py",
         )
         if body:
             print(f"  body: {body[:500]}")
         return 1
     try:
-        ident = json.loads(body)
+        ping = json.loads(body)
     except json.JSONDecodeError:
         print("  Response is not JSON")
         return 1
-    if ident.get("backend") != "fhd-http-app":
-        print(f"  Wrong backend: {ident!r}")
+    if not ping.get("pong"):
+        print(f"  Unexpected ping payload: {ping!r}")
         return 1
-    print(f"  OK: {ident.get('backend')}, xcagi_compat={ident.get('xcagi_compat')}")
+    print(f"  OK: service=xcagi-fastapi (ping {ping!r})")
 
     c2, b2 = post_json("/api/state/client-mods-off", {"client_mods_off": False})
     print(f"POST /api/state/client-mods-off -> {c2} {b2[:200]!r}")

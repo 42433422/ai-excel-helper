@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
 """
 小程序模块请求/响应 Schema 定义
 """
-from marshmallow import Schema, fields, validate, post_load
+
+from marshmallow import Schema, fields, validate
 
 
 class WechatLoginSchema(Schema):
@@ -44,9 +44,9 @@ class OrderCreateSchema(Schema):
 
 
 class FeedbackSubmitSchema(Schema):
-    type = fields.Str(required=True, validate=validate.OneOf(
-        ["bug", "suggestion", "complaint", "other"]
-    ))
+    type = fields.Str(
+        required=True, validate=validate.OneOf(["bug", "suggestion", "complaint", "other"])
+    )
     content = fields.Str(required=True, validate=validate.Length(max=1000))
     images = fields.List(fields.Str(), missing=[])
 

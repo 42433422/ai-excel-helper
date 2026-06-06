@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DeepSeek 意图识别服务 v2
 
@@ -12,14 +11,11 @@ import hashlib
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
 from app.utils.cache_manager import get_intent_deepseek_cache
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +24,8 @@ _intent_recognition_cache = get_intent_deepseek_cache()
 
 
 def _make_intent_cache_key(message: str) -> str:
-    return hashlib.sha256(f"intent_deepseek:v1:{message.strip().lower()}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(f"intent_deepseek:v1:{message.strip().lower()}".encode()).hexdigest()
+
 
 INTENT_DESCRIPTIONS = {
     "shipment_generate": "生成发货单、开单、打单、做出货单",
@@ -76,7 +73,13 @@ SLOT_DEFINITIONS = {
 
 
 class DeepSeekIntentRecognizer:
-    def __init__(self, api_key: Optional[str] = None, confidence_threshold: float = 0.5, timeout: float = 30.0, max_retries: int = 3):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        confidence_threshold: float = 0.5,
+        timeout: float = 30.0,
+        max_retries: int = 3,
+    ):
         self.api_key = api_key
         self.confidence_threshold = confidence_threshold
         self.timeout = timeout
@@ -90,27 +93,35 @@ class DeepSeekIntentRecognizer:
         if not key:
             try:
                 from app.utils.path_utils import get_resource_path
+
                 config_path = get_resource_path("config", "deepseek_config.py")
                 if config_path and os.path.exists(config_path):
                     import importlib.util
-                    spec = importlib.util.spec_from_file_location("xcagi_deepseek_config", config_path)
+
+                    spec = importlib.util.spec_from_file_location(
+                        "xcagi_deepseek_config", config_path
+                    )
                     if spec and spec.loader:
                         config_module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(config_module)
                         key = getattr(config_module, "DEEPSEEK_API_KEY", "") or ""
             except Exception:
-                pass
+                logger.debug("suppressed exception", exc_info=True)
         return key
 
-    async def recognize(self, message: str, context: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    async def recognize(
+        self, message: str, context: list[dict[str, str]] | None = None
+    ) -> dict[str, Any]:
         """带槽位提取的意图识别（带缓存）"""
         cache_key = _make_intent_cache_key(message)
         cached = _intent_recognition_cache.get(cache_key)
         if cached:
-            logger.info(f"[INTENT_CACHE] 命中缓存: {message[:30]}... -> {cached.get('intent')}, slots={cached.get('slots')}")
+            logger.info(
+                f"[INTENT_CACHE] 命中缓存: {message[:30]}... -> {cached.get('intent')}, slots={cached.get('slots')}"
+            )
             return cached
 
-        logger.info(f"[INTENT_CACHE] 缓存未命中，需要调用 DeepSeek API")
+        logger.info("[INTENT_CACHE] 缓存未命中，需要调用 DeepSeek API")
 
         intent_list = "\n".join([f"- {k}: {v}" for k, v in INTENT_DESCRIPTIONS.items()])
         slot_list = "\n".join([f"- {k}: {v}" for k, v in SLOT_DEFINITIONS.items()])
@@ -137,37 +148,33 @@ class DeepSeekIntentRecognizer:
             history = "\n".join([f"{m['role']}: {m['content']}" for m in context[-3:]])
             user_message = f"对话历史：\n{history}\n\n当前消息：{message}"
 
+        from app.infrastructure.llm.invoke import chat_completion_openai_format
+
         last_error = None
         for attempt in range(self.max_retries):
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.post(
-                        "https://api.deepseek.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {self._get_api_key()}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": "deepseek-chat",
-                            "messages": [
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_message}
-                            ],
-                            "temperature": 0.1,
-                            "max_tokens": 300
-                        }
-                    )
-                    result = response.json()
-                    if result.get("choices"):
-                        content = result["choices"][0]["message"]["content"]
-                        parsed = self._parse_response(content, message)
-                        _intent_recognition_cache.set(cache_key, parsed)
-                        return parsed
+                result = await chat_completion_openai_format(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.1,
+                    max_tokens=300,
+                    profile="intent",
+                )
+                if result and result.get("choices"):
+                    content = result["choices"][0]["message"]["content"]
+                    parsed = self._parse_response(content, message)
+                    _intent_recognition_cache.set(cache_key, parsed)
+                    return parsed
             except Exception as e:
                 last_error = e
-                logger.warning(f"DeepSeek 意图识别失败 (尝试 {attempt + 1}/{self.max_retries}): {e}")
+                logger.warning(
+                    f"DeepSeek 意图识别失败 (尝试 {attempt + 1}/{self.max_retries}): {e}"
+                )
                 if attempt < self.max_retries - 1:
                     import asyncio
+
                     await asyncio.sleep(0.5 * (attempt + 1))
 
         logger.error(f"DeepSeek 意图识别最终失败: {last_error}")
@@ -175,15 +182,15 @@ class DeepSeekIntentRecognizer:
         _intent_recognition_cache.set(cache_key, fallback)
         return fallback
 
-    def _parse_response(self, content: str, original_message: str) -> Dict[str, Any]:
+    def _parse_response(self, content: str, original_message: str) -> dict[str, Any]:
         import json
 
         content = content.strip()
-        if content.startswith('```'):
-            lines = content.split('\n')
+        if content.startswith("```"):
+            lines = content.split("\n")
             for i, line in enumerate(lines):
-                if '{' in line:
-                    content = '\n'.join(lines[i:])
+                if "{" in line:
+                    content = "\n".join(lines[i:])
                     break
 
         try:
@@ -200,13 +207,13 @@ class DeepSeekIntentRecognizer:
                     "confidence": min(confidence, 1.0),
                     "slots": normalized_slots,
                     "reasoning": reasoning,
-                    "source": "deepseek"
+                    "source": "deepseek",
                 }
         except json.JSONDecodeError:
             pass
 
         try:
-            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            json_match = re.search(r"\{.*\}", content, re.DOTALL)
             if json_match:
                 data = json.loads(json_match.group())
                 intent = data.get("intent", "")
@@ -221,14 +228,14 @@ class DeepSeekIntentRecognizer:
                         "confidence": min(confidence, 1.0),
                         "slots": normalized_slots,
                         "reasoning": reasoning,
-                        "source": "deepseek"
+                        "source": "deepseek",
                     }
         except (json.JSONDecodeError, ValueError):
             pass
 
         return self._fallback_result(original_message, content)
 
-    def _normalize_slots(self, slots: Dict, message: str) -> Dict[str, Any]:
+    def _normalize_slots(self, slots: dict, message: str) -> dict[str, Any]:
         """规范化槽位值"""
         normalized = {}
 
@@ -239,27 +246,29 @@ class DeepSeekIntentRecognizer:
             value = str(value).strip()
 
             if key == "quantity_tins":
-                match = re.search(r'(\d+|[一二两三四五六七八九十零]+)\s*桶', value) or re.search(r'(\d+|[一二两三四五六七八九十零]+)\s*桶', message)
+                match = re.search(r"(\d+|[一二两三四五六七八九十零]+)\s*桶", value) or re.search(
+                    r"(\d+|[一二两三四五六七八九十零]+)\s*桶", message
+                )
                 if match:
                     normalized[key] = self._cn_to_number(match.group(1))
                 else:
                     try:
-                        normalized[key] = int(re.search(r'\d+', value).group())
+                        normalized[key] = int(re.search(r"\d+", value).group())
                     except:
                         normalized[key] = value
 
             elif key == "tin_spec":
-                match = re.search(r'规格\s*(\d+)', message)
+                match = re.search(r"规格\s*(\d+)", message)
                 if match:
                     normalized[key] = float(match.group(1))
                 else:
                     try:
-                        normalized[key] = float(re.search(r'\d+', value).group())
+                        normalized[key] = float(re.search(r"\d+", value).group())
                     except:
                         normalized[key] = value
 
             elif key == "unit_name":
-                match = re.search(r'给\s*([^\s，,。]+)|([^\s，,。]+)\s*(?:的|发货单)', message)
+                match = re.search(r"给\s*([^\s，,。]+)|([^\s，,。]+)\s*(?:的|发货单)", message)
                 if match:
                     normalized[key] = match.group(1) or match.group(2)
                 else:
@@ -275,7 +284,21 @@ class DeepSeekIntentRecognizer:
 
     def _cn_to_number(self, cn: str) -> int:
         """中文数字转整数"""
-        cn_map = {'零': 0, '〇': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10}
+        cn_map = {
+            "零": 0,
+            "〇": 0,
+            "一": 1,
+            "二": 2,
+            "两": 2,
+            "三": 3,
+            "四": 4,
+            "五": 5,
+            "六": 6,
+            "七": 7,
+            "八": 8,
+            "九": 9,
+            "十": 10,
+        }
         try:
             if cn in cn_map:
                 return cn_map[cn]
@@ -285,16 +308,16 @@ class DeepSeekIntentRecognizer:
                     result = result * 10 + cn_map[char]
             return result if result > 0 else int(cn)
         except:
-            return int(re.search(r'\d+', cn).group()) if re.search(r'\d+', cn) else 0
+            return int(re.search(r"\d+", cn).group()) if re.search(r"\d+", cn) else 0
 
-    def _fallback_result(self, message: str, raw_response: str = "") -> Dict[str, Any]:
+    def _fallback_result(self, message: str, raw_response: str = "") -> dict[str, Any]:
         return {
             "intent": None,
             "confidence": 0.0,
             "slots": {},
             "reasoning": "DeepSeek 识别失败",
             "source": "deepseek",
-            "raw_response": raw_response
+            "raw_response": raw_response,
         }
 
 
@@ -304,7 +327,7 @@ class HybridIntentWithDeepSeek:
     def __init__(
         self,
         use_deepseek: bool = True,
-        deepseek_api_key: Optional[str] = None,
+        deepseek_api_key: str | None = None,
         rule_priority: bool = True,
         confidence_threshold: float = 0.5,
         use_distilled: bool = False,
@@ -320,6 +343,7 @@ class HybridIntentWithDeepSeek:
         if self.use_distilled:
             try:
                 from .distilled_intent_service import get_distilled_recognizer
+
                 self.distilled_recognizer = get_distilled_recognizer()
                 if self.distilled_recognizer.is_available():
                     logger.info("使用蒸馏模型进行意图识别")
@@ -332,19 +356,28 @@ class HybridIntentWithDeepSeek:
 
         if self.use_deepseek:
             self.deepseek_recognizer = DeepSeekIntentRecognizer(
-                api_key=deepseek_api_key,
-                confidence_threshold=confidence_threshold
+                api_key=deepseek_api_key, confidence_threshold=confidence_threshold
             )
 
-    async def recognize(self, message: str, context: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    async def recognize(
+        self, message: str, context: list[dict[str, str]] | None = None
+    ) -> dict[str, Any]:
         from .intent_service import recognize_intents as rule_recognize
 
         rule_result = rule_recognize(message)
         rule_result["sources_used"] = ["rule"]
-        logger.info(f"[HYBRID] 规则识别结果: intent={rule_result.get('primary_intent')}, tool_key={rule_result.get('tool_key')}, is_greeting={rule_result.get('is_greeting')}, slots={rule_result.get('slots')}")
+        logger.info(
+            f"[HYBRID] 规则识别结果: intent={rule_result.get('primary_intent')}, tool_key={rule_result.get('tool_key')}, is_greeting={rule_result.get('is_greeting')}, slots={rule_result.get('slots')}"
+        )
 
-        if rule_result.get("is_greeting") or rule_result.get("is_goodbye") or rule_result.get("is_help"):
-            rule_result["final_intent"] = rule_result.get("primary_intent") or rule_result.get("primary_intent")
+        if (
+            rule_result.get("is_greeting")
+            or rule_result.get("is_goodbye")
+            or rule_result.get("is_help")
+        ):
+            rule_result["final_intent"] = rule_result.get("primary_intent") or rule_result.get(
+                "primary_intent"
+            )
             rule_result["intent_source"] = "rule"
             rule_result["slots"] = self._extract_slots_from_rule(message, rule_result)
             logger.info(f"[HYBRID] 简单意图，直接返回: {rule_result.get('primary_intent')}")
@@ -357,7 +390,11 @@ class HybridIntentWithDeepSeek:
             logger.info(f"[HYBRID] 规则已命中，跳过 DeepSeek: {rule_result.get('primary_intent')}")
             return rule_result
 
-        if self.use_distilled and self.distilled_recognizer and self.distilled_recognizer.is_available():
+        if (
+            self.use_distilled
+            and self.distilled_recognizer
+            and self.distilled_recognizer.is_available()
+        ):
             try:
                 distilled_result = self.distilled_recognizer.recognize(message)
                 distilled_intent = distilled_result.get("intent")
@@ -369,7 +406,11 @@ class HybridIntentWithDeepSeek:
                 rule_result["distilled_slots"] = distilled_slots
                 rule_result["sources_used"].append("distilled")
 
-                if distilled_intent and distilled_intent != "unk" and distilled_confidence >= self.confidence_threshold:
+                if (
+                    distilled_intent
+                    and distilled_intent != "unk"
+                    and distilled_confidence >= self.confidence_threshold
+                ):
                     rule_result["final_intent"] = distilled_intent
                     rule_result["tool_key"] = distilled_intent
                     rule_result["intent_source"] = "distilled"
@@ -378,11 +419,17 @@ class HybridIntentWithDeepSeek:
                     return rule_result
 
                 if not self.use_deepseek or not self.deepseek_recognizer:
-                    rule_result["final_intent"] = distilled_intent or rule_result.get("primary_intent")
+                    rule_result["final_intent"] = distilled_intent or rule_result.get(
+                        "primary_intent"
+                    )
                     rule_result["tool_key"] = distilled_intent or rule_result.get("tool_key")
-                    rule_result["intent_source"] = "distilled_low_confidence" if distilled_intent else "rule"
+                    rule_result["intent_source"] = (
+                        "distilled_low_confidence" if distilled_intent else "rule"
+                    )
                     rule_result["intent_confidence"] = distilled_confidence
-                    rule_result["slots"] = distilled_slots or self._extract_slots_from_rule(message, rule_result)
+                    rule_result["slots"] = distilled_slots or self._extract_slots_from_rule(
+                        message, rule_result
+                    )
                     return rule_result
             except Exception as e:
                 logger.warning(f"蒸馏意图识别失败，降级到 DeepSeek: {e}")
@@ -422,79 +469,108 @@ class HybridIntentWithDeepSeek:
 
         return rule_result
 
-    def _extract_slots_from_rule(self, message: str, rule_result: Dict) -> Dict[str, Any]:
+    def _extract_slots_from_rule(self, message: str, rule_result: dict) -> dict[str, Any]:
         """从规则匹配结果中提取槽位"""
         slots = {}
         import re
 
-        invalid_unit_names = {'生成', '发货', '发货单', '开单', '打单', '单', '给', '的', '我', '你', '他', '她', '它', '请', '问'}
+        invalid_unit_names = {
+            "生成",
+            "发货",
+            "发货单",
+            "开单",
+            "打单",
+            "单",
+            "给",
+            "的",
+            "我",
+            "你",
+            "他",
+            "她",
+            "它",
+            "请",
+            "问",
+        }
 
-        if '给' in message:
-            idx = message.index('给')
-            after_give = message[idx+1:].strip()
+        if "给" in message:
+            idx = message.index("给")
+            after_give = message[idx + 1 :].strip()
             if after_give:
-                parts = re.split(r'[，,。\s]', after_give)
+                parts = re.split(r"[，,。\s]", after_give)
                 if parts:
                     unit = parts[0].strip()
                     if unit and len(unit) > 1 and unit not in invalid_unit_names:
                         slots["unit_name"] = unit
-        elif '帮' in message:
-            idx = message.index('帮')
-            after_help = message[idx+1:].strip()
+        elif "帮" in message:
+            idx = message.index("帮")
+            after_help = message[idx + 1 :].strip()
             if after_help:
-                unit_match = re.search(r'打([^\s，,。]+?)(?:的|货)', after_help)
+                unit_match = re.search(r"打([^\s，,。]+?)(?:的|货)", after_help)
                 if unit_match:
                     unit = unit_match.group(1)
                     if unit and len(unit) > 1 and unit not in invalid_unit_names:
                         slots["unit_name"] = unit
                 else:
-                    parts = re.split(r'[，,。\s]', after_help)
+                    parts = re.split(r"[，,。\s]", after_help)
                     if parts:
-                        unit = parts[0].strip().lstrip('打')
+                        unit = parts[0].strip().lstrip("打")
                         if unit and len(unit) > 1 and unit not in invalid_unit_names:
                             slots["unit_name"] = unit
         else:
-            unit_match = re.search(r'([^\s，,。]+?)\s*(?:的|发货单)', message)
+            unit_match = re.search(r"([^\s，,。]+?)\s*(?:的|发货单)", message)
             if unit_match:
                 unit = unit_match.group(1)
                 if unit and len(unit) > 1 and unit not in invalid_unit_names:
                     slots["unit_name"] = unit
 
         if "unit_name" not in slots:
-            ship_match = re.search(r'^发货单([^\s，,。]{2,})', message)
+            ship_match = re.search(r"^发货单([^\s，,。]{2,})", message)
             if ship_match:
                 unit = ship_match.group(1)
                 if unit and unit not in invalid_unit_names:
                     slots["unit_name"] = unit
 
         if "unit_name" not in slots:
-            ship_match = re.search(r'^送货单([^\s，,。]{2,})', message)
+            ship_match = re.search(r"^送货单([^\s，,。]{2,})", message)
             if ship_match:
                 unit = ship_match.group(1)
                 if unit and unit not in invalid_unit_names:
                     slots["unit_name"] = unit
 
         if "unit_name" not in slots:
-            ship_match = re.search(r'^出货单([^\s，,。]{2,})', message)
+            ship_match = re.search(r"^出货单([^\s，,。]{2,})", message)
             if ship_match:
                 unit = ship_match.group(1)
                 if unit and unit not in invalid_unit_names:
                     slots["unit_name"] = unit
 
-        qty_match = re.search(r'(\d+|[一二两三四五六七八九十零]+)\s*桶', message)
+        qty_match = re.search(r"(\d+|[一二两三四五六七八九十零]+)\s*桶", message)
         if qty_match:
-            cn_map = {'零': 0, '〇': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9}
+            cn_map = {
+                "零": 0,
+                "〇": 0,
+                "一": 1,
+                "二": 2,
+                "两": 2,
+                "三": 3,
+                "四": 4,
+                "五": 5,
+                "六": 6,
+                "七": 7,
+                "八": 8,
+                "九": 9,
+            }
             qty_str = qty_match.group(1)
             if qty_str in cn_map:
                 slots["quantity_tins"] = cn_map[qty_str]
             else:
                 slots["quantity_tins"] = int(qty_str)
 
-        spec_match = re.search(r'规格\s*(\d+)', message)
+        spec_match = re.search(r"规格\s*(\d+)", message)
         if spec_match:
             slots["tin_spec"] = float(spec_match.group(1))
 
-        product_model_pattern = r'(\d{4}[A-Z]?)\s*(?:规格\s*(\d+(?:\.\d+)?))?'
+        product_model_pattern = r"(\d{4}[A-Z]?)\s*(?:规格\s*(\d+(?:\.\d+)?))?"
         product_matches = re.findall(product_model_pattern, message)
         if product_matches:
             products = []
@@ -511,21 +587,21 @@ class HybridIntentWithDeepSeek:
                 slots["products"] = products
 
         logger.info(f"[SLOT_EXTRACTION_START] slots={slots}")
-        
+
         # 处理 DeepSeek 可能返回的 contact_person 作为 unit_name
         if "contact_person" in slots and "unit_name" not in slots:
             contact = slots.pop("contact_person")
             slots["unit_name"] = contact
             logger.info(f"[SLOT_EXTRACTION] converted contact_person to unit_name: {contact}")
-        
-        invalid_unit_patterns = ['帮我', '查询', '请问', '请帮', '什么', '哪个']
+
+        invalid_unit_patterns = ["帮我", "查询", "请问", "请帮", "什么", "哪个"]
         if "unit_name" in slots:
             unit_name = slots["unit_name"]
             needs_fix = any(p in unit_name for p in invalid_unit_patterns) or len(unit_name) > 6
             logger.info(f"[SLOT_EXTRACTION] unit_name={unit_name}, needs_fix={needs_fix}")
             if needs_fix and "keyword" in slots:
                 keyword = slots["keyword"]
-                unit_match = re.search(r'([^\s 的]{2,6}) 的 (\d{4}[A-Z]?)', keyword)
+                unit_match = re.search(r"([^\s 的]{2,6}) 的 (\d{4}[A-Z]?)", keyword)
                 logger.info(f"[SLOT_EXTRACTION] keyword={keyword}, unit_match={unit_match}")
                 if unit_match:
                     potential_unit = unit_match.group(1)
@@ -533,6 +609,7 @@ class HybridIntentWithDeepSeek:
                     from app.infrastructure.lookups.purchase_unit_resolver import (
                         resolve_purchase_unit,
                     )
+
                     resolved = resolve_purchase_unit(potential_unit)
                     logger.info(f"[SLOT_EXTRACTION] resolved={resolved}")
                     if resolved:
@@ -543,6 +620,7 @@ class HybridIntentWithDeepSeek:
                         slots["model_number"] = model
             else:
                 from app.infrastructure.lookups.purchase_unit_resolver import resolve_purchase_unit
+
                 resolved = resolve_purchase_unit(unit_name)
                 logger.info(f"[SLOT_EXTRACTION] resolved unit_name={resolved}")
                 if resolved:
@@ -551,13 +629,16 @@ class HybridIntentWithDeepSeek:
         if "keyword" in slots and "unit_name" not in slots:
             keyword = slots["keyword"]
             logger.info(f"[SLOT_EXTRACTION_KEYWORD] keyword={keyword}")
-            unit_match = re.search(r'([^\s 的]{2,6}) 的 (\d{4}[A-Z]?)', keyword)
+            unit_match = re.search(r"([^\s 的]{2,6}) 的 (\d{4}[A-Z]?)", keyword)
             logger.info(f"[SLOT_EXTRACTION_KEYWORD] unit_match={unit_match}")
             if unit_match:
                 potential_unit = unit_match.group(1)
                 model = unit_match.group(2)
-                logger.info(f"[SLOT_EXTRACTION_KEYWORD] potential_unit={potential_unit}, model={model}")
+                logger.info(
+                    f"[SLOT_EXTRACTION_KEYWORD] potential_unit={potential_unit}, model={model}"
+                )
                 from app.infrastructure.lookups.purchase_unit_resolver import resolve_purchase_unit
+
                 resolved = resolve_purchase_unit(potential_unit)
                 logger.info(f"[SLOT_EXTRACTION_KEYWORD] resolved={resolved}")
                 if resolved:
@@ -569,15 +650,16 @@ class HybridIntentWithDeepSeek:
 
         if "keyword" in slots and "model_number" not in slots:
             keyword = slots["keyword"]
-            model_match = re.search(r'(\d{4}[A-Z]?)$', keyword)
+            model_match = re.search(r"(\d{4}[A-Z]?)$", keyword)
             if model_match:
                 slots["model_number"] = model_match.group(1)
 
         logger.info(f"[SLOT_EXTRACTION_END] final_slots={slots}")
         return slots
 
-    def recognize_sync(self, message: str) -> Dict[str, Any]:
+    def recognize_sync(self, message: str) -> dict[str, Any]:
         import asyncio
+
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
@@ -587,19 +669,24 @@ class HybridIntentWithDeepSeek:
         except Exception as e:
             logger.error(f"混合意图识别失败: {e}")
             from .intent_service import recognize_intents
+
             rule_result = recognize_intents(message)
             rule_result["slots"] = self._extract_slots_from_rule(message, rule_result)
             return rule_result
 
 
-_deepseek_recognizer: Optional[DeepSeekIntentRecognizer] = None
-_hybrid_with_deepseek: Optional[HybridIntentWithDeepSeek] = None
+_deepseek_recognizer: DeepSeekIntentRecognizer | None = None
+_hybrid_with_deepseek: HybridIntentWithDeepSeek | None = None
 
 
-def get_deepseek_intent_recognizer(api_key: Optional[str] = None, confidence_threshold: float = 0.5) -> DeepSeekIntentRecognizer:
+def get_deepseek_intent_recognizer(
+    api_key: str | None = None, confidence_threshold: float = 0.5
+) -> DeepSeekIntentRecognizer:
     global _deepseek_recognizer
     if _deepseek_recognizer is None:
-        _deepseek_recognizer = DeepSeekIntentRecognizer(api_key=api_key, confidence_threshold=confidence_threshold)
+        _deepseek_recognizer = DeepSeekIntentRecognizer(
+            api_key=api_key, confidence_threshold=confidence_threshold
+        )
     return _deepseek_recognizer
 
 
@@ -608,7 +695,7 @@ def get_hybrid_intent_with_deepseek(
     rule_priority: bool = True,
     confidence_threshold: float = 0.6,
     use_distilled: bool = False,
-    reset: bool = False
+    reset: bool = False,
 ) -> HybridIntentWithDeepSeek:
     global _hybrid_with_deepseek
     if _hybrid_with_deepseek is None or reset:
@@ -634,22 +721,38 @@ def get_deepseek_api_key() -> str:
         return key
     try:
         from app.utils.path_utils import get_resource_path
+
         config_path = get_resource_path("config", "deepseek_config.py")
         if config_path and os.path.exists(config_path):
             import importlib.util
+
             spec = importlib.util.spec_from_file_location("xcagi_deepseek_config", config_path)
             if spec and spec.loader:
                 config_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(config_module)
                 return getattr(config_module, "DEEPSEEK_API_KEY", "") or ""
     except Exception:
-        pass
+        logger.debug("suppressed exception", exc_info=True)
     return ""
 
 
 def cn_to_number(cn: str) -> int:
     """中文数字转整数"""
-    cn_map = {'零': 0, '〇': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10}
+    cn_map = {
+        "零": 0,
+        "〇": 0,
+        "一": 1,
+        "二": 2,
+        "两": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+        "十": 10,
+    }
     try:
         if cn in cn_map:
             return cn_map[cn]
@@ -659,7 +762,7 @@ def cn_to_number(cn: str) -> int:
                 result = result * 10 + cn_map[char]
         return result if result > 0 else int(cn)
     except:
-        return int(re.search(r'\d+', cn).group()) if re.search(r'\d+', cn) else 0
+        return int(re.search(r"\d+", cn).group()) if re.search(r"\d+", cn) else 0
 
 
 # NEURO-DDD: 为 Services 层类添加 instrumentation

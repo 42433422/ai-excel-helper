@@ -8,6 +8,12 @@
 
 from __future__ import annotations
 
+from app.domain.neuro.neuro_uow import NeuroUnitOfWork, neuro_uow_session
+from app.domain.neuro.processors.coordinator import (
+    ProcessorCoordinator,
+    ProcessorType,
+    get_processor_coordinator,
+)
 from app.neuro_bus.domains.ai_service_domain import AIServiceNeuroDomain, get_ai_service_domain
 from app.neuro_bus.domains.base import (
     DomainChannel,
@@ -24,14 +30,8 @@ from app.neuro_bus.domains.payment_domain import PaymentNeuroDomain, get_payment
 from app.neuro_bus.domains.print_domain import PrintNeuroDomain, get_print_domain
 from app.neuro_bus.domains.product_domain import ProductNeuroDomain, get_product_domain
 from app.neuro_bus.domains.safety_domain import SafetyNeuroDomain, get_safety_domain
-from app.neuro_bus.domains.wechat_domain import WechatNeuroDomain, get_wechat_domain
 from app.neuro_bus.domains.shipment_domain import ShipmentNeuroDomain, get_shipment_domain
-from app.domain.neuro.processors.coordinator import (
-    ProcessorCoordinator,
-    ProcessorType,
-    get_processor_coordinator,
-)
-from app.domain.neuro.neuro_uow import NeuroUnitOfWork, neuro_uow_session
+from app.neuro_bus.domains.wechat_domain import WechatNeuroDomain, get_wechat_domain
 
 __all__ = [
     "AIServiceNeuroDomain",

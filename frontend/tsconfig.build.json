@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "src/constants/*.minimal.ts",
+    "src/views/temp2.vue",
+    "src/views/ChatViewOptimized.vue",
+    "src/utils/pretext.ts",
+    "src/components/workflow/WorkflowDemo.vue",
+    "src/composables/useChatView.test.ts",
+    "src/composables/useChatView.ts",
+    "src/stores/tutorial.ts",
+    "src/utils/textParser.ts",
+    "src/views/LoginView.vue",
+    "src/composables/useModRoutes.ts"
+  ]
+}

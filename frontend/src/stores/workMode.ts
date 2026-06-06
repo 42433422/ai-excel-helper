@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, type Ref } from 'vue'
 import { wechatApi, type WechatContact } from '@/api/wechat'
+import { resolveErpApiPath } from '@/utils/erpDomainPaths'
 
 interface WorkModeState {
   isActive: boolean;
@@ -62,7 +63,7 @@ export const useWorkModeStore = defineStore('workMode', () => {
 
   async function getMessageSourceSize() {
     try {
-      const response = await fetch('/api/wechat_contacts/message_source_size')
+      const response = await fetch(resolveErpApiPath('/api/wechat_contacts/message_source_size'))
       const data = await response.json()
       lastMessageSourceSize.value = data.size
     } catch (error) {
@@ -72,7 +73,7 @@ export const useWorkModeStore = defineStore('workMode', () => {
 
   async function refreshMessagesCache() {
     try {
-      await fetch('/api/wechat_contacts/refresh_messages_cache', { method: 'POST' })
+      await fetch(resolveErpApiPath('/api/wechat_contacts/refresh_messages_cache'), { method: 'POST' })
       await getMessageSourceSize()
     } catch (error) {
       console.error('Failed to refresh messages cache:', error)
@@ -81,7 +82,7 @@ export const useWorkModeStore = defineStore('workMode', () => {
 
   async function fetchWorkModeFeed() {
     try {
-      const response = await fetch('/api/wechat_contacts/work_mode_feed')
+      const response = await fetch(resolveErpApiPath('/api/wechat_contacts/work_mode_feed'))
       const data = await response.json()
       
       contacts.value = data.contacts || contacts.value
@@ -102,9 +103,10 @@ export const useWorkModeStore = defineStore('workMode', () => {
     messages.forEach(msg => {
       const contact = contacts.value.find(c => c.id === msg.contactId)
       if (contact) {
-        (contact as any).lastMessage = msg.content
-        (contact as any).lastMessageTime = msg.timestamp
-        (contact as any).unreadCount = ((contact as any).unreadCount || 0) + 1
+        const c = contact as any
+        c.lastMessage = msg.content
+        c.lastMessageTime = msg.timestamp
+        c.unreadCount = (c.unreadCount || 0) + 1
       }
     })
   }
@@ -174,7 +176,7 @@ export const useWorkModeStore = defineStore('workMode', () => {
 
   async function downloadOrder(orderId: string | number) {
     try {
-      const response = await fetch(`/api/shipment/download/${orderId}`)
+      const response = await fetch(resolveErpApiPath(`/api/shipment/download/${orderId}`))
       const blob = await response.blob()
       
       const url = window.URL.createObjectURL(blob)

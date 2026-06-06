@@ -1,0 +1,16 @@
+{
+  "collection": "office_employee_pack",
+  "source": "MODstore_deploy/market/src/constants/officeEmployeePack.ts",
+  "pack_ids": [
+    "excel-generate-employee",
+    "excel-full-read-employee",
+    "csv-generate-employee",
+    "csv-full-read-employee",
+    "pdf-generate-employee",
+    "pdf-full-read-employee",
+    "ppt-generate-employee",
+    "ppt-full-read-employee",
+    "word-generate-employee",
+    "word-full-read-employee"
+  ]
+}

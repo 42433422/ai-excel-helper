@@ -9,7 +9,8 @@ from __future__ import annotations
 import inspect
 import threading
 import time
-from typing import Any, Callable, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 from app.neuro_bus.application_neuro_bridge import neuro_trace_service_call
 
@@ -104,7 +105,7 @@ def _wrap_fn(module_label: str, method_name: str, fn: Callable[..., Any]) -> Cal
 _SKIP = frozenset({"__init__", "__new__", "__del__", "__repr__", "__str__"})
 
 
-def instrument_service_layer_class(cls: Type[Any], module_label: str) -> Type[Any]:
+def instrument_service_layer_class(cls: type[Any], module_label: str) -> type[Any]:
     for name, member in list(cls.__dict__.items()):
         if name.startswith("_") or name in _SKIP:
             continue

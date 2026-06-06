@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 文件分析应用服务
 
@@ -12,12 +11,11 @@ import logging
 import os
 import sqlite3
 import uuid
-from typing import Any, Dict, Optional, Tuple
-
-from app.utils.secure_filename import secure_filename
+from typing import Any
 
 from app.utils.external_sqlite import sqlite_conn
 from app.utils.path_utils import get_upload_dir
+from app.utils.secure_filename import secure_filename
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +30,7 @@ class FileAnalysisService:
     def __init__(self):
         self.upload_dir = get_upload_dir()
 
-    def analyze_file(
-        self,
-        upload_file,
-        purpose: str = "general"
-    ) -> Dict[str, Any]:
+    def analyze_file(self, upload_file, purpose: str = "general") -> dict[str, Any]:
         """
         分析上传文件
 
@@ -63,14 +57,14 @@ class FileAnalysisService:
         if ext == ".db":
             return self._analyze_sqlite_db(saved_path, saved_name, raw_filename, filename)
 
-        if ext in ('.xlsx', '.xls'):
+        if ext in (".xlsx", ".xls"):
             return self._analyze_excel_file(saved_path, saved_name, raw_filename, filename)
 
         return {
             "success": False,
             "message": f"暂不支持通过本接口解析 {ext}；当前版本支持 .db（SQLite）和 .xlsx/.xls（Excel）。",
             "parser_used": "unsupported",
-            "extension": ext
+            "extension": ext,
         }
 
     def _get_extension(self, raw_filename: str, fallback_filename: str) -> str:
@@ -97,12 +91,8 @@ class FileAnalysisService:
         return ext
 
     def _analyze_sqlite_db(
-        self,
-        saved_path: str,
-        saved_name: str,
-        raw_filename: str,
-        filename: str
-    ) -> Dict[str, Any]:
+        self, saved_path: str, saved_name: str, raw_filename: str, filename: str
+    ) -> dict[str, Any]:
         """分析 SQLite 数据库文件"""
         try:
             with sqlite_conn(saved_path) as conn:
@@ -152,21 +142,14 @@ class FileAnalysisService:
                     "db_meta": {
                         "table_count": len(table_names),
                         "tables": focus_tables,
-                        "table_columns": table_columns
-                    }
+                        "table_columns": table_columns,
+                    },
                 }
         except Exception as e:
             logger.exception(f"SQLite 数据库分析失败：{e}")
-            return {
-                "success": False,
-                "message": f"文件分析失败：{str(e)}"
-            }
+            return {"success": False, "message": f"文件分析失败：{str(e)}"}
 
-    def _determine_suggested_use(
-        self,
-        table_names: list,
-        table_columns: Dict[str, list]
-    ) -> str:
+    def _determine_suggested_use(self, table_names: list, table_columns: dict[str, list]) -> str:
         """根据表结构确定建议用途"""
         lower_tables = {x.lower() for x in table_names}
 
@@ -177,15 +160,11 @@ class FileAnalysisService:
         if "customers" in lower_tables:
             return "customers_db"
 
-        products_table = next(
-            (t for t in table_names if t and t.lower() == "products"),
-            None
-        )
+        products_table = next((t for t in table_names if t and t.lower() == "products"), None)
         if products_table:
             products_cols_lower = [c.lower() for c in (table_columns.get(products_table) or [])]
             has_required_cols = (
-                "model_number" in products_cols_lower
-                and "name" in products_cols_lower
+                "model_number" in products_cols_lower and "name" in products_cols_lower
             )
             has_unit_col = "unit" in products_cols_lower
             is_unit_products_lib = (
@@ -193,10 +172,7 @@ class FileAnalysisService:
                 and has_required_cols
                 and (
                     len(table_names) <= 2
-                    or (
-                        "customers" not in lower_tables
-                        and "purchase_units" not in lower_tables
-                    )
+                    or ("customers" not in lower_tables and "purchase_units" not in lower_tables)
                 )
                 and has_unit_col
             )
@@ -213,22 +189,16 @@ class FileAnalysisService:
         except Exception:
             return ""
 
-    def _extract_unit_candidates(
-        self,
-        cur: sqlite3.Cursor,
-        table_names: list
-    ) -> list:
+    def _extract_unit_candidates(self, cur: sqlite3.Cursor, table_names: list) -> list:
         """从 unit_products_db 提取购买单位候选列表"""
-        products_table = next(
-            (t for t in table_names if t and t.lower() == "products"),
-            None
-        )
+        products_table = next((t for t in table_names if t and t.lower() == "products"), None)
         if not products_table:
             return []
 
         try:
             candidates = [
-                r[0] for r in cur.execute(
+                r[0]
+                for r in cur.execute(
                     f'SELECT DISTINCT unit FROM "{products_table}" '
                     f'WHERE unit IS NOT NULL AND TRIM(unit) != "" '
                     f"LIMIT 10"
@@ -244,12 +214,9 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(FileAnalysisService)
 
-_file_analysis_app_service_instance = None
-
 
 def get_file_analysis_app_service() -> FileAnalysisService:
     """获取文件分析服务单例"""
-    global _file_analysis_app_service_instance
-    if _file_analysis_app_service_instance is None:
-        _file_analysis_app_service_instance = FileAnalysisService()
-    return _file_analysis_app_service_instance
+    from app.di.registry import get_service_registry
+
+    return get_service_registry().file_analysis_application_service

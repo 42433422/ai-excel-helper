@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 购买单位产品导入应用服务
 
@@ -12,7 +11,7 @@
 import logging
 import os
 import sqlite3
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.db.models.customer import Customer
 from app.db.models.product import Product
@@ -38,8 +37,8 @@ class UnitProductsImportService:
         saved_name: str,
         unit_name: str,
         create_purchase_unit: bool = True,
-        skip_duplicates: bool = True
-    ) -> Dict[str, Any]:
+        skip_duplicates: bool = True,
+    ) -> dict[str, Any]:
         """
         从上传的 SQLite .db 导入购买单位产品
 
@@ -79,9 +78,7 @@ class UnitProductsImportService:
             created_unit = self._ensure_unit_exists(unit_name, create_purchase_unit)
 
             if skip_duplicates:
-                products_rows, skipped_count = self._deduplicate_products(
-                    products_rows, unit_name
-                )
+                products_rows, skipped_count = self._deduplicate_products(products_rows, unit_name)
             else:
                 skipped_count = 0
 
@@ -114,7 +111,7 @@ class UnitProductsImportService:
             logger.exception(f"导入购买单位+产品列表失败：{e}")
             return {"success": False, "message": f"导入失败：{str(e)}"}
 
-    def _validate_params(self, saved_name: str, unit_name: str) -> Optional[Dict[str, Any]]:
+    def _validate_params(self, saved_name: str, unit_name: str) -> dict[str, Any] | None:
         """验证输入参数"""
         if not saved_name:
             return {"success": False, "message": "saved_name 不能为空"}
@@ -128,20 +125,13 @@ class UnitProductsImportService:
 
         return None
 
-    def _read_source_products(
-        self,
-        cur: sqlite3.Cursor,
-        unit_name: str
-    ) -> List[Dict[str, Any]]:
+    def _read_source_products(self, cur: sqlite3.Cursor, unit_name: str) -> list[dict[str, Any]]:
         """读取源 products 表"""
         tables = cur.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         ).fetchall()
         table_names = [t[0] for t in tables if t and t[0]]
-        products_table = next(
-            (t for t in table_names if t and t.lower() == "products"),
-            None
-        )
+        products_table = next((t for t in table_names if t and t.lower() == "products"), None)
         if not products_table:
             return []
 
@@ -153,9 +143,18 @@ class UnitProductsImportService:
             return []
 
         expected_cols = [
-            "model_number", "name", "specification", "price",
-            "quantity", "description", "category", "brand",
-            "unit", "is_active", "created_at", "updated_at",
+            "model_number",
+            "name",
+            "specification",
+            "price",
+            "quantity",
+            "description",
+            "category",
+            "brand",
+            "unit",
+            "is_active",
+            "created_at",
+            "updated_at",
         ]
         select_cols = [col_map[c] for c in expected_cols if c in col_map]
         if not select_cols:
@@ -186,18 +185,20 @@ class UnitProductsImportService:
             src_is_active = rd_lc.get("is_active")
             is_active = self._parse_int(src_is_active) if src_is_active is not None else 1
 
-            products_rows.append({
-                "product_name": src_name,
-                "model_number": src_model or None,
-                "specification": src_spec or None,
-                "price": price,
-                "quantity": quantity,
-                "description": src_desc,
-                "category": src_category,
-                "brand": src_brand,
-                "unit": unit_name,
-                "is_active": is_active,
-            })
+            products_rows.append(
+                {
+                    "product_name": src_name,
+                    "model_number": src_model or None,
+                    "specification": src_spec or None,
+                    "price": price,
+                    "quantity": quantity,
+                    "description": src_desc,
+                    "category": src_category,
+                    "brand": src_brand,
+                    "unit": unit_name,
+                    "is_active": is_active,
+                }
+            )
 
         return products_rows
 
@@ -208,37 +209,35 @@ class UnitProductsImportService:
         except Exception:
             return 0.0
 
-    def _parse_int(self, value: Any) -> Optional[int]:
+    def _parse_int(self, value: Any) -> int | None:
         """安全解析整数"""
         try:
             return int(value) if value is not None and str(value).strip() != "" else None
         except Exception:
             return None
 
-    def _ensure_unit_exists(
-        self,
-        unit_name: str,
-        create_purchase_unit: bool
-    ) -> bool:
+    def _ensure_unit_exists(self, unit_name: str, create_purchase_unit: bool) -> bool:
         """确保购买单位存在"""
         from app.bootstrap import get_customer_app_service
 
         with get_db() as db:
-            existing_customer = db.query(Customer).filter(
-                Customer.customer_name == unit_name
-            ).first()
+            existing_customer = (
+                db.query(Customer).filter(Customer.customer_name == unit_name).first()
+            )
 
         if not existing_customer and not create_purchase_unit:
             return False
 
         if not existing_customer:
             customer_service = get_customer_app_service()
-            customer_result = customer_service.create({
-                "customer_name": unit_name,
-                "contact_person": None,
-                "contact_phone": None,
-                "contact_address": None,
-            })
+            customer_result = customer_service.create(
+                {
+                    "customer_name": unit_name,
+                    "contact_person": None,
+                    "contact_phone": None,
+                    "contact_address": None,
+                }
+            )
             if customer_result.get("success") is True:
                 return True
             msg = str(customer_result.get("message") or "")
@@ -247,16 +246,14 @@ class UnitProductsImportService:
 
         return True
 
-    def _deduplicate_products(
-        self,
-        products_rows: List[Dict[str, Any]],
-        unit_name: str
-    ) -> tuple:
+    def _deduplicate_products(self, products_rows: list[dict[str, Any]], unit_name: str) -> tuple:
         """产品去重"""
         with get_db() as db:
-            existing = db.query(
-                Product.model_number, Product.name, Product.specification
-            ).filter(Product.unit == unit_name).all()
+            existing = (
+                db.query(Product.model_number, Product.name, Product.specification)
+                .filter(Product.unit == unit_name)
+                .all()
+            )
 
         existing_keys = set()
         for mnum, pname, spec in existing:
@@ -278,7 +275,7 @@ class UnitProductsImportService:
                 key = (
                     "name_spec",
                     (item.get("product_name") or "").strip(),
-                    (item.get("specification") or "").strip()
+                    (item.get("specification") or "").strip(),
                 )
             if key in existing_keys or key in import_keys:
                 skipped += 1
@@ -288,10 +285,7 @@ class UnitProductsImportService:
 
         return deduped, skipped
 
-    def _batch_import_products(
-        self,
-        products_rows: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def _batch_import_products(self, products_rows: list[dict[str, Any]]) -> dict[str, Any]:
         """批量导入产品"""
         from app.bootstrap import get_products_service
 
@@ -303,12 +297,9 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(UnitProductsImportService)
 
-_unit_products_import_app_service_instance = None
-
 
 def get_unit_products_import_app_service() -> UnitProductsImportService:
     """获取单位产品导入服务单例"""
-    global _unit_products_import_app_service_instance
-    if _unit_products_import_app_service_instance is None:
-        _unit_products_import_app_service_instance = UnitProductsImportService()
-    return _unit_products_import_app_service_instance
+    from app.di.registry import get_service_registry
+
+    return get_service_registry().unit_products_import_application_service

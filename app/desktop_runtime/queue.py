@@ -7,8 +7,9 @@ submission contract usable.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Any, Callable
+from typing import Any
 
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="xcagi-desktop-task")
 

@@ -1,0 +1,62 @@
+# Full FHD API in Docker: FastAPI + bundled Redis; PostgreSQL via DATABASE_URL (host or container).
+#
+# From repository root (FHD/):
+#   cp .env.fhd-docker.example .env.fhd-docker   # edit DATABASE_URL / SECRET_KEY
+#   docker compose -f docker/docker-compose.fhd-full.yml --env-file .env.fhd-docker up -d --build
+#
+# Use host Postgres (e.g. modstore container on 5433): set in .env.fhd-docker
+#   DATABASE_URL=postgresql+psycopg://USER:PASS@host.docker.internal:5433/DB
+# Linux Docker 20.10+: extra_hosts below enables host.docker.internal.
+
+services:
+  fhd-redis:
+    image: redis:7-alpine
+    container_name: fhd-redis
+    restart: unless-stopped
+    volumes:
+      - fhd-redis-data:/data
+    networks:
+      - fhd-net
+
+  fhd-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.fhd-api
+    image: xcagi-fhd-api:${XCAGI_VERSION:-latest}
+    container_name: fhd-api
+    restart: unless-stopped
+    depends_on:
+      fhd-redis:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${FHD_API_BIND:-127.0.0.1}:${FHD_API_PORT:-5100}:5000"
+    environment:
+      WORKSPACE_ROOT: /app
+      PYTHONPATH: /app
+      XCAGI_UVICORN_RELOAD: "0"
+      FLASK_ENV: production
+      CACHE_REDIS_URL: redis://fhd-redis:6379/0
+      CELERY_BROKER_URL: redis://fhd-redis:6379/1
+      CELERY_RESULT_BACKEND: redis://fhd-redis:6379/2
+    env_file:
+      - ../.env.fhd-docker
+    volumes:
+      - fhd-api-data:/app/data
+      - fhd-api-uploads:/app/uploads
+      - fhd-api-logs:/app/logs
+      - ${FHD_MODS_MOUNT:-fhd-mods-empty}:/app/XCAGI/mods:ro
+    networks:
+      - fhd-net
+
+volumes:
+  fhd-redis-data:
+  fhd-api-data:
+  fhd-api-uploads:
+  fhd-api-logs:
+  fhd-mods-empty:
+
+networks:
+  fhd-net:
+    name: fhd-full-net

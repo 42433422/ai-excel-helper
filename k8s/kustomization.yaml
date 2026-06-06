@@ -1,0 +1,14 @@
+# Local / GitOps: kubectl apply -k .  (requires setting images below or use: kubectl kustomize . | sed ...)
+# CI uses sed on deployment.yaml; this file is optional for teams using Kustomize overlays.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml
+  - configmap.yaml
+  - ingress.yaml
+  - hpa.yaml
+images:
+  - name: __DEPLOY_BACKEND_IMAGE__
+    newName: ghcr.io/example/placeholder/backend
+    newTag: build-me

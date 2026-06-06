@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 企业版：浅灰蓝底 + 深蓝主色，桌面可与个人版区分 -->
+    <color name="xiuci_launcher_bg">#E8EEF5</color>
+    <color name="xiuci_primary">#0D47A1</color>
+</resources>

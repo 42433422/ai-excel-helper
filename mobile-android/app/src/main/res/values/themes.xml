@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.XCAGI" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/xiuci_bg_dark</item>
+        <item name="android:navigationBarColor">@color/xiuci_bg_dark</item>
+        <item name="android:windowBackground">@color/xiuci_bg_dark</item>
+    </style>
+    <style name="Theme.XCAGI.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/xiuci_bg_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.XCAGI</item>
+    </style>
+</resources>

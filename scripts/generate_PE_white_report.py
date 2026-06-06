@@ -9,10 +9,10 @@ import json
 import glob
 
 # 读取图片
-files = glob.glob(r'e:\FHD\26-0300001A_第1项_PE白底漆.png')
+files = glob.glob(r"e:\FHD\26-0300001A_第1项_PE白底漆.png")
 image_path = files[0]
 
-with open(image_path, 'rb') as f:
+with open(image_path, "rb") as f:
     file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
 img_array = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
@@ -56,6 +56,7 @@ for x in range(gray.shape[1]):
     if max_continuous > gray.shape[0] * 0.5:
         vertical_lines.append(x)
 
+
 # 合并线条
 def merge_very_close(lines, threshold=5):
     if not lines:
@@ -68,6 +69,7 @@ def merge_very_close(lines, threshold=5):
             merged[-1] = (merged[-1] + line) // 2
     return merged
 
+
 def merge_lines(lines, threshold=50):
     if not lines:
         return []
@@ -76,6 +78,7 @@ def merge_lines(lines, threshold=50):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 horizontal_lines = sorted(list(set(horizontal_lines)))
 vertical_lines = sorted(list(set(vertical_lines)))
@@ -97,14 +100,14 @@ for i in range(rows):
         h = horizontal_lines[i + 1] - horizontal_lines[i]
 
         cell = {
-            'row': i,
-            'col': j,
-            'x': x,
-            'y': y,
-            'width': w,
-            'height': h,
-            'should_merge_right': False,
-            'should_merge_down': False
+            "row": i,
+            "col": j,
+            "x": x,
+            "y": y,
+            "width": w,
+            "height": h,
+            "should_merge_right": False,
+            "should_merge_down": False,
         }
 
         # 检测右侧边框
@@ -116,7 +119,7 @@ for i in range(rows):
                     if binary[check_y, right_border_x] > 0:
                         border_black_count += 1
             if h > 0 and border_black_count < h * 0.5:
-                cell['should_merge_right'] = True
+                cell["should_merge_right"] = True
 
         # 检测底部边框
         if i < rows - 1:
@@ -127,12 +130,12 @@ for i in range(rows):
                     if binary[bottom_border_y, check_x] > 0:
                         border_black_count += 1
             if w > 0 and border_black_count < w * 0.5:
-                cell['should_merge_down'] = True
+                cell["should_merge_down"] = True
 
         cells.append(cell)
 
 # 生成 HTML
-html_content = f'''<!DOCTYPE html>
+html_content = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -181,32 +184,33 @@ html_content = f'''<!DOCTYPE html>
                 <div class="section">
                     <h3>单元格详情</h3>
                     <div class="cell-grid" style="grid-template-columns: repeat({cols}, 1fr);">
-'''
+"""
 
 for cell in cells:
     css_class = ""
-    if cell['should_merge_right'] and cell['should_merge_down']:
+    if cell["should_merge_right"] and cell["should_merge_down"]:
         css_class = "merged-both"
-    elif cell['should_merge_right']:
+    elif cell["should_merge_right"]:
         css_class = "merged-h"
-    elif cell['should_merge_down']:
+    elif cell["should_merge_down"]:
         css_class = "merged-v"
 
     status = []
-    if cell['should_merge_right']:
+    if cell["should_merge_right"]:
         status.append("水平合并")
-    if cell['should_merge_down']:
+    if cell["should_merge_down"]:
         status.append("垂直合并")
     status_str = ", ".join(status) if status else "独立"
 
-    html_content += f'''                        <div class="cell {css_class}">
+    html_content += f"""                        <div class="cell {css_class}">
                             <div><strong>#[{cell['row']},{cell['col']}]</strong> {status_str}</div>
                             <div>位置: ({cell['x']}, {cell['y']})</div>
                             <div>尺寸: {cell['width']}×{cell['height']}</div>
                         </div>
-'''
+"""
 
-html_content += '''                    </div>
+html_content += (
+    """                    </div>
                 </div>
             </div>
         </div>
@@ -226,9 +230,15 @@ html_content += '''                    </div>
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const cells = ''' + json.dumps(cells) + ''';
-        const horizontalLines = ''' + json.dumps(horizontal_lines) + ''';
-        const verticalLines = ''' + json.dumps(vertical_lines) + ''';
+        const cells = """
+    + json.dumps(cells)
+    + """;
+        const horizontalLines = """
+    + json.dumps(horizontal_lines)
+    + """;
+        const verticalLines = """
+    + json.dumps(vertical_lines)
+    + """;
 
         function draw() {
             ctx.fillStyle = '#ffffff';
@@ -290,10 +300,11 @@ html_content += '''                    </div>
     </script>
 </body>
 </html>
-'''
+"""
+)
 
-output_path = r'e:\FHD\PE白底漆_grid_report.html'
-with open(output_path, 'w', encoding='utf-8') as f:
+output_path = r"e:\FHD\PE白底漆_grid_report.html"
+with open(output_path, "w", encoding="utf-8") as f:
     f.write(html_content)
 
 print(f"✓ 报告已生成：{output_path}")

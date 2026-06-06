@@ -4,9 +4,10 @@
 负责产品导入相关的用例编排
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.services.product_import_service import ProductImportService
+
 # get_product_import_service is in services/__init__.py - use direct import to avoid circular deps during init
 
 
@@ -15,11 +16,11 @@ class ProductImportApplicationService:
 
     def __init__(
         self,
-        product_import_service: Optional[ProductImportService] = None,
+        product_import_service: ProductImportService | None = None,
     ):
         self._product_import_service = product_import_service or get_product_import_service()  # type: ignore
 
-    def import_from_file(self, file_path: str, unit_name: str) -> Dict[str, Any]:
+    def import_from_file(self, file_path: str, unit_name: str) -> dict[str, Any]:
         """
         从文件导入产品用例
 
@@ -32,7 +33,7 @@ class ProductImportApplicationService:
         """
         return self._product_import_service.import_products_from_excel(file_path, unit_name)
 
-    def import_from_data(self, products: List[Dict[str, Any]], unit_name: str) -> Dict[str, Any]:
+    def import_from_data(self, products: list[dict[str, Any]], unit_name: str) -> dict[str, Any]:
         """
         从数据导入产品用例
 
@@ -45,7 +46,7 @@ class ProductImportApplicationService:
         """
         return self._product_import_service.batch_add_products(products, unit_name)
 
-    def validate_import_data(self, products: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def validate_import_data(self, products: list[dict[str, Any]]) -> dict[str, Any]:
         """
         验证导入数据用例
 
@@ -57,11 +58,7 @@ class ProductImportApplicationService:
         """
         return self._product_import_service.validate_products(products)
 
-    def get_import_history(
-        self,
-        page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+    def get_import_history(self, page: int = 1, per_page: int = 20) -> dict[str, Any]:
         """
         获取导入历史用例
 
@@ -72,17 +69,14 @@ class ProductImportApplicationService:
         Returns:
             导入历史和分页信息
         """
-        return self._product_import_service.get_import_history(
-            page=page,
-            per_page=per_page
-        )
+        return self._product_import_service.get_import_history(page=page, per_page=per_page)
 
 
 from app.neuro_bus.neuro_application_instrumentation import instrument_application_service_class
 
 instrument_application_service_class(ProductImportApplicationService)
 
-_product_import_app_service: Optional[ProductImportApplicationService] = None
+_product_import_app_service: ProductImportApplicationService | None = None
 
 
 def get_product_import_app_service() -> ProductImportApplicationService:

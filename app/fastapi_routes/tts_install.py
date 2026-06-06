@@ -123,7 +123,7 @@ def install_system_voice(request: Request) -> Any:
             {
                 "success": False,
                 "platform": sys.platform,
-                "message": '自动安装仅支持 Windows。请改用“下载离线包”以获得跨平台本地语音。',
+                "message": "自动安装仅支持 Windows。请改用“下载离线包”以获得跨平台本地语音。",
             },
             status_code=501,
         )
@@ -148,7 +148,7 @@ def install_system_voice(request: Request) -> Any:
         if int(ret) <= 32:
             code = int(ret)
             if code == 1223:
-                msg = '已取消：用户在 UAC 对话框点了“否”。'
+                msg = "已取消：用户在 UAC 对话框点了“否”。"
             else:
                 msg = f"启动提权安装失败（ShellExecute={code}）。"
             return JSONResponse({"success": False, "code": code, "message": msg}, status_code=400)
@@ -156,7 +156,7 @@ def install_system_voice(request: Request) -> Any:
         return {
             "success": True,
             "message": (
-                '已弹出管理员授权。请在 UAC 对话框点“是”，'
+                "已弹出管理员授权。请在 UAC 对话框点“是”，"
                 "然后在自动打开的 PowerShell 窗口观察安装进度，完成后重启浏览器即可。"
             ),
         }

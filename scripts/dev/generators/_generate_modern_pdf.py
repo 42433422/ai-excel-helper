@@ -2,18 +2,19 @@ import markdown
 import weasyprint
 from weasyprint import CSS
 
-md_path = r'e:\FHD\XCAGI\AI企业解决方案对比分析报告.md'
-pdf_path = r'e:\FHD\XCAGI\AI企业解决方案对比分析报告.pdf'
+md_path = r"e:\FHD\XCAGI\AI企业解决方案对比分析报告.md"
+pdf_path = r"e:\FHD\XCAGI\AI企业解决方案对比分析报告.pdf"
 
 # 读取 Markdown 文件
-with open(md_path, 'r', encoding='utf-8') as f:
+with open(md_path, "r", encoding="utf-8") as f:
     md_content = f.read()
 
 # 转换为 HTML
 html_content = markdown.markdown(md_content)
 
 # 现代 CSS 样式
-css = CSS(string="""
+css = CSS(
+    string="""
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
     
     :root {
@@ -146,7 +147,8 @@ css = CSS(string="""
         color: #666;
         font-size: 12px;
     }
-""")
+"""
+)
 
 # 包装 HTML
 full_html = f"""
@@ -172,14 +174,14 @@ full_html = f"""
 try:
     html = weasyprint.HTML(string=full_html)
     pdf = html.write_pdf(stylesheets=[css])
-    
-    with open(pdf_path, 'wb') as f:
+
+    with open(pdf_path, "wb") as f:
         f.write(pdf)
-    
-    print(f'现代风格 PDF 生成成功: {pdf_path}')
+
+    print(f"现代风格 PDF 生成成功: {pdf_path}")
 except Exception as e:
-    print(f'WeasyPrint 生成失败，使用备用方案: {e}')
-    
+    print(f"WeasyPrint 生成失败，使用备用方案: {e}")
+
     # 备用方案：使用 ReportLab
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -189,78 +191,78 @@ except Exception as e:
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.lib import colors
-    
+
     # 注册中文字体
-    pdfmetrics.registerFont(TTFont('SimHei', 'C:\\Windows\\Fonts\\simhei.ttf'))
-    
+    pdfmetrics.registerFont(TTFont("SimHei", "C:\\Windows\\Fonts\\simhei.ttf"))
+
     # 创建 PDF 文档
     doc = SimpleDocTemplate(pdf_path, pagesize=A4)
-    
+
     # 定义样式
     styles = getSampleStyleSheet()
-    
+
     # 现代样式
     ModernStyle = ParagraphStyle(
-        'Modern',
-        fontName='SimHei',
+        "Modern",
+        fontName="SimHei",
         fontSize=12,
         leading=18,
         spaceAfter=10,
         alignment=TA_LEFT,
-        textColor=colors.HexColor('#333333')
+        textColor=colors.HexColor("#333333"),
     )
-    
+
     ModernHeading1 = ParagraphStyle(
-        'ModernHeading1',
-        fontName='SimHei',
+        "ModernHeading1",
+        fontName="SimHei",
         fontSize=24,
         leading=30,
         spaceAfter=20,
         alignment=TA_CENTER,
-        textColor=colors.HexColor('#3498db'),
-        borderColor=colors.HexColor('#3498db'),
+        textColor=colors.HexColor("#3498db"),
+        borderColor=colors.HexColor("#3498db"),
         borderWidth=2,
         borderPadding=10,
-        backColor=colors.HexColor('#f8f9fa')
+        backColor=colors.HexColor("#f8f9fa"),
     )
-    
+
     ModernHeading2 = ParagraphStyle(
-        'ModernHeading2',
-        fontName='SimHei',
+        "ModernHeading2",
+        fontName="SimHei",
         fontSize=18,
         leading=24,
         spaceAfter=15,
         alignment=TA_LEFT,
-        textColor=colors.HexColor('#2c3e50'),
+        textColor=colors.HexColor("#2c3e50"),
         leftIndent=20,
         borderLeftWidth=4,
-        borderLeftColor=colors.HexColor('#3498db')
+        borderLeftColor=colors.HexColor("#3498db"),
     )
-    
+
     # 构建内容
     story = []
-    
+
     # 添加标题
-    story.append(Paragraph('AI 企业解决方案对比分析报告', ModernHeading1))
+    story.append(Paragraph("AI 企业解决方案对比分析报告", ModernHeading1))
     story.append(Spacer(1, 20))
-    
+
     # 解析 Markdown 内容
-    lines = md_content.split('\n')
+    lines = md_content.split("\n")
     for line in lines:
         line = line.rstrip()
         if not line:
             story.append(Spacer(1, 10))
             continue
-        
-        if line.startswith('# '):
+
+        if line.startswith("# "):
             story.append(Paragraph(line[2:], ModernHeading1))
             story.append(Spacer(1, 20))
-        elif line.startswith('## '):
+        elif line.startswith("## "):
             story.append(Paragraph(line[3:], ModernHeading2))
             story.append(Spacer(1, 15))
         else:
             story.append(Paragraph(line, ModernStyle))
-    
+
     # 生成 PDF
     doc.build(story)
-    print(f'备用方案 PDF 生成成功: {pdf_path}')
+    print(f"备用方案 PDF 生成成功: {pdf_path}")

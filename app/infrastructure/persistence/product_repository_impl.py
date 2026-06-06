@@ -1,19 +1,21 @@
 from __future__ import annotations
 
+# products.unit 历史上常被误填为计量单位；客户筛选项应对齐 purchase_units，故从「产品表去重」里排除这些纯计量词（精确匹配）。
+# 供其它仓储实现复用（如 domain 版 SQLAlchemyProductRepository）。
+import logging
 import math
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from sqlalchemy import inspect, func, or_
+from sqlalchemy import func, inspect, or_
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.application.ports.product_repository import ProductRepository
 from app.db.models.product import Product
 from app.db.session import get_db
 
-# products.unit 历史上常被误填为计量单位；客户筛选项应对齐 purchase_units，故从「产品表去重」里排除这些纯计量词（精确匹配）。
-# 供其它仓储实现复用（如 domain 版 SQLAlchemyProductRepository）。
+logger = logging.getLogger(__name__)
 TRIVIAL_MEASURE_UNITS = frozenset(
     {
         "件",
@@ -81,7 +83,7 @@ class SQLAlchemyProductRepository(ProductRepository):
             pass
         return value
 
-    def _product_to_dict(self, product: Product) -> Dict[str, Any]:
+    def _product_to_dict(self, product: Product) -> dict[str, Any]:
         result = {}
         product_dict = getattr(product, "__dict__", {}) or {}
         for column in inspect(Product).columns:
@@ -96,12 +98,12 @@ class SQLAlchemyProductRepository(ProductRepository):
 
     def find_all(
         self,
-        unit_name: Optional[str] = None,
-        model_number: Optional[str] = None,
-        keyword: Optional[str] = None,
+        unit_name: str | None = None,
+        model_number: str | None = None,
+        keyword: str | None = None,
         page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+        per_page: int = 20,
+    ) -> dict[str, Any]:
         try:
             with get_db() as db:
                 try:
@@ -125,7 +127,7 @@ class SQLAlchemyProductRepository(ProductRepository):
                         "data": [],
                         "total": 0,
                         "page": page,
-                        "per_page": per_page
+                        "per_page": per_page,
                     }
 
                 query = db.query(Product)
@@ -137,7 +139,9 @@ class SQLAlchemyProductRepository(ProductRepository):
                     query = query.filter(Product.unit == unit_name)
 
                 if model_number:
-                    model_token = str(model_number).strip().upper().replace("-", "").replace(" ", "")
+                    model_token = (
+                        str(model_number).strip().upper().replace("-", "").replace(" ", "")
+                    )
                     if model_token:
                         normalized_db_model = func.upper(
                             func.replace(
@@ -179,9 +183,7 @@ class SQLAlchemyProductRepository(ProductRepository):
                             concat_blob.like(f"%{k}%"),
                         )
 
-                    segments = re.findall(
-                        r"[\u4e00-\u9fff]+|[0-9]+|[A-Za-z]+", keyword_text
-                    )
+                    segments = re.findall(r"[\u4e00-\u9fff]+|[0-9]+|[A-Za-z]+", keyword_text)
                     segments = [p for p in segments if p.strip()]
 
                     if len(segments) > 1:
@@ -210,7 +212,7 @@ class SQLAlchemyProductRepository(ProductRepository):
                 "data": rows,
                 "total": int(total),
                 "page": page,
-                "per_page": per_page
+                "per_page": per_page,
             }
 
         except Exception as e:
@@ -220,10 +222,10 @@ class SQLAlchemyProductRepository(ProductRepository):
                 "data": [],
                 "total": 0,
                 "page": page,
-                "per_page": per_page
+                "per_page": per_page,
             }
 
-    def find_by_id(self, product_id: int) -> Optional[Dict[str, Any]]:
+    def find_by_id(self, product_id: int) -> dict[str, Any] | None:
         try:
             with get_db() as db:
                 product = db.query(Product).filter(Product.id == product_id).first()
@@ -235,7 +237,7 @@ class SQLAlchemyProductRepository(ProductRepository):
         except Exception:
             return None
 
-    def find_product_units(self) -> List[str]:
+    def find_product_units(self) -> list[str]:
         """
         客户下拉与客户管理（purchase_units）对齐。
 
@@ -247,7 +249,7 @@ class SQLAlchemyProductRepository(ProductRepository):
         并排除纯计量词（TRIVIAL_MEASURE_UNITS）。
         """
         seen: dict[str, None] = {}
-        ordered: List[str] = []
+        ordered: list[str] = []
 
         def add_label(raw: Any, *, from_products: bool = False) -> None:
             s = str(raw or "").strip()
@@ -283,7 +285,7 @@ class SQLAlchemyProductRepository(ProductRepository):
             finally:
                 cs.close()
         except Exception:
-            pass
+            logger.debug("suppressed exception", exc_info=True)
 
         if purchase_units_authoritative:
             return ordered
@@ -296,21 +298,18 @@ class SQLAlchemyProductRepository(ProductRepository):
                         if u and u[0] is not None:
                             add_label(u[0], from_products=True)
         except Exception:
-            pass
+            logger.debug("suppressed exception", exc_info=True)
 
         return ordered
 
-    def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create(self, data: dict[str, Any]) -> dict[str, Any]:
         try:
             product_name = data.get("product_name") or data.get("name")
             price = data.get("price", 0.0)
             description = data.get("description", "")
 
             if not product_name:
-                return {
-                    "success": False,
-                    "message": "产品名称不能为空"
-                }
+                return {"success": False, "message": "产品名称不能为空"}
 
             with get_db() as db:
                 product = Product(
@@ -325,35 +324,25 @@ class SQLAlchemyProductRepository(ProductRepository):
                     unit=data.get("unit", "个"),
                     is_active=data.get("is_active", 1),
                     created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    updated_at=datetime.now(),
                 )
 
                 db.add(product)
                 db.commit()
                 db.refresh(product)
 
-            return {
-                "success": True,
-                "message": "产品创建成功",
-                "product_id": product.id
-            }
+            return {"success": True, "message": "产品创建成功", "product_id": product.id}
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"创建失败：{str(e)}"
-            }
+            return {"success": False, "message": f"创建失败：{str(e)}"}
 
-    def update(self, product_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update(self, product_id: int, data: dict[str, Any]) -> dict[str, Any]:
         try:
             with get_db() as db:
                 product = db.query(Product).filter(Product.id == product_id).first()
 
                 if not product:
-                    return {
-                        "success": False,
-                        "message": "产品不存在"
-                    }
+                    return {"success": False, "message": "产品不存在"}
 
                 has_update = False
                 if "product_name" in data or "name" in data:
@@ -388,24 +377,15 @@ class SQLAlchemyProductRepository(ProductRepository):
                     has_update = True
 
                 if not has_update:
-                    return {
-                        "success": False,
-                        "message": "没有要更新的字段"
-                    }
+                    return {"success": False, "message": "没有要更新的字段"}
 
                 product.updated_at = datetime.now()
                 db.commit()
 
-            return {
-                "success": True,
-                "message": "产品更新成功"
-            }
+            return {"success": True, "message": "产品更新成功"}
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"更新失败：{str(e)}"
-            }
+            return {"success": False, "message": f"更新失败：{str(e)}"}
 
     def delete(self, product_id: int) -> bool:
         try:
@@ -422,13 +402,10 @@ class SQLAlchemyProductRepository(ProductRepository):
         except Exception:
             return False
 
-    def batch_create(self, products_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def batch_create(self, products_data: list[dict[str, Any]]) -> dict[str, Any]:
         try:
             if not products_data:
-                return {
-                    "success": False,
-                    "message": "产品列表不能为空"
-                }
+                return {"success": False, "message": "产品列表不能为空"}
 
             success_count = 0
             failed_products = []
@@ -439,7 +416,7 @@ class SQLAlchemyProductRepository(ProductRepository):
 
             with get_db() as db:
                 for batch_start in range(0, len(products_data), batch_size):
-                    batch = products_data[batch_start:batch_start + batch_size]
+                    batch = products_data[batch_start : batch_start + batch_size]
                     batch_records = []
 
                     for index, data in enumerate(batch):
@@ -449,32 +426,30 @@ class SQLAlchemyProductRepository(ProductRepository):
                             description = data.get("description", "")
 
                             if not product_name:
-                                failed_products.append({
-                                    "index": batch_start + index,
-                                    "reason": "产品名称不能为空"
-                                })
+                                failed_products.append(
+                                    {"index": batch_start + index, "reason": "产品名称不能为空"}
+                                )
                                 continue
 
-                            batch_records.append({
-                                "name": product_name,
-                                "price": price,
-                                "description": description,
-                                "model_number": data.get("model_number"),
-                                "specification": data.get("specification"),
-                                "quantity": data.get("quantity"),
-                                "category": data.get("category"),
-                                "brand": data.get("brand"),
-                                "unit": data.get("unit", "个"),
-                                "is_active": data.get("is_active", 1),
-                                "created_at": now,
-                                "updated_at": now,
-                            })
+                            batch_records.append(
+                                {
+                                    "name": product_name,
+                                    "price": price,
+                                    "description": description,
+                                    "model_number": data.get("model_number"),
+                                    "specification": data.get("specification"),
+                                    "quantity": data.get("quantity"),
+                                    "category": data.get("category"),
+                                    "brand": data.get("brand"),
+                                    "unit": data.get("unit", "个"),
+                                    "is_active": data.get("is_active", 1),
+                                    "created_at": now,
+                                    "updated_at": now,
+                                }
+                            )
 
                         except Exception as e:
-                            failed_products.append({
-                                "index": batch_start + index,
-                                "reason": str(e)
-                            })
+                            failed_products.append({"index": batch_start + index, "reason": str(e)})
 
                     if batch_records:
                         try:
@@ -491,18 +466,21 @@ class SQLAlchemyProductRepository(ProductRepository):
                                     product_ids.append(product.id)
                                     success_count += 1
                                 except Exception:
-                                    failed_products.append({
-                                        "index": batch_start + idx,
-                                        "reason": "单条插入失败"
-                                    })
+                                    failed_products.append(
+                                        {"index": batch_start + idx, "reason": "单条插入失败"}
+                                    )
                             db.commit()
 
             result = {
                 "success": len(failed_products) == 0,
-                "message": f"成功添加 {success_count} 个产品，失败 {len(failed_products)} 个" if failed_products else f"成功添加 {success_count} 个产品",
+                "message": (
+                    f"成功添加 {success_count} 个产品，失败 {len(failed_products)} 个"
+                    if failed_products
+                    else f"成功添加 {success_count} 个产品"
+                ),
                 "success_count": success_count,
                 "failed_count": len(failed_products),
-                "product_ids": product_ids
+                "product_ids": product_ids,
             }
 
             if failed_products:
@@ -511,27 +489,18 @@ class SQLAlchemyProductRepository(ProductRepository):
             return result
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"批量添加失败：{str(e)}"
-            }
+            return {"success": False, "message": f"批量添加失败：{str(e)}"}
 
-    def batch_delete(self, product_ids: List[int]) -> Dict[str, Any]:
+    def batch_delete(self, product_ids: list[int]) -> dict[str, Any]:
         try:
             if not product_ids:
-                return {
-                    "success": False,
-                    "message": "产品 ID 列表不能为空"
-                }
+                return {"success": False, "message": "产品 ID 列表不能为空"}
 
             with get_db() as db:
                 products = db.query(Product).filter(Product.id.in_(product_ids)).all()
 
                 if not products:
-                    return {
-                        "success": False,
-                        "message": "未找到要删除的产品"
-                    }
+                    return {"success": False, "message": "未找到要删除的产品"}
 
                 for product in products:
                     db.delete(product)
@@ -541,14 +510,11 @@ class SQLAlchemyProductRepository(ProductRepository):
                 return {
                     "success": True,
                     "message": f"成功删除 {len(products)} 个产品",
-                    "deleted_count": len(products)
+                    "deleted_count": len(products),
                 }
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"批量删除失败：{str(e)}"
-            }
+            return {"success": False, "message": f"批量删除失败：{str(e)}"}
 
     def exists(self, product_id: int) -> bool:
         try:
@@ -558,7 +524,7 @@ class SQLAlchemyProductRepository(ProductRepository):
         except Exception:
             return False
 
-    def find_names(self, keyword: Optional[str] = None) -> List[str]:
+    def find_names(self, keyword: str | None = None) -> list[str]:
         try:
             with get_db() as db:
                 inspector = inspect(db.bind)
@@ -580,14 +546,15 @@ class SQLAlchemyProductRepository(ProductRepository):
 
     def export_to_excel(
         self,
-        unit_name: Optional[str] = None,
-        keyword: Optional[str] = None,
-        template_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        unit_name: str | None = None,
+        keyword: str | None = None,
+        template_id: str | None = None,
+    ) -> dict[str, Any]:
         try:
             import os
 
             from openpyxl import Workbook
+
             from app.utils.template_export_utils import fill_workbook_from_template
 
             with get_db() as db:
@@ -597,7 +564,7 @@ class SQLAlchemyProductRepository(ProductRepository):
                         "success": False,
                         "message": "产品表不存在",
                         "file_path": None,
-                        "filename": None
+                        "filename": None,
                     }
 
                 query = db.query(Product)
@@ -607,8 +574,8 @@ class SQLAlchemyProductRepository(ProductRepository):
 
                 if keyword:
                     query = query.filter(
-                        (Product.name.like(f"%{keyword}%")) |
-                        (Product.description.like(f"%{keyword}%"))
+                        (Product.name.like(f"%{keyword}%"))
+                        | (Product.description.like(f"%{keyword}%"))
                     )
 
                 products = query.order_by(Product.id.desc()).all()
@@ -617,6 +584,7 @@ class SQLAlchemyProductRepository(ProductRepository):
                 filename = f"{unit_name or '产品'}_价格表_{timestamp}.xlsx"
 
                 from app.utils.path_utils import get_data_dir
+
                 export_dir = os.path.join(get_data_dir(), "exports")
                 os.makedirs(export_dir, exist_ok=True)
                 file_path = os.path.join(export_dir, filename)
@@ -626,10 +594,16 @@ class SQLAlchemyProductRepository(ProductRepository):
                     try:
                         from app.application import get_template_app_service
 
-                        templates = (get_template_app_service().get_templates() or {}).get("templates") or []
-                        target = next((t for t in templates if str(t.get("id")) == str(template_id)), None)
+                        templates = (get_template_app_service().get_templates() or {}).get(
+                            "templates"
+                        ) or []
+                        target = next(
+                            (t for t in templates if str(t.get("id")) == str(template_id)), None
+                        )
                         if target:
-                            candidate_path = str(target.get("path") or target.get("file_path") or "").strip()
+                            candidate_path = str(
+                                target.get("path") or target.get("file_path") or ""
+                            ).strip()
                             if candidate_path and os.path.exists(candidate_path):
                                 template_path = candidate_path
                     except Exception:
@@ -666,11 +640,13 @@ class SQLAlchemyProductRepository(ProductRepository):
                     ws.append(headers)
 
                     for row in records:
-                        ws.append([
-                            row["product_code"],
-                            row["product_name"],
-                            row["price"],
-                        ])
+                        ws.append(
+                            [
+                                row["product_code"],
+                                row["product_name"],
+                                row["price"],
+                            ]
+                        )
 
                 wb.save(file_path)
 
@@ -678,7 +654,7 @@ class SQLAlchemyProductRepository(ProductRepository):
                     "success": True,
                     "file_path": str(file_path),
                     "filename": filename,
-                    "count": len(products)
+                    "count": len(products),
                 }
 
         except Exception as e:
@@ -686,5 +662,5 @@ class SQLAlchemyProductRepository(ProductRepository):
                 "success": False,
                 "message": f"导出失败：{str(e)}",
                 "file_path": None,
-                "filename": None
+                "filename": None,
             }

@@ -2,36 +2,83 @@
  * 聊天界面样式文件
  */
 
-.chat-container { flex: 1; display: flex; overflow: hidden; }
+.chat-container {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+    padding: 16px;
+    gap: 16px;
+    --chat-right-pane-width: 300px;
+}
 
-.chat-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.chat-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 20% 0%, rgba(14, 116, 217, 0.08), transparent 32%),
+        rgba(255, 255, 255, 0.42);
+}
+
+.chat-messages-shell {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
 
 .chat-messages {
-    flex: 1;
-    padding: 20px;
+    width: 100%;
+    height: 100%;
+    padding: 24px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 16px;
+    border: 1px solid rgba(213, 222, 235, 0.72);
+    border-radius: var(--app-radius-xl, 24px);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(248, 250, 252, 0.62)),
+        radial-gradient(circle at 84% 0%, rgba(34, 211, 238, 0.08), transparent 26%);
+    box-shadow: var(--app-shadow-sm, 0 8px 24px rgba(15, 23, 42, 0.08));
+    backdrop-filter: blur(14px);
 }
 
 .message {
-    max-width: 80%;
-    padding: 12px 16px;
-    border-radius: 12px;
-    position: relative; /* TTS 朗读按钮用绝对定位落在右下角 */
+    max-width: min(85%, 760px);
+    min-width: min(100%, 220px);
+    flex-shrink: 0; /* 避免 flex 列布局把气泡压扁导致内容被裁切 */
+    padding: 14px 18px 12px;
+    border-radius: 18px;
+    position: relative;
+    line-height: 1.65;
+    animation: chatMessageEnter 220ms ease both;
 }
 
-/* AI 回复气泡右下角的"朗读/停止"按钮。
-   - 仅 AI 气泡显示：模板里已用 v-if="msg.role === 'ai' && canSpeakMessage(msg)" 限制
-   - 底部留 6px 给 .time 戳不重叠；右下偏移 8px 对齐圆角
-   - 播放中变实心蓝圆 + 轻微脉冲，视觉反馈 */
+/* AI 气泡底栏：时间戳 + 朗读按钮（避免与正文/列表重叠） */
+.message-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(226, 232, 240, 0.85);
+    min-height: 28px;
+}
+
+.message-footer--user {
+    justify-content: flex-end;
+    border-top: none;
+    padding-top: 0;
+    margin-top: 8px;
+}
+
 .message-tts-btn {
-    position: absolute;
-    right: 8px;
-    bottom: 6px;
-    width: 26px;
-    height: 26px;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
     padding: 0;
     border: 1px solid #dbe3f0;
     border-radius: 50%;
@@ -43,9 +90,8 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    opacity: 0;
-    transform: translateY(2px);
-    transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    opacity: 0.72;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
@@ -53,7 +99,6 @@
 .message-tts-btn:focus-visible,
 .message-tts-btn.is-playing {
     opacity: 1;
-    transform: translateY(0);
 }
 
 .message-tts-btn:hover {
@@ -74,31 +119,126 @@
     50%      { box-shadow: 0 0 0 4px rgba(45, 123, 214, 0); }
 }
 
-/* 为避免按钮遮挡时间戳，给 AI 气泡内的 .time 留出右边空间 */
-.message.ai > .time {
-    padding-right: 32px;
+/* 全局 reset 会清掉 ul/ol 的 padding，须在气泡内显式恢复 */
+.message-html {
+    font-size: 14px;
+    line-height: 1.62;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+
+.message-html > :first-child {
+    margin-top: 0;
+}
+
+.message-html > :last-child {
+    margin-bottom: 0;
+}
+
+.message-html p {
+    margin: 0.5em 0;
+}
+
+.message-html ul,
+.message-html ol {
+    margin: 0.55em 0;
+    padding-left: 1.35em;
+}
+
+.message-html ul {
+    list-style: disc;
+}
+
+.message-html ol {
+    list-style: decimal;
+}
+
+.message-html li {
+    margin: 0.28em 0;
+    padding-left: 0.12em;
+}
+
+.message-html li > p {
+    margin: 0.2em 0;
+}
+
+.message-html strong {
+    font-weight: 600;
+}
+
+.message-html code {
+    background: rgba(241, 245, 249, 0.95);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.92em;
+}
+
+.message-html pre {
+    margin: 0.65em 0;
+    padding: 10px 12px;
+    background: rgba(248, 250, 252, 0.95);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 10px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* AI 气泡内 Markdown 表格（lightMarkdown → md-table） */
+.message-html .md-table-wrap {
+    overflow-x: auto;
+    margin: 0.65em 0;
+    max-width: 100%;
+}
+
+.message-html .md-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.93em;
+}
+
+.message-html .md-table th,
+.message-html .md-table td {
+    border: 1px solid rgba(203, 213, 225, 0.95);
+    padding: 6px 10px;
+    vertical-align: top;
+}
+
+.message-html .md-table thead th {
+    background: rgba(248, 250, 252, 0.92);
+    font-weight: 600;
 }
 
 .message.user {
     align-self: flex-end;
-    background: var(--primary-color);
+    background: linear-gradient(135deg, #0b72d9 0%, #13a8e8 100%);
     color: white;
+    border-bottom-right-radius: 6px;
+    box-shadow: 0 12px 28px rgba(11, 114, 217, 0.22);
 }
 
 .message.ai {
     align-self: flex-start;
-    background: var(--card-bg);
-    border: 1px solid #e0e0e0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    width: fit-content;
+    max-width: min(85%, 640px);
+    padding: 16px 18px 14px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(213, 222, 235, 0.9);
+    border-bottom-left-radius: 6px;
+    box-shadow:
+        0 12px 30px rgba(15, 23, 42, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 
 .context-summary {
     margin-top: 8px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: #f3f4f6;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #f3f7fd;
     color: #374151;
     font-size: 12px;
+    border: 1px solid #e2e8f0;
 }
 
 .thinking-panel {
@@ -119,7 +259,7 @@
     padding: 8px 10px;
     background: #f8fafc;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border-radius: 10px;
     font-size: 12px;
     line-height: 1.5;
     color: #111827;
@@ -132,7 +272,7 @@
     padding: 8px 10px;
     background: #f9fafb;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border-radius: 10px;
 }
 
 .todo-panel .todo-title {
@@ -158,7 +298,7 @@
     padding: 8px 10px;
     border: 1px solid #dbeafe;
     background: #eff6ff;
-    border-radius: 6px;
+    border-radius: 12px;
 }
 
 .trace-title {
@@ -219,12 +359,24 @@
     color: #991b1b;
 }
 
-.message .time { font-size: 11px; opacity: 0.7; margin-top: 5px; }
+.message .time {
+    font-size: 11px;
+    opacity: 0.68;
+    margin: 0;
+    line-height: 1.2;
+    flex: 1;
+    min-width: 0;
+}
+
+.message-footer .time {
+    align-self: center;
+}
 
 .input-area {
-    padding: 15px 20px;
-    background: var(--card-bg);
-    border-top: 1px solid #e0e0e0;
+    padding: 14px 20px 18px;
+    background: rgba(255, 255, 255, 0.76);
+    border-top: 1px solid rgba(213, 222, 235, 0.72);
+    backdrop-filter: blur(18px);
 }
 
 .input-toolbar {
@@ -269,49 +421,164 @@
     font-weight: 600;
 }
 
-.input-wrapper { display: flex; gap: 10px; }
+.input-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
 
 .input-wrapper textarea {
     flex: 1;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 12px;
+    border: 1px solid rgba(190, 203, 221, 0.95);
+    border-radius: 16px;
+    padding: 13px 14px;
     resize: none;
     font-family: inherit;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .input-wrapper textarea:focus { outline: none; border-color: var(--primary-color); }
 
 .quick-actions {
-    padding: 10px 20px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
+    padding: 14px 18px 0;
+    background: transparent;
+    border-bottom: 0;
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
 }
 
 .quick-btn {
-    padding: 6px 12px;
-    border: 1px solid #ddd;
-    border-radius: 20px;
-    background: white;
+    padding: 8px 13px;
+    border: 1px solid rgba(190, 203, 221, 0.82);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.76);
     cursor: pointer;
     font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    box-shadow: var(--app-shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.06));
+    transition:
+        transform 160ms ease,
+        background 160ms ease,
+        border-color 160ms ease,
+        color 160ms ease,
+        box-shadow 160ms ease;
 }
 
-.quick-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+.quick-btn:hover {
+    border-color: rgba(11, 114, 217, 0.55);
+    color: var(--primary-color);
+    background: rgba(239, 246, 255, 0.96);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(11, 114, 217, 0.1);
+}
 
 .right-panel {
-    width: 320px;
-    background: var(--card-bg);
-    border-left: 1px solid #e0e0e0;
+    position: relative;
+    flex: 0 0 var(--chat-right-pane-width);
+    width: var(--chat-right-pane-width);
+    min-width: 240px;
+    max-width: 420px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(213, 222, 235, 0.72);
+    border-radius: var(--app-radius-xl, 24px);
     display: flex;
     flex-direction: column;
+    box-shadow: var(--app-shadow-sm, 0 8px 24px rgba(15, 23, 42, 0.08));
+    backdrop-filter: blur(14px);
+    overflow: hidden;
 }
 
-.panel-header { padding: 15px; border-bottom: 1px solid #e0e0e0; font-weight: 600; }
-.panel-content { flex: 1; padding: 15px; overflow-y: auto; }
+.chat-pane-handle-slot {
+    position: relative;
+    flex: 0 0 0;
+    width: 0;
+}
+
+.panel-header {
+    padding: 16px 18px;
+    border-bottom: 1px solid rgba(213, 222, 235, 0.72);
+    font-weight: 800;
+    color: #0f172a;
+    background: rgba(248, 250, 252, 0.74);
+}
+
+.panel-content {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.task-card,
+.task-list-item,
+.user-edit-card {
+    border: 1px solid rgba(213, 222, 235, 0.82);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: var(--app-shadow-xs, 0 1px 2px rgba(15, 23, 42, 0.06));
+}
+
+.task-card {
+    padding: 16px;
+}
+
+.task-header,
+.task-description {
+    color: #0f172a;
+}
+
+.task-actions,
+.task-toolbar,
+.task-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.no-task {
+    min-height: 180px;
+    display: grid;
+    place-items: center;
+    color: #64748b;
+    border: 1px dashed rgba(148, 163, 184, 0.52);
+    border-radius: 18px;
+    background: rgba(248, 250, 252, 0.72);
+}
+
+@keyframes chatMessageEnter {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.992);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .message {
+        animation: none;
+    }
+
+    .quick-btn,
+    .btn {
+        transition: none;
+    }
+}
+
+@media screen and (max-width: 1023px) {
+    .chat-container {
+        --chat-right-pane-width: 300px;
+    }
+
+    .chat-pane-handle-slot {
+        display: none;
+    }
+}
 
 .user-list-hint {
     margin-bottom: 10px;

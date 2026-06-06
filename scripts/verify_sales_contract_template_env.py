@@ -29,8 +29,9 @@ def main() -> int:
     try:
         from sqlalchemy import inspect, text
 
-        from backend.database import get_sync_engine
-        from backend.document_template_service import ROLE_SALES_CONTRACT
+        from app.infrastructure.db.sync_engine import get_sync_engine
+
+        ROLE_SALES_CONTRACT = "sales_contract_docx"
     except Exception as e:
         print("导入失败:", e)
         return 1
@@ -42,14 +43,18 @@ def main() -> int:
             print("document_templates 表不存在")
             return 1
         with eng.connect() as conn:
-            rows = conn.execute(
-                text(
-                    "SELECT slug, display_name, is_default, sort_order, storage_relpath, file_format "
-                    "FROM document_templates WHERE role = :role AND is_active = true "
-                    "ORDER BY (CASE WHEN storage_relpath ~* :pat THEN 0 ELSE 1 END), sort_order, display_name"
-                ),
-                {"role": ROLE_SALES_CONTRACT, "pat": r"\.(xls|xlsx|xlsm)$"},
-            ).mappings().all()
+            rows = (
+                conn.execute(
+                    text(
+                        "SELECT slug, display_name, is_default, sort_order, storage_relpath, file_format "
+                        "FROM document_templates WHERE role = :role AND is_active = true "
+                        "ORDER BY (CASE WHEN storage_relpath ~* :pat THEN 0 ELSE 1 END), sort_order, display_name"
+                    ),
+                    {"role": ROLE_SALES_CONTRACT, "pat": r"\.(xls|xlsx|xlsm)$"},
+                )
+                .mappings()
+                .all()
+            )
     except Exception as e:
         print("PostgreSQL 查询失败:", e)
         print("请确认 DATABASE_URL 可达，或运行 scripts/docker-postgres-for-fhd.*")
@@ -68,13 +73,17 @@ def main() -> int:
 
     defaults = [r for r in rows if r.get("is_default")]
     if len(defaults) > 1:
-        print("\n警告: 多条 is_default=true，生成时按路径 Excel 优先与 sort 解析，建议只保留一条默认。")
+        print(
+            "\n警告: 多条 is_default=true，生成时按路径 Excel 优先与 sort 解析，建议只保留一条默认。"
+        )
     elif len(defaults) == 1:
         d0 = defaults[0]
         p = str(d0.get("storage_relpath") or "")
         low = p.lower()
         if not (low.endswith(".xls") or low.endswith(".xlsx") or low.endswith(".xlsm")):
-            print("\n提示: 当前唯一默认行不是 Excel 路径；若期望 .xlsx 请改默认或放置 送货单.xls 后重启后端以跑 schema 同步。")
+            print(
+                "\n提示: 当前唯一默认行不是 Excel 路径；若期望 .xlsx 请改默认或放置 送货单.xls 后重启后端以跑 schema 同步。"
+            )
 
     return 0
 

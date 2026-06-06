@@ -28,7 +28,8 @@ def _pg_norm(col_sql: str) -> str:
 def cleanup_postgresql(name: str) -> tuple[int, int]:
     from sqlalchemy import create_engine, inspect, text
 
-    from backend.database import get_database_url
+    from app.infrastructure.db.sync_engine import get_database_url
+
     n = (name or "").strip()
     url = get_database_url()
     # 独立短连接，避免占用全局引擎；connect_timeout 防止本机未起 PG 时无限挂起
@@ -63,11 +64,13 @@ def cleanup_postgresql(name: str) -> tuple[int, int]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="按购买单位/客户名清理 products 与 purchase_units")
-    parser.add_argument("name", nargs="?", default="七彩乐园", help="要清理的单位名称（默认：七彩乐园）")
+    parser.add_argument(
+        "name", nargs="?", default="七彩乐园", help="要清理的单位名称（默认：七彩乐园）"
+    )
     parser.add_argument("--dry-run", action="store_true", help="仅打印将要使用的库类型，不执行删除")
     args = parser.parse_args()
 
-    from backend.database import get_database_url, redact_database_url
+    from app.infrastructure.db.sync_engine import get_database_url, redact_database_url
 
     url = get_database_url()
     print("DATABASE_URL:", redact_database_url(url))

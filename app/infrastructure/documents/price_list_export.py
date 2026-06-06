@@ -87,19 +87,26 @@ def _replace_placeholders_in_paragraphs(doc, mapping: dict[str, str]) -> None:
 def _product_row_cell_values(prod: dict[str, Any]) -> list[str]:
     model = str(prod.get("model_number") or prod.get("型号") or "")
     name = str(prod.get("name") or prod.get("产品名称") or prod.get("名称") or "")
-    spec = str(
-        prod.get("specification")
-        or prod.get("spec")
-        or prod.get("规格")
-        or ""
-    )
+    spec = str(prod.get("specification") or prod.get("spec") or prod.get("规格") or "")
     price = _format_price_cell(prod.get("price") or prod.get("单价") or prod.get("unit_price"))
     return [model, name, spec, price]
 
 
 def _row_keyword_score(row_cells) -> int:
     blob = "".join((c.text or "") for c in row_cells)
-    keywords = ("型号", "名称", "规格", "单价", "数量", "金额", "产品", "序号", "单位", "售价", "定价")
+    keywords = (
+        "型号",
+        "名称",
+        "规格",
+        "单价",
+        "数量",
+        "金额",
+        "产品",
+        "序号",
+        "单位",
+        "售价",
+        "定价",
+    )
     return sum(1 for k in keywords if k in blob)
 
 
@@ -182,7 +189,9 @@ def _pick_border_template_row_index(table, header_rows: int) -> int:
     return header_rows
 
 
-def _apply_tc_borders_to_all_body_rows(table, header_rows: int, per_cell_snaps: list[Any | None]) -> None:
+def _apply_tc_borders_to_all_body_rows(
+    table, header_rows: int, per_cell_snaps: list[Any | None]
+) -> None:
     """把首行数据区线框套到表体每一行（解决第 31 行及以后追加行无线框）。"""
     if not per_cell_snaps:
         return
@@ -224,9 +233,7 @@ def _parse_header_serial_and_column_map(header_row_cells) -> tuple[bool, dict[st
 
     t0 = _header_text(cells[0])
     with_serial = bool(
-        "序号" in t0
-        or t0 in ("#", "No.", "NO", "编号", "序")
-        or t0.lower() in ("no.", "no")
+        "序号" in t0 or t0 in ("#", "No.", "NO", "编号", "序") or t0.lower() in ("no.", "no")
     )
 
     col_map: dict[str, int] = {}

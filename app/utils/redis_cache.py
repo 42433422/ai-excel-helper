@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Redis 分布式缓存层
 
@@ -17,7 +16,8 @@ import logging
 import os
 import pickle
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class RedisCache:
             "deletes": 0,
             "errors": 0,
         }
-        self._local_cache: Dict[str, Tuple[Any, float]] = {}
+        self._local_cache: dict[str, tuple[Any, float]] = {}
         self._local_cache_size = int(os.environ.get("XCAGI_LOCAL_CACHE_SIZE", "1000"))
         self._local_cache_ttl = int(os.environ.get("XCAGI_LOCAL_CACHE_TTL", "10"))
 
@@ -87,7 +87,7 @@ class RedisCache:
         except (json.JSONDecodeError, pickle.UnpicklingError, ValueError, Exception):
             return data
 
-    def get(self, key: str, default: Any = None) -> Optional[Any]:
+    def get(self, key: str, default: Any = None) -> Any | None:
         """
         获取缓存值（L1 本地缓存优先）
 
@@ -117,7 +117,7 @@ class RedisCache:
                 self._stats["misses"] += 1
                 return default
 
-            value = self._deserialize(data.decode('utf-8') if isinstance(data, bytes) else data)
+            value = self._deserialize(data.decode("utf-8") if isinstance(data, bytes) else data)
 
             # 写入本地缓存
             self._set_local(full_key, value)
@@ -136,7 +136,7 @@ class RedisCache:
         value: Any,
         ttl: int = DEFAULT_REDIS_TTL,
         nx: bool = False,
-        prevent_null: bool = True
+        prevent_null: bool = True,
     ) -> bool:
         """
         设置缓存值
@@ -219,7 +219,7 @@ class RedisCache:
             logger.error(f"Redis EXISTS 失败: {e}")
             return False
 
-    def get_many(self, keys: List[str]) -> Dict[str, Any]:
+    def get_many(self, keys: list[str]) -> dict[str, Any]:
         """批量获取多个键的值"""
         result = {}
         missing_keys = []
@@ -233,11 +233,7 @@ class RedisCache:
 
         return result
 
-    def set_many(
-        self,
-        mapping: Dict[str, Any],
-        ttl: int = DEFAULT_REDIS_TTL
-    ) -> int:
+    def set_many(self, mapping: dict[str, Any], ttl: int = DEFAULT_REDIS_TTL) -> int:
         """批量设置多个键值对"""
         if not mapping or not self.is_available:
             return 0
@@ -260,7 +256,7 @@ class RedisCache:
             self._stats["errors"] += 1
             return 0
 
-    def incr(self, key: str, amount: int = 1, ttl: Optional[int] = None) -> int:
+    def incr(self, key: str, amount: int = 1, ttl: int | None = None) -> int:
         """原子递增"""
         full_key = self._make_key(key)
 
@@ -300,12 +296,7 @@ class RedisCache:
         except Exception:
             return -1
 
-    def lock(
-        self,
-        key: str,
-        timeout: int = 10,
-        blocking_timeout: Optional[int] = None
-    ) -> bool:
+    def lock(self, key: str, timeout: int = 10, blocking_timeout: int | None = None) -> bool:
         """
         获取分布式锁
 
@@ -323,12 +314,7 @@ class RedisCache:
             return True  # Redis 不可用时跳过锁
 
         try:
-            acquired = self._redis.set(
-                lock_key,
-                "1",
-                nx=True,
-                ex=timeout
-            )
+            acquired = self._redis.set(lock_key, "1", nx=True, ex=timeout)
 
             if blocking_timeout and not acquired:
                 start = time.time()
@@ -376,7 +362,8 @@ class RedisCache:
 
             # 清除本地缓存中的匹配项
             local_keys_to_remove = [
-                k for k in self._local_cache.keys()
+                k
+                for k in self._local_cache.keys()
                 if k.startswith(self._prefix + pattern.replace("*", ""))
             ]
             for k in local_keys_to_remove:
@@ -388,7 +375,7 @@ class RedisCache:
             logger.error(f"清除模式失败 [{pattern}]: {e}")
             return 0
 
-    def _get_local(self, key: str) -> Optional[Any]:
+    def _get_local(self, key: str) -> Any | None:
         """从本地缓存获取"""
         if key in self._local_cache:
             value, timestamp = self._local_cache[key]
@@ -424,7 +411,7 @@ class RedisCache:
         self._local_cache.clear()
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """获取缓存统计信息"""
         total = self._stats["hits"] + self._stats["misses"]
         hit_rate = (self._stats["hits"] / total * 100) if total > 0 else 0
@@ -446,7 +433,7 @@ def cache_decorator(
     cache_instance: RedisCache,
     ttl: int = DEFAULT_REDIS_TTL,
     key_prefix: str = "",
-    skip_args: Optional[List[int]] = None
+    skip_args: list[int] | None = None,
 ):
     """
     缓存装饰器工厂
@@ -468,15 +455,10 @@ def cache_decorator(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                cache_key_parts = [
-                    str(arg) for i, arg in enumerate(args)
-                    if i not in skip_args
-                ]
-                cache_key_parts.extend(
-                    f"{k}={v}" for k, v in sorted(kwargs.items())
-                )
+                cache_key_parts = [str(arg) for i, arg in enumerate(args) if i not in skip_args]
+                cache_key_parts.extend(f"{k}={v}" for k, v in sorted(kwargs.items()))
                 cache_key_str = ":".join(cache_key_parts)
-                cache_key = f"{key_prefix}{func.__name__}:{hashlib.md5(cache_key_str.encode()).hexdigest()}"
+                cache_key = f"{key_prefix}{func.__name__}:{hashlib.sha256(cache_key_str.encode()).hexdigest()}"
 
                 cached = cache_instance.get(cache_key)
                 if cached is not None:
@@ -491,23 +473,23 @@ def cache_decorator(
                 return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
 def async_cache_decorator(
-    cache_instance: RedisCache,
-    ttl: int = DEFAULT_REDIS_TTL,
-    key_prefix: str = ""
+    cache_instance: RedisCache, ttl: int = DEFAULT_REDIS_TTL, key_prefix: str = ""
 ):
     """
     异步结果缓存装饰器
 
     用于包装 Celery 任务，先返回缓存结果，后台异步更新
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            cache_key = f"{key_prefix}{func.__name__}:{hashlib.md5(str(args + tuple(sorted(kwargs.items()))).encode()).hexdigest()}"
+            cache_key = f"{key_prefix}{func.__name__}:{hashlib.sha256(str(args + tuple(sorted(kwargs.items()))).encode()).hexdigest()}"
 
             cached = cache_instance.get(cache_key)
             if cached is not None:
@@ -521,12 +503,15 @@ def async_cache_decorator(
                 logger.error(f"异步缓存装饰器失败 [{func.__name__}]: {e}")
                 raise
 
-        wrapper.cache_key = lambda *a, **kw: f"{key_prefix}{func.__name__}:{hashlib.md5(str(a + tuple(sorted(kw.items()))).encode()).hexdigest()}"
+        wrapper.cache_key = (
+            lambda *a, **kw: f"{key_prefix}{func.__name__}:{hashlib.sha256(str(a + tuple(sorted(kw.items()))).encode()).hexdigest()}"
+        )
         return wrapper
+
     return decorator
 
 
-_redis_cache_instance: Optional[RedisCache] = None
+_redis_cache_instance: RedisCache | None = None
 
 
 def get_redis_cache(redis_client=None) -> RedisCache:
@@ -537,16 +522,21 @@ def get_redis_cache(redis_client=None) -> RedisCache:
     return _redis_cache_instance
 
 
-def init_redis_cache_from_app(app) -> Optional[RedisCache]:
-    """从 Flask 应用初始化 Redis 缓存"""
+def init_redis_cache_from_app(app) -> RedisCache | None:
+    """从应用实例初始化 Redis 缓存（历史调用兼容）"""
     global _redis_cache_instance
 
-    redis_client = getattr(app.extensions.get('cache'), '_client', None) if hasattr(app, 'extensions') else None
+    redis_client = (
+        getattr(app.extensions.get("cache"), "_client", None)
+        if hasattr(app, "extensions")
+        else None
+    )
 
     if redis_client is None:
         try:
             import redis
-            redis_url = app.config.get('CACHE_REDIS_URL', 'redis://localhost:6379/0')
+
+            redis_url = app.config.get("CACHE_REDIS_URL", "redis://localhost:6379/0")
             redis_client = redis.from_url(redis_url, decode_responses=True)
         except Exception as e:
             logger.warning(f"无法连接 Redis: {e}")

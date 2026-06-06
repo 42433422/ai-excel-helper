@@ -2,6 +2,12 @@
   "schema_version": 1,
   "title": "XCAGI Mod 扩展面（MODstore 内置）",
   "summary": "宿主（XCAGI / FHD，FastAPI）在启动时扫描并加载 mods 目录下各包；本文件描述 manifest 契约、后端入口约定与调试方式。可配合「制作向导」页一键合并宿主 openapi.json。",
+  "host_config_files": {
+    "host_profiles": "FHD/config/host_profiles/{personal|enterprise}.json + _base.json",
+    "industry_presets": "FHD/config/industry_presets.json — GET /api/system/industry-presets",
+    "workflow_employee_catalog": "FHD/config/workflow_employee_catalog.json — GET /api/system/workflow-employee-catalog",
+    "schema": "FHD/config/host_profile.schema.json"
+  },
   "ui_intro_zh": {
     "page": "本页是「制作向导」：上半部分为内置中文说明，帮助你对照 manifest 各字段、后端路由入口与运行方式。点击「合并宿主 /api 路由」后，会从「路径与同步」中配置的后端地址请求 openapi.json，并只展示以 /api 开头的路径摘要，便于扩展开发与排错。",
     "manifest_section": "下列为 manifest 常见字段说明。「必填」表示校验强烈建议填写；未填可能出现警告或影响部署。",
@@ -129,7 +135,6 @@
     "note": "制作向导中「合并宿主路由」将请求 {xcagi_backend_url}/openapi.json 并筛选 /api 前缀路径"
   },
   "reference_mods_in_repo": [
-    { "id": "example-mod", "note": "最小 FastAPI 路由 + comms 示例（若存在于 library）" },
-    { "id": "sz-qsm-pro", "note": "更接近业务的完整包（若存在于 library）" }
+    { "id": "taiyangniao-pro", "note": "太阳鸟 PRO（考勤等）；仓库内仅保留此扩展参考" }
   ]
 }

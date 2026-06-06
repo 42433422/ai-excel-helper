@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DeepSeek 意图识别服务 v2
 
@@ -13,11 +12,9 @@ DeepSeek 意图识别服务 v2
 import hashlib
 import logging
 import os
-import re
 import time
 from collections import OrderedDict
-from functools import lru_cache
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -29,14 +26,14 @@ logger = logging.getLogger(__name__)
 class _IntentRecognitionCache:
     def __init__(self, max_size: int = 500, ttl_seconds: int = 300):
         self._cache: OrderedDict = OrderedDict()
-        self._timestamps: Dict[str, float] = {}
+        self._timestamps: dict[str, float] = {}
         self._max_size = max_size
         self._ttl = ttl_seconds
 
     def _make_key(self, message: str) -> str:
         return hashlib.md5(message.strip().lower().encode()).hexdigest()
 
-    def get(self, message: str) -> Optional[Dict[str, Any]]:
+    def get(self, message: str) -> dict[str, Any] | None:
         key = self._make_key(message)
         if key not in self._cache:
             return None
@@ -47,7 +44,7 @@ class _IntentRecognitionCache:
         self._cache.move_to_end(key)
         return self._cache[key]
 
-    def set(self, message: str, result: Dict[str, Any]) -> None:
+    def set(self, message: str, result: dict[str, Any]) -> None:
         key = self._make_key(message)
         if key in self._cache:
             self._cache.move_to_end(key)
@@ -112,7 +109,13 @@ SLOT_DEFINITIONS = {
 
 
 class DeepseekIntentClassifier:
-    def __init__(self, api_key: Optional[str] = None, confidence_threshold: float = 0.5, timeout: float = 30.0, max_retries: int = 3):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        confidence_threshold: float = 0.5,
+        timeout: float = 30.0,
+        max_retries: int = 3,
+    ):
         self.api_key = api_key
         self.confidence_threshold = confidence_threshold
         self.timeout = timeout
@@ -126,10 +129,14 @@ class DeepseekIntentClassifier:
         if not key:
             try:
                 from app.utils.path_utils import get_resource_path
+
                 config_path = get_resource_path("config", "deepseek_config.py")
                 if config_path and os.path.exists(config_path):
                     import importlib.util
-                    spec = importlib.util.spec_from_file_location("xcagi_deepseek_config", config_path)
+
+                    spec = importlib.util.spec_from_file_location(
+                        "xcagi_deepseek_config", config_path
+                    )
                     if spec and spec.loader:
                         config_module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(config_module)
@@ -141,7 +148,9 @@ class DeepseekIntentClassifier:
     def load_model(self) -> bool:
         return True
 
-    async def recognize(self, message: str, context: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    async def recognize(
+        self, message: str, context: list[dict[str, str]] | None = None
+    ) -> dict[str, Any]:
         cached = _intent_recognition_cache.get(message)
         if cached:
             return cached
@@ -171,44 +180,39 @@ class DeepseekIntentClassifier:
             history = "\n".join([f"{m['role']}: {m['content']}" for m in context[-3:]])
             user_message = f"对话历史：\n{history}\n\n当前消息：{message}"
 
+        from app.infrastructure.llm.invoke import chat_completion_openai_format
+
         last_error = None
         for attempt in range(self.max_retries):
             try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.post(
-                        "https://api.deepseek.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {self._get_api_key()}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": "deepseek-chat",
-                            "messages": [
-                                {"role": "system", "content": system_prompt},
-                                {"role": "user", "content": user_message}
-                            ],
-                            "temperature": 0.1,
-                            "max_tokens": 300
-                        }
-                    )
-                    response.raise_for_status()
-                    result_data = response.json()
-                    content = result_data["choices"][0]["message"]["content"]
+                result_data = await chat_completion_openai_format(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.1,
+                    max_tokens=300,
+                    profile="intent",
+                )
+                if not result_data or not result_data.get("choices"):
+                    raise ValueError("empty LLM response")
+                content = result_data["choices"][0]["message"]["content"]
 
-                    content = content.strip()
-                    if content.startswith("```json"):
-                        content = content[7:]
-                    if content.startswith("```"):
-                        content = content[3:]
-                    if content.endswith("```"):
-                        content = content[:-3]
-                    content = content.strip()
+                content = content.strip()
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.startswith("```"):
+                    content = content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
 
-                    import json
-                    result = json.loads(content)
-                    result["source"] = "deepseek"
-                    _intent_recognition_cache.set(message, result)
-                    return result
+                import json
+
+                result = json.loads(content)
+                result["source"] = "deepseek"
+                _intent_recognition_cache.set(message, result)
+                return result
 
             except Exception as e:
                 last_error = e
@@ -221,15 +225,11 @@ class DeepseekIntentClassifier:
             "confidence": 0.0,
             "slots": {},
             "reasoning": f"API 调用失败：{last_error}",
-            "source": "deepseek"
+            "source": "deepseek",
         }
 
-    def predict(self, text: str) -> Dict[str, Any]:
-        return {
-            "intent": "unk",
-            "confidence": 0.0,
-            "source": "deepseek"
-        }
+    def predict(self, text: str) -> dict[str, Any]:
+        return {"intent": "unk", "confidence": 0.0, "source": "deepseek"}
 
 
 import asyncio

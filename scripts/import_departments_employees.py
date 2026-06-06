@@ -26,7 +26,8 @@ if str(ROOT) not in sys.path:
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS attendance_import_batches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file TEXT NOT NULL,
@@ -35,8 +36,10 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             rows_written INTEGER NOT NULL,
             imported_at TEXT NOT NULL
         )
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS attendance_daily_records (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file TEXT NOT NULL,
@@ -61,16 +64,22 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             notes_json TEXT NOT NULL,
             imported_at TEXT NOT NULL
         )
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE UNIQUE INDEX IF NOT EXISTS ux_attendance_source_row
         ON attendance_daily_records (source_file, source_row)
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS ix_attendance_employee_date
         ON attendance_daily_records (employee_name, work_date)
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS attendance_departments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file TEXT NOT NULL,
@@ -79,8 +88,10 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             attendance_group TEXT NOT NULL,
             UNIQUE(source_file, department, attendance_group)
         )
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS attendance_employees (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file TEXT NOT NULL,
@@ -93,16 +104,22 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             user_id TEXT NOT NULL,
             UNIQUE(source_file, employee_name, department)
         )
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS ix_employees_name
         ON attendance_employees (employee_name)
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE INDEX IF NOT EXISTS ix_departments_dept
         ON attendance_departments (department)
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file TEXT NOT NULL DEFAULT '',
@@ -114,8 +131,10 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
-    """)
-    conn.execute("""
+    """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS customers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file TEXT NOT NULL DEFAULT '',
@@ -127,7 +146,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
-    """)
+    """
+    )
 
 
 def _cell_first_line(val) -> str:
@@ -345,7 +365,9 @@ def import_departments_and_employees(
 
         prod_rows = cust_rows = 0
         if sync_ui_tables:
-            prod_rows, cust_rows = _sync_products_customers(conn, source_file, employees, departments)
+            prod_rows, cust_rows = _sync_products_customers(
+                conn, source_file, employees, departments
+            )
 
         conn.commit()
         return dept_rows, emp_rows, prod_rows, cust_rows

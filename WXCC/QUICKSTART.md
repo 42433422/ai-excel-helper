@@ -136,5 +136,5 @@ const systemInfo = wx.getSystemInfo()
 参考文档：
 - [`README.md`](file:///e:/FHD/WXCC/README.md) - 项目说明
 - [`GUIDE.md`](file:///e:/FHD/WXCC/GUIDE.md) - 使用指南
-- [`FIXES.md`](file:///e:/FHD/WXCC/FIXES.md) - 问题修复
+- [`docs/wxcc/FIXES.md`](../docs/wxcc/FIXES.md) - 问题修复
 - [`assets/PLACEHOLDER_GUIDE.md`](file:///e:/FHD/WXCC/assets/PLACEHOLDER_GUIDE.md) - 占位图指南

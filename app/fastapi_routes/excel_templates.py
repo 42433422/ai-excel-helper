@@ -8,7 +8,7 @@ import os
 from datetime import date, datetime, time
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any
 
 from fastapi import APIRouter, Body, File, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -116,7 +116,7 @@ def _is_unreadable_workbook_error(error_message: str) -> bool:
     return any(m in text for m in markers)
 
 
-def _pick_sheet_name(sheet_names: List[str], sheet_name: str | None) -> str:
+def _pick_sheet_name(sheet_names: list[str], sheet_name: str | None) -> str:
     names = list(sheet_names or [])
     if sheet_name and sheet_name in names:
         return sheet_name
@@ -136,7 +136,7 @@ def _decompose_from_grid(
     dimension: str,
     sheet_name: str | None,
     sample_rows: int,
-) -> Tuple[dict, int]:
+) -> tuple[dict, int]:
     from openpyxl.utils import get_column_letter
 
     max_r = min(max(nrows, 1), 30)
@@ -181,7 +181,9 @@ def _decompose_from_grid(
         if non_empty and row_data:
             samples.append(row_data)
 
-    amount_related = [h for h in header_cells if any(k in h["name"] for k in ["金额", "单价", "价格", "数量"])]
+    amount_related = [
+        h for h in header_cells if any(k in h["name"] for k in ["金额", "单价", "价格", "数量"])
+    ]
 
     result = {
         "success": True,
@@ -204,7 +206,9 @@ def _decompose_from_grid(
     return result, 200
 
 
-def _decompose_template_xls_pandas(file_path: str, sheet_name=None, sample_rows=5) -> Tuple[dict, int]:
+def _decompose_template_xls_pandas(
+    file_path: str, sheet_name=None, sample_rows=5
+) -> tuple[dict, int]:
     try:
         import pandas as pd
     except ImportError as e:
@@ -258,7 +262,7 @@ def _decompose_template_xls_pandas(file_path: str, sheet_name=None, sample_rows=
     )
 
 
-def _decompose_template_openpyxl(file_path, sheet_name=None, sample_rows=5) -> Tuple[dict, int]:
+def _decompose_template_openpyxl(file_path, sheet_name=None, sample_rows=5) -> tuple[dict, int]:
     from openpyxl import load_workbook
 
     wb = load_workbook(file_path, data_only=True)
@@ -287,7 +291,7 @@ def _decompose_template_openpyxl(file_path, sheet_name=None, sample_rows=5) -> T
     )
 
 
-def _decompose_template(file_path, sheet_name=None, sample_rows=5) -> Tuple[dict, int]:
+def _decompose_template(file_path, sheet_name=None, sample_rows=5) -> tuple[dict, int]:
     try:
         if not os.path.exists(file_path):
             return {"success": False, "message": f"模板文件不存在: {file_path}"}, 404
@@ -351,7 +355,9 @@ def list_templates_by_type(
         active = active_only.lower() == "true"
         svc = get_template_app_service()
         templates = [_normalize_template_dto(t) for t in svc.list_by_type(type, active_only=active)]
-        return JSONResponse({"success": True, "templates": templates, "count": len(templates)}, status_code=200)
+        return JSONResponse(
+            {"success": True, "templates": templates, "count": len(templates)}, status_code=200
+        )
     except Exception as e:
         logger.error("按类型获取模板列表失败：%s", e)
         return JSONResponse({"success": False, "message": f"获取失败：{str(e)}"}, status_code=500)
@@ -366,7 +372,9 @@ def get_default_template(type: str = Query(default="发货单")):
         tpl = svc.get_default_for_type(type)
         if not tpl:
             return JSONResponse({"success": False, "message": "暂无可用模板"}, status_code=404)
-        return JSONResponse({"success": True, "template": _normalize_template_dto(tpl)}, status_code=200)
+        return JSONResponse(
+            {"success": True, "template": _normalize_template_dto(tpl)}, status_code=200
+        )
     except Exception as e:
         logger.error("获取默认模板失败：%s", e)
         return JSONResponse({"success": False, "message": f"获取失败：{str(e)}"}, status_code=500)
@@ -419,7 +427,9 @@ def decompose_template(data: dict[str, Any] = Body(default_factory=dict)):
         elif filename:
             target_path = _resolve_template_path(filename)
         else:
-            return JSONResponse({"success": False, "message": "请提供 filename 或 file_path"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "请提供 filename 或 file_path"}, status_code=400
+            )
         if not target_path or not os.path.exists(target_path):
             return JSONResponse({"success": False, "message": "模板文件不存在"}, status_code=404)
         result, status = _decompose_template(target_path, sheet_name, sample_rows)
@@ -435,7 +445,9 @@ async def upload_excel(excel_file: UploadFile | None = File(default=None)):
         if excel_file is None or not excel_file.filename:
             return JSONResponse({"success": False, "message": "请上传 Excel 文件"}, status_code=400)
         if not excel_file.filename.lower().endswith((".xlsx", ".xls")):
-            return JSONResponse({"success": False, "message": "只支持 .xlsx 和 .xls 格式"}, status_code=400)
+            return JSONResponse(
+                {"success": False, "message": "只支持 .xlsx 和 .xls 格式"}, status_code=400
+            )
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"excel_{timestamp}_{excel_file.filename}"
         file_path = os.path.join(TEMP_EXCEL_DIR, filename)
@@ -489,7 +501,9 @@ def get_template(template_id: int):
                 "analyzed_data": json.loads(row.analyzed_data) if row.analyzed_data else None,
                 "editable_config": json.loads(row.editable_config) if row.editable_config else None,
                 "zone_config": json.loads(row.zone_config) if row.zone_config else None,
-                "merged_cells_config": json.loads(row.merged_cells_config) if row.merged_cells_config else None,
+                "merged_cells_config": (
+                    json.loads(row.merged_cells_config) if row.merged_cells_config else None
+                ),
                 "style_config": json.loads(row.style_config) if row.style_config else None,
                 "business_rules": json.loads(row.business_rules) if row.business_rules else None,
                 "created_at": row.created_at,
@@ -507,7 +521,9 @@ def update_template(template_id: int, data: dict[str, Any] = Body(default_factor
         from app.db.session import get_db
 
         with get_db() as db:
-            result = db.execute(text("SELECT id FROM templates WHERE id = :id"), {"id": template_id})
+            result = db.execute(
+                text("SELECT id FROM templates WHERE id = :id"), {"id": template_id}
+            )
             if not result.fetchone():
                 return JSONResponse({"success": False, "message": "模板不存在"}, status_code=404)
             updates = []
@@ -554,7 +570,9 @@ def delete_template(template_id: int):
         from app.db.session import get_db
 
         with get_db() as db:
-            result = db.execute(text("SELECT id FROM templates WHERE id = :id"), {"id": template_id})
+            result = db.execute(
+                text("SELECT id FROM templates WHERE id = :id"), {"id": template_id}
+            )
             if not result.fetchone():
                 return JSONResponse({"success": False, "message": "模板不存在"}, status_code=404)
             db.execute(

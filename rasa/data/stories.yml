@@ -1,0 +1,25 @@
+version: "3.1"
+
+stories:
+- story: shipment_full_flow
+  steps:
+  - intent: greet
+  - action: utter_greet
+  - intent: shipment_generate
+  - action: utter_ask_purchase_unit
+  - intent: customers
+  - action: utter_ask_product
+  - intent: products
+  - action: utter_ask_quantity
+  - intent: inform
+  - action: utter_confirm_shipment
+  - action: action_create_shipment
+
+- story: customer_supplement_flow
+  steps:
+  - intent: customer_supplement
+  - action: utter_ask_missing_field
+  - intent: inform
+  - action: action_save_customer_supplement
+  - action: utter_thanks
+

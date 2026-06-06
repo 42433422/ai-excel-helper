@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 XCAGI 服务优化装饰器集合
 
@@ -15,34 +14,36 @@ import functools
 import hashlib
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def get_optimizer_components():
     """获取所有优化组件（懒加载）"""
     components = {
-        'cache': None,
-        'monitor': None,
-        'deduplicator': None,
-        'async_manager': None,
+        "cache": None,
+        "monitor": None,
+        "deduplicator": None,
+        "async_manager": None,
     }
 
     try:
         from app.utils.performance_initializer import get_performance_optimizer
+
         optimizer = get_performance_optimizer()
 
         if optimizer.redis_cache:
-            components['cache'] = optimizer.redis_cache
+            components["cache"] = optimizer.redis_cache
         if optimizer.performance_monitor:
-            components['monitor'] = optimizer.performance_monitor
+            components["monitor"] = optimizer.performance_monitor
         if optimizer.request_deduplicator:
-            components['deduplicator'] = optimizer.request_deduplicator
+            components["deduplicator"] = optimizer.request_deduplicator
         if optimizer.async_task_manager:
-            components['async_manager'] = optimizer.async_task_manager
+            components["async_manager"] = optimizer.async_task_manager
 
     except Exception as e:
         logger.debug(f"优化组件加载失败: {e}")
@@ -70,19 +71,16 @@ class OptimizedServiceMixin:
         """初始化所有优化组件"""
         components = get_optimizer_components()
 
-        self._cache = components['cache']
-        self._monitor = components['monitor']
-        self._deduplicator = components['deduplicator']
-        self._async_manager = components['async_manager']
+        self._cache = components["cache"]
+        self._monitor = components["monitor"]
+        self._deduplicator = components["deduplicator"]
+        self._async_manager = components["async_manager"]
 
         logger.debug(f"服务 {self.__class__.__name__} 优化组件已初始化")
 
 
 def cached(
-    ttl: int = 300,
-    key_prefix: str = "",
-    cache_instance=None,
-    skip_args: Optional[List[int]] = None
+    ttl: int = 300, key_prefix: str = "", cache_instance=None, skip_args: list[int] | None = None
 ):
     """
     Redis缓存装饰器
@@ -109,7 +107,7 @@ def cached(
             cache = cache_instance
             if not cache:
                 components = get_optimizer_components()
-                cache = components.get('cache')
+                cache = components.get("cache")
 
             if not cache:
                 return func(*args, **kwargs)
@@ -124,7 +122,7 @@ def cached(
                     parts.append(f"{k}={v}")
 
                 key_str = ":".join(parts)
-                cache_key = f"{key_prefix}{hashlib.md5(key_str.encode()).hexdigest()}"
+                cache_key = f"{key_prefix}{hashlib.sha256(key_str.encode()).hexdigest()}"
 
                 # 尝试从缓存获取
                 cached_result = cache.get(cache_key)
@@ -144,18 +142,20 @@ def cached(
                 return func(*args, **kwargs)
 
         wrapper.invalidate_cache = lambda *a, **kw: (
-            cache.delete(f"{key_prefix}{hashlib.md5(str(a + tuple(sorted(kw.items()))).encode()).hexdigest()}")
-            if cache else None
+            cache.delete(
+                f"{key_prefix}{hashlib.sha256(str(a + tuple(sorted(kw.items()))).encode()).hexdigest()}"
+            )
+            if cache
+            else None
         )
 
         return wrapper
+
     return decorator
 
 
 def rate_limited(
-    max_requests: int = 60,
-    window_seconds: int = 60,
-    key_func: Optional[Callable] = None
+    max_requests: int = 60, window_seconds: int = 60, key_func: Callable | None = None
 ):
     """
     限流装饰器
@@ -172,6 +172,7 @@ def rate_limited(
         def ai_chat(user_id, message):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -181,23 +182,28 @@ def rate_limited(
                 identifier = None
                 if key_func:
                     identifier = key_func(*args, **kwargs)
-                elif args and hasattr(args[0], '__dict__'):
+                elif args and hasattr(args[0], "__dict__"):
                     identifier = str(id(args[0]))
                 elif args:
                     identifier = str(args[0])
 
                 if identifier:
-                    result = check_rate_limit(identifier, func.__name__, max_requests, window_seconds)
-                    if not result.get('allowed', True):
+                    result = check_rate_limit(
+                        identifier, func.__name__, max_requests, window_seconds
+                    )
+                    if not result.get("allowed", True):
                         from app.http.json_response import json_response
 
-                        return json_response(
-                            {
-                                "message": "请求过于频繁",
-                                "retry_after": result.get('retry_after'),
-                            },
+                        return (
+                            json_response(
+                                {
+                                    "message": "请求过于频繁",
+                                    "retry_after": result.get("retry_after"),
+                                },
+                                429,
+                            ),
                             429,
-                        ), 429
+                        )
 
                 return func(*args, **kwargs)
 
@@ -206,10 +212,11 @@ def rate_limited(
                 return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
-def monitored(name: Optional[str] = None, slow_threshold_ms: float = 1000.0):
+def monitored(name: str | None = None, slow_threshold_ms: float = 1000.0):
     """
     性能监控装饰器
 
@@ -224,13 +231,14 @@ def monitored(name: Optional[str] = None, slow_threshold_ms: float = 1000.0):
         def query_users():
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         metric_name = name or f"{func.__module__}.{func.__name__}"
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             components = get_optimizer_components()
-            monitor = components.get('monitor')
+            monitor = components.get("monitor")
 
             if not monitor:
                 return func(*args, **kwargs)
@@ -256,6 +264,7 @@ def monitored(name: Optional[str] = None, slow_threshold_ms: float = 1000.0):
                 raise
 
         return wrapper
+
     return decorator
 
 
@@ -274,18 +283,17 @@ def deduplicated(window_seconds: int = 30, by_content: bool = True):
         def create_order(customer_id, product_id):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             components = get_optimizer_components()
-            deduplicator = components.get('deduplicator')
+            deduplicator = components.get("deduplicator")
 
             if not deduplicator:
                 return func(*args, **kwargs)
 
-            is_dup, result = deduplicator.deduplicate(
-                func, *args, **kwargs
-            )
+            is_dup, result = deduplicator.deduplicate(func, *args, **kwargs)
 
             if is_dup:
                 logger.debug(f"去重命中 [{func.__name__}]")
@@ -293,14 +301,15 @@ def deduplicated(window_seconds: int = 30, by_content: bool = True):
             return result
 
         return wrapper
+
     return decorator
 
 
 def async_task(
-    task_name: Optional[str] = None,
+    task_name: str | None = None,
     queue: str = "normal",
     timeout: int = 300,
-    retry_on_failure: bool = True
+    retry_on_failure: bool = True,
 ):
     """
     异步任务装饰器
@@ -321,22 +330,21 @@ def async_task(
         # 同步调用：result = generate_report("01", 2026)
         # 异步调用：task = generate_report.async_submit("01", 2026)
     """
+
     def decorator(func: Callable) -> Callable:
         name = task_name or f"task_{func.__name__}"
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             components = get_optimizer_components()
-            async_manager = components.get('async_manager')
+            async_manager = components.get("async_manager")
 
-            force_sync = __import__('os').environ.get('XCAGI_FORCE_SYNC_TASKS', '0') == '1'
+            force_sync = __import__("os").environ.get("XCAGI_FORCE_SYNC_TASKS", "0") == "1"
 
             if force_sync or not async_manager:
                 return func(*args, **kwargs)
 
-            task_result = async_manager.submit(
-                name, args, kwargs, queue=queue
-            )
+            task_result = async_manager.submit(name, args, kwargs, queue=queue)
 
             if task_result.is_success:
                 return task_result.result
@@ -349,7 +357,7 @@ def async_task(
         def async_submit(*a, **kw):
             """异步提交方法"""
             components = get_optimizer_components()
-            async_manager = components.get('async_manager')
+            async_manager = components.get("async_manager")
 
             if async_manager:
                 return async_manager.submit(name, a, kw, queue=queue)
@@ -361,13 +369,12 @@ def async_task(
         wrapper.queue = queue
 
         return wrapper
+
     return decorator
 
 
 def circuit_breaker(
-    failure_threshold: int = 5,
-    recovery_timeout: int = 30,
-    fallback_func: Optional[Callable] = None
+    failure_threshold: int = 5, recovery_timeout: int = 30, fallback_func: Callable | None = None
 ):
     """
     熔断装饰器
@@ -388,11 +395,12 @@ def circuit_breaker(
         def fetch_remote_data():
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         state = {
-            'failures': 0,
-            'last_failure_time': 0,
-            'is_open': False,
+            "failures": 0,
+            "last_failure_time": 0,
+            "is_open": False,
         }
 
         @functools.wraps(func)
@@ -400,35 +408,34 @@ def circuit_breaker(
             current_time = time.time()
 
             # 检查是否在熔断状态
-            if state['is_open']:
-                if current_time - state['last_failure_time'] < recovery_timeout:
+            if state["is_open"]:
+                if current_time - state["last_failure_time"] < recovery_timeout:
                     if fallback_func:
                         logger.info(f"熔断降级 [{func.__name__}]")
                         return fallback_func(*args, **kwargs)
                     raise Exception(f"服务熔断中，{recovery_timeout}s后重试")
                 else:
-                    state['is_open'] = False
-                    state['failures'] = 0
+                    state["is_open"] = False
+                    state["failures"] = 0
                     logger.info(f"熔断恢复 [{func.__name__}]")
 
             try:
                 result = func(*args, **kwargs)
-                state['failures'] = 0
+                state["failures"] = 0
                 return result
 
-            except Exception as e:
-                state['failures'] += 1
-                state['last_failure_time'] = current_time
+            except Exception:
+                state["failures"] += 1
+                state["last_failure_time"] = current_time
 
-                if state['failures'] >= failure_threshold:
-                    state['is_open'] = True
-                    logger.error(
-                        f"熔断触发 [{func.__name__}]: 连续失败 {state['failures']} 次"
-                    )
+                if state["failures"] >= failure_threshold:
+                    state["is_open"] = True
+                    logger.error(f"熔断触发 [{func.__name__}]: 连续失败 {state['failures']} 次")
 
                 raise
 
         return wrapper
+
     return decorator
 
 
@@ -437,7 +444,7 @@ def retry(
     delay: float = 1.0,
     backoff_factor: float = 2.0,
     exceptions: tuple = (Exception,),
-    on_retry: Optional[Callable] = None
+    on_retry: Callable | None = None,
 ):
     """
     重试装饰器
@@ -456,6 +463,7 @@ def retry(
         def unreliable_api_call():
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -485,6 +493,7 @@ def retry(
             raise last_exception
 
         return wrapper
+
     return decorator
 
 
@@ -521,6 +530,7 @@ def combined_optimization(
         def critical_api():
             ...
     """
+
     def decorator(func: Callable) -> Callable:
 
         # 按顺序应用装饰器（从外到内）
@@ -551,14 +561,13 @@ def combined_optimization(
 
 # 快捷方式导出
 __all__ = [
-    'OptimizedServiceMixin',
-    'cached',
-    'rate_limited',
-    'monitored',
-    'deduplicated',
-    'async_task',
-    'circuit_breaker',
-    'retry',
-    'combined_optimization',
+    "OptimizedServiceMixin",
+    "cached",
+    "rate_limited",
+    "monitored",
+    "deduplicated",
+    "async_task",
+    "circuit_breaker",
+    "retry",
+    "combined_optimization",
 ]
-

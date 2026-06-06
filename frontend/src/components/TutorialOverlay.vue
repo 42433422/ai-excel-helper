@@ -59,18 +59,14 @@ import { getTutorialTtsWarmupTexts, useTutorialStore } from '@/stores/tutorial'
 const tutorialStore = useTutorialStore()
 const router = useRouter()
 
-const trackLabel = computed(() => {
-  const t = tutorialStore.currentTrack
-  if (t === 'advanced') return '进阶教程'
-  if (t === 'basic') return '基础教程'
-  return ''
-})
+const trackLabel = computed(() => tutorialStore.currentTrackLabel || '')
 let wasActive = false
 const ttsAudio = ref(null)
 let ttsSeq = 0
 const ttsCache = new Map()
 const ttsInflight = new Map()
 const TTS_CACHE_MAX = 80
+const ENABLE_TUTORIAL_ONLINE_TTS = String(import.meta.env.VITE_ENABLE_TUTORIAL_ONLINE_TTS || '').toLowerCase() === 'true'
 
 /** 教程预热若同时发起几十个 /api/tts，会占满浏览器对同域并发连接（通常约 6），产品列表等请求只能排队 →「教程里点半天才出副窗」 */
 const TTS_PREFETCH_MAX_CONCURRENT = 2
@@ -114,6 +110,7 @@ const cancelPrefetchIdleDrain = () => {
 }
 
 const enqueueTtsPrefetch = (text) => {
+  if (!ENABLE_TUTORIAL_ONLINE_TTS) return
   const t = String(text || '').trim()
   if (!t || ttsCache.has(t) || ttsInflight.has(t)) return
   if (ttsPrefetchPending.includes(t)) return
@@ -238,6 +235,7 @@ const setTtsCache = (text, audioBase64) => {
 }
 
 const fetchTtsAudioBase64 = async (text) => {
+  if (!ENABLE_TUTORIAL_ONLINE_TTS) return ''
   const content = String(text || '').trim()
   if (!content) return ''
   if (ttsCache.has(content)) {

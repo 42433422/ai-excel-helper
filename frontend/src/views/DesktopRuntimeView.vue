@@ -17,6 +17,10 @@
         <dd>{{ status.dataDir }}</dd>
         <dt>数据库</dt>
         <dd>{{ status.database }}</dd>
+        <dt>存储模式</dt>
+        <dd>{{ storageModeLabel }}</dd>
+        <dt>连接（脱敏）</dt>
+        <dd>{{ status.databaseUrlRedacted || '—' }}</dd>
         <dt>Mod 目录</dt>
         <dd>{{ status.modsDir }}</dd>
         <dt>模型目录</dt>
@@ -52,6 +56,9 @@ interface DesktopStatus {
   database: string
   modsDir: string
   modelsDir: string
+  storageMode?: string
+  databaseUrlRedacted?: string
+  profilePath?: string
 }
 
 interface ModelInfo {
@@ -64,6 +71,13 @@ const status = ref<DesktopStatus | null>(null)
 const models = ref<ModelInfo[]>([])
 const updateEvents = ref<string[]>([])
 const isDesktopShell = computed(() => Boolean(window.xcagiDesktop))
+
+const storageModeLabel = computed(() => {
+  const mode = status.value?.storageMode
+  if (mode === 'local_sqlite') return '本地 SQLite'
+  if (mode === 'remote_postgresql') return '远程 PostgreSQL'
+  return mode || '—'
+})
 
 let unsubscribe: (() => void) | undefined
 

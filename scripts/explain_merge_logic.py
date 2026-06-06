@@ -9,10 +9,10 @@ import json
 import glob
 
 # 读取图片
-files = glob.glob(r'e:\FHD\26-0300001A*.png')
+files = glob.glob(r"e:\FHD\26-0300001A*.png")
 image_path = files[0]
 
-with open(image_path, 'rb') as f:
+with open(image_path, "rb") as f:
     file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
 img_array = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
@@ -56,6 +56,7 @@ for x in range(gray.shape[1]):
     if max_continuous > gray.shape[0] * 0.5:
         vertical_lines.append(x)
 
+
 # 合并线条
 def merge_very_close(lines, threshold=5):
     if not lines:
@@ -68,6 +69,7 @@ def merge_very_close(lines, threshold=5):
             merged[-1] = (merged[-1] + line) // 2
     return merged
 
+
 def merge_lines(lines, threshold=50):
     if not lines:
         return []
@@ -76,6 +78,7 @@ def merge_lines(lines, threshold=50):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 horizontal_lines = sorted(list(set(horizontal_lines)))
 vertical_lines = sorted(list(set(vertical_lines)))
@@ -109,14 +112,14 @@ for i in range(rows):
         h = horizontal_lines[i + 1] - horizontal_lines[i]
 
         cell = {
-            'row': i,
-            'col': j,
-            'x': x,
-            'y': y,
-            'width': w,
-            'height': h,
-            'right_border_black_ratio': 0,
-            'should_merge_with_next': False
+            "row": i,
+            "col": j,
+            "x": x,
+            "y": y,
+            "width": w,
+            "height": h,
+            "right_border_black_ratio": 0,
+            "should_merge_with_next": False,
         }
 
         # 检测右侧边框
@@ -129,19 +132,21 @@ for i in range(rows):
                     if binary[check_y, right_border_x] > 0:
                         border_black_count += 1
 
-            cell['right_border_black_ratio'] = border_black_count / h
+            cell["right_border_black_ratio"] = border_black_count / h
 
             if border_black_count < h * 0.5:
-                cell['should_merge_with_next'] = True
+                cell["should_merge_with_next"] = True
 
         cells.append(cell)
 
 # 打印边框检测详情
 for cell in cells:
-    if cell['col'] < cols - 1:
-        status = "✓ 合并" if cell['should_merge_with_next'] else "✗ 独立"
-        print(f"  单元格[{cell['row']},{cell['col']}]: 右侧边框黑色占比 "
-              f"{cell['right_border_black_ratio']*100:.1f}% → {status}")
+    if cell["col"] < cols - 1:
+        status = "✓ 合并" if cell["should_merge_with_next"] else "✗ 独立"
+        print(
+            f"  单元格[{cell['row']},{cell['col']}]: 右侧边框黑色占比 "
+            f"{cell['right_border_black_ratio']*100:.1f}% → {status}"
+        )
 
 print("\n【第三步：实际合并单元格】")
 print("当单元格被标记为 'should_merge_with_next=True' 时，与右侧单元格合并：")
@@ -159,15 +164,17 @@ for i in range(rows):
             continue
 
         # 找到这个单元格
-        cell = next(c for c in cells if c['row'] == i and c['col'] == j)
+        cell = next(c for c in cells if c["row"] == i and c["col"] == j)
 
         # 计算这个单元格向右合并多少列
         merge_cols = 1
-        while cell['should_merge_with_next'] and j + merge_cols < cols:
+        while cell["should_merge_with_next"] and j + merge_cols < cols:
             visited.add(f"{i},{j + merge_cols}")
             merge_cols += 1
             if j + merge_cols < cols:
-                next_cell = next((c for c in cells if c['row'] == i and c['col'] == j + merge_cols), None)
+                next_cell = next(
+                    (c for c in cells if c["row"] == i and c["col"] == j + merge_cols), None
+                )
                 if next_cell:
                     cell = next_cell
                 else:
@@ -182,25 +189,29 @@ for i in range(rows):
         merged_width = vertical_lines[end_j] - vertical_lines[start_j]
         merged_height = horizontal_lines[i + 1] - horizontal_lines[i]
 
-        merged_cells.append({
-            'row': i,
-            'start_col': start_j,
-            'end_col': end_j - 1,
-            'merge_cols': merge_cols,
-            'x': merged_x,
-            'y': merged_y,
-            'width': merged_width,
-            'height': merged_height,
-            'original_cells': list(range(start_j, end_j))
-        })
+        merged_cells.append(
+            {
+                "row": i,
+                "start_col": start_j,
+                "end_col": end_j - 1,
+                "merge_cols": merge_cols,
+                "x": merged_x,
+                "y": merged_y,
+                "width": merged_width,
+                "height": merged_height,
+                "original_cells": list(range(start_j, end_j)),
+            }
+        )
 
         visited.add(cell_id)
 
 print("【最终合并结果】")
 for mc in merged_cells:
-    if mc['merge_cols'] > 1:
-        print(f"  逻辑单元格: 行{mc['row']}, 列{mc['start_col']}-{mc['end_col']} "
-              f"(合并了 {mc['merge_cols']} 列)")
+    if mc["merge_cols"] > 1:
+        print(
+            f"  逻辑单元格: 行{mc['row']}, 列{mc['start_col']}-{mc['end_col']} "
+            f"(合并了 {mc['merge_cols']} 列)"
+        )
         print(f"    位置: ({mc['x']}, {mc['y']}) 尺寸: {mc['width']}×{mc['height']}")
         print(f"    包含的原始单元格: {mc['original_cells']}")
     else:

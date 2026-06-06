@@ -1,4 +1,4 @@
-import { api, ApiError } from './index';
+import { api, ApiError } from './core';
 
 export interface DocumentTemplateRow {
   slug: string;

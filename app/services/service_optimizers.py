@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 AI 对话服务性能优化装饰器
 
@@ -13,15 +12,14 @@ import functools
 import hashlib
 import logging
 import time
-from typing import Any, Dict, Optional
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from typing import Any
 
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 
 logger = logging.getLogger(__name__)
 
 
-class AIOptimizedService:
+class AIOptimizedService(NeuroEventPublisherMixin):
     """
     AI 服务性能优化包装器
 
@@ -40,6 +38,7 @@ class AIOptimizedService:
 
         try:
             from app.utils.performance_initializer import get_performance_optimizer
+
             optimizer = get_performance_optimizer()
 
             if optimizer.redis_cache:
@@ -48,38 +47,21 @@ class AIOptimizedService:
                 self._deduplicator = optimizer.request_deduplicator
             if optimizer.performance_monitor:
                 self._monitor = optimizer.performance_monitor
-            if hasattr(optimizer, 'get_rate_limiter'):
+            if hasattr(optimizer, "get_rate_limiter"):
                 from app.utils.rate_limiter import get_rate_limiter
+
                 self._rate_limiter = get_rate_limiter("ai_chat", max_requests=30, window_seconds=60)
 
         except Exception as e:
             logger.debug(f"AI服务优化组件加载失败: {e}")
 
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
-    def _make_cache_key(self, user_id: str, message: str, context: Optional[Dict] = None) -> str:
+    def _make_cache_key(self, user_id: str, message: str, context: dict | None = None) -> str:
         context_hash = ""
         if context:
             import json
+
             context_str = json.dumps(context, sort_keys=True, default=str)
-            context_hash = hashlib.md5(context_str.encode()).hexdigest()[:16]
+            context_hash = hashlib.sha256(context_str.encode()).hexdigest()[:16]
 
         return f"ai_chat:v2:{user_id}:{hashlib.sha256(message.strip().lower().encode()).hexdigest()}:{context_hash}"
 
@@ -87,12 +69,12 @@ class AIOptimizedService:
         self,
         user_id: str,
         message: str,
-        context: Optional[Dict[str, Any]] = None,
-        source: Optional[str] = None,
-        mode: Optional[str] = None,
+        context: dict[str, Any] | None = None,
+        source: str | None = None,
+        mode: str | None = None,
         use_cache: bool = True,
-        **kwargs
-    ) -> Dict[str, Any]:
+        **kwargs,
+    ) -> dict[str, Any]:
         """
         优化的聊天方法（带缓存和监控）
 
@@ -103,9 +85,9 @@ class AIOptimizedService:
 
         # 限流检查
         if self._rate_limiter:
-            rate_result = __import__('app.utils.rate_limiter', fromlist=['check_rate_limit']).check_rate_limit(
-                user_id, "ai_chat", max_requests=30, window_seconds=60
-            )
+            rate_result = __import__(
+                "app.utils.rate_limiter", fromlist=["check_rate_limit"]
+            ).check_rate_limit(user_id, "ai_chat", max_requests=30, window_seconds=60)
             if not rate_result.get("allowed", True):
                 return {
                     "text": "请求过于频繁，请稍后再试",
@@ -117,10 +99,10 @@ class AIOptimizedService:
         # 缓存检查（仅对简单查询启用）
         cache_key = None
         should_cache = (
-            use_cache and
-            self._cache and
-            len(message) < 200 and
-            not message.startswith("/")  # 排除命令
+            use_cache
+            and self._cache
+            and len(message) < 200
+            and not message.startswith("/")  # 排除命令
         )
 
         if should_cache:
@@ -145,7 +127,7 @@ class AIOptimizedService:
                     context=context,
                     source=source,
                     mode=mode,
-                    **kwargs
+                    **kwargs,
                 )
 
             duration_ms = (time.perf_counter() - start_time) * 1000
@@ -158,14 +140,18 @@ class AIOptimizedService:
                     success=True,
                     user_id=user_id[:8],
                     msg_len=len(message),
-                    has_context=context is not None
+                    has_context=context is not None,
                 )
 
             # 缓存结果（仅缓存成功响应）
             if should_cache and cache_key and result.get("text"):
                 try:
                     cacheable_result = {k: v for k, v in result.items() if not k.startswith("_")}
-                    self._cache.set(cache_key, cacheable_result, ttl=int(__import__('os').environ.get("XCAGI_AI_RESPONSE_CACHE_TTL", "300")))
+                    self._cache.set(
+                        cache_key,
+                        cacheable_result,
+                        ttl=int(__import__("os").environ.get("XCAGI_AI_RESPONSE_CACHE_TTL", "300")),
+                    )
                 except Exception as e:
                     logger.debug(f"AI响应缓存写入失败: {e}")
 
@@ -180,12 +166,14 @@ class AIOptimizedService:
             duration_ms = (time.perf_counter() - start_time) * 1000
 
             if self._monitor:
-                self._monitor.record_metric("ai_chat_error", duration_ms, success=False, error=str(e)[:200])
+                self._monitor.record_metric(
+                    "ai_chat_error", duration_ms, success=False, error=str(e)[:200]
+                )
 
             logger.error(f"AI对话执行失败: {e}")
             raise
 
-    def chat_async(self, user_id: str, message: str, **kwargs) -> Dict[str, Any]:
+    def chat_async(self, user_id: str, message: str, **kwargs) -> dict[str, Any]:
         """
         异步聊天（提交到后台任务队列）
 
@@ -197,10 +185,7 @@ class AIOptimizedService:
 
             manager = get_async_task_manager()
             task_result = manager.submit(
-                "ai_chat_task",
-                args=(user_id, message),
-                kwargs=kwargs,
-                queue="ai"
+                "ai_chat_task", args=(user_id, message), kwargs=kwargs, queue="ai"
             )
 
             return {
@@ -231,9 +216,14 @@ class AIOptimizedService:
 
 def _dummy_context():
     """空上下文管理器"""
+
     class DummyContext:
-        def __enter__(self): return self
-        def __exit__(self, *args): pass
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
     return DummyContext()
 
 
@@ -276,6 +266,7 @@ class CustomerServiceOptimizer:
 
         try:
             from app.utils.performance_initializer import get_performance_optimizer
+
             optimizer = get_performance_optimizer()
             self._cache = optimizer.redis_cache
             self._monitor = optimizer.performance_monitor
@@ -284,7 +275,7 @@ class CustomerServiceOptimizer:
 
     @staticmethod
     def get_instance():
-        if not hasattr(CustomerServiceOptimizer, '_instance'):
+        if not hasattr(CustomerServiceOptimizer, "_instance"):
             CustomerServiceOptimizer._instance = CustomerServiceOptimizer()
         return CustomerServiceOptimizer._instance
 
@@ -305,7 +296,11 @@ class CustomerServiceOptimizer:
             self._monitor.record_metric("get_customers", duration_ms, success=True)
 
         if self._cache and result.get("success"):
-            self._cache.set(cache_key, result, ttl=int(__import__('os').environ.get("XCAGI_CUSTOMER_CACHE_TTL", "600")))
+            self._cache.set(
+                cache_key,
+                result,
+                ttl=int(__import__("os").environ.get("XCAGI_CUSTOMER_CACHE_TTL", "600")),
+            )
 
         return result
 
@@ -335,6 +330,7 @@ class ShipmentServiceOptimizer:
 
         try:
             from app.utils.performance_initializer import get_performance_optimizer
+
             optimizer = get_performance_optimizer()
             self._cache = optimizer.redis_cache
             self._async_manager = optimizer.async_task_manager
@@ -344,11 +340,11 @@ class ShipmentServiceOptimizer:
 
     @staticmethod
     def get_instance():
-        if not hasattr(ShipmentServiceOptimizer, '_instance'):
+        if not hasattr(ShipmentServiceOptimizer, "_instance"):
             ShipmentServiceOptimizer._instance = ShipmentServiceOptimizer()
         return ShipmentServiceOptimizer._instance
 
-    def create_shipment_optimized(self, create_func, data: Dict) -> Dict:
+    def create_shipment_optimized(self, create_func, data: dict) -> dict:
         """优化的出货单创建（带去重）"""
         dedup_key = f"shipment:create:{hash(str(sorted(data.items())))}"
 
@@ -362,20 +358,20 @@ class ShipmentServiceOptimizer:
         duration_ms = (time.perf_counter() - start_time) * 1000
 
         if self._monitor:
-            self._monitor.record_metric("create_shipment", duration_ms, success=result.get("success", False))
+            self._monitor.record_metric(
+                "create_shipment", duration_ms, success=result.get("success", False)
+            )
 
         if self._cache and result.get("success"):
             self._cache.set(dedup_key, result, ttl=30)  # 短时间防重复
 
         return result
 
-    def generate_labels_async(self, shipment_ids: list, generate_func) -> Dict:
+    def generate_labels_async(self, shipment_ids: list, generate_func) -> dict:
         """异步批量生成标签"""
         if self._async_manager and len(shipment_ids) > 5:
             task_result = self._async_manager.submit(
-                "shipment_tasks.generate_labels_batch_task",
-                args=(shipment_ids,),
-                queue="urgent"
+                "shipment_tasks.generate_labels_batch_task", args=(shipment_ids,), queue="urgent"
             )
             return {
                 "task_id": task_result.task_id,

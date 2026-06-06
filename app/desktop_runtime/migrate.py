@@ -9,24 +9,29 @@ import shutil
 import sqlite3
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
+
+from app.utils.time import utc_now_naive
 
 from .paths import configure_desktop_environment, ensure_desktop_dirs
 
 
-def backup_database(data_dir: str | os.PathLike[str] | None = None, version: str = "unknown") -> Path | None:
+def backup_database(
+    data_dir: str | os.PathLike[str] | None = None, version: str = "unknown"
+) -> Path | None:
     dirs = ensure_desktop_dirs(data_dir)
     db = dirs["data"] / "xcagi.db"
     if not db.exists():
         return None
-    stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    stamp = utc_now_naive().strftime("%Y%m%d%H%M%S")
     target = dirs["backups"] / f"xcagi-{version}-{stamp}.db"
     shutil.copy2(db, target)
     return target
 
 
-def run_alembic_upgrade(data_dir: str | os.PathLike[str] | None = None, version: str = "head") -> None:
+def run_alembic_upgrade(
+    data_dir: str | os.PathLike[str] | None = None, version: str = "head"
+) -> None:
     configure_desktop_environment(data_dir)
     if _should_bootstrap_sqlite(data_dir):
         bootstrap_sqlite_schema(data_dir)

@@ -3,10 +3,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher, get_close_matches
-from typing import Dict, List, Optional, Tuple
 
 try:
     from pypinyin import Style, pinyin
+
     _HAS_PYPINYIN = True
 except Exception:
     Style = None  # type: ignore[assignment]
@@ -18,7 +18,7 @@ from app.db.models import PurchaseUnit
 
 @dataclass(frozen=True)
 class ResolvedPurchaseUnit:
-    id: Optional[int]
+    id: int | None
     unit_name: str
     contact_person: str
     contact_phone: str
@@ -49,7 +49,7 @@ def _to_first_letters(name: str) -> str:
         return ""
 
 
-def _get_pinyin_parts(name: str) -> List[str]:
+def _get_pinyin_parts(name: str) -> list[str]:
     if not name:
         return []
     if not _HAS_PYPINYIN:
@@ -73,8 +73,8 @@ def _pinyin_similarity(name1: str, name2: str) -> float:
 def _first_letter_match(input_fl: str, target_fl: str) -> bool:
     if not input_fl or not target_fl:
         return False
-    input_clean = re.sub(r'[^a-z]', '', input_fl.lower())
-    target_clean = re.sub(r'[^a-z]', '', target_fl.lower())
+    input_clean = re.sub(r"[^a-z]", "", input_fl.lower())
+    target_clean = re.sub(r"[^a-z]", "", target_fl.lower())
     if not input_clean or not target_clean:
         return False
     if input_clean == target_clean:
@@ -85,7 +85,7 @@ def _first_letter_match(input_fl: str, target_fl: str) -> bool:
     return False
 
 
-def resolve_purchase_unit(input_unit: str) -> Optional[ResolvedPurchaseUnit]:
+def resolve_purchase_unit(input_unit: str) -> ResolvedPurchaseUnit | None:
     from app.db.session import get_db
 
     name = (input_unit or "").strip()
@@ -96,7 +96,7 @@ def resolve_purchase_unit(input_unit: str) -> Optional[ResolvedPurchaseUnit]:
         customers = db.query(PurchaseUnit).all()
         customer_names = [c.unit_name for c in customers if getattr(c, "unit_name", None)]
 
-        pinyin_map: Dict[str, Tuple[str, List[str], str]] = {}
+        pinyin_map: dict[str, tuple[str, list[str], str]] = {}
         for cn in customer_names:
             pinyin_map[cn] = (_to_pinyin(cn), _get_pinyin_parts(cn), _to_first_letters(cn))
 
@@ -104,14 +104,18 @@ def resolve_purchase_unit(input_unit: str) -> Optional[ResolvedPurchaseUnit]:
         input_parts = _get_pinyin_parts(name)
         input_fl = _to_first_letters(name)
 
-        best_match: Optional[Tuple[str, float]] = None
+        best_match: tuple[str, float] | None = None
 
         for cn, (pinyin_str, parts, fl) in pinyin_map.items():
             fl_match = _first_letter_match(input_fl, fl)
 
             if fl_match and len(input_parts) == len(parts):
                 for ip, cp in zip(input_parts, parts):
-                    if ip and cp and (ip[0] == cp[0] or ip.startswith(cp[:1]) or cp.startswith(ip[:1])):
+                    if (
+                        ip
+                        and cp
+                        and (ip[0] == cp[0] or ip.startswith(cp[:1]) or cp.startswith(ip[:1]))
+                    ):
                         similarity = _pinyin_similarity(name, cn)
                         if best_match is None or similarity > best_match[1]:
                             best_match = (cn, similarity)

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "workflow_viz_bridge_mod_id": "xcagi-workflow-visualization-bridge",
+  "legacy_monolith_mod_id": "xcagi-core-workflow-employees",
+  "legacy_monolith_employee_ids": [
+    "label_print",
+    "shipment_mgmt",
+    "receipt_confirm",
+    "wechat_msg"
+  ],
+  "split_mod_entries": [
+    {
+      "mod_id": "xcagi-workflow-employee-label-print",
+      "employee_id": "label_print",
+      "label": "标签打印 AI 员工",
+      "panel_title": "工作流 · 标签打印 AI 员工",
+      "panel_summary": "星标微信 → 意图命中「标签/打印」→ 对话执行打印。执行业务链在宿主；本 Mod 提供 run/status。"
+    },
+    {
+      "mod_id": "xcagi-workflow-employee-real-phone",
+      "employee_id": "real_phone",
+      "label": "真实电话业务员",
+      "panel_title": "工作流 · 真实电话业务员",
+      "panel_summary": "ADB 设备连通 → 来电检测/接听 → 语音转写与回复（与状态轮询同步）。"
+    },
+    {
+      "mod_id": "xcagi-workflow-employee-receipt-confirm",
+      "employee_id": "receipt_confirm",
+      "label": "收货确认 AI 员工",
+      "panel_title": "工作流 · 收货确认 AI 员工",
+      "panel_summary": "星标意图 → 收货/对账类客户反馈写入工作流进程；对话跟进确认。"
+    },
+    {
+      "mod_id": "xcagi-workflow-employee-shipment-mgmt",
+      "employee_id": "shipment_mgmt",
+      "label": "出货管理 AI 员工",
+      "panel_title": "工作流 · 出货管理 AI 员工",
+      "panel_summary": "对话开单 → 确认执行 → 开始打印 → 出货记录审计建议。"
+    },
+    {
+      "mod_id": "xcagi-workflow-employee-wechat-msg",
+      "employee_id": "wechat_msg",
+      "label": "微信消息处理 AI 员工",
+      "panel_title": "工作流 · 微信消息处理 AI 员工",
+      "panel_summary": "星标自动刷新 → 新消息 → 意图 API 或本地规则 → 任务列表。"
+    },
+    {
+      "mod_id": "xcagi-workflow-employee-wechat-phone",
+      "employee_id": "wechat_phone",
+      "label": "微信电话对接业务员",
+      "panel_title": "工作流 · 微信电话对接业务员",
+      "panel_summary": "副窗启用 → phone-agent start/stop → Win32 来电监控 → ASR/TTS（与 /status 轮询同步）。"
+    }
+  ],
+  "default_employee_ids": [
+    "label_print",
+    "real_phone",
+    "receipt_confirm",
+    "shipment_mgmt",
+    "wechat_msg",
+    "wechat_phone"
+  ],
+  "default_mod_ids": [
+    "xcagi-workflow-employee-label-print",
+    "xcagi-workflow-employee-real-phone",
+    "xcagi-workflow-employee-receipt-confirm",
+    "xcagi-workflow-employee-shipment-mgmt",
+    "xcagi-workflow-employee-wechat-msg",
+    "xcagi-workflow-employee-wechat-phone"
+  ]
+}

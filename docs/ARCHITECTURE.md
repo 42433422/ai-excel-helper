@@ -15,9 +15,17 @@ v1.0: 单文件脚本
 v2.0: 分层架构（MVC）
     ↓
 v3.0: 领域驱动设计（DDD）
+    ↓
+v4.0: AI 员工定位 + 全自动流程
+    ↓
+v5.0: Neuro-DDD 架构 + 小程序
+    ↓
+v6.0: 商业模式明确 + Mod 生态
+    ↓
+v7.0: 桌面版 + Web 版并行交付
 ```
 
-### 1.2 为什么选择 DDD？
+### 1.2 为什么选择 Neuro-DDD？
 
 **v2.0 架构的问题**:
 - ❌ 业务逻辑分散，难以维护
@@ -25,11 +33,12 @@ v3.0: 领域驱动设计（DDD）
 - ❌ 难以测试
 - ❌ 代码复用性差
 
-**v3.0 DDD 架构的优势**:
-- ✅ 清晰的职责划分
+**Neuro-DDD 架构的优势**:
+- ✅ 清晰的职责划分（Domain / Application / Infrastructure）
 - ✅ 业务逻辑集中在领域层
 - ✅ 易于测试和维护
 - ✅ 支持复杂业务场景
+- ✅ AI 用例编排（NeuroBus 事件总线）
 - ✅ 技术栈可替换
 
 ### 1.3 整体架构图
@@ -107,6 +116,58 @@ v3.0: 领域驱动设计（DDD）
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### 1.4 v7.0 桌面版架构
+
+v7.0 新增桌面交付形态，采用 Electron 壳 + 本地 FastAPI 子进程架构：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    桌面版架构（Desktop）                       │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Electron 主进程 (desktop/)                          │   │
+│  │  - 应用生命周期管理                                   │   │
+│  │  - 自动更新服务                                       │   │
+│  │  - 系统托盘/通知                                     │   │
+│  └─────────────────┬───────────────────────────────────┘   │
+│                    │ IPC                                    │
+│  ┌─────────────────▼───────────────────────────────────┐   │
+│  │  Electron 渲染进程 (frontend/)                        │   │
+│  │  - Vue 3 SPA                                        │   │
+│  │  - 本地 API 调用 (http://127.0.0.1:5000)            │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                    │                                        │
+│  ┌─────────────────▼───────────────────────────────────┐   │
+│  │  FastAPI 子进程 (app/)                                │   │
+│  │  - 本地 SQLite 数据库                                 │   │
+│  │  - 本地文件队列                                       │   │
+│  │  - 所有业务逻辑                                       │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│                     Web 版架构（Web）                         │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Nginx 反向代理                                      │   │
+│  └─────────────────┬───────────────────────────────────┘   │
+│                    │                                        │
+│  ┌─────────────────▼───────────────────────────────────┐   │
+│  │  FastAPI 应用 (app/)                                  │   │
+│  │  - PostgreSQL 数据库                                  │   │
+│  │  - Redis 缓存                                        │   │
+│  │  - Celery 异步任务                                    │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**桌面版特性**：
+- 环境变量 `XCAGI_DESKTOP_MODE=1` 启用桌面运行时
+- 使用 SQLite 替代 PostgreSQL
+- 本地队列替代 Redis/Celery
+- 自动更新支持
+- 离线可用性
+
 ---
 
 ## 📁 二、目录结构
@@ -116,68 +177,93 @@ v3.0: 领域驱动设计（DDD）
 ```
 app/
 ├── domain/                    # 领域层
-│   ├── product/              # 产品领域
+│   ├── ai/                   # AI 领域
 │   │   ├── __init__.py
-│   │   ├── entities.py       # 领域实体
-│   │   └── value_objects.py  # 值对象
-│   ├── customer/             # 客户领域
-│   │   ├── __init__.py
-│   │   └── entities.py
-│   ├── shipment/             # 发货领域
-│   │   ├── __init__.py
-│   │   ├── aggregates.py     # 聚合根
-│   │   └── shipment_product_parser.py
-│   ├── services/             # 领域服务
-│   │   ├── pricing_engine.py
-│   │   ├── shipment_rules_engine.py
-│   │   └── unified_intent_recognizer.py
+│   │   └── tier.py           # AI 层级定义
+│   ├── neuro/                # 神经域
+│   │   └── __init__.py
+│   ├── ports/                # 领域端口
+│   │   └── __init__.py
+│   ├── value_objects.py      # 值对象
 │   └── README.md             # 领域层说明
-│
+
 ├── application/              # 应用层
-│   ├── ports/                # 端口接口
-│   │   ├── product_repository.py
-│   │   ├── shipment_repository.py
-│   │   ├── file_analysis.py
-│   │   └── wechat_contact_store.py
-│   ├── __init__.py
-│   ├── product_app_service.py    # 应用服务
-│   ├── shipment_app_service.py
-│   ├── wechat_contact_app_service.py
-│   └── README.md
-│
-├── infrastructure/           # 基础设施层
-│   ├── repositories/         # 仓储实现
-│   │   ├── product_repository_impl.py
-│   │   └── shipment_repository_impl.py
-│   ├── database/             # 数据库
-│   │   └── database_manager.py
-│   ├── ocr/                  # OCR 服务
-│   │   └── ocr_adapter.py
-│   ├── printing/             # 打印服务
-│   │   └── printer_adapter.py
-│   ├── tts/                  # TTS 服务
-│   │   └── tts_adapter.py
-│   └── README.md
-│
-├── routes/                   # API 路由（表现层）
-│   ├── products.py
-│   ├── shipment.py
-│   ├── wechat_contacts.py
+│   ├── README.md             # 应用层说明
 │   └── __init__.py
 │
-├── services/                 # 业务服务（遗留，逐步迁移）
-│   ├── products_service.py
-│   ├── shipment_service.py
+├── infrastructure/           # 基础设施层
+│   ├── README.md             # 基础设施层说明
+│   ├── skills/               # AI 技能系统
+│   │   ├── label_template_generator/
+│   │   ├── excel_toolkit/
+│   │   └── excel_analyzer/
+│   ├── mods/                 # Mod 加载器
+│   ├── payment/              # 支付实现
+│   └── persistence/          # 持久化实现
+│
+├── fastapi_routes/           # FastAPI 路由（表现层）
+│   ├── ai_assistant.py
+│   ├── shipment_orders.py
+│   ├── excel_extract.py
+│   ├── miniprogram.py
+│   ├── ocr.py
+│   ├── print_routes.py
+│   └── ...
+│
+├── routes/                   # 兼容路由（遗留）
+│   ├── ai_chat.py
+│   ├── wechat_miniprogram.py
+│   └── ...
+│
+├── legacy/                   # 过渡期支持模块（待细拆）
+│   ├── tools.py
+│   ├── planner.py
+│   ├── llm_config.py
+│   └── ...
+│
+├── shell/                    # CLI 工具
+│   ├── mods_catalog.py
+│   ├── mods_schemas.py
+│   └── mod_row_scope.py
+│
+├── neuro_bus/                # NeuroBus 事件总线
+│   ├── bus.py
+│   ├── events/
+│   ├── domains/
 │   └── ...
 │
 ├── db/                       # 数据库模型（基础设施）
-│   ├── models/
+│   ├── models/               # ORM 模型
+│   │   ├── user.py
+│   │   ├── product.py
+│   │   ├── shipment.py
+│   │   ├── customer.py
+│   │   └── ...
 │   ├── base.py
-│   └── init_db.py
+│   ├── init_db.py
+│   └── session.py
 │
-└── utils/                    # 工具函数
-    ├── logger.py
-    └── ...
+├── di/                       # 依赖注入
+│   ├── registry.py           # 服务容器
+│   └── fastapi_deps.py
+│
+├── services/                 # 领域服务
+│   ├── auth_service.py
+│   ├── ocr_service.py
+│   ├── tts_service.py
+│   ├── wechat_contact_service.py
+│   └── ...
+│
+├── utils/                    # 工具函数
+│   ├── logger.py
+│   ├── cache_manager.py
+│   ├── retry.py
+│   └── ...
+│
+├── config.py                 # 配置管理
+├── bootstrap.py              # 应用启动
+├── fastapi_app.py            # FastAPI 应用工厂
+└── extensions.py             # 扩展模块
 ```
 
 ### 2.2 前端目录结构
@@ -785,4 +871,4 @@ DATABASE_URL = "mysql://..."
 
 ---
 
-*最后更新：2026-03-23*
+*最后更新：2026-05-26 - 版本号更新至 v8.0.0，添加跨行业适配说明*

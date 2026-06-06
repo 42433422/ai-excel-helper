@@ -7,8 +7,7 @@ Percentage 值对象
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Union
+from decimal import ROUND_HALF_UP, Decimal
 
 
 @dataclass(frozen=True)
@@ -24,14 +23,15 @@ class Percentage:
         >>> price = Money(Decimal("100"), Currency.CNY)
         >>> discounted_price = price * discount
     """
+
     value: Decimal
 
     def __post_init__(self):
         if not isinstance(self.value, Decimal):
-            object.__setattr__(self, 'value', Decimal(str(self.value)))
+            object.__setattr__(self, "value", Decimal(str(self.value)))
         # 标准化：保留两位小数
         rounded = self.value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        object.__setattr__(self, 'value', rounded)
+        object.__setattr__(self, "value", rounded)
 
     @classmethod
     def from_float(cls, value: float) -> Percentage:
@@ -76,7 +76,7 @@ class Percentage:
             raise ValueError("Result would be negative")
         return Percentage(result)
 
-    def multiply(self, factor: Union[int, float, Decimal]) -> Percentage:
+    def multiply(self, factor: int | float | Decimal) -> Percentage:
         """乘法"""
         return Percentage(self.value * Decimal(str(factor)))
 
@@ -111,10 +111,7 @@ class Percentage:
         return self.value < other.value
 
     def to_dict(self) -> dict:
-        return {
-            "value": float(self.value),
-            "display": self.as_display_string
-        }
+        return {"value": float(self.value), "display": self.as_display_string}
 
     @classmethod
     def from_dict(cls, data: dict) -> Percentage:

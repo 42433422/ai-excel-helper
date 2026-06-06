@@ -6,6 +6,48 @@
         <p class="muted">
           Mod ID: <code>taiyangniao-pro</code> — 在库项目中编辑后执行 <code>modman push</code> 部署到 XCAGI。
         </p>
+        <p class="muted small">
+          <router-link :to="{ name: 'taiyangniao-pro-settings' }">考勤转换设置</router-link>
+          （钉钉 → 明细裁窗、加班规则；原在「审批中心 → 流程规则」中，已迁于此）
+        </p>
+
+        <section class="card-block bridge-contact" aria-labelledby="bridge-contact-title">
+          <h3 id="bridge-contact-title">联系管理员</h3>
+          <p class="muted small">
+            通过客服桥接把消息送到管理员「内部客服」收件箱（与侧栏「外部客服」同一通道）。
+            分机：<code>{{ bridgeInstanceId }}</code>
+          </p>
+          <div class="form-row">
+            <input
+              v-model.trim="bridgeTitle"
+              type="text"
+              class="inp"
+              maxlength="256"
+              placeholder="简要说明问题或需求"
+            />
+          </div>
+          <div class="form-row">
+            <textarea
+              v-model.trim="bridgeDescription"
+              class="inp"
+              rows="2"
+              placeholder="补充说明（可选）"
+            />
+          </div>
+          <div class="actions">
+            <button
+              type="button"
+              class="btn primary"
+              :disabled="!bridgeTitle || bridgeSending"
+              @click="sendBridgeContact"
+            >
+              {{ bridgeSending ? '发送中…' : '发送到管理员' }}
+            </button>
+            <router-link class="btn" :to="{ name: 'enterprise-customer-service' }">打开外部客服</router-link>
+          </div>
+          <p v-if="bridgeOk" class="ok">{{ bridgeOk }}</p>
+          <p v-if="bridgeErr" class="err">{{ bridgeErr }}</p>
+        </section>
 
         <section class="card-block" aria-labelledby="upload-convert-title">
           <h3 id="upload-convert-title">上传转化</h3>
@@ -158,6 +200,38 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { apiFetch } from '@/utils/apiBase'
+import { useServiceBridge } from '@/composables/useServiceBridge'
+import { useServiceBridgeInstance } from '@/composables/useServiceBridgeInstance'
+
+const { instanceId: bridgeInstanceId, instanceName: bridgeInstanceName, persistInstanceSnapshot } =
+  useServiceBridgeInstance()
+const { createEnterpriseContact, submitting: bridgeSending } = useServiceBridge()
+const bridgeTitle = ref('')
+const bridgeDescription = ref('')
+const bridgeOk = ref('')
+const bridgeErr = ref('')
+
+async function sendBridgeContact() {
+  if (!bridgeTitle.value.trim()) return
+  bridgeOk.value = ''
+  bridgeErr.value = ''
+  persistInstanceSnapshot()
+  try {
+    await createEnterpriseContact({
+      source_instance_id: bridgeInstanceId.value,
+      source_instance_name: bridgeInstanceName.value,
+      request_type: '建议',
+      title: bridgeTitle.value.trim(),
+      description: bridgeDescription.value.trim() || undefined,
+      priority: 'normal',
+    })
+    bridgeOk.value = '已送达管理员总机，请在「外部客服」查看进度。'
+    bridgeTitle.value = ''
+    bridgeDescription.value = ''
+  } catch (e) {
+    bridgeErr.value = e instanceof Error ? e.message : '发送失败'
+  }
+}
 
 // 原有考勤转换相关
 const file = ref(null)

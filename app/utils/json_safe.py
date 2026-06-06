@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
 """将任意嵌套结构转为 JSON 可序列化数据，避免 jsonify 抛 TypeError -> HTTP 500。"""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 
 def json_safe(value: Any) -> Any:

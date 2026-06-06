@@ -8,13 +8,13 @@ X-Forwarded-For 默认 **不信任**。只有当上游代理 IP 命中
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from ipaddress import ip_address, ip_network
-from typing import Iterable, Optional
 
 from starlette.types import Scope
 
 
-def _peer_ip(scope: Scope) -> Optional[str]:
+def _peer_ip(scope: Scope) -> str | None:
     client = scope.get("client") if isinstance(scope, dict) else None
     if not client:
         return None
@@ -23,7 +23,7 @@ def _peer_ip(scope: Scope) -> Optional[str]:
     return None
 
 
-def _normalize(ip: Optional[str]) -> Optional[str]:
+def _normalize(ip: str | None) -> str | None:
     if not ip:
         return None
     ip = ip.strip()
@@ -77,7 +77,7 @@ def _xff_chain(scope: Scope) -> list[str]:
     return []
 
 
-def _real_ip_header(scope: Scope) -> Optional[str]:
+def _real_ip_header(scope: Scope) -> str | None:
     headers = scope.get("headers") or []
     for k, v in headers:
         try:
@@ -92,7 +92,7 @@ def _real_ip_header(scope: Scope) -> Optional[str]:
     return None
 
 
-def get_client_ip(scope: Scope, trusted_proxies: Iterable[str] = ()) -> Optional[str]:
+def get_client_ip(scope: Scope, trusted_proxies: Iterable[str] = ()) -> str | None:
     """
     返回标准化后的客户端 IP；若 socket peer 是已配置的可信代理，则继续解析 XFF。
 

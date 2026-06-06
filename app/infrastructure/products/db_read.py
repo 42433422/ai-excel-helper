@@ -25,13 +25,17 @@ def load_products_for_price_list_by_customer(customer_name: str, _ctx: Any) -> l
     if "products" not in insp.get_table_names():
         return []
     with eng.connect() as conn:
-        rows = conn.execute(
-            text(
-                "SELECT model_number, name, specification, unit, price FROM products "
-                "WHERE unit = :u ORDER BY id LIMIT 200"
-            ),
-            {"u": customer_name},
-        ).mappings().all()
+        rows = (
+            conn.execute(
+                text(
+                    "SELECT model_number, name, specification, unit, price FROM products "
+                    "WHERE unit = :u ORDER BY id LIMIT 200"
+                ),
+                {"u": customer_name},
+            )
+            .mappings()
+            .all()
+        )
     return [dict(r) for r in rows]
 
 

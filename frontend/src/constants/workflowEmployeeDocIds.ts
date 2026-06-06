@@ -1,17 +1,12 @@
 /**
- * 流程全景 / workflow-employee-docs 用的员工 id 分类。
- * 副窗内「微信电话 / 真实电话」两行仅当已加载 Mod 在 manifest 中声明对应 id 时才会出现，
- * 但文档里仍可能包含 wechat_phone / real_phone，故此处保留固定 id 分类。
+ * 流程全景文案中的员工 id 分类（角标展示）。
+ * 静态 JSON 已清空；合并 manifest 时由 buildSynthetic* 标为 mod_extension。
  */
-export const WORKFLOW_DOC_CORE_EMPLOYEE_IDS = [
-  'label_print',
-  'shipment_mgmt',
-  'receipt_confirm',
-  'wechat_msg',
-] as const
+import { WORKFLOW_EMPLOYEE_IDS } from '@/constants/workflowEmployeeMods'
 
-/** 前端写死的 Mod 服务相关行（非 manifest 动态追加），id 与副窗代码一致 */
-export const WORKFLOW_DOC_FIXED_MOD_SERVICE_IDS = ['wechat_phone', 'real_phone'] as const
+export const WORKFLOW_DOC_CORE_EMPLOYEE_IDS = WORKFLOW_EMPLOYEE_IDS.slice(0, 4)
+
+export const WORKFLOW_DOC_FIXED_MOD_SERVICE_IDS = WORKFLOW_EMPLOYEE_IDS.slice(4)
 
 export type WorkflowDocCoreId = (typeof WORKFLOW_DOC_CORE_EMPLOYEE_IDS)[number]
 export type WorkflowDocFixedModId = (typeof WORKFLOW_DOC_FIXED_MOD_SERVICE_IDS)[number]

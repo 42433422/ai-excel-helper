@@ -5,10 +5,9 @@
 """
 
 import logging
-from typing import Dict, Any, Optional
 from decimal import Decimal
 
-from app.neuro_bus.domains.base import NeuroDomain, DomainChannel, get_domain_registry
+from app.neuro_bus.domains.base import DomainChannel, NeuroDomain, get_domain_registry
 from app.neuro_bus.events.base import EventPriority
 from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
 
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 class ProductNeuroDomain(NeuroDomain):
     """
     产品神经域
-    
+
     事件：
     - product.created
     - product.updated
@@ -26,14 +25,14 @@ class ProductNeuroDomain(NeuroDomain):
     - product.deleted
     - product.archived
     """
-    
+
     domain_name = "product"
     default_channel = DomainChannel.STANDARD
-    
+
     def __init__(self, bus=None):
         super().__init__(bus)
         self._setup_handlers()
-    
+
     def _setup_handlers(self):
         @self.on("product.price_changed", priority=2)
         async def on_price_changed(event):
@@ -42,13 +41,13 @@ class ProductNeuroDomain(NeuroDomain):
             new_price = event.payload.get("new_price")
             logger.info(f"Price changed: {product_id} {old_price} -> {new_price}")
             bump_domain_handler_metric("product.price_changed")
-    
+
     async def initialize(self):
         logger.info("ProductNeuroDomain initialized")
-    
+
     async def shutdown(self):
         logger.info("ProductNeuroDomain shutdown")
-    
+
     def emit_product_created(
         self,
         product_id: str,
@@ -64,9 +63,9 @@ class ProductNeuroDomain(NeuroDomain):
                 "name": name,
                 "category": category,
                 "initial_price": str(initial_price),
-            }
+            },
         )
-    
+
     def emit_price_changed(
         self,
         product_id: str,
@@ -82,11 +81,11 @@ class ProductNeuroDomain(NeuroDomain):
                 "old_price": str(old_price),
                 "new_price": str(new_price),
                 "reason": reason,
-            }
+            },
         )
 
 
-_product_domain: Optional[ProductNeuroDomain] = None
+_product_domain: ProductNeuroDomain | None = None
 
 
 def get_product_domain() -> ProductNeuroDomain:

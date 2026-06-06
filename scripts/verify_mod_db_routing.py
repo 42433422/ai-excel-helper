@@ -22,7 +22,7 @@ from app.infrastructure.db.sync_engine import resolve_database_url_for_active_mo
 from app.request_active_mod_ctx import set_request_active_mod_id  # noqa: E402
 
 
-MODS = ["example-mod", "sz-qsm-pro", "taiyangniao-pro"]
+MODS = ["taiyangniao-pro"]
 
 
 def _probe(url: str) -> dict:

@@ -4,7 +4,7 @@ OCR 应用服务
 负责 OCR 文字识别相关的用例编排
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from app.services import OCRService
@@ -19,10 +19,11 @@ class OCRApplicationService:
     ):
         if ocr_service is None:
             from app.services import get_ocr_service
+
             ocr_service = get_ocr_service()
         self._ocr_service = ocr_service
 
-    def recognize_text(self, image_path: str) -> Dict[str, Any]:
+    def recognize_text(self, image_path: str) -> dict[str, Any]:
         """
         识别图片文字用例
 
@@ -34,7 +35,7 @@ class OCRApplicationService:
         """
         return self._ocr_service.recognize_text(image_path)
 
-    def recognize_text_from_bytes(self, image_bytes: bytes) -> Dict[str, Any]:
+    def recognize_text_from_bytes(self, image_bytes: bytes) -> dict[str, Any]:
         """
         从字节数据识别文字用例
 
@@ -46,7 +47,7 @@ class OCRApplicationService:
         """
         return self._ocr_service.recognize_text_from_bytes(image_bytes)
 
-    def recognize_trademark(self, image_path: str) -> Dict[str, Any]:
+    def recognize_trademark(self, image_path: str) -> dict[str, Any]:
         """
         识别商标用例
 
@@ -58,7 +59,7 @@ class OCRApplicationService:
         """
         return self._ocr_service.recognize_trademark(image_path)
 
-    def recognize_product(self, image_path: str) -> Dict[str, Any]:
+    def recognize_product(self, image_path: str) -> dict[str, Any]:
         """
         识别产品信息用例
 
@@ -70,7 +71,7 @@ class OCRApplicationService:
         """
         return self._ocr_service.recognize_product(image_path)
 
-    def batch_recognize(self, image_paths: list) -> Dict[str, Any]:
+    def batch_recognize(self, image_paths: list) -> dict[str, Any]:
         """
         批量识别用例
 
@@ -83,10 +84,7 @@ class OCRApplicationService:
         results = []
         for image_path in image_paths:
             result = self._ocr_service.recognize_text(image_path)
-            results.append({
-                "image_path": image_path,
-                "result": result
-            })
+            results.append({"image_path": image_path, "result": result})
 
         success_count = sum(1 for r in results if r["result"].get("success"))
         return {
@@ -94,7 +92,7 @@ class OCRApplicationService:
             "data": results,
             "total": len(results),
             "success_count": success_count,
-            "fail_count": len(results) - success_count
+            "fail_count": len(results) - success_count,
         }
 
 
@@ -102,7 +100,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(OCRApplicationService)
 
-_ocr_app_service: Optional[OCRApplicationService] = None
+_ocr_app_service: OCRApplicationService | None = None
 
 
 def get_ocr_app_service() -> OCRApplicationService:
@@ -130,7 +128,5 @@ def init_ocr_application_service(
 ) -> OCRApplicationService:
     """初始化 OCR 应用服务 (用于依赖注入)"""
     global _ocr_app_service
-    _ocr_app_service = OCRApplicationService(
-        ocr_service=ocr_service
-    )
+    _ocr_app_service = OCRApplicationService(ocr_service=ocr_service)
     return _ocr_app_service

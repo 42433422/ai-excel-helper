@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 小猫分析 · 业务库快照：从原材料、产品、出货表聚合摘要，供 LLM 做成本/库存/趋势类分析（非会计准则报表）。
 """
@@ -6,17 +5,14 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
+from datetime import UTC, datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
 def _fmt_dt(val: Any) -> str:
@@ -36,9 +32,9 @@ def build_kitten_business_snapshot(
     max_product_lines: int = 50,
     max_shipment_lines: int = 100,
     max_text_chars: int = 14000,
-) -> Dict[str, Any]:
-    stats: Dict[str, Any] = {}
-    lines: List[str] = [
+) -> dict[str, Any]:
+    stats: dict[str, Any] = {}
+    lines: list[str] = [
         "说明：以下为当前业务数据库中的库存与出货快照，可用于原材料成本、库存结构、近期销售等经营分析；",
         "不是会计准则下的财务报表，金额以系统内「单价×数量」估算，分析时请提醒用户以正式账目为准。",
         "",
@@ -55,20 +51,20 @@ def build_kitten_business_snapshot(
 
         with get_db() as db:
             total_m = (
-                db.query(func.count(Material.id))
+                db.query(func.count(Material.id)).filter(Material.is_active == 1).scalar() or 0
+            )
+            inv_val = (
+                db.query(
+                    func.coalesce(
+                        func.sum(
+                            cast(Material.quantity, SAFloat) * cast(Material.unit_price, SAFloat)
+                        ),
+                        0.0,
+                    )
+                )
                 .filter(Material.is_active == 1)
                 .scalar()
-                or 0
             )
-            inv_val = db.query(
-                func.coalesce(
-                    func.sum(
-                        cast(Material.quantity, SAFloat)
-                        * cast(Material.unit_price, SAFloat)
-                    ),
-                    0.0,
-                )
-            ).filter(Material.is_active == 1).scalar()
             inv_val = float(inv_val or 0)
             low_cnt = (
                 db.query(func.count(Material.id))
@@ -91,12 +87,8 @@ def build_kitten_business_snapshot(
         stats["materials_sample_lines"] = len(rows)
 
         lines.append("【原材料】")
-        lines.append(
-            f"- 在库条目数：{total_m}；按单价×数量估算库存总值：¥{inv_val:.2f}"
-        )
-        lines.append(
-            f"- 低于安全库存条目数（min_stock>0 且 quantity<min_stock）：{low_cnt}"
-        )
+        lines.append(f"- 在库条目数：{total_m}；按单价×数量估算库存总值：¥{inv_val:.2f}")
+        lines.append(f"- 低于安全库存条目数（min_stock>0 且 quantity<min_stock）：{low_cnt}")
         lines.append("- 明细样例（按创建时间倒序，最多列示若干条）：")
         for r in rows[:max_material_lines]:
             name = str(r.get("name") or "")
@@ -124,20 +116,21 @@ def build_kitten_business_snapshot(
 
         with get_db() as db:
             total_p = (
-                db.query(func.count(ProductModel.id))
-                .filter(ProductModel.is_active == 1)
-                .scalar()
+                db.query(func.count(ProductModel.id)).filter(ProductModel.is_active == 1).scalar()
                 or 0
             )
-            inv_pv = db.query(
-                func.coalesce(
-                    func.sum(
-                        cast(ProductModel.quantity, SAFloat)
-                        * cast(ProductModel.price, SAFloat)
-                    ),
-                    0.0,
+            inv_pv = (
+                db.query(
+                    func.coalesce(
+                        func.sum(
+                            cast(ProductModel.quantity, SAFloat) * cast(ProductModel.price, SAFloat)
+                        ),
+                        0.0,
+                    )
                 )
-            ).filter(ProductModel.is_active == 1).scalar()
+                .filter(ProductModel.is_active == 1)
+                .scalar()
+            )
             inv_pv = float(inv_pv or 0)
 
         stats["products_total"] = int(total_p)
@@ -148,9 +141,7 @@ def build_kitten_business_snapshot(
         stats["products_sample_lines"] = len(prows)
 
         lines.append("【成品/产品库】")
-        lines.append(
-            f"- 在架条目数：{total_p}；按单价×数量估算库存货值：¥{inv_pv:.2f}"
-        )
+        lines.append(f"- 在架条目数：{total_p}；按单价×数量估算库存货值：¥{inv_pv:.2f}")
         lines.append("- 明细样例：")
         for r in prows[:max_product_lines]:
             lines.append(
@@ -175,10 +166,10 @@ def build_kitten_business_snapshot(
         amt = sum(float(x.get("amount") or 0) for x in recs)
         stats["shipments_sample_amount_sum"] = round(amt, 2)
 
-        lines.append("【出货记录】（时间倒序的最近一批，用于观察近期销售结构；合计仅为本批金额之和，非全历史）")
         lines.append(
-            f"- 本批条数：{len(recs)}；本批各行 amount 合计：¥{amt:.2f}"
+            "【出货记录】（时间倒序的最近一批，用于观察近期销售结构；合计仅为本批金额之和，非全历史）"
         )
+        lines.append(f"- 本批条数：{len(recs)}；本批各行 amount 合计：¥{amt:.2f}")
         show = min(45, len(recs))
         for x in recs[:show]:
             lines.append(

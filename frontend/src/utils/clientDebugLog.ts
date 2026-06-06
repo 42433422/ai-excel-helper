@@ -1,4 +1,4 @@
-import { apiUrl } from './apiBase';
+import { apiFetch } from './apiBase';
 
 const STORAGE_KEY = 'xcagi_client_debug_log';
 
@@ -33,29 +33,42 @@ function stringifyArgs(args: unknown[]): string {
 }
 
 let posting = false;
+let bridgeForbidden = false;
 const queue: Record<string, unknown>[] = [];
 
 function flushQueue(): void {
+  if (bridgeForbidden) {
+    queue.length = 0;
+    return;
+  }
   if (posting || queue.length === 0) return;
   posting = true;
   const batch = queue.splice(0, 8);
   void Promise.all(
     batch.map((body) =>
-      fetch(apiUrl('/api/debug/client-log'), {
+      apiFetch('/api/debug/client-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      }).catch(() => {})
+      })
+        .then((resp) => {
+          // 404：后端未挂载该路由或代理未指向 FastAPI；停止上报避免控制台刷屏
+          if (resp.status === 403 || resp.status === 404) {
+            bridgeForbidden = true;
+            queue.length = 0;
+          }
+        })
+        .catch(() => {})
     )
   ).finally(() => {
     posting = false;
-    if (queue.length) flushQueue();
+    if (!bridgeForbidden && queue.length) flushQueue();
   });
 }
 
 /** 与旧版静态页一致：写入后端 ``debug_ndjson.log``（需路由 ``/api/debug/client-log`` 可用）。 */
 export function postClientDebugLog(payload: Record<string, unknown>): void {
-  if (!isBridgeEnabled()) return;
+  if (!isBridgeEnabled() || bridgeForbidden) return;
   queue.push(payload);
   flushQueue();
 }
@@ -66,7 +79,7 @@ export function postClientDebugLog(payload: Record<string, unknown>): void {
  * 关闭：``localStorage.xcagi_client_debug_log='0'``。
  */
 export function installClientConsoleBridge(): void {
-  if (!isBridgeEnabled()) return;
+  if (!isBridgeEnabled() || bridgeForbidden) return;
 
   const origError = console.error.bind(console);
   const origWarn = console.warn.bind(console);

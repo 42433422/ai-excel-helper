@@ -8,8 +8,6 @@ import logging
 
 from sqlalchemy.orm import validates
 
-from app.db.base import Base
-
 
 class ModelValidators:
     """模型验证器集合"""
@@ -51,7 +49,8 @@ class ModelValidators:
         if not value:
             return value
         import re
-        phone_pattern = re.compile(r'^[\d\-\+\(\)\s]{7,20}$')
+
+        phone_pattern = re.compile(r"^[\d\-\+\(\)\s]{7,20}$")
         if not phone_pattern.match(str(value)):
             raise ValueError("电话号码格式不正确")
         return value
@@ -62,7 +61,8 @@ class ModelValidators:
         if not value:
             return value
         import re
-        email_pattern = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+
+        email_pattern = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
         if not email_pattern.match(str(value)):
             raise ValueError("邮箱格式不正确")
         return value
@@ -76,17 +76,17 @@ def register_model_validators():
     """
     logger = logging.getLogger(__name__)
     try:
-        from app.db.models.product import Product
-        from app.db.models.purchase_unit import PurchaseUnit
         from app.db.models.customer import Customer
         from app.db.models.material import Material
+        from app.db.models.product import Product
+        from app.db.models.purchase_unit import PurchaseUnit
         from app.db.models.shipment import ShipmentRecord
 
         models_to_validate = [Product, PurchaseUnit, Customer, Material, ShipmentRecord]
         validated_count = len(models_to_validate)
 
         for model in models_to_validate:
-            if hasattr(model, '__tablename__'):
+            if hasattr(model, "__tablename__"):
                 logger.debug(f"验证器已就绪: {model.__tablename__}")
 
         logger.info(f"模型验证器已初始化 ({validated_count} 个模型)")

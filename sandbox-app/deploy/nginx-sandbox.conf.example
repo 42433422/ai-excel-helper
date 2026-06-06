@@ -1,0 +1,41 @@
+# 与主站同源 HTTPS：市场 /market，沙盒 /sandbox
+# 反代到本机 uvicorn 5099（前缀由 proxy_pass 去掉）
+
+location /sandbox/ {
+    proxy_pass http://127.0.0.1:5099/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    # 市场后端推送 Mod 时使用 Authorization: Bearer …；请显式转发以免上游 CSRF 误判
+    proxy_set_header Authorization $http_authorization;
+}
+
+# 若未设置 SANDBOX_URL_PREFIX，index.html 仍使用绝对路径 /assets/...，需把静态资源指回沙盒后端：
+location /sandbox/assets/ {
+    proxy_pass http://127.0.0.1:5099/assets/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+location /sandbox/font-awesome/ {
+    proxy_pass http://127.0.0.1:5099/font-awesome/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+}
+location /sandbox/startup/ {
+    proxy_pass http://127.0.0.1:5099/startup/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+}
+location /sandbox/yuangong/ {
+    proxy_pass http://127.0.0.1:5099/yuangong/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+}
+location /sandbox/workflow/ {
+    proxy_pass http://127.0.0.1:5099/workflow/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+}

@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { resolveErpApiPath } from '@/utils/erpDomainPaths'
 
 export interface PrintResult {
   success: boolean
@@ -11,6 +12,18 @@ export interface PrintSummary {
   shipmentPrinted: boolean
   shipmentMarked: boolean
   logs: string[]
+  success: boolean
+  message: string
+}
+
+type ApiResultPayload = {
+  success?: boolean
+  message?: string
+  updated?: boolean
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error || '未知错误')
 }
 
 export function usePrintService() {
@@ -18,12 +31,12 @@ export function usePrintService() {
 
   async function printLabel(filePath: string, copies: number = 1): Promise<PrintResult> {
     try {
-      const resp = await fetch('/api/print/label', {
+      const resp = await fetch(resolveErpApiPath('/api/print/label'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file_path: filePath, copies })
       })
-      const data = await resp.json().catch(() => ({}))
+      const data = (await resp.json().catch(() => ({}))) as ApiResultPayload
 
       if (resp.ok && data?.success) {
         return { success: true, message: '标签打印成功' }
@@ -33,22 +46,22 @@ export function usePrintService() {
           message: data?.message || `HTTP ${resp.status}`
         }
       }
-    } catch (e) {
+    } catch (e: unknown) {
       return {
         success: false,
-        message: e?.message || '未知错误'
+        message: errorMessage(e)
       }
     }
   }
 
   async function printDocument(filePath: string): Promise<PrintResult> {
     try {
-      const resp = await fetch('/api/print/document', {
+      const resp = await fetch(resolveErpApiPath('/api/print/document'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file_path: filePath })
       })
-      const data = await resp.json().catch(() => ({}))
+      const data = (await resp.json().catch(() => ({}))) as ApiResultPayload
 
       if (resp.ok && data?.success) {
         return { success: true, message: '发货单打印成功' }
@@ -58,10 +71,10 @@ export function usePrintService() {
           message: data?.message || `HTTP ${resp.status}`
         }
       }
-    } catch (e) {
+    } catch (e: unknown) {
       return {
         success: false,
-        message: e?.message || '未知错误'
+        message: errorMessage(e)
       }
     }
   }
@@ -73,12 +86,12 @@ export function usePrintService() {
         payload.order_id = orderId
       }
 
-      const resp = await fetch('/api/shipment/print', {
+      const resp = await fetch(resolveErpApiPath('/api/shipment/print'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
-      const data = await resp.json().catch(() => ({}))
+      const data = (await resp.json().catch(() => ({}))) as ApiResultPayload
 
       if (resp.ok && data?.success && data?.updated !== false) {
         return { success: true, message: '打印状态已更新' }
@@ -88,10 +101,10 @@ export function usePrintService() {
           message: data?.message || '更新失败'
         }
       }
-    } catch (e) {
+    } catch (e: unknown) {
       return {
         success: false,
-        message: e?.message || '未知错误'
+        message: errorMessage(e)
       }
     }
   }
@@ -109,7 +122,9 @@ export function usePrintService() {
       labelFailed: 0,
       shipmentPrinted: false,
       shipmentMarked: false,
-      logs: []
+      logs: [],
+      success: false,
+      message: '',
     }
 
     for (const lp of labelPaths) {
@@ -141,6 +156,12 @@ export function usePrintService() {
         summary.logs.push('打印状态未落库：缺少记录ID')
       }
     }
+
+    const shipmentOk = !filePath || (summary.shipmentPrinted && summary.shipmentMarked)
+    const labelsOk = labelPaths.length === 0 || summary.labelFailed === 0
+    summary.success = labelsOk && shipmentOk
+    summary.message =
+      summary.logs.join('；') || (summary.success ? '打印完成' : '打印未完全成功')
 
     isPrinting.value = false
     return summary

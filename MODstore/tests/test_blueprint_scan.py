@@ -5,13 +5,13 @@ from pathlib import Path
 from modman.blueprint_scan import scan_flask_route_decorators
 
 
-def test_scan_example_mod_blueprints() -> None:
+def test_scan_taiyangniao_mod_blueprints() -> None:
     root = Path(__file__).resolve().parent.parent
-    py = root / "library" / "example-mod" / "backend" / "blueprints.py"
+    py = root / "library" / "taiyangniao-pro" / "backend" / "blueprints.py"
     routes = scan_flask_route_decorators(py)
     paths = {(r["path"], tuple(r["methods"])) for r in routes}
     assert ("/hello", ("GET",)) in paths
-    assert ("/status", ("GET",)) in paths
+    assert ("/attendance/rules", ("GET",)) in paths
 
 
 def test_scan_empty_file(tmp_path: Path) -> None:

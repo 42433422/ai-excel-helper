@@ -3,12 +3,14 @@ import { storeToRefs } from 'pinia'
 import chatApi from '../api/chat'
 import { speakText, stopSpeaking, cleanTextForSpeech } from '../utils/tts'
 import { useModsStore } from '@/stores/mods'
+import { useIndustryStore } from '@/stores/industry'
+import { getIndustryWelcomeMarkdown } from '@/constants/industryPresets'
 import {
   buildChatMessagesKey,
   buildChatSessionMetaKey,
 } from '@/utils/chatStorageKeys'
 
-const WELCOME_MESSAGE_PREFIX = '您好！我是您的 AI 智能助手'
+const WELCOME_MESSAGE_PREFIX = '您好！我是您的'
 
 // TTS 语音队列：按顺序播放，避免多条并发抢扬声器
 const voiceQueue: string[] = []
@@ -78,6 +80,7 @@ export type ChatMessageExtras = Partial<Pick<ChatMessage, 'shipmentDownloadUrl'>
 
 export function useChatMessages(sessionId: Ref<string>) {
   const modsStore = useModsStore()
+  const industryStore = useIndustryStore()
   const { activeModId } = storeToRefs(modsStore)
   const storageKey = computed(() =>
     buildChatMessagesKey(String(sessionId.value || 'default'), String(activeModId.value || ''))
@@ -87,12 +90,13 @@ export function useChatMessages(sessionId: Ref<string>) {
   )
 
   function getDefaultWelcome(): ChatMessage[] {
+    const industryId = String(industryStore.currentIndustryId || '').trim() || '通用'
     return [
       {
         role: 'ai',
-        content: '您好！我是您的 AI 智能助手。<div style="margin-top: 8px;">我可以帮您：</div><ul style="margin: 8px 0 0 20px;"><li>查询产品信息和价格</li><li>管理出货单和订单</li><li>查看原材料库存</li><li>打印产品标签</li></ul><div style="margin-top: 8px;">请直接输入您的需求</div>',
-        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-      }
+        content: getIndustryWelcomeMarkdown(industryId),
+        time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      },
     ]
   }
 
@@ -103,7 +107,11 @@ export function useChatMessages(sessionId: Ref<string>) {
       const parsed = JSON.parse(raw)
       if (!Array.isArray(parsed) || !parsed.length) return getDefaultWelcome()
       const sanitized = sanitizeMessagesList(parsed)
-      return sanitized.length ? sanitized : getDefaultWelcome()
+      if (!sanitized.length) return getDefaultWelcome()
+      if (isWelcomeMessage(sanitized[0]) && /<[a-z]+[\s>]/i.test(sanitized[0].content)) {
+        sanitized[0] = getDefaultWelcome()[0]
+      }
+      return sanitized
     } catch (_e) {
       return getDefaultWelcome()
     }

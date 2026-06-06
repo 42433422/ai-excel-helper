@@ -5,7 +5,7 @@
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from app.services import PrinterService, ProductsService
@@ -20,10 +20,11 @@ class ProductApplicationService:
         printer_service: Optional["PrinterService"] = None,
     ):
         from app.services import get_printer_service, get_products_service
+
         self._products_service = products_service or get_products_service()
         self._printer_service = printer_service or get_printer_service()
 
-    def get_product_units(self) -> Dict[str, Any]:
+    def get_product_units(self) -> dict[str, Any]:
         """
         获取产品单位列表用例
 
@@ -34,11 +35,11 @@ class ProductApplicationService:
 
     def get_products(
         self,
-        unit: Optional[str] = None,
-        keyword: Optional[str] = None,
+        unit: str | None = None,
+        keyword: str | None = None,
         page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+        per_page: int = 20,
+    ) -> dict[str, Any]:
         """
         获取产品列表用例
 
@@ -52,13 +53,10 @@ class ProductApplicationService:
             产品列表和分页信息
         """
         return self._products_service.get_products(
-            unit_name=unit,
-            keyword=keyword,
-            page=page,
-            per_page=per_page
+            unit_name=unit, keyword=keyword, page=page, per_page=per_page
         )
 
-    def get_product(self, product_id: int) -> Dict[str, Any]:
+    def get_product(self, product_id: int) -> dict[str, Any]:
         """
         获取单个产品用例
 
@@ -70,7 +68,7 @@ class ProductApplicationService:
         """
         return self._products_service.get_product(product_id)
 
-    def create_product(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_product(self, data: dict[str, Any]) -> dict[str, Any]:
         """
         创建产品用例
 
@@ -87,16 +85,10 @@ class ProductApplicationService:
         product_name = data.get("product_name") or data.get("name")
 
         if not product_name:
-            return {
-                "success": False,
-                "message": "产品名称不能为空"
-            }
+            return {"success": False, "message": "产品名称不能为空"}
 
         if "price" in data and data["price"] < 0:
-            return {
-                "success": False,
-                "message": "价格不能为负数"
-            }
+            return {"success": False, "message": "价格不能为负数"}
 
         result = self._products_service.create_product(data)
 
@@ -105,7 +97,7 @@ class ProductApplicationService:
 
         return result
 
-    def update_product(self, product_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_product(self, product_id: int, data: dict[str, Any]) -> dict[str, Any]:
         """
         更新产品用例
 
@@ -117,10 +109,7 @@ class ProductApplicationService:
             更新结果
         """
         if "price" in data and data["price"] < 0:
-            return {
-                "success": False,
-                "message": "价格不能为负数"
-            }
+            return {"success": False, "message": "价格不能为负数"}
 
         result = self._products_service.update_product(product_id, data)
 
@@ -129,7 +118,7 @@ class ProductApplicationService:
 
         return result
 
-    def delete_product(self, product_id: int) -> Dict[str, Any]:
+    def delete_product(self, product_id: int) -> dict[str, Any]:
         """
         删除产品用例 (软删除)
 
@@ -146,7 +135,7 @@ class ProductApplicationService:
 
         return result
 
-    def import_products_from_excel(self, file_path: str, unit_name: str) -> Dict[str, Any]:
+    def import_products_from_excel(self, file_path: str, unit_name: str) -> dict[str, Any]:
         """
         从 Excel 导入产品用例
 
@@ -165,11 +154,8 @@ class ProductApplicationService:
         return result
 
     def get_product_labels(
-        self,
-        product_id: int,
-        quantity: int = 1,
-        label_type: str = "default"
-    ) -> Dict[str, Any]:
+        self, product_id: int, quantity: int = 1, label_type: str = "default"
+    ) -> dict[str, Any]:
         """
         获取产品标签用例
 
@@ -195,20 +181,14 @@ class ProductApplicationService:
             "specification": product.get("specification"),
             "unit": product.get("unit"),
             "quantity": quantity,
-            "label_type": label_type
+            "label_type": label_type,
         }
 
-        return {
-            "success": True,
-            "data": label_data
-        }
+        return {"success": True, "data": label_data}
 
     def print_product_labels(
-        self,
-        product_id: int,
-        quantity: int = 1,
-        label_type: str = "default"
-    ) -> Dict[str, Any]:
+        self, product_id: int, quantity: int = 1, label_type: str = "default"
+    ) -> dict[str, Any]:
         """
         打印产品标签用例
 
@@ -230,10 +210,8 @@ class ProductApplicationService:
         return self._printer_service.print_labels([label_data])
 
     def search_products(
-        self,
-        keyword: str,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, keyword: str, filters: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         高级产品搜索用例
 
@@ -250,10 +228,10 @@ class ProductApplicationService:
             unit=filters.get("unit"),
             keyword=keyword,
             page=filters.get("page", 1),
-            per_page=filters.get("per_page", 20)
+            per_page=filters.get("per_page", 20),
         )
 
-    def get_product_statistics(self, unit: Optional[str] = None) -> Dict[str, Any]:
+    def get_product_statistics(self, unit: str | None = None) -> dict[str, Any]:
         """
         获取产品统计信息用例
 
@@ -271,8 +249,8 @@ class ProductApplicationService:
             "data": {
                 "total_products": total,
                 "unit": unit or "全部",
-                "statistics_time": datetime.now().isoformat()
-            }
+                "statistics_time": datetime.now().isoformat(),
+            },
         }
 
     def _log_action(self, action: str, **kwargs):
@@ -290,7 +268,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(ProductApplicationService)
 
-_product_app_service: Optional[ProductApplicationService] = None
+_product_app_service: ProductApplicationService | None = None
 
 
 def get_product_app_service() -> ProductApplicationService:
@@ -307,21 +285,18 @@ def get_product_application_service() -> ProductApplicationService:
 
 
 def init_product_application_service(
-    products_service: "ProductsService",
-    printer_service: Optional["PrinterService"] = None
+    products_service: "ProductsService", printer_service: Optional["PrinterService"] = None
 ) -> "ProductApplicationService":
     """初始化产品应用服务 (用于依赖注入)"""
     global _product_app_service
     _product_app_service = ProductApplicationService(
-        products_service=products_service,
-        printer_service=printer_service
+        products_service=products_service, printer_service=printer_service
     )
     return _product_app_service
 
 
 def init_product_app_service(
-    products_service: "ProductsService",
-    printer_service: Optional["PrinterService"] = None
+    products_service: "ProductsService", printer_service: Optional["PrinterService"] = None
 ) -> "ProductApplicationService":
     """初始化产品应用服务 (用于依赖注入) (别名)"""
     return init_product_application_service(products_service, printer_service)

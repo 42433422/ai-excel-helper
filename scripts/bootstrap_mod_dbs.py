@@ -3,11 +3,12 @@
 """
 为每个扩展（Mod）在 PostgreSQL 上创建独立业务库，并启用 pgvector。
 
-与 backend/mod_database_url.py 中 XCAGI_MOD_ISOLATED_DATABASES=1 时的命名一致：
+与 app.db / app.infrastructure.db.mod_database_url 中
+XCAGI_MOD_ISOLATED_DATABASES=1 时的命名一致：
     {基库名}__{mod_id 规范化小写后缀}
 
 策略：
-- sz-qsm-pro 作为「primary=true」的主力 Mod，承接当前基库数据：
+- 默认以 ``taiyangniao-pro`` 作为「从基库克隆」的 Mod（``--clone-from-base``），承接当前基库数据：
   用 CREATE DATABASE ... WITH TEMPLATE <base> 克隆一份；这要求源库无其它连接。
 - 其余 Mod 起空库，随后交给 migrate_mod_dbs.py 跑 alembic。
 - 已存在的库一律 SKIP（幂等）。
@@ -44,11 +45,18 @@ except ImportError:
     pass
 
 
-PRIMARY_CLONE_MOD_ID_DEFAULT = "sz-qsm-pro"
+PRIMARY_CLONE_MOD_ID_DEFAULT = "taiyangniao-pro"
+# 需完整 ERP/产品域表结构的 Mod：从基库 TEMPLATE 克隆（空库 + alembic 无法补齐 products 等历史表）
+DEFAULT_CLONE_FROM_BASE_MOD_IDS = (
+    PRIMARY_CLONE_MOD_ID_DEFAULT,
+    "xcagi-erp-domain-bridge",
+)
 
 
 def _normalize_mod_file_suffix(mod_id: str) -> str:
-    return "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").lower()
+    return (
+        "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").lower()
+    )
 
 
 def _discover_mod_ids() -> list[str]:
@@ -135,9 +143,7 @@ def _create_db_from_template(conn, new_db: str, template_db: str, owner: str | N
     if terminated:
         print(f"  -> terminated {terminated} existing connection(s) on {template_db}")
     owner_clause = f' OWNER "{owner}"' if owner else ""
-    conn.execute(
-        text(f'CREATE DATABASE "{new_db}" WITH TEMPLATE "{template_db}"{owner_clause}')
-    )
+    conn.execute(text(f'CREATE DATABASE "{new_db}" WITH TEMPLATE "{template_db}"{owner_clause}'))
 
 
 def _create_db_empty(conn, new_db: str, owner: str | None) -> None:
@@ -145,6 +151,53 @@ def _create_db_empty(conn, new_db: str, owner: str | None) -> None:
 
     owner_clause = f' OWNER "{owner}"' if owner else ""
     conn.execute(text(f'CREATE DATABASE "{new_db}"{owner_clause}'))
+
+
+def _url_for_database(base_url_obj, dbname: str) -> str:
+    return base_url_obj.set(database=dbname).render_as_string(hide_password=False)
+
+
+def _parse_clone_mod_ids(raw: str) -> set[str]:
+    s = str(raw or "").strip()
+    if not s or s.lower() == "none":
+        return set()
+    return {p.strip() for p in s.split(",") if p.strip()}
+
+
+def _drop_database(conn, dbname: str) -> None:
+    from sqlalchemy import text
+
+    _terminate_other_connections(conn, dbname)
+    conn.execute(text(f'DROP DATABASE IF EXISTS "{dbname}"'))
+
+
+def recreate_mod_database_from_base(mod_id: str, *, force: bool = True) -> bool:
+    """删除并自基库 TEMPLATE 重建指定 Mod 库（修复空库迁移失败）。"""
+    base_url = (os.environ.get("DATABASE_URL") or "").strip()
+    if not base_url.startswith("postgresql") and not base_url.startswith("postgres"):
+        return False
+    suf = _normalize_mod_file_suffix(mod_id)
+    if not suf:
+        return False
+    from sqlalchemy.engine import make_url
+
+    base_u = make_url(base_url)
+    base_db = (base_u.database or "xcagi").strip()
+    dbn = f"{base_db}__{suf}"
+    admin_engine = _maintenance_engine(base_url)
+    with admin_engine.connect() as conn:
+        if not _db_exists(conn, base_db):
+            admin_engine.dispose()
+            return False
+        if _db_exists(conn, dbn):
+            print(f"DROP {dbn}")
+            _drop_database(conn, dbn)
+        print(f"CLONE {base_db} -> {dbn}")
+        _create_db_from_template(conn, dbn, base_db, base_u.username or None)
+    admin_engine.dispose()
+    mod_url = _url_for_database(base_u, dbn)
+    _enable_pgvector(mod_url, dbn)
+    return True
 
 
 def _enable_pgvector(mod_url: str, dbname: str) -> None:
@@ -165,14 +218,21 @@ def _enable_pgvector(mod_url: str, dbname: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
         "--clone-from-base",
-        default=PRIMARY_CLONE_MOD_ID_DEFAULT,
+        default=",".join(DEFAULT_CLONE_FROM_BASE_MOD_IDS),
         help=(
-            "用 WITH TEMPLATE <base> 克隆基库的 mod id（承接历史数据）。"
-            f"默认 {PRIMARY_CLONE_MOD_ID_DEFAULT}；传 'none' 代表全部空建。"
+            "用 WITH TEMPLATE <base> 克隆基库的 mod id 列表（逗号分隔）。"
+            f"默认 {','.join(DEFAULT_CLONE_FROM_BASE_MOD_IDS)}；传 'none' 代表全部空建。"
         ),
+    )
+    parser.add_argument(
+        "--recreate",
+        default="",
+        help="已存在时也 DROP 后自基库克隆（逗号分隔 mod id，如 xcagi-erp-domain-bridge）",
     )
     args = parser.parse_args(argv)
 
@@ -198,13 +258,16 @@ def main(argv: list[str] | None = None) -> int:
     base_u = make_url(base_url)
     base_db = (base_u.database or "xcagi").strip()
     owner = base_u.username or None
-    clone_from_base = "" if str(args.clone_from_base).strip().lower() == "none" else str(args.clone_from_base).strip()
+    clone_mod_ids = _parse_clone_mod_ids(str(args.clone_from_base))
+    recreate_mod_ids = _parse_clone_mod_ids(str(args.recreate or ""))
 
     print("============================================================")
     print(" bootstrap_mod_dbs.py")
     print(f" base database: {base_db}")
     print(f" mods:          {', '.join(mod_ids)}")
-    print(f" clone target:  {clone_from_base or '(none, all empty)'}")
+    print(f" clone targets: {', '.join(sorted(clone_mod_ids)) or '(none, all empty)'}")
+    if recreate_mod_ids:
+        print(f" recreate:      {', '.join(sorted(recreate_mod_ids))}")
     print("============================================================")
     print("WARNING: 建议先停掉后端 / 关闭所有连向基库的 psql，再继续。")
     print()
@@ -224,9 +287,13 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             dbn = f"{base_db}__{suf}"
             if _db_exists(conn, dbn):
-                print(f"SKIP exists: {dbn}")
-                continue
-            if mid == clone_from_base:
+                if mid in recreate_mod_ids:
+                    print(f"RECREATE {dbn} from {base_db}")
+                    _drop_database(conn, dbn)
+                else:
+                    print(f"SKIP exists: {dbn}")
+                    continue
+            if mid in clone_mod_ids:
                 print(f"CLONE {base_db} -> {dbn}")
                 _create_db_from_template(conn, dbn, base_db, owner)
             else:
@@ -242,7 +309,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print("\n-- enabling pgvector on new databases --")
     for _mid, dbn in created:
-        mod_url = str(base_u.set(database=dbn))
+        mod_url = _url_for_database(base_u, dbn)
         _enable_pgvector(mod_url, dbn)
 
     print("\nDone. Next:")

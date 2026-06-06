@@ -8,6 +8,7 @@
 
 import os
 import copy
+import json
 import yaml
 import logging
 from typing import Dict, List, Any, Optional
@@ -291,16 +292,121 @@ def get_industry_config() -> Dict[str, Any]:
     return _load_config()
 
 
+def _resolve_mods_root_for_disk_scan() -> Optional[str]:
+    """
+    解析 mods 根目录用于"脱离 mod_manager 的纯磁盘兜底扫描"。
+
+    复用 ``app.infrastructure.mods.mod_manager._default_mods_root`` 的解析顺序
+    （env > package-relative > cwd > 向上查找），但不依赖 mod_manager 单例
+    是否完成初始化——避免 import/init 早期 /api/system/industries 命中
+    YAML 4 项硬编码。
+    """
+    env = (os.environ.get("XCAGI_MODS_ROOT") or os.environ.get("XCAGI_MODS_DIR") or "").strip()
+    if env:
+        p = os.path.abspath(env)
+        if os.path.isdir(p):
+            return p
+
+    here = os.path.abspath(__file__)
+    pkg_layout = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(here))), "mods"
+    )
+    if os.path.isdir(pkg_layout):
+        return pkg_layout
+
+    cwd_mods = os.path.join(os.getcwd(), "mods")
+    if os.path.isdir(cwd_mods):
+        return cwd_mods
+
+    cur = os.path.abspath(os.getcwd())
+    for _ in range(8):
+        trial = os.path.join(cur, "mods")
+        if os.path.isdir(trial):
+            return trial
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            break
+        cur = parent
+    return None
+
+
+def _disk_scan_industries_dict() -> Dict[str, Dict[str, Any]]:
+    """
+    纯磁盘兜底：直接读 ``<mods_root>/<mod_id>/manifest.json`` 的 ``industry`` 块，
+    不依赖 mod_manager / mod_registry。
+
+    用途：``_mod_industries_dict()`` 在 mod_manager 还没初始化（典型为请求早于
+    backend 加载完成）时返回空，再走 YAML 兜底就会让前端看到 4 项硬编码。这里
+    只要磁盘上有任意 ``manifest.json`` 声明了 ``industry.id``，就把它们当作
+    真实可用行业返回。
+
+    返回结构与 ``_mod_industries_dict()`` 一致（key=industry_id，value=industry
+    dict 去掉 id），便于上层 ``get_available_industries`` 直接复用。
+    """
+    root = _resolve_mods_root_for_disk_scan()
+    if not root or not os.path.isdir(root):
+        return {}
+
+    out: Dict[str, Dict[str, Any]] = {}
+    try:
+        entries = os.listdir(root)
+    except OSError as e:
+        logger.debug("disk-scan industries: listdir(%s) failed: %s", root, e)
+        return {}
+
+    primary_first: List[tuple] = []
+    for entry in entries:
+        if entry.startswith("_"):
+            continue
+        mod_dir = os.path.join(root, entry)
+        if not os.path.isdir(mod_dir):
+            continue
+        manifest_path = os.path.join(mod_dir, "manifest.json")
+        if not os.path.isfile(manifest_path):
+            continue
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+        except Exception as e:
+            logger.debug(
+                "disk-scan industries: skip %s (manifest unreadable: %s)", entry, e
+            )
+            continue
+        if not isinstance(manifest, dict):
+            continue
+        ind = manifest.get("industry")
+        if not isinstance(ind, dict):
+            continue
+        industry_id = str(ind.get("id") or "").strip()
+        if not industry_id:
+            continue
+        # primary mod 排前，与 _mod_industries_dict 行为一致，便于
+        # get_current_industry 选稳定默认值
+        primary_first.append((not bool(manifest.get("primary")), industry_id, ind))
+
+    primary_first.sort(key=lambda t: (t[0], t[1].lower()))
+    for _, industry_id, ind in primary_first:
+        if industry_id in out:
+            continue
+        out[industry_id] = {k: v for k, v in ind.items() if k != "id"}
+    return out
+
+
 def _mod_industries_dict() -> Dict[str, Dict[str, Any]]:
     """
-    从已加载 Mod 的 manifest.industry 声明聚合行业字典。
+    从已加载 + 磁盘扫描的 Mod manifest.industry 聚合行业字典。
 
     约定：每个 Mod 可在 manifest.json 顶层声明 ``"industry": {...}``，字段与
     ``industry_config.yaml`` 下 ``industries[<id>]`` 条目一致，并额外提供 ``id``。
     例如：``{"id": "涂料", "name": "涂料/油漆行业", "units": {...}, ...}``。
 
-    返回按顺序合并后的 dict（primary Mod 先合并，后者不覆盖已存在的 id），
-    便于调用方保持稳定的"主行业在最前"语义。
+    优先级：``list_loaded_mods()`` 已注册的 Mod 先合并；``scan_mods()`` 磁盘
+    manifest 仅用于兜底「磁盘上有 manifest 但 backend init 尚未/未能完成注册」
+    的过渡态——例如 backend init 还没运行、依赖错误导致 init 失败等。前端不应
+    因此就拿不到该 Mod 的行业并被迫回退到 YAML。
+
+    primary Mod 优先排序，便于 get_current_industry 挑选稳定的默认值。同 mod
+    id 在 loaded 与 scanned 两侧重复时，loaded 先到者保留（不被 scanned 覆盖）。
 
     导入 mod_manager 失败（典型如单元测试或初始化早期）时返回 {}，调用方据此
     回落到 YAML。
@@ -312,16 +418,39 @@ def _mod_industries_dict() -> Dict[str, Dict[str, Any]]:
 
     try:
         mod_manager = get_mod_manager()
-        loaded = list(mod_manager.list_loaded_mods())
     except Exception as e:
         logger.debug("Mod manager not ready for industry aggregation: %s", e)
         return {}
 
+    try:
+        loaded = list(mod_manager.list_loaded_mods())
+    except Exception as e:
+        logger.debug("list_loaded_mods failed, treat as empty: %s", e)
+        loaded = []
+
+    try:
+        scanned = list(mod_manager.scan_mods())
+    except Exception as e:
+        # scan 失败时仍回到 loaded-only 的旧行为，避免 /api/system/* 直接 500
+        logger.debug("scan_mods failed, only use list_loaded_mods: %s", e)
+        scanned = []
+
+    def _sort_key(m: Any) -> tuple:
+        return (not getattr(m, "primary", False), (getattr(m, "id", "") or "").lower())
+
     # primary Mod 优先，便于 get_current_industry 挑选稳定的默认值
-    loaded.sort(key=lambda m: (not getattr(m, "primary", False), (m.id or "").lower()))
+    loaded.sort(key=_sort_key)
+    scanned.sort(key=_sort_key)
 
     out: Dict[str, Dict[str, Any]] = {}
-    for m in loaded:
+    seen_mod_ids: set = set()
+    combined = list(loaded) + list(scanned)
+    for m in combined:
+        mid = str(getattr(m, "id", "") or "").strip()
+        if mid and mid in seen_mod_ids:
+            continue
+        if mid:
+            seen_mod_ids.add(mid)
         ind = getattr(m, "industry", None)
         if not isinstance(ind, dict):
             continue
@@ -331,7 +460,7 @@ def _mod_industries_dict() -> Dict[str, Dict[str, Any]]:
         if industry_id in out:
             # 多 Mod 声明同一行业时保留先到者（primary 已排前），忽略后续冲突
             logger.debug(
-                "Mod %s 声明的行业 %s 已由先前 Mod 提供，忽略", m.id, industry_id
+                "Mod %s 声明的行业 %s 已由先前 Mod 提供，忽略", mid, industry_id
             )
             continue
         data = {k: v for k, v in ind.items() if k != "id"}
@@ -339,9 +468,28 @@ def _mod_industries_dict() -> Dict[str, Dict[str, Any]]:
     return out
 
 
+def _effective_mod_industries_dict() -> Dict[str, Dict[str, Any]]:
+    """
+    `_mod_industries_dict()` 走 mod_manager；若 mod_manager 未就绪/异常导致
+    拿到空字典，则回落到 ``_disk_scan_industries_dict()`` 直接读磁盘 manifest。
+    所有"是否有 mod 声明行业"的判断都应走这里，避免被 mod_manager 时序问题坑。
+    """
+    via_manager = _mod_industries_dict()
+    if via_manager:
+        return via_manager
+    via_disk = _disk_scan_industries_dict()
+    if via_disk:
+        logger.info(
+            "industry config: mod_manager returned empty, fell back to disk scan "
+            "and found %d mod-declared industry/industries",
+            len(via_disk),
+        )
+    return via_disk
+
+
 def _first_mod_industry_id() -> Optional[str]:
     """已加载 Mod 中第一个（primary 优先）声明的行业 id，无则返回 None。"""
-    mods_ind = _mod_industries_dict()
+    mods_ind = _effective_mod_industries_dict()
     if not mods_ind:
         return None
     # dict 保留插入顺序，_mod_industries_dict 已按 primary 优先排序
@@ -352,10 +500,17 @@ def get_available_industries() -> List[Dict[str, str]]:
     """
     获取可用行业列表。
 
-    优先级：**已加载 Mod 声明的行业 > YAML 配置的行业**。Mod 声明为空时
-    回退到 YAML，保证无 Mod 环境（开发/单测）可用。
+    优先级：**已加载 Mod 声明的行业 > 磁盘 manifest 扫描的 Mod 行业 >
+    YAML 配置的行业**。前两级有任意一个非空就只返回它，YAML 仅在完全没有
+    mod 目录或 mod manifest 都不声明 industry 时才被使用，保证无 Mod 环境
+    （开发/单测）可用。
+
+    历史问题：mod_manager 还没注册完成时 ``_mod_industries_dict()`` 会返回
+    空字典，上层就会直接落到 YAML，前端下拉因此出现 4 项 YAML 硬编码——
+    现已通过 ``_effective_mod_industries_dict()`` 在 manager 空时走纯磁盘
+    扫描，避免该回归。
     """
-    mod_industries = _mod_industries_dict()
+    mod_industries = _effective_mod_industries_dict()
     if mod_industries:
         return [
             {"id": industry_id, "name": data.get("name", industry_id)}
@@ -378,11 +533,11 @@ def get_industry_profile(industry_id: Optional[str] = None) -> IndustryProfile:
     """
     获取指定行业配置。
 
-    查找顺序：已加载 Mod 声明 → YAML。若 industry_id 为 None，则采用"当前行业"
-    （见 get_current_industry）。任何层都找不到时回落到 YAML 中的 ``涂料``，
-    再不行则使用空配置。
+    查找顺序：已加载 Mod 声明 → 磁盘 manifest 扫描 → YAML。若 industry_id 为
+    None，则采用"当前行业"（见 get_current_industry）。任何层都找不到时回落
+    到 YAML 中的 ``涂料``，再不行则使用空配置。
     """
-    mod_industries = _mod_industries_dict()
+    mod_industries = _effective_mod_industries_dict()
 
     if industry_id is None:
         industry_id = get_current_industry()
@@ -420,7 +575,7 @@ def get_current_industry() -> str:
     config = _load_config()
     yaml_default = _resolve_default_industry(config)
 
-    mod_industries = _mod_industries_dict()
+    mod_industries = _effective_mod_industries_dict()
 
     runtime_default = config.get("default_industry")
     if isinstance(runtime_default, str) and runtime_default.strip():
@@ -442,12 +597,15 @@ def set_current_industry(industry_id: str) -> bool:
     """
     设置当前行业（仅修改运行时状态，不持久化）。
 
-    合法集合 = 已加载 Mod 声明的行业 ∪ YAML 行业。任何一方承认即可。
+    合法集合 = 已加载 Mod 声明的行业 ∪ 磁盘扫描 Mod 声明的行业 ∪ YAML 行业。
+    任何一方承认即可。``_effective_mod_industries_dict()`` 内部先走 mod_manager
+    再走纯磁盘 manifest 兜底，所以 backend init 尚未完成的 Mod 也能即刻被设为
+    当前行业，无需等待 registry。
     """
     global _industry_config
     config = _load_config()
     yaml_industries = _industries_dict_from_config(config)
-    mod_industries = _mod_industries_dict()
+    mod_industries = _effective_mod_industries_dict()
 
     if industry_id not in yaml_industries and industry_id not in mod_industries:
         logger.error(f"无法设置未知行业: {industry_id}")

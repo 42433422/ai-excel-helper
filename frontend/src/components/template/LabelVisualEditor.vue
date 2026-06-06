@@ -1,6 +1,6 @@
 <template>
   <div class="visual-editor">
-    <div class="editor-layout">
+    <div class="editor-layout" :style="editorPaneStyle">
       <!-- 上：标签预览区 -->
       <div class="preview-section">
         <h4 class="section-title"><i class="fa fa-file-text-o" aria-hidden="true"></i> 标签预览</h4>
@@ -19,6 +19,13 @@
         <div class="canvas-instructions">
           <span><i class="fa fa-lightbulb-o" aria-hidden="true"></i> 点击字段进行编辑 · 拖拽调整位置</span>
         </div>
+        <PaneResizeHandle
+          v-if="isLabelEditorPaneResizable"
+          orientation="horizontal"
+          label="调整标签预览高度"
+          @resize-start="onLabelEditorPaneResizeStart"
+          @reset="resetLabelEditorPaneHeight"
+        />
       </div>
 
       <!-- 下：字段属性面板 -->
@@ -83,8 +90,68 @@
 </template>
 
 <script>
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import PaneResizeHandle from '@/components/PaneResizeHandle.vue'
+import { useResizablePane } from '@/composables/useResizablePane'
+
 export default {
   name: 'LabelVisualEditor',
+  components: {
+    PaneResizeHandle
+  },
+  setup() {
+    const LABEL_EDITOR_MQ = '(max-width: 960px)'
+    const isLabelEditorPaneResizable = ref(true)
+    let labelEditorViewportMedia = null
+    const {
+      paneStyle: editorPaneStyle,
+      startResize: onLabelEditorPaneResizeStart,
+      resetSize: resetLabelEditorPaneHeight,
+      stopResize: stopLabelEditorPaneResize,
+    } = useResizablePane({
+      paneKey: 'template.label-editor.preview-height',
+      cssVarName: '--label-editor-preview-height',
+      orientation: 'horizontal',
+      defaultSize: 420,
+      minSize: 280,
+      maxSize: 680,
+      enabled: () => isLabelEditorPaneResizable.value,
+    })
+
+    const onLabelEditorViewportChange = (event) => {
+      isLabelEditorPaneResizable.value = !event.matches
+      if (!isLabelEditorPaneResizable.value) {
+        stopLabelEditorPaneResize()
+      }
+    }
+
+    onMounted(() => {
+      labelEditorViewportMedia = window.matchMedia(LABEL_EDITOR_MQ)
+      onLabelEditorViewportChange(labelEditorViewportMedia)
+      if (typeof labelEditorViewportMedia.addEventListener === 'function') {
+        labelEditorViewportMedia.addEventListener('change', onLabelEditorViewportChange)
+      } else if (typeof labelEditorViewportMedia.addListener === 'function') {
+        labelEditorViewportMedia.addListener(onLabelEditorViewportChange)
+      }
+    })
+
+    onBeforeUnmount(() => {
+      stopLabelEditorPaneResize()
+      if (!labelEditorViewportMedia) return
+      if (typeof labelEditorViewportMedia.removeEventListener === 'function') {
+        labelEditorViewportMedia.removeEventListener('change', onLabelEditorViewportChange)
+      } else if (typeof labelEditorViewportMedia.removeListener === 'function') {
+        labelEditorViewportMedia.removeListener(onLabelEditorViewportChange)
+      }
+    })
+
+    return {
+      editorPaneStyle,
+      isLabelEditorPaneResizable,
+      onLabelEditorPaneResizeStart,
+      resetLabelEditorPaneHeight,
+    }
+  },
   props: {
     fields: {
       type: Array,
@@ -388,11 +455,11 @@ export default {
 
       const index = this.fields.findIndex(f => f.id === this.selectedFieldId)
       if (index > -1) {
-        this.fields.splice(index, 1)
+        const updated = this.fields.filter(f => f.id !== this.selectedFieldId)
         this.selectedField = null
         this.selectedFieldId = null
         this.drawCanvas()
-        this.$emit('fields-update', this.fields)
+        this.$emit('fields-update', updated)
       }
     },
 
@@ -415,10 +482,13 @@ export default {
   gap: 16px;
   height: 100%;
   min-height: 600px;
+  --label-editor-preview-height: 420px;
 }
 
 .preview-section {
-  flex: 1;
+  position: relative;
+  flex: 0 0 var(--label-editor-preview-height);
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -462,6 +532,8 @@ export default {
 }
 
 .properties-section {
+  flex: 1 1 auto;
+  min-height: 0;
   background: #f8f9fa;
   border-radius: 8px;
   padding: 16px;

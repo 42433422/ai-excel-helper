@@ -1,0 +1,5 @@
+﻿{
+  "sku": "enterprise",
+  "schema_version": 1,
+  "_dev_note": "本地 dev 占位；打包时由 build-installer.ps1 -ProductSku 覆盖"
+}

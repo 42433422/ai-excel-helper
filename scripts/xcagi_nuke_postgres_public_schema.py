@@ -95,9 +95,7 @@ def main() -> int:
             print("current_user:", role, "database:", dbname)
             cur.execute(sql.SQL("DROP SCHEMA IF EXISTS public CASCADE"))
             cur.execute(sql.SQL("CREATE SCHEMA public"))
-            cur.execute(
-                sql.SQL("GRANT ALL ON SCHEMA public TO {}").format(sql.Identifier(role))
-            )
+            cur.execute(sql.SQL("GRANT ALL ON SCHEMA public TO {}").format(sql.Identifier(role)))
             cur.execute(sql.SQL("GRANT ALL ON SCHEMA public TO PUBLIC"))
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
         print("OK: public 已重建，vector 扩展已确保存在。")

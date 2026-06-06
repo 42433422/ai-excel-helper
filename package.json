@@ -1,6 +1,6 @@
 {
   "name": "xcagi-legacy-static-tests",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "description": "XCAGI 根级旧版 static/ 测试与 lint 配置（真实前端见 frontend/）",
   "scripts": {
     "test": "jest",
@@ -9,8 +9,8 @@
     "lint": "eslint static/js/",
     "desktop:dev": "npm --prefix desktop run dev",
     "desktop:build": "npm --prefix desktop run build",
-    "desktop:dist:win": "powershell -ExecutionPolicy Bypass -File scripts/package/build-installer.ps1",
-    "desktop:dist:mac": "bash scripts/package/build-installer.sh"
+    "desktop:dist:win": "powershell -ExecutionPolicy Bypass -File scripts/package/build-all-skus.ps1",
+    "desktop:dist:mac": "bash scripts/package/build-installer.sh 8.0.0 all"
   },
   "devDependencies": {
     "jest": "^29.7.0",

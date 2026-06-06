@@ -1,16 +1,16 @@
 """
-兼容层：``_parse_order_text`` / 工具执行等由 ``app.services.tools_execution_service`` 提供（无 Flask）。
+兼容层：``_parse_order_text`` / 工具执行等由 ``app.services.tools_execution_service`` 提供。
 """
 
 from __future__ import annotations
 
-from app.services.tools_execution_service import (
+from app.application.facades.tools_facade import (
+    _parse_order_text,
     execute_registered_workflow_tool,
     execute_tool_from_payload,
     get_workflow_tool_registry,
     set_tool_execute_headers,
 )
-from app.services.tools_execution_service import _parse_order_text
 
 __all__ = [
     "execute_registered_workflow_tool",

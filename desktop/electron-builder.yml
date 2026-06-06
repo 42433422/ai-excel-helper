@@ -3,9 +3,9 @@ productName: XCAGI
 copyright: Copyright © 2026 XCAGI
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 beforePack: build/before-pack.cjs
-# 与 scripts/package/build-installer.ps1、release-desktop CI 上传路径一致
+# 正式产物仅写入 release/xcagi-v{version}/{personal|enterprise}/（build-installer.ps1 -ProductSku 必填）
 directories:
-  output: ../release/desktop-designed-final2
+  output: ../release/_electron-staging
 files:
   - dist/**
   - package.json
@@ -20,6 +20,8 @@ extraResources:
     to: frontend
     filter:
       - "**/*"
+  - from: resources/product-sku.json
+    to: product-sku.json
 publish:
   provider: generic
   url: https://update.xcagi.com/releases/stable/
@@ -40,13 +42,15 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  allowElevation: true
   displayLanguageSelector: false
   installerLanguages:
     - zh_CN
   language: "2052"
+  unicode: true
   createDesktopShortcut: always
   createStartMenuShortcut: true
-  menuCategory: true
+  menuCategory: XCAGI
   runAfterFinish: true
   deleteAppDataOnUninstall: false
   installerIcon: resources/icon.ico
@@ -55,6 +59,7 @@ nsis:
   installerSidebar: resources/installer-sidebar.bmp
   include: build/installer.nsh
   license: ../LICENSE
+  warningsAsErrors: false
 mac:
   target:
     - dmg

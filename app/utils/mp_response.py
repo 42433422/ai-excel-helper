@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
 """
-小程序 API 统一响应工具（Werkzeug Response，无 Flask）。
+小程序 API 统一响应工具（基于 Werkzeug Response 工具）。
 """
+
 from __future__ import annotations
 
 from typing import Any

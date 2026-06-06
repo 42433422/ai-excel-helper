@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 from pathlib import Path
 
 from sqlalchemy import create_engine, event, pool
@@ -18,7 +19,9 @@ _DEFAULT_DATABASE_URL = "postgresql+psycopg://xcagi:xcagi@localhost:5432/xcagi"
 
 
 def _normalize_mod_for_env(mod_id: str) -> str:
-    return "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").upper()
+    return (
+        "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").upper()
+    )
 
 
 def _mod_db_url_from_env(active_mod_id: str) -> str:
@@ -100,6 +103,18 @@ def _postgres_url_with_mod_db(base_url: str, active_mod_id: str) -> str:
 
 def _database_url_for_active_mod(base_url: str) -> str:
     active_mod_id = get_request_active_mod_id()
+    if active_mod_id:
+        try:
+            from app.db.host_base_db_api import should_use_base_database_for_path
+            from app.http.request_context import get_current_http_request
+
+            req = get_current_http_request()
+            if req is not None and should_use_base_database_for_path(
+                getattr(getattr(req, "url", None), "path", "") or ""
+            ):
+                active_mod_id = ""
+        except Exception:
+            pass
     if not active_mod_id:
         return base_url
     mapped = _mod_db_url_from_env(active_mod_id)
@@ -124,6 +139,7 @@ def database_url_for_active_extension(base_url: str) -> str:
 def _get_test_db_manager():
     try:
         from app.db.test_db_manager import get_test_db_manager
+
         return get_test_db_manager()
     except Exception:
         return None
@@ -155,12 +171,26 @@ def _get_database_url(db_path: str | None = None) -> str:
     return _database_url_for_active_mod(_DEFAULT_DATABASE_URL)
 
 
-def get_engine(db_path: str = None):
-    url = _get_database_url(db_path)
+def _sqlite_desktop_mode() -> bool:
+    return (os.environ.get("XCAGI_DESKTOP_MODE") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _create_engine_for_url(url: str):
     if url.startswith("sqlite"):
-        # SQLite uses file-level locking. Large connection pools cause "database is locked" errors
-        # under concurrent writes (e.g. multiple Excel imports). NullPool + longer timeout is safer.
-        # For high concurrency, migrate to PostgreSQL (see migration plan).
+        # 桌面单用户：StaticPool 复用单连接，降低 NullPool 每次请求的开销。
+        # 服务端/多写场景仍用 NullPool，减轻 database is locked。
+        if _sqlite_desktop_mode():
+            return create_engine(
+                url,
+                connect_args={"check_same_thread": False, "timeout": 45},
+                poolclass=pool.StaticPool,
+                echo=False,
+            )
         return create_engine(
             url,
             connect_args={"check_same_thread": False, "timeout": 45},
@@ -181,37 +211,49 @@ def get_engine(db_path: str = None):
     )
 
 
-_engine = None
-_SessionLocal = None
+def get_engine(db_path: str = None):
+    return _create_engine_for_url(_get_database_url(db_path))
 
 
-def _engine_target_matches(engine: Engine, target_url: str) -> bool:
+_engine_cache_lock = threading.RLock()
+_engine_cache: dict[str, Engine] = {}
+_session_local_cache: dict[str, sessionmaker] = {}
+
+
+def _database_url_cache_key(url: str) -> str:
     try:
-        return engine.url.render_as_string(hide_password=True) == make_url(
-            target_url
-        ).render_as_string(hide_password=True)
+        return make_url(url).render_as_string(hide_password=False)
     except Exception:
-        return str(engine.url) == target_url
+        return str(url)
+
+
+def _get_engine_for_url(url: str):
+    key = _database_url_cache_key(url)
+    with _engine_cache_lock:
+        cached = _engine_cache.get(key)
+        if cached is not None:
+            return cached
+        created = _create_engine_for_url(url)
+        _engine_cache[key] = created
+        return created
 
 
 def _get_engine():
-    global _engine, _SessionLocal
-    want_url = _get_database_url()
-    if _engine is None:
-        _engine = get_engine()
-    elif not _engine_target_matches(_engine, want_url):
-        _engine.dispose()
-        _engine = None
-        _SessionLocal = None
-        _engine = get_engine()
-    return _engine
+    return _get_engine_for_url(_get_database_url())
 
 
 def _get_session_local():
-    global _SessionLocal
-    if _SessionLocal is None:
-        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_get_engine())
-    return _SessionLocal
+    want_url = _get_database_url()
+    key = _database_url_cache_key(want_url)
+    with _engine_cache_lock:
+        cached = _session_local_cache.get(key)
+        if cached is not None:
+            return cached
+        created = sessionmaker(
+            autocommit=False, autoflush=False, bind=_get_engine_for_url(want_url)
+        )
+        _session_local_cache[key] = created
+        return created
 
 
 # Backward-compatible export:
@@ -222,13 +264,14 @@ def SessionLocal():
 
 
 def dispose_and_recreate_engine():
-    global _engine, _SessionLocal
-    if _engine:
-        _engine.dispose()
-    _engine = None
-    _SessionLocal = None
+    with _engine_cache_lock:
+        for cached_engine in _engine_cache.values():
+            cached_engine.dispose()
+        _engine_cache.clear()
+        _session_local_cache.clear()
     try:
         from app.application.customer_app_service import reset_customers_engine
+
         reset_customers_engine()
     except Exception:
         pass
@@ -256,9 +299,9 @@ def get_db():
 
 
 def close_old_connections():
-    global _engine, _SessionLocal
-    if _engine:
-        _engine.dispose()
-    _engine = None
-    _SessionLocal = None
+    with _engine_cache_lock:
+        for cached_engine in _engine_cache.values():
+            cached_engine.dispose()
+        _engine_cache.clear()
+        _session_local_cache.clear()
     logger.info("数据库连接池已刷新")

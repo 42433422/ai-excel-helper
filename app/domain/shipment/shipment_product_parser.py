@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def _normalize_text(value: Any) -> str:
@@ -11,7 +11,7 @@ def _normalize_model_token(value: Any) -> str:
     return _normalize_text(value).replace(" ", "").replace("-", "")
 
 
-def _to_float_or_none(value: Any) -> Optional[float]:
+def _to_float_or_none(value: Any) -> float | None:
     try:
         if value is None or str(value).strip() == "":
             return None
@@ -24,8 +24,8 @@ def match_product(
     name: str,
     model_number: str,
     tin_spec: Any,
-    db_products: List[Dict[str, Any]],
-) -> Optional[Dict[str, Any]]:
+    db_products: list[dict[str, Any]],
+) -> dict[str, Any] | None:
     """
     产品匹配规则（纯领域逻辑，无 DB / 无 I/O）。
 
@@ -44,7 +44,7 @@ def match_product(
 
     # 1) 型号精确（严格）
     if model_norm:
-        model_exact_matches: List[Dict[str, Any]] = []
+        model_exact_matches: list[dict[str, Any]] = []
         for p in db_products:
             if _normalize_model_token(p.get("model_number")) == model_norm:
                 model_exact_matches.append(p)
@@ -78,9 +78,9 @@ def match_product(
 
 def prepare_parsed_products(
     *,
-    input_products: List[Dict[str, Any]],
-    db_products: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
+    input_products: list[dict[str, Any]],
+    db_products: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """
     将外部输入产品列表转换为 legacy 文档生成器期望的 parsed_products 结构。
 
@@ -89,7 +89,7 @@ def prepare_parsed_products(
     - 基于主库产品候选进行匹配（name/model_number 与单价补全）
     - 无法确定产品名称时的跳过规则
     """
-    parsed_products: List[Dict[str, Any]] = []
+    parsed_products: list[dict[str, Any]] = []
 
     for p in input_products or []:
         name = p.get("name") or p.get("product_name", "")
@@ -143,4 +143,3 @@ def prepare_parsed_products(
         )
 
     return parsed_products
-

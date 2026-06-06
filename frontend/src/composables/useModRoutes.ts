@@ -7,13 +7,18 @@ export function useModRoutes() {
   const { modsForUi } = storeToRefs(modsStore);
 
   const modMenuItems = computed(() => {
-    return modsStore.getModMenu().map((item) => ({
-      key: `mod-${item.id}`,
-      name: item.label,
-      iconClass: item.icon || 'fa-plug',
-      modId: item.modId,
-      path: item.path,
-    }));
+    return modsStore.getModMenu().map((item) => {
+      const menuId = String(item.id || '').trim();
+      // manifest.menu.id 已是 mod-xxx，勿再拼前缀（否则 mod-mod-xxx 导致去重失效）
+      const key = menuId.startsWith('mod-') ? menuId : `mod-${menuId}`;
+      return {
+        key,
+        name: item.label,
+        iconClass: item.icon || 'fa-plug',
+        modId: item.modId,
+        path: item.path,
+      };
+    });
   });
 
   async function initializeMods() {

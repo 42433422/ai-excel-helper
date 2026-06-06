@@ -8,14 +8,13 @@ services:
       target: production
     container_name: xcagi-backend
     restart: unless-stopped
-    user: root
     ports:
       - "127.0.0.1:5000:5000"
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://xcagi:xcagi@postgres:5432/xcagi}
-      - VECTOR_DB_URL=${VECTOR_DB_URL:-postgresql+psycopg://xcagi:xcagi@postgres:5432/xcagi}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://xcagi:${POSTGRES_PASSWORD:-xcagi-dev-only}@postgres:5432/xcagi}
+      - VECTOR_DB_URL=${VECTOR_DB_URL:-postgresql+psycopg://xcagi:${POSTGRES_PASSWORD:-xcagi-dev-only}@postgres:5432/xcagi}
       - DATABASE_PATH=/app/data
       - UPLOAD_FOLDER=/app/uploads
       - CACHE_REDIS_URL=redis://redis:6379/0
@@ -40,9 +39,7 @@ services:
     networks:
       - xcagi-network
     command: >
-      sh -c "mkdir -p /app/data /app/uploads /app/logs &&
-             chown -R appuser:appuser /app/data /app/uploads /app/logs &&
-             exec gunicorn --config gunicorn_config.py run:app"
+      gunicorn --config gunicorn_config.py run:app
 
   celery-worker:
     image: xcagi-celery-worker:${XCAGI_VERSION:-latest}
@@ -53,16 +50,13 @@ services:
       target: production
     container_name: xcagi-celery-worker
     restart: unless-stopped
-    user: root
     command: >
-      sh -c "mkdir -p /app/data /app/uploads /app/logs &&
-             chown -R appuser:appuser /app/data /app/uploads /app/logs &&
-             celery -A celery_app worker --loglevel=info --concurrency=2"
+      celery -A celery_app worker --loglevel=info --concurrency=2
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://xcagi:xcagi@postgres:5432/xcagi}
-      - VECTOR_DB_URL=${VECTOR_DB_URL:-postgresql+psycopg://xcagi:xcagi@postgres:5432/xcagi}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://xcagi:${POSTGRES_PASSWORD:-xcagi-dev-only}@postgres:5432/xcagi}
+      - VECTOR_DB_URL=${VECTOR_DB_URL:-postgresql+psycopg://xcagi:${POSTGRES_PASSWORD:-xcagi-dev-only}@postgres:5432/xcagi}
       - DATABASE_PATH=/app/data
       - UPLOAD_FOLDER=/app/uploads
       - CACHE_REDIS_URL=redis://redis:6379/0
@@ -104,7 +98,7 @@ services:
     environment:
       - POSTGRES_DB=xcagi
       - POSTGRES_USER=xcagi
-      - POSTGRES_PASSWORD=xcagi
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-xcagi-dev-only}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:

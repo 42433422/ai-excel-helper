@@ -3,6 +3,8 @@
  * 与 Sidebar.vue 中逻辑保持一致；请勿在 MainLayout / ProductsView 再硬编码一套 map。
  */
 
+import { DEFAULT_INDUSTRY_ID } from '@/constants/industryDefaults'
+
 export type ShellModLike = {
   id: string
   shell_menu_preset?: string
@@ -44,42 +46,44 @@ export function readShellTagline(mod: unknown): string {
   return pickShellStr(mod, 'shell_tagline', 'shellTagline')
 }
 
-/** 与 MainLayout 原 viewTitlesBase 一致（全路由标题默认值） */
+/** 与 MainLayout viewTitlesBase 一致（默认通用宿主语境） */
 export const SHELL_VIEW_TITLE_BASE: Record<string, string> = {
   chat: '智能对话',
-  'ai-ecosystem': 'AI生态',
-  brain: 'AI智脑集成',
-  'model-payment': '模型支付',
-  products: '产品管理',
-  'materials-list': '原材料列表',
-  materials: '原材料仓库',
-  'traditional-mode': '传统模式',
+  'ai-ecosystem': '智能生态',
+  brain: '智脑集成',
+  'model-payment': '模型服务',
+  products: '业务对象',
+  'materials-list': '资源列表',
+  materials: '资源库',
+  'traditional-mode': '表格模式',
   'business-docking': '业务对接',
-  orders: '订单管理',
-  'orders-create': '新建订单',
-  purchase: '采购管理',
-  'shipment-records': '出货记录',
-  customers: '客户管理',
-  'wechat-contacts': '微信联系人列表',
-  print: '标签打印',
+  orders: '业务单据',
+  'orders-create': '新建业务单据',
+  purchase: '耗材申领',
+  'shipment-records': '业务记录',
+  customers: '组织管理',
+  'data-sources': '数据来源',
+  'wechat-contacts': '企业微信联系人',
+  print: '模板与打印',
   'printer-list': '打印机列表',
   'template-preview': '模板库',
-  'label-editor': '标签编辑器',
+  'label-editor': '模板编辑器',
   console: '模板库',
   settings: '系统设置',
   tools: '工具表',
-  'other-tools': '员工工作流管理',
+  'other-tools': '员工工作流',
   'approval-hub': '审批中心',
+  'enterprise-customer-service': '外部客服',
   'approval-workspace': '审批工作台',
   'approval-flow-management': '审批流程管理',
   'approval-rules': '审批流程规则',
-  'workflow-visualization': '工作流可视化',
+  'workflow-visualization': '流程可视化',
   'workflow-employee-space': '员工空间',
   'workflow-employee-stitch-full': '员工工作流全景',
   'batch-analyze': '批量分析',
-  'kitten-finance': '🐱 小猫财务分析',
-  'chat-debug': '聊天调试',
-  'mod-store': '员工商店'
+  'kitten-finance': '财务分析',
+  'chat-debug': '对话调试',
+  'mod-store': '能力库'
 }
 
 /**
@@ -120,6 +124,15 @@ export const SHELL_INDUSTRY_MENU_OVERRIDES: Record<string, Record<string, string
     customers: '收发方管理',
     print: '运单打印'
   },
+  考勤: {
+    products: '人员管理',
+    materials: '排班资源',
+    'materials-list': '班次列表',
+    orders: '考勤单管理',
+    'shipment-records': '考勤记录',
+    customers: '部门管理',
+    print: '考勤表打印'
+  },
   员工管理: {
     products: '员工与档案',
     materials: '制度与资料库',
@@ -153,7 +166,7 @@ export function effectiveShellMenuIndustryId(
   const mod = getActiveShellMod(modList, activeExtensionModId)
   const preset = readShellMenuPreset(mod)
   if (preset && SHELL_INDUSTRY_MENU_OVERRIDES[preset]) return preset
-  return String(currentIndustryId || '涂料')
+  return String(currentIndustryId || DEFAULT_INDUSTRY_ID)
 }
 
 /** 合并后的顶栏/页面标题表（先默认表，再叠行业与 shell_menu_preset） */
@@ -163,6 +176,7 @@ export function mergeShellViewTitles(
   activeExtensionModId: string
 ): Record<string, string> {
   const ind = effectiveShellMenuIndustryId(currentIndustryId, modList, activeExtensionModId)
-  const layer = SHELL_INDUSTRY_MENU_OVERRIDES[ind] || SHELL_INDUSTRY_MENU_OVERRIDES['涂料'] || {}
+  const layer =
+    SHELL_INDUSTRY_MENU_OVERRIDES[ind] || SHELL_INDUSTRY_MENU_OVERRIDES[DEFAULT_INDUSTRY_ID] || {}
   return { ...SHELL_VIEW_TITLE_BASE, ...layer }
 }

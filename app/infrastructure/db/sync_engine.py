@@ -1,5 +1,8 @@
 """Sync engine / database mode / mod-aware URL resolution.
 
+import logging
+
+logger = logging.getLogger(__name__)
 Phase 5B 从 ``app.legacy.database`` + ``app.legacy.mod_database_url`` 吸收。
 对外接口与 legacy 完全一致,曾经 ``from app.legacy.database import ...``
 的调用方改为 ``from app.infrastructure.db.sync_engine import ...``。
@@ -131,7 +134,7 @@ def redact_database_url(url: str) -> str:
             port = f":{p.port}" if p.port else ""
             return f"{p.scheme}://{user}:***@{host}{port}{p.path or ''}"
     except Exception:
-        pass
+        logger.debug("suppressed exception", exc_info=True)
     return url
 
 
@@ -153,8 +156,10 @@ def get_db_status() -> dict[str, Any]:
         }
     url = get_database_url()
     parsed = urlparse(url)
-    current_name = parsed.path.rsplit("/", 1)[-1] if parsed.path else (
-        "postgresql" if "postgres" in parsed.scheme else "database"
+    current_name = (
+        parsed.path.rsplit("/", 1)[-1]
+        if parsed.path
+        else ("postgresql" if "postgres" in parsed.scheme else "database")
     )
     return {
         "mode": mode,

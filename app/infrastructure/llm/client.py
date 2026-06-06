@@ -45,6 +45,24 @@ def _initial_mode() -> Literal["online", "offline"]:
 _mode = _initial_mode()
 
 
+def _resolve_openai_timeout_seconds() -> float:
+    raw = (os.environ.get("XCAGI_OPENAI_TIMEOUT_SEC") or "45").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        value = 45.0
+    return max(5.0, min(value, 300.0))
+
+
+def _resolve_openai_max_retries() -> int:
+    raw = (os.environ.get("XCAGI_OPENAI_MAX_RETRIES") or "0").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    return max(0, min(value, 5))
+
+
 def resolve_mode() -> Literal["online", "offline"]:
     with _mode_lock:
         return _mode
@@ -108,7 +126,11 @@ def get_llm_client() -> Any | None:
         from openai import OpenAI
 
         api_key, base_url = _first_api_key()
-        kwargs: dict[str, Any] = {"api_key": api_key}
+        kwargs: dict[str, Any] = {
+            "api_key": api_key,
+            "timeout": _resolve_openai_timeout_seconds(),
+            "max_retries": _resolve_openai_max_retries(),
+        }
         if base_url:
             kwargs["base_url"] = base_url
         _openai_client = OpenAI(**kwargs)

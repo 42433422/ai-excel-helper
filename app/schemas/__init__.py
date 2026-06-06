@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Schema 导出模块
 

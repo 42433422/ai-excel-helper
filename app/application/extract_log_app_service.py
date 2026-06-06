@@ -4,7 +4,7 @@
 负责提取日志管理相关的用例编排
 """
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from app.application.ports.extract_log_store import ExtractLogStorePort
@@ -21,40 +21,28 @@ class ExtractLogApplicationService:
             from app.infrastructure.persistence.extract_log_store_impl import (
                 SQLAlchemyExtractLogStore,
             )
+
             store = SQLAlchemyExtractLogStore()
         self._store = store
 
     def get_extract_logs(
-        self,
-        page: int = 1,
-        per_page: int = 20,
-        unit_name: Optional[str] = None
-    ) -> Dict[str, Any]:
-        return self._store.find_all(
-            page=page,
-            per_page=per_page,
-            unit_name=unit_name
-        )
+        self, page: int = 1, per_page: int = 20, unit_name: str | None = None
+    ) -> dict[str, Any]:
+        return self._store.find_all(page=page, per_page=per_page, unit_name=unit_name)
 
-    def get_extract_log(self, log_id: int) -> Dict[str, Any]:
+    def get_extract_log(self, log_id: int) -> dict[str, Any]:
         result = self._store.find_by_id(log_id)
         if result is None:
-            return {
-                "success": False,
-                "message": "日志不存在"
-            }
-        return {
-            "success": True,
-            "data": result
-        }
+            return {"success": False, "message": "日志不存在"}
+        return {"success": True, "data": result}
 
-    def create_extract_log(self, log_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_extract_log(self, log_data: dict[str, Any]) -> dict[str, Any]:
         return self._store.create(log_data)
 
-    def delete_extract_log(self, log_id: int) -> Dict[str, Any]:
+    def delete_extract_log(self, log_id: int) -> dict[str, Any]:
         return self._store.delete(log_id)
 
-    def clear_old_logs(self, days: int = 30) -> Dict[str, Any]:
+    def clear_old_logs(self, days: int = 30) -> dict[str, Any]:
         return self._store.clear_old(days=days)
 
 
@@ -62,7 +50,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(ExtractLogApplicationService)
 
-_extract_log_app_service: Optional[ExtractLogApplicationService] = None
+_extract_log_app_service: ExtractLogApplicationService | None = None
 
 
 def get_extract_log_app_service() -> "ExtractLogApplicationService":

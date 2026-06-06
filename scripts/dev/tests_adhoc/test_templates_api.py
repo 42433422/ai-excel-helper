@@ -15,14 +15,14 @@ print("-" * 80)
 try:
     response = requests.get(url, timeout=5)
     print(f"状态码：{response.status_code}")
-    
+
     if response.status_code == 200:
         data = response.json()
         print(f"✓ API 调用成功!")
         print(f"  success: {data.get('success')}")
-        templates = data.get('templates', [])
+        templates = data.get("templates", [])
         print(f"  模板数量：{len(templates)}")
-        
+
         if templates:
             print(f"\n  模板列表:")
             for i, tpl in enumerate(templates[:5], 1):
@@ -30,7 +30,7 @@ try:
     else:
         print(f"✗ API 返回错误状态码：{response.status_code}")
         print(f"  响应内容：{response.text[:200]}")
-        
+
 except requests.exceptions.ConnectionError:
     print("✗ 无法连接到服务器，请确保服务正在运行")
     sys.exit(1)

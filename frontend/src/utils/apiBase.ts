@@ -1,10 +1,15 @@
 import { XCAGI_ACTIVE_EXTENSION_MOD_ID_KEY } from './xcagiStorageKeys'
+import { readCsrfTokenFromCookie, shouldAttachCsrfHeader } from './csrfCookie'
 
 /**
  * Mod 列表、loading-status、routes 等读请求上限。
  * 冷启动时 lifespan 中 load_all_mods + 数据库初始化可能超过 1min；并行启动后仍可能偶发较慢，故与路由预取对齐放宽。
  */
-export const DEFAULT_MOD_API_TIMEOUT_MS = 180_000
+/** 冷启动后台 load_all_mods 期间列表接口可能较慢，但不应无限挂起 */
+export const DEFAULT_MOD_API_TIMEOUT_MS = 90_000
+
+/** Mod 门面 HTTP 探针（status/employees）用较短超时，避免拖住 initialize */
+export const MOD_PROBE_API_TIMEOUT_MS = 8_000
 
 export type ApiFetchInit = RequestInit & { timeoutMs?: number }
 
@@ -39,15 +44,45 @@ function mergeAbortSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
 
 /**
  * Mod 等 API 的基址。
- * - 未设置时：用相对路径（与页面同源）。Vite dev（如 :5001）下走 vite.config 里 /api 代理。
- * - 生产/特殊联调可设 ``VITE_API_BASE`` / ``VITE_API_BASE_URL`` 为完整 API 源（非本机 loopback）。
+ * - **持久与线上一致（推荐）**：在 ``index.html`` 或 Nginx 子请求中先于 bundle 执行
+ *   ``window.__XCMAX_API_BASE__ = '/fhd-api'``（或与站点一致的完整源），使登录 ``/api/auth/login``
+ *   实际请求 ``/fhd-api/api/...``，即与服务器 PostgreSQL 账号库同源反代，无需改构建产物。
+ * - 未设置且未配置 Vite 变量时：用相对路径（与页面同源）。Vite dev（如 :5001）下走 ``/api`` 代理。
+ * - 开发联调可设 ``VITE_API_BASE`` / ``VITE_API_BASE_URL`` 为远端完整 API 源（由 Vite 代理转发）。
  *
  * Loopback 基址特例：构建或环境里常写 ``http://127.0.0.1:5000``。若用户用局域网 IP 打开页面
  * （如 ``http://192.168.*.*:5001`` 或 FastAPI 托管的 ``:5000``），浏览器仍请求 127.0.0.1 会构成跨域，
  * ``credentials: 'include'`` 下 CORS 须精确匹配 Origin，易整页 ``Failed to fetch``。
  * 故对 **纯 loopback/localhost** 的 API 基址一律改走相对路径 ``/api``（与当前页面同源）。
  */
+function readInjectedApiBase(): string {
+  if (typeof window === 'undefined') return ''
+  const inj = (window as unknown as { __XCMAX_API_BASE__?: unknown }).__XCMAX_API_BASE__
+  if (typeof inj !== 'string') return ''
+  return inj.trim().replace(/\/$/, '')
+}
+
+function shouldPreferRelativeApiBase(): boolean {
+  if (import.meta.env.DEV) return true
+  if (import.meta.env.VITE_API_RELATIVE === '1') return true
+  if (typeof window === 'undefined') return false
+  const h = window.location.hostname || ''
+  if (h === 'localhost' || h === '127.0.0.1') return true
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true
+  if (/^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(h)) return true
+  return false
+}
+
 export function getApiBase(): string {
+  const injected = readInjectedApiBase()
+  if (injected) {
+    if (/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(injected)) {
+      return ''
+    }
+    return injected
+  }
+
   const a = import.meta.env.VITE_API_BASE as string | undefined
   const b = import.meta.env.VITE_API_BASE_URL as string | undefined
   const raw = (typeof a === 'string' && a.trim() ? a : b) as string | undefined
@@ -55,6 +90,17 @@ export function getApiBase(): string {
     const base = raw.trim().replace(/\/$/, '')
     if (/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(base)) {
       return ''
+    }
+    // 开发 / 私网访问：与当前页不同源时走相对 /api，由 Vite 代理（避免直连公网 API 基址 CORS）
+    if (shouldPreferRelativeApiBase() && typeof window !== 'undefined' && window.location?.origin) {
+      try {
+        const apiOrigin = new URL(base.includes('://') ? base : `http://${base}`).origin
+        if (apiOrigin !== window.location.origin) {
+          return ''
+        }
+      } catch {
+        /* keep base */
+      }
     }
     return base
   }
@@ -77,8 +123,20 @@ export function getClientModsUiOffHeader(): Record<string, string> {
   }
 }
 
+function shouldAttachActiveModHeader(rawUrl = ''): boolean {
+  const value = String(rawUrl || '').trim();
+  if (!value) return true;
+  try {
+    const pathname = /^https?:\/\//i.test(value) ? new URL(value).pathname : value.split('?')[0] || '';
+    return !pathname.startsWith('/api/auth/');
+  } catch {
+    return true;
+  }
+}
+
 /** 与 ``installFetchDbReadToken`` / 业务库按 Mod 分表一致；签名由服务端 dev 模式放宽校验。 */
-export function getActiveExtensionModHeaders(): Record<string, string> {
+export function getActiveExtensionModHeaders(rawUrl = ''): Record<string, string> {
+  if (!shouldAttachActiveModHeader(rawUrl)) return {};
   try {
     const id = String(localStorage.getItem(XCAGI_ACTIVE_EXTENSION_MOD_ID_KEY) || '').trim();
     if (!id) return {};
@@ -115,11 +173,20 @@ export function apiFetch(input: string, init?: ApiFetchInit): Promise<Response> 
   } = init || {}
 
   const modsOffHeaders = getClientModsUiOffHeader()
-  const modScopeHeaders = getActiveExtensionModHeaders()
-  const headers = {
+  const modScopeHeaders = getActiveExtensionModHeaders(url)
+  const headers: Record<string, string> = {
     ...modsOffHeaders,
     ...modScopeHeaders,
-    ...userHeaders,
+    ...(typeof userHeaders === 'object' &&
+    userHeaders !== null &&
+    typeof (userHeaders as Headers).forEach === 'function'
+      ? Object.fromEntries((userHeaders as Headers).entries())
+      : ((userHeaders || {}) as Record<string, string>)),
+  }
+  const method = String((rest as { method?: string }).method || 'GET')
+  if (shouldAttachCsrfHeader(method, headers)) {
+    const tok = readCsrfTokenFromCookie()
+    if (tok) headers['X-CSRF-Token'] = tok
   }
 
   let timeoutId: number | undefined
@@ -133,7 +200,7 @@ export function apiFetch(input: string, init?: ApiFetchInit): Promise<Response> 
     signal = userSignal ? mergeAbortSignals(userSignal, to.signal) : to.signal
   }
 
-  const fetchInit = { ...rest, headers, signal }
+  const fetchInit: RequestInit = { ...rest, headers, signal, credentials: 'include' }
 
   const perform = async (): Promise<Response> => {
     try {

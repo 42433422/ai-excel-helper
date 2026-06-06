@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.neuro_bus.events.base import NeuroEvent
 
@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 
 _COMMAND_REPLY_KEY = "_command_reply_id"
 
-_gateway: Optional["CommandGateway"] = None
+_gateway: CommandGateway | None = None
 
 
 class CommandGateway:
     def __init__(self) -> None:
-        self._pending: Dict[str, asyncio.Future[Any]] = {}
+        self._pending: dict[str, asyncio.Future[Any]] = {}
 
     def prepare_command_event(self, event: NeuroEvent) -> str:
         rid = str(uuid.uuid4())
@@ -28,7 +28,9 @@ class CommandGateway:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError as e:
-            raise RuntimeError("CommandGateway.prepare_command_event requires a running event loop") from e
+            raise RuntimeError(
+                "CommandGateway.prepare_command_event requires a running event loop"
+            ) from e
         self._pending[rid] = loop.create_future()
         return rid  # same as event.payload[_COMMAND_REPLY_KEY]
 
@@ -38,7 +40,7 @@ class CommandGateway:
             raise KeyError(f"unknown command reply_id: {reply_id}")
         try:
             return await asyncio.wait_for(fut, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._pending.pop(reply_id, None)
             if not fut.done():
                 fut.cancel()
@@ -51,7 +53,9 @@ class CommandGateway:
         if fut and not fut.done():
             fut.cancel()
 
-    def resolve(self, event: NeuroEvent, result: Any = None, error: Optional[BaseException] = None) -> None:
+    def resolve(
+        self, event: NeuroEvent, result: Any = None, error: BaseException | None = None
+    ) -> None:
         rid = event.payload.get(_COMMAND_REPLY_KEY)
         if not rid:
             return
@@ -76,6 +80,6 @@ def get_command_gateway() -> CommandGateway:
 def try_complete_command_reply(
     event: NeuroEvent,
     result: Any = None,
-    error: Optional[BaseException] = None,
+    error: BaseException | None = None,
 ) -> None:
     get_command_gateway().resolve(event, result=result, error=error)

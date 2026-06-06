@@ -3,6 +3,7 @@ DB Models 测试
 """
 
 import pytest
+
 from app.db.models.customer import Customer
 from app.db.models.product import Product
 from app.db.models.shipment import ShipmentRecord
@@ -17,9 +18,9 @@ class TestCustomerModel:
 
     def test_customer_columns_exist(self):
         assert hasattr(Customer, "id")
-        assert hasattr(Customer, "unit_name")
-        assert hasattr(Customer, "contact")
-        assert hasattr(Customer, "phone")
+        assert hasattr(Customer, "customer_name")
+        assert hasattr(Customer, "contact_person")
+        assert hasattr(Customer, "contact_phone")
 
 
 class TestProductModel:
@@ -45,5 +46,5 @@ class TestShipmentRecordModel:
 
     def test_shipment_record_columns_exist(self):
         assert hasattr(ShipmentRecord, "id")
-        assert hasattr(ShipmentRecord, "unit_name")
+        assert hasattr(ShipmentRecord, "purchase_unit")
         assert hasattr(ShipmentRecord, "status")

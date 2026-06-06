@@ -4,7 +4,7 @@
 负责模板管理相关的用例编排
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class TemplateApplicationService:
@@ -16,7 +16,7 @@ class TemplateApplicationService:
     ):
         self._template_service = template_service
 
-    def get_templates(self, category: Optional[str] = None) -> Dict[str, Any]:
+    def get_templates(self, category: str | None = None) -> dict[str, Any]:
         """
         获取模板列表用例
 
@@ -26,11 +26,11 @@ class TemplateApplicationService:
         Returns:
             模板列表
         """
-        if category and category != 'all':
-            return {'templates': self._template_service.list_by_type(category) or []}
-        return {'templates': self._template_service.list_templates() or []}
+        if category and category != "all":
+            return {"templates": self._template_service.list_by_type(category) or []}
+        return {"templates": self._template_service.list_templates() or []}
 
-    def get_template(self, template_id: int) -> Dict[str, Any]:
+    def get_template(self, template_id: int) -> dict[str, Any]:
         """
         获取单个模板用例
 
@@ -42,7 +42,7 @@ class TemplateApplicationService:
         """
         return self._template_service.get_template(template_id)
 
-    def save_template(self, template_data: Dict[str, Any]) -> Dict[str, Any]:
+    def save_template(self, template_data: dict[str, Any]) -> dict[str, Any]:
         """
         保存模板用例
 
@@ -54,7 +54,7 @@ class TemplateApplicationService:
         """
         return self._template_service.save_template(template_data)
 
-    def update_template(self, template_id: int, template_data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_template(self, template_id: int, template_data: dict[str, Any]) -> dict[str, Any]:
         """
         更新模板用例
 
@@ -67,7 +67,7 @@ class TemplateApplicationService:
         """
         return self._template_service.update_template(template_id, template_data)
 
-    def delete_template(self, template_id: int) -> Dict[str, Any]:
+    def delete_template(self, template_id: int) -> dict[str, Any]:
         """
         删除模板用例
 
@@ -79,7 +79,9 @@ class TemplateApplicationService:
         """
         return self._template_service.delete_template(template_id)
 
-    def decompose_template(self, file_path: str, template_type: Optional[str] = None) -> Dict[str, Any]:
+    def decompose_template(
+        self, file_path: str, template_type: str | None = None
+    ) -> dict[str, Any]:
         """
         分解模板用例
 
@@ -97,7 +99,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(TemplateApplicationService)
 
-_template_app_service: Optional[TemplateApplicationService] = None
+_template_app_service: TemplateApplicationService | None = None
 
 
 def get_template_app_service() -> TemplateApplicationService:
@@ -109,10 +111,13 @@ def get_template_application_service() -> TemplateApplicationService:
     """获取模板应用服务单例"""
     global _template_app_service
     if _template_app_service is None:
-        from app.utils.path_utils import get_base_dir
         from app.infrastructure.templates.template_store_impl import FileSystemTemplateStore
+        from app.utils.path_utils import get_base_dir
+
         base_dir = get_base_dir()
-        _template_app_service = TemplateApplicationService(FileSystemTemplateStore(base_dir=base_dir))
+        _template_app_service = TemplateApplicationService(
+            FileSystemTemplateStore(base_dir=base_dir)
+        )
     return _template_app_service
 
 
@@ -128,7 +133,5 @@ def init_template_application_service(
 ) -> TemplateApplicationService:
     """初始化模板应用服务 (用于依赖注入)"""
     global _template_app_service
-    _template_app_service = TemplateApplicationService(
-        template_service=template_service
-    )
+    _template_app_service = TemplateApplicationService(template_service=template_service)
     return _template_app_service

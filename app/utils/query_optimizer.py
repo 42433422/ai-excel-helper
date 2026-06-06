@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 数据库查询优化器
 
@@ -15,21 +14,23 @@ import functools
 import logging
 import time
 import traceback
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
-SLOW_QUERY_THRESHOLD = float(__import__('os').environ.get("XCAGI_SLOW_QUERY_THRESHOLD", "0.5"))
-MAX_BATCH_SIZE = int(__import__('os').environ.get("XCAGI_MAX_BATCH_SIZE", "100"))
+SLOW_QUERY_THRESHOLD = float(__import__("os").environ.get("XCAGI_SLOW_QUERY_THRESHOLD", "0.5"))
+MAX_BATCH_SIZE = int(__import__("os").environ.get("XCAGI_MAX_BATCH_SIZE", "100"))
 
 
 @dataclass
 class QueryStats:
     """查询统计"""
+
     query_id: str
     sql: str
     duration_ms: float
@@ -42,9 +43,10 @@ class QueryStats:
 @dataclass
 class BatchResult:
     """批量操作结果"""
+
     success_count: int = 0
     failed_count: int = 0
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     total_duration_ms: float = 0.0
 
 
@@ -60,16 +62,12 @@ class QueryOptimizer:
     """
 
     def __init__(self):
-        self._query_stats: List[QueryStats] = []
-        self._slow_queries: List[QueryStats] = []
+        self._query_stats: list[QueryStats] = []
+        self._slow_queries: list[QueryStats] = []
         self._max_stats = 1000
 
     def record_query(
-        self,
-        sql: str,
-        duration_ms: float,
-        rows_affected: int = 0,
-        include_traceback: bool = False
+        self, sql: str, duration_ms: float, rows_affected: int = 0, include_traceback: bool = False
     ) -> None:
         """记录查询统计信息"""
         stats = QueryStats(
@@ -79,7 +77,7 @@ class QueryOptimizer:
             rows_affected=rows_affected,
             is_slow=duration_ms > SLOW_QUERY_THRESHOLD * 1000,
             traceback_str=traceback.format_stack()[-5:] if include_traceback else "",
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         self._query_stats.append(stats)
@@ -91,7 +89,7 @@ class QueryOptimizer:
             )
 
         if len(self._query_stats) > self._max_stats:
-            self._query_stats = self._query_stats[-self._max_stats:]
+            self._query_stats = self._query_stats[-self._max_stats :]
 
     @contextmanager
     def track_query(self, sql: str = "", include_traceback: bool = False):
@@ -108,10 +106,7 @@ class QueryOptimizer:
         self.record_query(sql, duration_ms, include_traceback=include_traceback)
 
     def cached_query(
-        self,
-        cache_key_func: Optional[Callable] = None,
-        ttl: int = 300,
-        cache_instance=None
+        self, cache_key_func: Callable | None = None, ttl: int = 300, cache_instance=None
     ):
         """
         查询结果缓存装饰器
@@ -121,6 +116,7 @@ class QueryOptimizer:
             def get_products_by_category(category_id):
                 return db.session.query(Product).filter(...).all()
         """
+
         def decorator(func: Callable) -> Callable:
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
@@ -131,11 +127,16 @@ class QueryOptimizer:
                 else:
                     try:
                         from app.utils.redis_cache import get_redis_cache
+
                         cache = get_redis_cache()
                     except Exception:
                         pass
 
-                key = cache_key_func(*args, **kwargs) if cache_key_func else f"query:{func.__name__}:{str(args)}:{str(sorted(kwargs.items()))}"
+                key = (
+                    cache_key_func(*args, **kwargs)
+                    if cache_key_func
+                    else f"query:{func.__name__}:{str(args)}:{str(sorted(kwargs.items()))}"
+                )
 
                 if cache:
                     cached_result = cache.get(key)
@@ -158,19 +159,25 @@ class QueryOptimizer:
                     raise
 
             wrapper.invalidate_cache = lambda *a, **kw: (
-                cache.delete(cache_key_func(*a, **kw) if cache_key_func else f"query:{func.__name__}:{str(a)}:{str(sorted(kw.items()))}")
-                if cache else None
+                cache.delete(
+                    cache_key_func(*a, **kw)
+                    if cache_key_func
+                    else f"query:{func.__name__}:{str(a)}:{str(sorted(kw.items()))}"
+                )
+                if cache
+                else None
             )
             return wrapper
+
         return decorator
 
     def batch_execute(
         self,
-        items: List[Any],
+        items: list[Any],
         execute_func: Callable[[Any], T],
         batch_size: int = MAX_BATCH_SIZE,
         continue_on_error: bool = True,
-        progress_callback: Optional[Callable[[int, int], None]] = None
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> BatchResult:
         """
         批量执行操作
@@ -190,7 +197,7 @@ class QueryOptimizer:
         start_time = time.perf_counter()
 
         for i in range(0, total_items, batch_size):
-            batch = items[i:i + batch_size]
+            batch = items[i : i + batch_size]
 
             for item in batch:
                 try:
@@ -198,7 +205,9 @@ class QueryOptimizer:
                     result.success_count += 1
                 except Exception as e:
                     result.failed_count += 1
-                    error_msg = f"项目 {i + result.success_count + result.failed_count} 处理失败: {str(e)}"
+                    error_msg = (
+                        f"项目 {i + result.success_count + result.failed_count} 处理失败: {str(e)}"
+                    )
                     result.errors.append(error_msg)
                     logger.error(error_msg)
 
@@ -220,14 +229,11 @@ class QueryOptimizer:
         return result
 
     def batch_insert(
-        self,
-        session,
-        model_class,
-        items: List[Dict[str, Any]],
-        batch_size: int = MAX_BATCH_SIZE
+        self, session, model_class, items: list[dict[str, Any]], batch_size: int = MAX_BATCH_SIZE
     ) -> BatchResult:
         """批量插入数据库记录"""
-        def insert_item(item_data: Dict[str, Any]):
+
+        def insert_item(item_data: dict[str, Any]):
             instance = model_class(**item_data)
             session.add(instance)
 
@@ -241,12 +247,8 @@ class QueryOptimizer:
             raise
 
     def optimized_pagination(
-        self,
-        query,
-        page: int = 1,
-        per_page: int = 20,
-        max_per_page: int = 100
-    ) -> Tuple[List[Any], int, Dict[str, Any]]:
+        self, query, page: int = 1, per_page: int = 20, max_per_page: int = 100
+    ) -> tuple[list[Any], int, dict[str, Any]]:
         """
         优化的分页查询
 
@@ -277,13 +279,15 @@ class QueryOptimizer:
             duration_ms = (time.perf_counter() - start_time) * 1000
             self.record_query(f"PAGINATED:total={total}", duration_ms, rows_affected=len(items))
 
-            metadata.update({
-                "total": total,
-                "pages": (total + per_page - 1) // per_page,
-                "has_next": offset + per_page < total,
-                "has_prev": page > 1,
-                "duration_ms": round(duration_ms, 2),
-            })
+            metadata.update(
+                {
+                    "total": total,
+                    "pages": (total + per_page - 1) // per_page,
+                    "has_next": offset + per_page < total,
+                    "has_prev": page > 1,
+                    "duration_ms": round(duration_ms, 2),
+                }
+            )
 
             return items, total, metadata
 
@@ -291,11 +295,7 @@ class QueryOptimizer:
             logger.error(f"分页查询失败: {e}")
             raise
 
-    def eager_load(
-        self,
-        query,
-        relationships: List[str]
-    ):
+    def eager_load(self, query, relationships: list[str]):
         """
         预加载关联关系（解决 N+1 问题）
 
@@ -305,25 +305,31 @@ class QueryOptimizer:
                 ['customer', 'items.product']
             )
         """
-        from sqlalchemy.orm import joinedload, selectinload, subqueryload
+        from sqlalchemy.orm import selectinload
 
         loaded_query = query
         for rel in relationships:
-            if '.' in rel:
-                parts = rel.split('.')
+            if "." in rel:
+                parts = rel.split(".")
                 loaded_query = loaded_query.options(
-                    selectinload(getattr(loaded_query._entity_zero().class_, parts[0])).selectinload(
+                    selectinload(
+                        getattr(loaded_query._entity_zero().class_, parts[0])
+                    ).selectinload(
                         getattr(loaded_query._entity_zero().class_, parts[0]).prop.mapper.class_,
-                        parts[1]
-                    ) if len(parts) > 1 else selectinload(getattr(loaded_query._entity_zero().class_, parts[0]))
+                        parts[1],
+                    )
+                    if len(parts) > 1
+                    else selectinload(getattr(loaded_query._entity_zero().class_, parts[0]))
                 )
             else:
-                loaded_query = loaded_query.options(selectinload(getattr(loaded_query._entity_zero().class_, rel)))
+                loaded_query = loaded_query.options(
+                    selectinload(getattr(loaded_query._entity_zero().class_, rel))
+                )
 
         return loaded_query
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """获取查询统计"""
         total_queries = len(self._query_stats)
         slow_count = len(self._slow_queries)
@@ -337,18 +343,16 @@ class QueryOptimizer:
             "total_queries": total_queries,
             "slow_queries": slow_count,
             "avg_duration_ms": round(avg_duration, 3),
-            "slow_query_rate": round(slow_count / total_queries * 100, 2) if total_queries > 0 else 0,
+            "slow_query_rate": (
+                round(slow_count / total_queries * 100, 2) if total_queries > 0 else 0
+            ),
             "recent_slow_queries": [
-                {
-                    "id": q.query_id,
-                    "duration_ms": round(q.duration_ms, 2),
-                    "sql": q.sql[:100]
-                }
+                {"id": q.query_id, "duration_ms": round(q.duration_ms, 2), "sql": q.sql[:100]}
                 for q in self._slow_queries[-10:]
-            ]
+            ],
         }
 
-    def get_slow_queries(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_slow_queries(self, limit: int = 20) -> list[dict[str, Any]]:
         """获取慢查询列表"""
         return [
             {
@@ -367,7 +371,7 @@ class QueryOptimizer:
         self._slow_queries.clear()
 
 
-_optimizer_instance: Optional[QueryOptimizer] = None
+_optimizer_instance: QueryOptimizer | None = None
 
 
 def get_query_optimizer() -> QueryOptimizer:
@@ -402,14 +406,21 @@ def batch_operation(batch_size: int = MAX_BATCH_SIZE):
         def process_items(items: List[int]) -> List[Result]:
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(items: List[Any], *args, **kwargs) -> BatchResult:
+        def wrapper(items: list[Any], *args, **kwargs) -> BatchResult:
             optimizer = get_query_optimizer()
             return optimizer.batch_execute(
                 items,
-                lambda item: func([item], *args, **kwargs)[0] if isinstance(func([item], *args, **kwargs), list) else func([item], *args, **kwargs),
-                batch_size=batch_size
+                lambda item: (
+                    func([item], *args, **kwargs)[0]
+                    if isinstance(func([item], *args, **kwargs), list)
+                    else func([item], *args, **kwargs)
+                ),
+                batch_size=batch_size,
             )
+
         return wrapper
+
     return decorator

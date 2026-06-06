@@ -1,16 +1,47 @@
 """
 限流和熔断工具模块
 
-提供基于 Redis 的请求限流和熔断机制。
+提供基于 Redis（可选）或内存的请求限流和熔断机制。
 """
 
+from __future__ import annotations
+
 import logging
+import os
 import time
 from collections import OrderedDict
 from threading import Lock
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
+_redis_client: Any | None = None
+_redis_init_attempted = False
+
+
+def _get_redis_client():
+    global _redis_client, _redis_init_attempted
+    if _redis_init_attempted:
+        return _redis_client
+    _redis_init_attempted = True
+    url = (
+        os.environ.get("CACHE_REDIS_URL")
+        or os.environ.get("REDIS_URL")
+        or os.environ.get("XCAGI_REDIS_URL")
+        or ""
+    ).strip()
+    if not url:
+        return None
+    try:
+        import redis
+
+        _redis_client = redis.from_url(url, decode_responses=True)
+        _redis_client.ping()
+        logger.info("Rate limiter using Redis backend")
+    except Exception as exc:
+        logger.warning("Rate limiter Redis unavailable, using in-memory: %s", exc)
+        _redis_client = None
+    return _redis_client
 
 
 class _InMemoryRateLimiter:
@@ -45,12 +76,49 @@ class _InMemoryRateLimiter:
             self._clean_old(key)
             return max(0, self._max_requests - len(self._requests.get(key, [])))
 
-    def get_reset_time(self, key: str) -> Optional[float]:
+    def get_reset_time(self, key: str) -> float | None:
         with self._lock:
             self._clean_old(key)
             if key in self._requests and self._requests[key]:
                 return self._requests[key][0] + self._window_seconds
             return None
+
+
+class _RedisRateLimiter:
+    """基于 Redis 的固定窗口计数（多副本共享）。"""
+
+    def __init__(self, max_requests: int, window_seconds: int):
+        self._max_requests = max_requests
+        self._window_seconds = window_seconds
+        self._redis = _get_redis_client()
+
+    def _window_key(self, key: str) -> str:
+        bucket = int(time.time()) // self._window_seconds
+        return f"ratelimit:{key}:{bucket}"
+
+    def is_allowed(self, key: str) -> bool:
+        if self._redis is None:
+            return True
+        rk = self._window_key(key)
+        pipe = self._redis.pipeline()
+        pipe.incr(rk)
+        pipe.expire(rk, self._window_seconds + 1)
+        count, _ = pipe.execute()
+        return int(count) <= self._max_requests
+
+    def get_remaining(self, key: str) -> int:
+        if self._redis is None:
+            return self._max_requests
+        try:
+            count = int(self._redis.get(self._window_key(key)) or 0)
+        except Exception:
+            return 0
+        return max(0, self._max_requests - count)
+
+    def get_reset_time(self, key: str) -> float | None:
+        now = time.time()
+        bucket = int(now) // self._window_seconds
+        return (bucket + 1) * self._window_seconds
 
 
 class _CircuitBreaker:
@@ -60,13 +128,13 @@ class _CircuitBreaker:
         self,
         failure_threshold: int = 5,
         recovery_timeout: int = 60,
-        expected_exception: type = Exception
+        expected_exception: type = Exception,
     ):
         self._failure_threshold = failure_threshold
         self._recovery_timeout = recovery_timeout
         self._expected_exception = expected_exception
         self._failure_count = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._state = "closed"
         self._lock = Lock()
 
@@ -74,7 +142,10 @@ class _CircuitBreaker:
     def state(self) -> str:
         with self._lock:
             if self._state == "open":
-                if self._last_failure_time and time.time() - self._last_failure_time > self._recovery_timeout:
+                if (
+                    self._last_failure_time
+                    and time.time() - self._last_failure_time > self._recovery_timeout
+                ):
                     self._state = "half-open"
                     logger.info("Circuit breaker transitioning to half-open")
             return self._state
@@ -107,24 +178,26 @@ class _CircuitBreaker:
             self._last_failure_time = None
 
 
-_rate_limiters: Dict[str, _InMemoryRateLimiter] = {}
-_circuit_breakers: Dict[str, _CircuitBreaker] = {}
+_rate_limiters: dict[str, _InMemoryRateLimiter | _RedisRateLimiter] = {}
+_circuit_breakers: dict[str, _CircuitBreaker] = {}
 _limiter_lock = Lock()
 
 
-def get_rate_limiter(name: str, max_requests: int = 100, window_seconds: int = 60) -> _InMemoryRateLimiter:
+def get_rate_limiter(
+    name: str, max_requests: int = 100, window_seconds: int = 60
+) -> _InMemoryRateLimiter | _RedisRateLimiter:
     with _limiter_lock:
         if name not in _rate_limiters:
-            _rate_limiters[name] = _InMemoryRateLimiter(max_requests, window_seconds)
+            if _get_redis_client() is not None:
+                _rate_limiters[name] = _RedisRateLimiter(max_requests, window_seconds)
+            else:
+                _rate_limiters[name] = _InMemoryRateLimiter(max_requests, window_seconds)
         return _rate_limiters[name]
 
 
 def check_rate_limit(
-    user_id: str,
-    endpoint: str,
-    max_requests: int = 100,
-    window_seconds: int = 60
-) -> Dict[str, Any]:
+    user_id: str, endpoint: str, max_requests: int = 100, window_seconds: int = 60
+) -> dict[str, Any]:
     key = f"{endpoint}:{user_id}"
     limiter = get_rate_limiter(endpoint, max_requests, window_seconds)
 
@@ -133,23 +206,20 @@ def check_rate_limit(
             "allowed": True,
             "remaining": limiter.get_remaining(key),
             "reset_time": limiter.get_reset_time(key),
-            "retry_after": None
+            "retry_after": None,
         }
-    else:
-        reset_time = limiter.get_reset_time(key)
-        retry_after = int(reset_time - time.time()) if reset_time else window_seconds
-        return {
-            "allowed": False,
-            "remaining": 0,
-            "reset_time": reset_time,
-            "retry_after": retry_after
-        }
+    reset_time = limiter.get_reset_time(key)
+    retry_after = int(reset_time - time.time()) if reset_time else window_seconds
+    return {
+        "allowed": False,
+        "remaining": 0,
+        "reset_time": reset_time,
+        "retry_after": retry_after,
+    }
 
 
 def get_circuit_breaker(
-    name: str,
-    failure_threshold: int = 5,
-    recovery_timeout: int = 60
+    name: str, failure_threshold: int = 5, recovery_timeout: int = 60
 ) -> _CircuitBreaker:
     with _limiter_lock:
         if name not in _circuit_breakers:

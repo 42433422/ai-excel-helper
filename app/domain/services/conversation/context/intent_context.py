@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 IntentContext - 任务上下文
 
@@ -13,19 +12,20 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class AdoptionReason(Enum):
     """采纳原因枚举"""
-    NEW_TASK = "new_task"                    # 新任务
-    MERGE_SLOTS = "merge_slots"              # 槽位合并（相同意图续接）
+
+    NEW_TASK = "new_task"  # 新任务
+    MERGE_SLOTS = "merge_slots"  # 槽位合并（相同意图续接）
     SPECIAL_INTENT_PRESERVED = "special_intent_preserved"  # 特殊意图保留
-    INTENT_PRESERVED = "intent_preserved"    # 意图保留
+    INTENT_PRESERVED = "intent_preserved"  # 意图保留
     LOW_PRIORITY_SWITCH = "low_priority_switch"  # 低优先级切换
-    SWITCH_REQUESTED = "switch_requested"    # 请求切换
+    SWITCH_REQUESTED = "switch_requested"  # 请求切换
 
 
 SPECIAL_INTENTS = {"greeting", "goodbye", "help", "confirmation", "negation"}
@@ -45,9 +45,10 @@ class PendingIntent:
     - last_updated_at: 最后更新时间
     - turn_count: 续接次数统计
     """
+
     intent: str
-    slots: Dict[str, Any]
-    missing_slots: List[str]
+    slots: dict[str, Any]
+    missing_slots: list[str]
     created_at: float = field(default_factory=time.time)
     source: str = "unknown"
     last_updated_at: float = field(default_factory=time.time)
@@ -57,7 +58,7 @@ class PendingIntent:
         """检查是否过期（5分钟无操作）"""
         return time.time() - self.last_updated_at > max_age_seconds
 
-    def merge_slots(self, new_slots: Dict[str, Any]) -> 'PendingIntent':
+    def merge_slots(self, new_slots: dict[str, Any]) -> "PendingIntent":
         """
         合并新槽位到 pending
 
@@ -76,10 +77,10 @@ class PendingIntent:
             created_at=self.created_at,
             source=self.source,
             last_updated_at=time.time(),
-            turn_count=self.turn_count + 1
+            turn_count=self.turn_count + 1,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "intent": self.intent,
@@ -107,7 +108,7 @@ class IntentContext:
     """
 
     def __init__(self) -> None:
-        self._pending_store: Dict[str, PendingIntent] = {}
+        self._pending_store: dict[str, PendingIntent] = {}
 
     def set_pending(self, user_id: str, pending: PendingIntent) -> None:
         """
@@ -125,7 +126,7 @@ class IntentContext:
         )
         self._notify_update(user_id, pending, "created")
 
-    def get_pending(self, user_id: str) -> Optional[PendingIntent]:
+    def get_pending(self, user_id: str) -> PendingIntent | None:
         """
         获取待确认意图
 
@@ -143,7 +144,9 @@ class IntentContext:
             return None
 
         if pending.is_expired():
-            logger.info(f"[INTENT_CONTEXT] Pending expired: user={user_id}, intent={pending.intent}")
+            logger.info(
+                f"[INTENT_CONTEXT] Pending expired: user={user_id}, intent={pending.intent}"
+            )
             self.clear_pending(user_id)
             return None
 
@@ -164,7 +167,7 @@ class IntentContext:
         """检查是否有 pending"""
         return self.get_pending(user_id) is not None
 
-    def merge_slots(self, user_id: str, new_slots: Dict[str, Any]) -> Optional[PendingIntent]:
+    def merge_slots(self, user_id: str, new_slots: dict[str, Any]) -> PendingIntent | None:
         """
         合并新槽位到 pending
 
@@ -185,10 +188,8 @@ class IntentContext:
         return updated
 
     def should_adopt_new_intent(
-        self,
-        new_intent: str,
-        pending: Optional[PendingIntent]
-    ) -> Tuple[bool, AdoptionReason, Optional[PendingIntent]]:
+        self, new_intent: str, pending: PendingIntent | None
+    ) -> tuple[bool, AdoptionReason, PendingIntent | None]:
         """
         决定是否采纳新意图
 
@@ -227,7 +228,7 @@ class IntentContext:
 
         return False, AdoptionReason.INTENT_PRESERVED, pending
 
-    def get_pending_summary(self, user_id: str) -> Dict[str, Any]:
+    def get_pending_summary(self, user_id: str) -> dict[str, Any]:
         """获取 pending 摘要"""
         pending = self.get_pending(user_id)
         if not pending:
@@ -296,9 +297,10 @@ class IntentContext:
 
     def _get_notifier(self):
         """懒加载获取通知器"""
-        if not hasattr(self, '_notifier'):
+        if not hasattr(self, "_notifier"):
             try:
                 from app.routes.context_api import get_context_notifier
+
                 self._notifier = get_context_notifier()
             except ImportError:
                 self._notifier = None
@@ -306,7 +308,7 @@ class IntentContext:
 
 
 class IntentContextContainer:
-    _instance: Optional[IntentContext] = None
+    _instance: IntentContext | None = None
 
     @classmethod
     def get_instance(cls) -> IntentContext:

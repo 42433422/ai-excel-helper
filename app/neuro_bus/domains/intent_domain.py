@@ -6,10 +6,10 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
-from app.neuro_bus.domains.base import NeuroDomain, DomainChannel, get_domain_registry
-from app.neuro_bus.events.base import NeuroEvent, EventPriority, IntentEvent
+from app.neuro_bus.domains.base import DomainChannel, NeuroDomain, get_domain_registry
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class IntentResult:
     """意图识别结果"""
+
     intent_type: str
     confidence: float
-    entities: Dict[str, Any]
+    entities: dict[str, Any]
     raw_text: str
     processor_used: str  # "reflex", "subconscious", "conscious"
     latency_ms: float
@@ -28,31 +29,31 @@ class IntentResult:
 class IntentNeuroDomain(NeuroDomain):
     """
     意图神经域
-    
+
     处理：
     - 意图识别请求
     - 意图识别完成
     - 意图处理状态更新
     - Reflex 级快速响应
     """
-    
+
     domain_name = "intent"
     default_channel = DomainChannel.FAST
-    
+
     def __init__(self, bus=None):
         super().__init__(bus)
-        
+
         # 统计
         self._recognized_count = 0
         self._reflex_count = 0
         self._failed_count = 0
-        
+
         # 注册默认处理器（子类可覆盖）
         self._setup_handlers()
-    
+
     def _setup_handlers(self):
         """设置默认事件处理器"""
-        
+
         @self.on("intent.recognized", priority=0, channel=DomainChannel.FAST)
         async def on_intent_recognized(event: NeuroEvent):
             """意图识别完成"""
@@ -60,18 +61,20 @@ class IntentNeuroDomain(NeuroDomain):
             intent_type = event.payload.get("intent_type")
             confidence = event.payload.get("confidence", 0.0)
             processor = event.payload.get("processor_used", "unknown")
-            
+
             if processor == "reflex":
                 self._reflex_count += 1
-            
-            logger.debug(f"Intent recognized: {intent_type} (confidence={confidence:.2f}, processor={processor})")
+
+            logger.debug(
+                f"Intent recognized: {intent_type} (confidence={confidence:.2f}, processor={processor})"
+            )
             try:
                 from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
 
                 bump_domain_handler_metric("intent.recognized")
             except Exception:
                 pass
-        
+
         @self.on("intent.processing", priority=1, channel=DomainChannel.FAST)
         async def on_intent_processing(event: NeuroEvent):
             """意图处理中"""
@@ -83,7 +86,7 @@ class IntentNeuroDomain(NeuroDomain):
                 bump_domain_handler_metric("intent.processing")
             except Exception:
                 pass
-        
+
         @self.on("intent.failed", priority=0, channel=DomainChannel.STANDARD)
         async def on_intent_failed(event: NeuroEvent):
             """意图处理失败"""
@@ -97,7 +100,7 @@ class IntentNeuroDomain(NeuroDomain):
                 bump_domain_handler_metric("intent.failed")
             except Exception:
                 pass
-        
+
         @self.on("intent.reflex_triggered", priority=0, channel=DomainChannel.FAST)
         async def on_reflex_triggered(event: NeuroEvent):
             """反射弧触发"""
@@ -111,20 +114,20 @@ class IntentNeuroDomain(NeuroDomain):
                 bump_domain_handler_metric("intent.reflex_triggered")
             except Exception:
                 pass
-    
+
     async def initialize(self):
         """初始化意图域"""
         logger.info("IntentNeuroDomain initialized")
-    
+
     async def shutdown(self):
         """关闭意图域"""
         logger.info("IntentNeuroDomain shutdown")
-    
+
     def emit_intent_recognized(
         self,
         intent_type: str,
         confidence: float,
-        entities: Dict[str, Any],
+        entities: dict[str, Any],
         raw_text: str,
         processor_used: str = "conscious",
         latency_ms: float = 0.0,
@@ -142,9 +145,9 @@ class IntentNeuroDomain(NeuroDomain):
                 "raw_text": raw_text,
                 "processor_used": processor_used,
                 "latency_ms": latency_ms,
-            }
+            },
         )
-    
+
     def emit_intent_processing(
         self,
         intent_type: str,
@@ -161,9 +164,9 @@ class IntentNeuroDomain(NeuroDomain):
                 "intent_type": intent_type,
                 "user_id": user_id,
                 "stage": stage,
-            }
+            },
         )
-    
+
     def emit_intent_failed(
         self,
         intent_type: str,
@@ -182,9 +185,9 @@ class IntentNeuroDomain(NeuroDomain):
                 "user_id": user_id,
                 "error": error,
                 "raw_text": raw_text,
-            }
+            },
         )
-    
+
     def emit_reflex_triggered(
         self,
         reflex_type: str,
@@ -201,10 +204,10 @@ class IntentNeuroDomain(NeuroDomain):
                 "reflex_type": reflex_type,
                 "latency_ms": latency_ms,
                 "user_id": user_id,
-            }
+            },
         )
-    
-    def get_stats(self) -> Dict[str, Any]:
+
+    def get_stats(self) -> dict[str, Any]:
         """获取统计"""
         base_stats = super().get_stats()
         out = {
@@ -215,7 +218,10 @@ class IntentNeuroDomain(NeuroDomain):
             "reflex_rate": self._reflex_count / max(self._recognized_count, 1),
         }
         try:
-            from app.neuro_bus.neuro_trace_config import get_domain_handler_metrics, is_neuro_domain_metrics_enabled
+            from app.neuro_bus.neuro_trace_config import (
+                get_domain_handler_metrics,
+                is_neuro_domain_metrics_enabled,
+            )
 
             if is_neuro_domain_metrics_enabled():
                 allm = get_domain_handler_metrics()
@@ -228,7 +234,7 @@ class IntentNeuroDomain(NeuroDomain):
 
 
 # 单例
-_intent_domain: Optional[IntentNeuroDomain] = None
+_intent_domain: IntentNeuroDomain | None = None
 
 
 def get_intent_domain() -> IntentNeuroDomain:

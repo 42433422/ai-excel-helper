@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 对话服务模块
 
@@ -8,45 +7,23 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 from app.db.models import AIConversation, AIConversationSession
 from app.db.session import get_db
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ConversationService:
+class ConversationService(NeuroEventPublisherMixin):
     """对话服务类"""
 
     def __init__(self):
         """初始化对话服务"""
         pass
 
-    @staticmethod
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
-    def _normalize_user_id(user_id: Any) -> Optional[int]:
+    def _normalize_user_id(user_id: Any) -> int | None:
         """兼容历史 user_id 字段：非数字值回退为 None。"""
         if user_id is None:
             return None
@@ -66,7 +43,7 @@ class ConversationService:
         role: str,
         content: str,
         intent: str = "",
-        metadata: str = ""
+        metadata: str = "",
     ) -> int:
         """
         保存对话消息
@@ -85,9 +62,11 @@ class ConversationService:
         with get_db() as db:
             try:
                 # 更新或创建会话（必须先创建会话，因为消息有外键依赖）
-                session = db.query(AIConversationSession).filter(
-                    AIConversationSession.session_id == session_id
-                ).first()
+                session = (
+                    db.query(AIConversationSession)
+                    .filter(AIConversationSession.session_id == session_id)
+                    .first()
+                )
 
                 normalized_user_id = self._normalize_user_id(user_id)
 
@@ -100,7 +79,7 @@ class ConversationService:
                         user_id=normalized_user_id,
                         message_count=1,
                         last_message_at=datetime.now(),
-                        created_at=datetime.now()
+                        created_at=datetime.now(),
                     )
                     db.add(session)
                 db.flush()
@@ -113,7 +92,7 @@ class ConversationService:
                     content=content,
                     intent=intent,
                     conversation_metadata=metadata,
-                    created_at=datetime.now()
+                    created_at=datetime.now(),
                 )
                 db.add(conversation)
 
@@ -124,11 +103,7 @@ class ConversationService:
                 logger.error(f"保存对话消息失败: {e}")
                 raise
 
-    def get_session_messages(
-        self,
-        session_id: str,
-        limit: int = 50
-    ) -> List[Tuple]:
+    def get_session_messages(self, session_id: str, limit: int = 50) -> list[tuple]:
         """
         获取会话消息
 
@@ -141,32 +116,34 @@ class ConversationService:
         """
         with get_db() as db:
             try:
-                messages = db.query(AIConversation).filter(
-                    AIConversation.session_id == session_id
-                ).order_by(AIConversation.created_at.asc()).limit(limit).all()
+                messages = (
+                    db.query(AIConversation)
+                    .filter(AIConversation.session_id == session_id)
+                    .order_by(AIConversation.created_at.asc())
+                    .limit(limit)
+                    .all()
+                )
 
                 result = []
                 for msg in messages:
-                    result.append((
-                        msg.id,
-                        msg.session_id,
-                        msg.user_id,
-                        msg.role,
-                        msg.content,
-                        msg.intent or "",
-                        msg.conversation_metadata or "",
-                        msg.created_at
-                    ))
+                    result.append(
+                        (
+                            msg.id,
+                            msg.session_id,
+                            msg.user_id,
+                            msg.role,
+                            msg.content,
+                            msg.intent or "",
+                            msg.conversation_metadata or "",
+                            msg.created_at,
+                        )
+                    )
                 return result
             except Exception as e:
                 logger.error(f"获取会话消息失败: {e}")
                 raise
 
-    def get_sessions(
-        self,
-        user_id: Optional[str] = None,
-        limit: int = 20
-    ) -> List[Tuple]:
+    def get_sessions(self, user_id: str | None = None, limit: int = 20) -> list[tuple]:
         """
         获取会话列表
 
@@ -183,26 +160,28 @@ class ConversationService:
 
                 if user_id:
                     query = query.filter(
-                        (AIConversationSession.user_id == user_id) |
-                        (AIConversationSession.user_id.is_(None))
+                        (AIConversationSession.user_id == user_id)
+                        | (AIConversationSession.user_id.is_(None))
                     )
 
-                sessions = query.order_by(
-                    AIConversationSession.last_message_at.desc()
-                ).limit(limit).all()
+                sessions = (
+                    query.order_by(AIConversationSession.last_message_at.desc()).limit(limit).all()
+                )
 
                 result = []
                 for session in sessions:
-                    result.append((
-                        session.id,
-                        session.session_id,
-                        session.user_id,
-                        session.title,
-                        session.summary,
-                        session.message_count,
-                        session.last_message_at,
-                        session.created_at
-                    ))
+                    result.append(
+                        (
+                            session.id,
+                            session.session_id,
+                            session.user_id,
+                            session.title,
+                            session.summary,
+                            session.message_count,
+                            session.last_message_at,
+                            session.created_at,
+                        )
+                    )
                 return result
             except Exception as e:
                 logger.error(f"获取会话列表失败: {e}")
@@ -221,9 +200,11 @@ class ConversationService:
         """
         with get_db() as db:
             try:
-                session = db.query(AIConversationSession).filter(
-                    AIConversationSession.session_id == session_id
-                ).first()
+                session = (
+                    db.query(AIConversationSession)
+                    .filter(AIConversationSession.session_id == session_id)
+                    .first()
+                )
 
                 if session:
                     session.title = title
@@ -248,14 +229,14 @@ class ConversationService:
         with get_db() as db:
             try:
                 # 删除会话的所有消息
-                db.query(AIConversation).filter(
-                    AIConversation.session_id == session_id
-                ).delete()
+                db.query(AIConversation).filter(AIConversation.session_id == session_id).delete()
 
                 # 删除会话
-                result = db.query(AIConversationSession).filter(
-                    AIConversationSession.session_id == session_id
-                ).delete()
+                result = (
+                    db.query(AIConversationSession)
+                    .filter(AIConversationSession.session_id == session_id)
+                    .delete()
+                )
 
                 db.commit()
                 return True
@@ -264,7 +245,7 @@ class ConversationService:
                 logger.error(f"删除会话失败：{e}")
                 raise
 
-    def create_session(self, user_id: str = 'default', title: str = None) -> str:
+    def create_session(self, user_id: str = "default", title: str = None) -> str:
         """
         创建新会话
 
@@ -284,7 +265,7 @@ class ConversationService:
                     title=title,
                     message_count=0,
                     last_message_at=datetime.now(),
-                    created_at=datetime.now()
+                    created_at=datetime.now(),
                 )
                 db.add(session)
                 db.commit()
@@ -296,7 +277,7 @@ class ConversationService:
 
 
 # 全局服务实例
-_conversation_service: Optional[ConversationService] = None
+_conversation_service: ConversationService | None = None
 
 
 def get_conversation_service() -> ConversationService:

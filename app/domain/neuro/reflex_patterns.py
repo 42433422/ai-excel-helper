@@ -4,9 +4,8 @@
 预定义的反射模式匹配规则
 """
 
-import re
 import logging
-from typing import Dict, List, Tuple, Optional
+import re
 from dataclasses import dataclass
 
 from app.domain.neuro.reflex_arc import ReflexType
@@ -17,18 +16,19 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PatternRule:
     """模式规则定义"""
+
     pattern: str
     weight: float = 1.0
-    context_required: List[str] = None
+    context_required: list[str] = None
 
 
 class ReflexPatternMatcher:
     """
     反射模式匹配器
-    
+
     扩展的模式匹配库，支持上下文感知匹配
     """
-    
+
     # 问候模式
     GREETING_PATTERNS = [
         PatternRule(r"^你好[！!。]?$", weight=1.0),
@@ -45,7 +45,7 @@ class ReflexPatternMatcher:
         PatternRule(r"^哈喽", weight=0.8),
         PatternRule(r"^嘿[！!。]?$", weight=0.7),
     ]
-    
+
     # 紧急停止模式
     EMERGENCY_STOP_PATTERNS = [
         PatternRule(r"停止", weight=0.9),
@@ -63,7 +63,7 @@ class ReflexPatternMatcher:
         PatternRule(r"^abort\b", weight=1.0),
         PatternRule(r"^halt\b", weight=1.0),
     ]
-    
+
     # 确认模式
     CONFIRMATION_PATTERNS = [
         PatternRule(r"^是的[！!.。]?$", weight=1.0),
@@ -84,7 +84,7 @@ class ReflexPatternMatcher:
         PatternRule(r"^sure\b", weight=0.8),
         PatternRule(r"^当然[！!.。]?$", weight=0.9),
     ]
-    
+
     # 否定模式
     DENIAL_PATTERNS = [
         PatternRule(r"^不是[！!.。]?$", weight=1.0),
@@ -99,7 +99,7 @@ class ReflexPatternMatcher:
         PatternRule(r"^never\b", weight=0.9),
         PatternRule(r"^negative\b", weight=0.9),
     ]
-    
+
     # 帮助模式
     HELP_PATTERNS = [
         PatternRule(r"^帮助[！!.。]?$", weight=1.0),
@@ -117,12 +117,12 @@ class ReflexPatternMatcher:
         PatternRule(r"^指导", weight=0.8),
         PatternRule(r"^\?+$", weight=0.6),  # 纯问号
     ]
-    
+
     def __init__(self):
-        self._pattern_groups: Dict[ReflexType, List[Tuple[re.Pattern, float]]] = {}
+        self._pattern_groups: dict[ReflexType, list[tuple[re.Pattern, float]]] = {}
         self._compile_patterns()
         logger.info("ReflexPatternMatcher initialized")
-    
+
     def _compile_patterns(self):
         """编译所有模式"""
         pattern_map = {
@@ -132,7 +132,7 @@ class ReflexPatternMatcher:
             ReflexType.DENIAL: self.DENIAL_PATTERNS,
             ReflexType.HELP: self.HELP_PATTERNS,
         }
-        
+
         for reflex_type, rules in pattern_map.items():
             compiled = []
             for rule in rules:
@@ -141,39 +141,39 @@ class ReflexPatternMatcher:
                     compiled.append((pattern, rule.weight))
                 except re.error as e:
                     logger.error(f"Failed to compile pattern {rule.pattern}: {e}")
-            
+
             self._pattern_groups[reflex_type] = compiled
-    
-    def match(self, text: str) -> Tuple[Optional[ReflexType], float]:
+
+    def match(self, text: str) -> tuple[ReflexType | None, float]:
         """
         匹配文本
-        
+
         Returns:
             (匹配到的类型, 置信度)
         """
-        best_match: Optional[ReflexType] = None
+        best_match: ReflexType | None = None
         best_confidence = 0.0
-        
+
         for reflex_type, patterns in self._pattern_groups.items():
             for pattern, weight in patterns:
                 if pattern.search(text):
                     confidence = weight
-                    
+
                     # 完全匹配加分
                     if pattern.match(text):
                         confidence = min(1.0, confidence + 0.1)
-                    
+
                     if confidence > best_confidence:
                         best_confidence = confidence
                         best_match = reflex_type
-                    
+
                     # 高置信度可提前返回
                     if confidence >= 1.0:
                         return best_match, best_confidence
-        
+
         return best_match, best_confidence
-    
-    def get_patterns_for_type(self, reflex_type: ReflexType) -> List[str]:
+
+    def get_patterns_for_type(self, reflex_type: ReflexType) -> list[str]:
         """获取指定类型的所有模式字符串"""
         pattern_map = {
             ReflexType.GREETING: self.GREETING_PATTERNS,
@@ -182,10 +182,10 @@ class ReflexPatternMatcher:
             ReflexType.DENIAL: self.DENIAL_PATTERNS,
             ReflexType.HELP: self.HELP_PATTERNS,
         }
-        
+
         rules = pattern_map.get(reflex_type, [])
         return [rule.pattern for rule in rules]
-    
+
     def add_custom_pattern(
         self,
         reflex_type: ReflexType,
@@ -195,14 +195,14 @@ class ReflexPatternMatcher:
         """添加自定义模式"""
         try:
             compiled = re.compile(pattern, re.IGNORECASE | re.UNICODE)
-            
+
             if reflex_type not in self._pattern_groups:
                 self._pattern_groups[reflex_type] = []
-            
+
             self._pattern_groups[reflex_type].append((compiled, weight))
             logger.info(f"Added custom pattern for {reflex_type}: {pattern}")
             return True
-            
+
         except re.error as e:
             logger.error(f"Invalid pattern {pattern}: {e}")
             return False
@@ -245,6 +245,6 @@ def get_reflex_response(reflex_type: ReflexType, variation: int = 0) -> str:
     responses = REFLEX_RESPONSES.get(reflex_type, [""])
     if not responses:
         return ""
-    
+
     index = variation % len(responses)
     return responses[index]

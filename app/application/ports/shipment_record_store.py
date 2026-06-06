@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class ShipmentRecordStorePort(ABC):
@@ -15,11 +15,10 @@ class ShipmentRecordStorePort(ABC):
         self,
         *,
         unit_name: str,
-        unit_id: Optional[int],
-        products: List[Dict[str, Any]],
-        document_result: Dict[str, Any],
+        unit_id: int | None,
+        products: list[dict[str, Any]],
+        document_result: dict[str, Any],
         raw_text: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """记录一次发货单生成对应的出货记录。"""
         raise NotImplementedError
-

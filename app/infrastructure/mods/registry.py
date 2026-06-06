@@ -3,7 +3,7 @@ Mod Registry - Singleton registry for loaded mods
 """
 
 import logging
-from typing import Dict, List, Optional
+from typing import Optional
 
 from .manifest import ModMetadata
 
@@ -14,8 +14,8 @@ class ModRegistry:
     _instance: Optional["ModRegistry"] = None
 
     def __init__(self):
-        self._mods: Dict[str, ModMetadata] = {}
-        self._mod_instances: Dict[str, object] = {}
+        self._mods: dict[str, ModMetadata] = {}
+        self._mod_instances: dict[str, object] = {}
 
     @classmethod
     def get_instance(cls) -> "ModRegistry":
@@ -43,19 +43,19 @@ class ModRegistry:
         logger.info(f"Mod unregistered: {mod_id}")
         return True
 
-    def get_mod_metadata(self, mod_id: str) -> Optional[ModMetadata]:
+    def get_mod_metadata(self, mod_id: str) -> ModMetadata | None:
         return self._mods.get(mod_id)
 
-    def list_mods(self) -> List[ModMetadata]:
+    def list_mods(self) -> list[ModMetadata]:
         return list(self._mods.values())
 
-    def list_mod_ids(self) -> List[str]:
+    def list_mod_ids(self) -> list[str]:
         return list(self._mods.keys())
 
     def register_mod_instance(self, mod_id: str, instance: object):
         self._mod_instances[mod_id] = instance
 
-    def get_mod_instance(self, mod_id: str) -> Optional[object]:
+    def get_mod_instance(self, mod_id: str) -> object | None:
         return self._mod_instances.get(mod_id)
 
 

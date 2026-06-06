@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
 
 from .types import PlanGraph
 
@@ -10,7 +9,7 @@ from .types import PlanGraph
 class RiskDecision:
     requires_confirmation: bool
     reason: str
-    blocking_nodes: List[str]
+    blocking_nodes: list[str]
 
 
 class HybridRiskGate:
@@ -21,7 +20,7 @@ class HybridRiskGate:
     - 可通过 context 显式放行（同会话记忆）
     """
 
-    def evaluate(self, plan: PlanGraph, context: Dict[str, object]) -> RiskDecision:
+    def evaluate(self, plan: PlanGraph, context: dict[str, object]) -> RiskDecision:
         auto_approve = bool(context.get("workflow_auto_approve_high_risk", False))
         if auto_approve:
             return RiskDecision(
@@ -30,7 +29,7 @@ class HybridRiskGate:
                 blocking_nodes=[],
             )
 
-        blocking_nodes: List[str] = []
+        blocking_nodes: list[str] = []
         for node in plan.nodes:
             if node.risk in ("medium", "high"):
                 blocking_nodes.append(node.node_id)

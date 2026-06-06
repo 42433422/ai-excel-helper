@@ -23,11 +23,15 @@ from urllib.parse import quote, unquote
 
 
 def _normalize_mod_for_env(mod_id: str) -> str:
-    return "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").upper()
+    return (
+        "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").upper()
+    )
 
 
 def _normalize_mod_file_suffix(mod_id: str) -> str:
-    return "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").lower()
+    return (
+        "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").lower()
+    )
 
 
 def _mod_db_url_from_env(active_mod_id: str) -> str:

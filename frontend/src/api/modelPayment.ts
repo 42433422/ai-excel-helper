@@ -1,4 +1,7 @@
-import { api } from './index';
+import { api } from './core';
+import { resolveModelPaymentApiPath } from '@/utils/modelPaymentPaths';
+
+const mp = (path: string) => resolveModelPaymentApiPath(path);
 
 export type ModelPaymentPlan = {
   id: string;
@@ -28,7 +31,7 @@ export const modelPaymentApi = {
       success: boolean;
       data?: { plans: ModelPaymentPlan[]; integration: ModelPaymentIntegration };
       message?: string;
-    }>('/api/model-payment/plans'),
+    }>(mp('/api/model-payment/plans')),
 
   checkout: (plan_id: string) =>
     api.post<{
@@ -47,14 +50,14 @@ export const modelPaymentApi = {
         setup_hint?: string;
       };
       message?: string;
-    }>('/api/model-payment/checkout', { plan_id }),
+    }>(mp('/api/model-payment/checkout'), { plan_id }),
 
   getEntitlements: () =>
     api.get<{
       success: boolean;
       data?: { entitlements: ModelPaymentEntitlement[] };
       message?: string;
-    }>('/api/model-payment/entitlements'),
+    }>(mp('/api/model-payment/entitlements')),
 };
 
 export default modelPaymentApi;

@@ -1,14 +1,9 @@
 """
 Composition Root / 装配入口
 
-This is the standard place for wiring dependencies (Application Services <-> Infrastructure).
-Uses lightweight @lru_cache(maxsize=1) singletons instead of a full DI container
-(per project preference for simplicity).
-
-See:
-- app/domain/services/intent_recognition_service.py for domain intent logic
-- app/domain/services/ for pure business rules
-- Do not import infrastructure here for domain services.
+应用服务与基础设施的默认装配。与 ``app.di.registry.ServiceContainer`` 对齐：
+发货与客户 / AI 聊天等「重型」单例由注册表持有；本模块保留若干 ``lru_cache`` 装配
+（模板、材质、产品等），并逐步与 ``get_service_registry()`` 收敛。
 """
 
 from __future__ import annotations
@@ -16,25 +11,8 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 
-from app.application.ai_chat_app_service import AIChatApplicationService
-from app.application.customer_app_service import CustomerApplicationService
-from app.application.file_analysis_app_service import FileAnalysisService
 from app.application.shipment_app_service import ShipmentApplicationService
 from app.application.template_app_service import TemplateApplicationService
-from app.application.unit_products_import_app_service import UnitProductsImportService
-from app.application.wechat_contact_app_service import WechatContactApplicationService
-from app.infrastructure.documents.shipment_document_generator_impl import (
-    LegacyShipmentDocumentGenerator,
-)
-from app.infrastructure.persistence.purchase_unit_query_impl import SQLAlchemyPurchaseUnitQuery
-from app.infrastructure.persistence.shipment_record_command_impl import (
-    SQLAlchemyShipmentRecordCommand,
-)
-from app.infrastructure.persistence.shipment_record_query_impl import SQLAlchemyShipmentRecordQuery
-from app.infrastructure.persistence.shipment_record_store_impl import SQLAlchemyShipmentRecordStore
-from app.infrastructure.persistence.wechat_contact_store_impl import SQLAlchemyWechatContactStore
-from app.infrastructure.repositories.shipment_repository_impl import SQLAlchemyShipmentRepository
-from app.infrastructure.templates.template_store_impl import FileSystemTemplateStore
 from app.services.extract_log_service import ExtractLogService
 from app.services.materials_service import MaterialsService
 from app.services.product_import_service import ProductImportService
@@ -44,24 +22,17 @@ from app.services.products_service import ProductsService
 # in app/domain/services/intent_recognition_service.py
 
 
-@lru_cache(maxsize=1)
 def get_shipment_application_service_core() -> ShipmentApplicationService:
     """Direct shipment application service (no NeuroBus). Handlers must use this to avoid recursion."""
-    return ShipmentApplicationService(
-        repository=SQLAlchemyShipmentRepository(),
-        document_generator=LegacyShipmentDocumentGenerator(),
-        record_store=SQLAlchemyShipmentRecordStore(),
-        record_query=SQLAlchemyShipmentRecordQuery(),
-        record_command=SQLAlchemyShipmentRecordCommand(),
-        purchase_unit_query=SQLAlchemyPurchaseUnitQuery(),
-    )
+    from app.di.registry import get_service_registry
+
+    return get_service_registry().shipment_application_service_core
 
 
-@lru_cache(maxsize=1)
 def _get_shipment_app_service_event_primary():
-    from app.application.facades.shipment_event_primary import ShipmentApplicationServiceEventPrimary
+    from app.di.registry import get_service_registry
 
-    return ShipmentApplicationServiceEventPrimary(get_shipment_application_service_core())
+    return get_service_registry().shipment_event_primary_facade
 
 
 def get_shipment_app_service():
@@ -78,19 +49,23 @@ def get_shipment_app_service():
 
 @lru_cache(maxsize=1)
 def get_template_app_service() -> TemplateApplicationService:
+    from app.infrastructure.templates.template_store_impl import FileSystemTemplateStore
+
     base_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.dirname(base_dir)
     return TemplateApplicationService(FileSystemTemplateStore(base_dir=base_dir))
 
 
-@lru_cache(maxsize=1)
-def get_wechat_contact_app_service() -> WechatContactApplicationService:
-    return WechatContactApplicationService(store=SQLAlchemyWechatContactStore())
+def get_wechat_contact_app_service():
+    from app.application.wechat_contact_app_service import get_wechat_contact_app_service as g
+
+    return g()
 
 
 @lru_cache(maxsize=1)
 def get_materials_service() -> MaterialsService:
     from app.infrastructure.persistence.material_repository_impl import SQLAlchemyMaterialRepository
+
     service = MaterialsService()
     service.set_repository(SQLAlchemyMaterialRepository())
     return service
@@ -98,15 +73,18 @@ def get_materials_service() -> MaterialsService:
 
 @lru_cache(maxsize=1)
 def get_products_service() -> ProductsService:
-    from app.infrastructure.persistence.product_repository_impl import SQLAlchemyProductRepository
+    from app.mod_sdk.erp_repository_registry import resolve_products_repository
+
     service = ProductsService()
-    service.set_repository(SQLAlchemyProductRepository())
+    repo, _provider = resolve_products_repository()
+    service.set_repository(repo)
     return service
 
 
-@lru_cache(maxsize=1)
-def get_customer_app_service() -> CustomerApplicationService:
-    return CustomerApplicationService()
+def get_customer_app_service():
+    from app.application.customer_app_service import get_customer_app_service as g
+
+    return g()
 
 
 @lru_cache(maxsize=1)
@@ -119,17 +97,21 @@ def get_product_import_service() -> ProductImportService:
     return ProductImportService()
 
 
-@lru_cache(maxsize=1)
-def get_ai_chat_app_service() -> AIChatApplicationService:
-    """AI Chat service - uses domain intent service internally"""
-    return AIChatApplicationService()
+def get_ai_chat_app_service():
+    from app.application.ai_chat_app_service import get_ai_chat_app_service as g
+
+    return g()
 
 
-@lru_cache(maxsize=1)
-def get_file_analysis_service() -> FileAnalysisService:
-    return FileAnalysisService()
+def get_file_analysis_service():
+    from app.application.file_analysis_app_service import get_file_analysis_app_service as g
+
+    return g()
 
 
-@lru_cache(maxsize=1)
-def get_unit_products_import_service() -> UnitProductsImportService:
-    return UnitProductsImportService()
+def get_unit_products_import_service():
+    from app.application.unit_products_import_app_service import (
+        get_unit_products_import_app_service as g,
+    )
+
+    return g()

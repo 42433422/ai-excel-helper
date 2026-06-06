@@ -9,3 +9,7 @@
 - 大体积样例、数据库导出、截图：不要提交到 Git；若必须共享，考虑 `misc/` + `.gitignore` 或外部网盘链接。
 
 历史文件若已在根目录且被业务依赖，移动前请全局搜索引用并更新路径。
+
+## Launchers
+
+- [`launchers/test_port.ps1`](launchers/test_port.ps1) — PowerShell TCP 探测（默认 `127.0.0.1:8000`）；可用 `-TargetHost localhost -Port 8000` 等参数。

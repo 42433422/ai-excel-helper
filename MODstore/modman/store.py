@@ -85,6 +85,13 @@ def _copytree(src: Path, dst: Path) -> None:
     shutil.copytree(src, dst, dirs_exist_ok=False)
 
 
+def _manifest_artifact_is_employee_pack(data: dict) -> bool:
+    raw = data.get("artifact") or data.get("kind") or ""
+    if not isinstance(raw, str):
+        return False
+    return raw.strip().lower() == "employee_pack"
+
+
 def ingest_mod(src: Path, library: Path) -> Path:
     src = src.resolve()
     if not src.is_dir():
@@ -124,7 +131,15 @@ def deploy_to_xcagi(
         if not row.get("ok"):
             raise ValueError(f"Mod {mid} 校验未通过，跳过部署: {row.get('warnings')}")
         src = Path(row["path"])
-        dst = mods_dir / mid
+        mf, merr = read_manifest(src)
+        if merr or not mf:
+            raise ValueError(f"Mod {mid}: 无法读取 manifest: {merr or 'empty'}")
+        if _manifest_artifact_is_employee_pack(mf):
+            emp_root = mods_dir / "_employees"
+            emp_root.mkdir(parents=True, exist_ok=True)
+            dst = emp_root / mid
+        else:
+            dst = mods_dir / mid
         if dst.exists():
             if not replace:
                 raise FileExistsError(f"目标已存在: {dst}")
@@ -145,13 +160,14 @@ def pull_from_xcagi(
     if not mods_dir.is_dir():
         raise FileNotFoundError(f"XCAGI mods 目录不存在: {mods_dir}")
     done: List[str] = []
-    for child in sorted(mods_dir.iterdir()):
+
+    def _pull_one(child: Path) -> None:
         if not child.is_dir():
-            continue
+            return
         if mod_ids and child.name not in mod_ids:
-            continue
+            return
         if not (child / "manifest.json").is_file():
-            continue
+            return
         dest = library / child.name
         library.mkdir(parents=True, exist_ok=True)
         if dest.exists():
@@ -160,6 +176,17 @@ def pull_from_xcagi(
             shutil.rmtree(dest)
         shutil.copytree(child, dest)
         done.append(child.name)
+
+    for child in sorted(mods_dir.iterdir()):
+        if child.name == "_employees":
+            continue
+        _pull_one(child)
+
+    emp_dir = mods_dir / "_employees"
+    if emp_dir.is_dir():
+        for child in sorted(emp_dir.iterdir()):
+            _pull_one(child)
+
     return done
 
 

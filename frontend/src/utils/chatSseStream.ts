@@ -1,3 +1,5 @@
+import { resolvePlannerChatStreamPath } from '@/utils/plannerChatPaths'
+
 export type PlannerSseEvent =
   | { type: 'token'; text: string }
   | { type: 'done'; result?: unknown }
@@ -53,8 +55,7 @@ export async function readPlannerSseResponse(
 }
 
 export function resolveChatStreamPath(): string {
-  const p = String(import.meta.env.VITE_CHAT_STREAM_PATH || '').trim()
-  return p || '/api/ai/chat/stream'
+  return resolvePlannerChatStreamPath()
 }
 
 export function isChatStreamEnabled(): boolean {

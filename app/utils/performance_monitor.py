@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 性能监控器
 
@@ -15,12 +14,12 @@ import functools
 import logging
 import os
 import time
-import traceback
 from collections import deque
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -32,28 +31,31 @@ MEMORY_WARNING_MB = int(os.environ.get("XCAGI_MEMORY_WARNING", "512"))
 @dataclass
 class PerformanceMetric:
     """性能指标"""
+
     name: str
     duration_ms: float
     timestamp: float = field(default_factory=time.time)
     success: bool = True
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class APIMetric:
     """API 指标"""
+
     endpoint: str
     method: str
     status_code: int
     duration_ms: float
     timestamp: float = field(default_factory=time.time)
-    user_id: Optional[str] = None
-    ip: Optional[str] = None
+    user_id: str | None = None
+    ip: str | None = None
 
 
 @dataclass
 class MemorySnapshot:
     """内存快照"""
+
     timestamp: float
     rss_mb: float
     vms_mb: float
@@ -64,6 +66,7 @@ class MemorySnapshot:
 @dataclass
 class PerformanceAlert:
     """性能告警"""
+
     level: str  # warning, critical
     metric_type: str
     message: str
@@ -86,27 +89,20 @@ class PerformanceMonitor:
 
     def __init__(self, history_size: int = PERFORMANCE_HISTORY_SIZE):
         self._history_size = history_size
-        self._metrics: Deque[PerformanceMetric] = deque(maxlen=history_size)
-        self._api_metrics: Deque[APIMetric] = deque(maxlen=history_size)
-        self._alerts: Deque[PerformanceAlert] = deque(maxlen=100)
-        self._memory_history: Deque[MemorySnapshot] = deque(maxlen=3600)
+        self._metrics: deque[PerformanceMetric] = deque(maxlen=history_size)
+        self._api_metrics: deque[APIMetric] = deque(maxlen=history_size)
+        self._alerts: deque[PerformanceAlert] = deque(maxlen=100)
+        self._memory_history: deque[MemorySnapshot] = deque(maxlen=3600)
         self._lock = Lock()
-        self._function_timers: Dict[str, List[float]] = {}
+        self._function_timers: dict[str, list[float]] = {}
         self._slow_api_threshold = SLOW_API_THRESHOLD_MS
 
     def record_metric(
-        self,
-        name: str,
-        duration_ms: float,
-        success: bool = True,
-        **metadata
+        self, name: str, duration_ms: float, success: bool = True, **metadata
     ) -> None:
         """记录性能指标"""
         metric = PerformanceMetric(
-            name=name,
-            duration_ms=duration_ms,
-            success=success,
-            metadata=metadata
+            name=name, duration_ms=duration_ms, success=success, metadata=metadata
         )
 
         with self._lock:
@@ -121,8 +117,8 @@ class PerformanceMonitor:
         method: str,
         status_code: int,
         duration_ms: float,
-        user_id: Optional[str] = None,
-        ip: Optional[str] = None
+        user_id: str | None = None,
+        ip: str | None = None,
     ) -> None:
         """记录 API 调用"""
         api_metric = APIMetric(
@@ -131,7 +127,7 @@ class PerformanceMonitor:
             status_code=status_code,
             duration_ms=duration_ms,
             user_id=user_id,
-            ip=ip
+            ip=ip,
         )
 
         with self._lock:
@@ -143,7 +139,7 @@ class PerformanceMonitor:
                 metric_type="slow_api",
                 message=f"慢API: {method} {endpoint}",
                 value=duration_ms,
-                threshold=self._slow_api_threshold
+                threshold=self._slow_api_threshold,
             )
             self._add_alert(alert)
 
@@ -171,7 +167,7 @@ class PerformanceMonitor:
                     metric_type="high_memory",
                     message=f"内存使用过高: {snapshot.rss_mb:.1f}MB",
                     value=snapshot.rss_mb,
-                    threshold=MEMORY_WARNING_MB
+                    threshold=MEMORY_WARNING_MB,
                 )
                 self._add_alert(alert)
 
@@ -186,7 +182,9 @@ class PerformanceMonitor:
             self._alerts.append(alert)
 
         log_func = logger.warning if alert.level == "warning" else logger.critical
-        log_func(f"[{alert.level.upper()}] {alert.message}: {alert.value:.2f} (阈值: {alert.threshold})")
+        log_func(
+            f"[{alert.level.upper()}] {alert.message}: {alert.value:.2f} (阈值: {alert.threshold})"
+        )
 
     @contextmanager
     def track(self, name: str, **metadata):
@@ -210,7 +208,7 @@ class PerformanceMonitor:
             duration_ms = (time.perf_counter() - start_time) * 1000
             self.record_metric(name, duration_ms, success=not error_occurred, **metadata)
 
-    def timer(self, name: Optional[str] = None, include_args: bool = False):
+    def timer(self, name: str | None = None, include_args: bool = False):
         """
         计时装饰器
 
@@ -219,6 +217,7 @@ class PerformanceMonitor:
             def my_function():
                 ...
         """
+
         def decorator(func: Callable) -> Callable:
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
@@ -240,12 +239,14 @@ class PerformanceMonitor:
                     raise
 
             return wrapper
+
         return decorator
 
     def api_timer(self):
         """
         API 计时装饰器：无全局 HTTP 上下文时按函数名记录同步调用耗时。
         """
+
         def decorator(func: Callable) -> Callable:
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
@@ -277,7 +278,7 @@ class PerformanceMonitor:
 
         return decorator
 
-    def get_metrics_summary(self, minutes: int = 5) -> Dict[str, Any]:
+    def get_metrics_summary(self, minutes: int = 5) -> dict[str, Any]:
         """获取指标摘要（最近 N 分钟）"""
         cutoff = time.time() - (minutes * 60)
 
@@ -296,13 +297,27 @@ class PerformanceMonitor:
             "avg_duration_ms": round(sum(durations) / len(durations), 3) if durations else 0,
             "max_duration_ms": round(max(durations), 3) if durations else 0,
             "min_duration_ms": round(min(durations), 3) if durations else 0,
-            "p95_duration_ms": round(sorted(durations)[int(len(durations) * 0.95)], 3) if len(durations) > 20 else 0,
-            "p99_duration_ms": round(sorted(durations)[int(len(durations) * 0.99)], 3) if len(durations) > 100 else 0,
-            "success_rate": round(sum(1 for m in recent_metrics if m.success) / len(recent_metrics) * 100, 2) if recent_metrics else 100,
+            "p95_duration_ms": (
+                round(sorted(durations)[int(len(durations) * 0.95)], 3)
+                if len(durations) > 20
+                else 0
+            ),
+            "p99_duration_ms": (
+                round(sorted(durations)[int(len(durations) * 0.99)], 3)
+                if len(durations) > 100
+                else 0
+            ),
+            "success_rate": (
+                round(sum(1 for m in recent_metrics if m.success) / len(recent_metrics) * 100, 2)
+                if recent_metrics
+                else 100
+            ),
             "api_stats": {
                 "total": len(recent_api),
                 "avg_ms": round(sum(api_durations) / len(api_durations), 3) if api_durations else 0,
-                "slow_count": sum(1 for a in recent_api if a.duration_ms > self._slow_api_threshold),
+                "slow_count": sum(
+                    1 for a in recent_api if a.duration_ms > self._slow_api_threshold
+                ),
                 "error_4xx": sum(1 for a in recent_api if 400 <= a.status_code < 500),
                 "error_5xx": sum(1 for a in recent_api if a.status_code >= 500),
             },
@@ -320,9 +335,9 @@ class PerformanceMonitor:
 
         return summary
 
-    def _get_top_slow_endpoints(self, api_list: List[APIMetric], limit: int = 10) -> List[Dict]:
+    def _get_top_slow_endpoints(self, api_list: list[APIMetric], limit: int = 10) -> list[dict]:
         """获取最慢的端点"""
-        endpoint_times: Dict[str, List[float]] = {}
+        endpoint_times: dict[str, list[float]] = {}
 
         for api in api_list:
             key = f"{api.method} {api.endpoint}"
@@ -331,9 +346,7 @@ class PerformanceMonitor:
             endpoint_times[key].append(api.duration_ms)
 
         sorted_endpoints = sorted(
-            endpoint_times.items(),
-            key=lambda x: sum(x[1]) / len(x[1]),
-            reverse=True
+            endpoint_times.items(), key=lambda x: sum(x[1]) / len(x[1]), reverse=True
         )[:limit]
 
         return [
@@ -361,7 +374,7 @@ class PerformanceMonitor:
         lines.append("# HELP xcagi_api_requests_total Total API requests")
         lines.append("# TYPE xcagi_api_requests_total counter")
 
-        endpoint_counts: Dict[str, int] = {}
+        endpoint_counts: dict[str, int] = {}
         for api in list(self._api_metrics)[-500:]:
             key = f'{api.method}_{api.endpoint.replace("/", "_")}'
             endpoint_counts[key] = endpoint_counts.get(key, 0) + 1
@@ -371,7 +384,7 @@ class PerformanceMonitor:
 
         return "\n".join(lines)
 
-    def get_alerts(self, level: Optional[str] = None, limit: int = 20) -> List[Dict]:
+    def get_alerts(self, level: str | None = None, limit: int = 20) -> list[dict]:
         """获取告警列表"""
         alerts = list(self._alerts)
 
@@ -398,7 +411,7 @@ class PerformanceMonitor:
             self._alerts.clear()
 
 
-_performance_monitor_instance: Optional[PerformanceMonitor] = None
+_performance_monitor_instance: PerformanceMonitor | None = None
 
 
 def get_performance_monitor() -> PerformanceMonitor:
@@ -409,7 +422,7 @@ def get_performance_monitor() -> PerformanceMonitor:
     return _performance_monitor_instance
 
 
-def performance_timer(name: Optional[str] = None):
+def performance_timer(name: str | None = None):
     """性能计时装饰器（快捷方式）"""
     monitor = get_performance_monitor()
     return monitor.timer(name=name)

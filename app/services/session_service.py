@@ -1,49 +1,31 @@
-from app.db.models import User
+"""基于数据库的用户会话：创建、校验、清理过期记录。"""
+
+import uuid
+from datetime import timedelta
+
 from app.db.models.user import Session as UserSession
 from app.db.session import get_db
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
+from app.utils.time import utc_now_naive
 
 
-
-class SessionService:
+class SessionService(NeuroEventPublisherMixin):
     SESSION_EXPIRE_HOURS = 24
 
     def __init__(self):
         pass
 
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
     def create_session(self, user_id: int):
         with get_db() as db:
-            import uuid
-            from datetime import datetime, timedelta
-
             session_id = str(uuid.uuid4())
-            expires_at = datetime.utcnow() + timedelta(hours=self.SESSION_EXPIRE_HOURS)
+            now = utc_now_naive()
+            expires_at = now + timedelta(hours=self.SESSION_EXPIRE_HOURS)
 
             user_session = UserSession(
                 session_id=session_id,
                 user_id=user_id,
-                created_at=datetime.utcnow(),
-                expires_at=expires_at
+                created_at=now,
+                expires_at=expires_at,
             )
             db.add(user_session)
             db.commit()
@@ -52,39 +34,24 @@ class SessionService:
                 "success": True,
                 "session_id": session_id,
                 "expires_at": expires_at.isoformat(),
-                "user_id": user_id
+                "user_id": user_id,
             }
 
     def validate_session(self, session_id: str):
-        with get_db() as db:
-            from datetime import datetime
+        from app.infrastructure.session.session_manager import get_session_manager
 
-            user_session = db.query(UserSession).filter(
-                UserSession.session_id == session_id
-            ).first()
-
-            if not user_session:
-                return None
-
-            if user_session.expires_at < datetime.utcnow():
-                db.delete(user_session)
-                db.commit()
-                return None
-
-            return user_session.user
+        return get_session_manager().validate_session(session_id)
 
     def get_session_info(self, session_id: str):
         with get_db() as db:
-            from datetime import datetime
-
-            user_session = db.query(UserSession).filter(
-                UserSession.session_id == session_id
-            ).first()
+            user_session = (
+                db.query(UserSession).filter(UserSession.session_id == session_id).first()
+            )
 
             if not user_session:
                 return None
 
-            if user_session.expires_at < datetime.utcnow():
+            if user_session.expires_at < utc_now_naive():
                 return None
 
             return {
@@ -92,14 +59,14 @@ class SessionService:
                 "user_id": user_session.user_id,
                 "username": user_session.user.username,
                 "created_at": user_session.created_at.isoformat(),
-                "expires_at": user_session.expires_at.isoformat()
+                "expires_at": user_session.expires_at.isoformat(),
             }
 
     def delete_session(self, session_id: str) -> bool:
         with get_db() as db:
-            user_session = db.query(UserSession).filter(
-                UserSession.session_id == session_id
-            ).first()
+            user_session = (
+                db.query(UserSession).filter(UserSession.session_id == session_id).first()
+            )
 
             if not user_session:
                 return False
@@ -110,31 +77,21 @@ class SessionService:
 
     def delete_user_sessions(self, user_id: int) -> int:
         with get_db() as db:
-            count = db.query(UserSession).filter(
-                UserSession.user_id == user_id
-            ).delete()
+            count = db.query(UserSession).filter(UserSession.user_id == user_id).delete()
             db.commit()
             return count
 
     def cleanup_expired_sessions(self) -> int:
         with get_db() as db:
-            from datetime import datetime
-
-            count = db.query(UserSession).filter(
-                UserSession.expires_at < datetime.utcnow()
-            ).delete()
+            count = db.query(UserSession).filter(UserSession.expires_at < utc_now_naive()).delete()
             db.commit()
             return count
 
 
-_session_service = None
-
-
 def get_session_service() -> "SessionService":
-    global _session_service
-    if _session_service is None:
-        _session_service = SessionService()
-    return _session_service
+    from app.di.registry import get_service_registry
+
+    return get_service_registry().session_service
 
 
 # NEURO-DDD: 为 Services 层类添加 instrumentation

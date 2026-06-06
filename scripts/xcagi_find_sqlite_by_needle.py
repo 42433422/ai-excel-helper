@@ -21,9 +21,7 @@ def _try_match(path: Path, needle: str) -> list[str]:
     try:
         conn = sqlite3.connect(str(path))
         cur = conn.cursor()
-        cur.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='purchase_units'"
-        )
+        cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='purchase_units'")
         if not cur.fetchone():
             conn.close()
             return out

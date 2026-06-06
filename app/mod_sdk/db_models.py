@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """受限 ORM 模型直通（SDK re-export）。
 
 警告

@@ -1,8 +1,16 @@
+# Probe TCP connectivity to a host:port (default backend dev port).
+# Replaces duplicate XCAGI/test_port*.ps1 variants.
+param(
+    [string]$TargetHost = "127.0.0.1",
+    [int]$Port = 8000
+)
+
 $client = New-Object System.Net.Sockets.TcpClient
 try {
-    $client.Connect('127.0.0.1', 8000)
-    Write-Host "Port 8000: Connected"
+    $client.Connect($TargetHost, $Port)
+    Write-Host "Connected to ${TargetHost}:${Port}"
 } catch {
-    Write-Host "Port 8000: Failed - $($_.Exception.Message)"
+    Write-Host "Failed ${TargetHost}:${Port} - $($_.Exception.Message)"
+} finally {
+    $client.Dispose()
 }
-$client.Dispose()

@@ -1,0 +1,752 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.8, pytest-9.0.3, pluggy-1.6.0
+rootdir: E:\XCMAX\FHD
+configfile: pyproject.toml
+plugins: dash-3.2.0, hydra-core-1.3.2, asyncio-1.3.0, cov-4.1.0, mock-3.12.0, timeout-2.4.0, xdist-3.8.0, typeguard-4.5.1, anyio-4.10.0, langsmith-0.4.13
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 779 items
+
+tests\benchmarks\test_intent_accuracy.py s                               [  0%]
+tests\neuro\test_bootstrap_event_primary_flag.py ..                      [  0%]
+tests\neuro\test_command_gateway.py ..                                   [  0%]
+tests\neuro\test_routing_policy.py ..                                    [  0%]
+tests\neuro\test_shipment_bootstrap_parity.py ..                         [  1%]
+tests\test_application\test_ai_chat_app_service.py ..............        [  2%]
+tests\test_application\test_shipment_app_service.py ...........          [  4%]
+tests\test_approval_bridge_mod.py ....                                   [  4%]
+tests\test_approval_pages_compat.py .                                    [  5%]
+tests\test_aux_employee_store.py ..                                      [  5%]
+tests\test_catalog_visibility.py ....                                    [  5%]
+tests\test_code_editor_router.py .............                           [  7%]
+tests\test_core_workflow_mod.py ..............................           [ 11%]
+tests\test_coverage_ramp_routes.py ..............                        [ 13%]
+tests\test_customer_service_pages_compat.py ..                           [ 13%]
+tests\test_db\test_models.py ......                                      [ 14%]
+tests\test_db_read_token.py ......                                       [ 14%]
+tests\test_decoupling_mods.py .......                                    [ 15%]
+tests\test_deliverable_status.py F.......                                [ 16%]
+tests\test_desktop_runtime.py ......                                     [ 17%]
+tests\test_desktop_status_api.py .                                       [ 17%]
+tests\test_domain\test_shipment_aggregates.py ................           [ 19%]
+tests\test_domain\test_value_objects.py ...............................  [ 23%]
+tests\test_edition_policy.py ........                                    [ 24%]
+tests\test_employee_pack_bridge_mod.py ...                               [ 25%]
+tests\test_erp_customers_facade.py ...                                   [ 25%]
+tests\test_erp_domain_mod.py ..............                              [ 27%]
+tests\test_erp_pages_compat.py .                                         [ 27%]
+tests\test_erp_products_facade.py ....                                   [ 27%]
+tests\test_erp_repository_registry.py ........                           [ 29%]
+tests\test_fastapi_cors_origins.py ..                                    [ 29%]
+tests\test_host_foundation.py ...                                        [ 29%]
+tests\test_infrastructure\test_pg_vector_store.py .....                  [ 30%]
+tests\test_infrastructure\test_shipment_document_generator.py ..         [ 30%]
+tests\test_infrastructure\test_sqlite_templates_legacy.py .              [ 30%]
+tests\test_infrastructure_repositories.py ...                            [ 31%]
+tests\test_lan_bridge_mod.py ....                                        [ 31%]
+tests\test_lan_pages_compat.py .                                         [ 31%]
+tests\test_legacy_auth_account_kind.py ......                            [ 32%]
+tests\test_middleware_rate_limit.py ..                                   [ 32%]
+tests\test_mobile_api.py ...                                             [ 33%]
+tests\test_mobile_api_extensions.py ..                                   [ 33%]
+tests\test_mod_database_isolation.py ....                                [ 33%]
+tests\test_mod_physical_view_imports.py .                                [ 34%]
+tests\test_mod_views_compat.py ...                                       [ 34%]
+tests\test_model_payment_bridge_mod.py ....                              [ 34%]
+tests\test_model_payment_pages_compat.py .                               [ 35%]
+tests\test_mods_list_etag.py .                                           [ 35%]
+tests\test_neuro_application_hooks.py ..                                 [ 35%]
+tests\test_neuro_bus_bridge_mod.py ...                                   [ 35%]
+tests\test_neuro_bus_core.py ...................                         [ 38%]
+tests\test_neuro_bus_event_loop.py .                                     [ 38%]
+tests\test_neuro_bus_handler_registry.py .....                           [ 39%]
+tests\test_neuro_bus_reliability_env.py ................                 [ 41%]
+tests\test_neuro_bus_runtime.py ......                                   [ 41%]
+tests\test_neuro_migration_smoke.py ...s.                                [ 42%]
+tests\test_neuro_plan.py ....                                            [ 43%]
+tests\test_openapi_consistency.py ..                                     [ 43%]
+tests\test_order_parse_voice.py ...F.....                                [ 44%]
+tests\test_planner_mod_facade.py .....                                   [ 45%]
+tests\test_planner_native_tools.py ............                          [ 46%]
+tests\test_planner_pages_compat.py ...                                   [ 46%]
+tests\test_planner_tools_dispatch.py ....                                [ 47%]
+tests\test_planner_tools_mod.py ........                                 [ 48%]
+tests\test_platform_shell.py ...                                         [ 48%]
+tests\test_product_skus.py .......                                       [ 49%]
+tests\test_routes\test_ai_chat.py ...............                        [ 51%]
+tests\test_routes\test_health_capabilities.py ..                         [ 51%]
+tests\test_routes\test_materials.py ............................         [ 55%]
+tests\test_routes\test_mods_routes.py ..                                 [ 55%]
+tests\test_routes\test_smoke_apis.py ............                        [ 57%]
+tests\test_schemas\test_material_schema.py ................              [ 59%]
+tests\test_services\test_ai_conversation_service.py ...                  [ 59%]
+tests\test_services\test_ai_product_parser.py .                          [ 59%]
+tests\test_services\test_auth_user_session_services.py ....              [ 60%]
+tests\test_services\test_deepseek_intent_service.py ..                   [ 60%]
+tests\test_services\test_extract_log_service.py .................        [ 62%]
+tests\test_services\test_intent_service.py ..........                    [ 64%]
+tests\test_services\test_mod_store_stack.py ....                         [ 64%]
+tests\test_services\test_neuro_event_publisher_mixin.py ..               [ 64%]
+tests\test_services\test_ocr_service.py ................................ [ 69%]
+...........                                                              [ 70%]
+tests\test_services\test_orm_models.py .........................         [ 73%]
+tests\test_services\test_printer_service.py ......................       [ 76%]
+tests\test_services\test_product_import_service.py ....................  [ 79%]
+tests\test_services\test_products_service.py ...........                 [ 80%]
+tests\test_services\test_rasa_nlu_service.py .........                   [ 81%]
+tests\test_services\test_shipment_service.py ......                      [ 82%]
+tests\test_services\test_task_agent.py .............                     [ 84%]
+tests\test_services\test_task_context_service.py ....                    [ 84%]
+tests\test_session_account_meta.py ..                                    [ 84%]
+tests\test_shipment_tasks.py ..................                          [ 87%]
+tests\test_start_lan_launcher.py ..                                      [ 87%]
+tests\test_task_agent.py .........                                       [ 88%]
+tests\test_tasks\test_shipment_tasks.py ..                               [ 88%]
+tests\test_utils\test_path_utils.py ...                                  [ 89%]
+tests\test_utils\test_printer_automation.py ....................         [ 91%]
+tests\test_utils\test_time_utils.py ..                                   [ 92%]
+tests\test_utils\test_utils.py .......................................   [ 97%]
+tests\test_wechat_tasks.py ....................                          [ 99%]
+tests\test_xcagi_safe_download_path.py ...                               [100%]
+
+============================== warnings summary ===============================
+tests/neuro/test_routing_policy.py::test_policy_predict_if_weights_present
+  E:\XCMAX\FHD\app\neuro_bus\routing\policy_nn.py:73: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+    state = torch.load(weights, map_location="cpu")
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID conversations_get_api_conversations__session_id__get for function conversations_get at E:\XCMAX\FHD\app\fastapi_routes\legacy_conversation.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID conversations_delete_api_conversations__session_id__delete for function conversations_delete at E:\XCMAX\FHD\app\fastapi_routes\legacy_conversation.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID conversations_title_put_api_conversations__session_id__title_put for function conversations_title_put at E:\XCMAX\FHD\app\fastapi_routes\legacy_conversation.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_analyze_export_api_ai_analyze_export__export_id__get for function ai_analyze_export at E:\XCMAX\FHD\app\fastapi_routes\legacy_conversation.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_message_save_api_ai_message_save_post for function ai_message_save at E:\XCMAX\FHD\app\fastapi_routes\legacy_conversation.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_parse_single_api_ai_parse_single_post for function ai_parse_single at E:\XCMAX\FHD\app\fastapi_routes\legacy_excel.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_parse_products_api_ai_parse_products_post for function ai_parse_products at E:\XCMAX\FHD\app\fastapi_routes\legacy_excel.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_analyze_post_api_ai_analyze_post for function ai_analyze_post at E:\XCMAX\FHD\app\fastapi_routes\legacy_excel.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_file_analyze_api_ai_file_analyze_post for function ai_file_analyze at E:\XCMAX\FHD\app\fastapi_routes\legacy_excel.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_sqlite_import_unit_products_api_ai_sqlite_import_unit_products_post for function ai_sqlite_import_unit_products at E:\XCMAX\FHD\app\fastapi_routes\legacy_excel.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID skills_analyze_excel_api_skills_analyze_excel_post for function skills_analyze_excel at E:\XCMAX\FHD\app\fastapi_routes\legacy_excel.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID skills_view_excel_api_skills_view_excel_post for function skills_view_excel at E:\XCMAX\FHD\app\fastapi_routes\legacy_excel.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID skills_generate_label_template_api_skills_generate_label_template_post for function skills_generate_label_template at E:\XCMAX\FHD\app\fastapi_routes\legacy_excel.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_product_list_api_mp_v1_product_list_get for function mp_product_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_product_detail_api_mp_v1_product_detail__product_id__get for function mp_product_detail at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_product_categories_api_mp_v1_product_categories_get for function mp_product_categories at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_product_search_api_mp_v1_product_search_get for function mp_product_search at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_product_price_api_mp_v1_product_price__product_id__get for function mp_product_price at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_cart_list_api_mp_v1_cart_list_get for function mp_cart_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_cart_clear_api_mp_v1_cart_clear_delete for function mp_cart_clear at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_cart_remove_api_mp_v1_cart_remove_delete for function mp_cart_remove at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_cart_add_api_mp_v1_cart_add_post for function mp_cart_add at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_cart_update_api_mp_v1_cart_update_put for function mp_cart_update at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_cart_select_api_mp_v1_cart_select_put for function mp_cart_select at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_favorite_list_api_mp_v1_favorite_list_get for function mp_favorite_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_extra.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_favorite_check_api_mp_v1_favorite_check__product_id__get for function mp_favorite_check at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_extra.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_favorite_remove_api_mp_v1_favorite_remove__fav_id__delete for function mp_favorite_remove at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_extra.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_favorite_add_api_mp_v1_favorite_add_post for function mp_favorite_add at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_extra.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_address_list_api_mp_v1_address_list_get for function mp_address_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_extra.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_address_delete_api_mp_v1_address_delete__address_id__delete for function mp_address_delete at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_extra.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_address_create_api_mp_v1_address_create_post for function mp_address_create at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_extra.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_address_update_api_mp_v1_address_update__address_id__put for function mp_address_update at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_extra.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_address_default_api_mp_v1_address_default__address_id__put for function mp_address_default at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_extra.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_order_list_api_mp_v1_order_list_get for function mp_order_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_order.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_order_detail_api_mp_v1_order_detail__order_id__get for function mp_order_detail at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_order.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_order_create_api_mp_v1_order_create_post for function mp_order_create at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_order.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_order_cancel_api_mp_v1_order_cancel__order_id__put for function mp_order_cancel at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_order.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_order_confirm_api_mp_v1_order_confirm__order_id__put for function mp_order_confirm at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_order.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_order_rebuy_api_mp_v1_order_rebuy__order_id__post for function mp_order_rebuy at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_order.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_v1_auth_login_api_mp_v1_auth_login_post for function mp_v1_auth_login at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_v1_auth_logout_api_mp_v1_auth_logout_post for function mp_v1_auth_logout at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_auth_session_check_api_mp_v1_auth_session_check_get for function mp_auth_session_check at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_user_info_api_mp_v1_user_info_get for function mp_user_info at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_user_info_put_api_mp_v1_user_info_put for function mp_user_info_put at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_user_phone_api_mp_v1_user_phone_post for function mp_user_phone at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_message_list_api_mp_v1_message_list_get for function mp_message_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_message_unread_count_api_mp_v1_message_unread_count_get for function mp_message_unread_count at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_message_read_api_mp_v1_message_read__msg_id__put for function mp_message_read at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_message_read_all_api_mp_v1_message_read_all_put for function mp_message_read_all at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_feedback_list_api_mp_v1_feedback_list_get for function mp_feedback_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_feedback_detail_api_mp_v1_feedback_detail__feedback_id__get for function mp_feedback_detail at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_feedback_submit_api_mp_v1_feedback_submit_post for function mp_feedback_submit at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_ai_history_api_mp_v1_ai_history_get for function mp_ai_history at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_ai_intents_api_mp_v1_ai_intents_get for function mp_ai_intents at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID mp_v1_ai_chat_api_mp_v1_ai_chat_post for function mp_v1_ai_chat at E:\XCMAX\FHD\app\fastapi_routes\legacy_miniprogram_user.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_delete_api_products__product_id__delete for function products_delete at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_import_price_list_template_api_products_import_price_list_template_post for function products_import_price_list_template at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_export_xlsx_api_products_export_xlsx_get for function products_export_xlsx at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_product_names_api_products_product_names_get for function products_product_names at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_product_names_search_api_products_product_names_search_get for function products_product_names_search at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_search_api_products_search_get for function products_search at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_batch_api_products_batch_post for function products_batch at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_update_post_api_products__product_id__post for function products_update_post at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_put_api_products__product_id__put for function products_put at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID products_patch_api_products__product_id__patch for function products_patch at E:\XCMAX\FHD\app\fastapi_routes\legacy_products.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch1_index__get for function gap_batch1_index at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_serve_static_static__path__get for function gap_batch2_serve_static at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_vite_svg_vite_svg_get for function gap_batch2_vite_svg at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_brand_xc_logo_brand_xc_logo_jpg_get for function gap_batch2_brand_xc_logo at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_workflow_employee_docs_json_workflow_employee_docs_json_get for function gap_batch2_workflow_employee_docs_json at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_service_worker_js_sw_js_get for function gap_batch2_service_worker_js at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_workflow_employees_json_workflow_employees_json_get for function gap_batch2_workflow_employees_json at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_favicon_favicon_ico_get for function gap_batch2_favicon at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_outputs_outputs__filename__get for function gap_batch2_outputs at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_test_buttons_test_buttons_get for function gap_batch2_test_buttons at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_products_test_products_test_get for function gap_batch2_products_test at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID gap_batch2_console_console_get for function gap_batch2_console at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_list_api_traditional_mode_list_get for function traditional_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_root_api_traditional_mode_root_get for function traditional_root at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_read_api_traditional_mode_read_get for function traditional_read at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_watch_api_traditional_mode_watch_get for function traditional_watch at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_agent_stat_api_traditional_mode_agent_stat_get for function traditional_agent_stat at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_agent_write_text_api_traditional_mode_agent_write_text_post for function traditional_agent_write_text at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_agent_write_base64_api_traditional_mode_agent_write_base64_post for function traditional_agent_write_base64 at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_agent_move_api_traditional_mode_agent_move_post for function traditional_agent_move at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_agent_copy_api_traditional_mode_agent_copy_post for function traditional_agent_copy at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_mode_write_api_traditional_mode_write_post for function traditional_mode_write at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_mode_mkdir_api_traditional_mode_mkdir_post for function traditional_mode_mkdir at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_mode_rename_api_traditional_mode_rename_post for function traditional_mode_rename at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_mode_delete_api_traditional_mode_delete_post for function traditional_mode_delete at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID traditional_mode_upload_api_traditional_mode_upload_post for function traditional_mode_upload at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID customers_import_stub_api_customers_import_get for function customers_import_stub at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID customers_batch_delete_delete_api_customers_batch_delete_delete for function customers_batch_delete_delete at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID preferences_delete_key_api_preferences__key__delete for function preferences_delete_key at E:\XCMAX\FHD\app\fastapi_routes\legacy_static.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID system_config_get_api_system_config_get for function system_config_get at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID system_info_get_api_system_info_get for function system_info_get at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID system_printer_get_api_system_printer_get for function system_printer_get at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID system_printer_post_api_system_printer_post for function system_printer_post at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID system_startup_get_api_system_startup_get for function system_startup_get at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID system_startup_post_api_system_startup_post for function system_startup_post at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID system_startup_delete_api_system_startup_delete for function system_startup_delete at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID database_backups_list_api_database_backups_get for function database_backups_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID database_backup_delete_api_database_backup__backup_file__delete for function database_backup_delete at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID database_backup_api_database_backup_post for function database_backup at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID database_restore_api_database_restore_post for function database_restore at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_status_api_performance_status_get for function performance_status at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_health_api_performance_health_get for function performance_health at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_metrics_summary_api_performance_metrics_summary_get for function performance_metrics_summary at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_metrics_prometheus_api_performance_metrics_prometheus_get for function performance_metrics_prometheus at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_cache_stats_api_performance_cache_stats_get for function performance_cache_stats at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_cache_clear_api_performance_cache_clear_post for function performance_cache_clear at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_cache_invalidate_api_performance_cache_invalidate_post for function performance_cache_invalidate at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_tasks_status_api_performance_tasks_status_get for function performance_tasks_status at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_alerts_api_performance_alerts_get for function performance_alerts at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_slow_queries_api_performance_slow_queries_get for function performance_slow_queries at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID performance_optimize_reinitialize_api_performance_optimize_reinitialize_post for function performance_optimize_reinitialize at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID templates_progress_api_templates_progress__task_id__get for function templates_progress at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID templates_delete_api_templates_delete_delete for function templates_delete at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID templates_create_api_templates_create_post for function templates_create at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID templates_update_api_templates_update_post for function templates_update at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID templates_delete_post_api_templates_delete_post for function templates_delete_post at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID templates_analyze_api_templates_analyze_post for function templates_analyze at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID skills_list_api_skills_list_get for function skills_list at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID skills_info_api_skills_info__skill_id__get for function skills_info at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID skills_execute_api_skills_execute_post for function skills_execute at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID tools_execute_route_api_tools_execute_post for function tools_execute_route at E:\XCMAX\FHD\app\fastapi_routes\legacy_system.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_tasks_api_wechat_tasks_get for function wechat_tasks at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_starred_messages_api_wechat_starred_messages_get for function wechat_starred_messages at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_list_api_api_wechat_contacts_get for function wechat_contacts_list_api at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contact_get_api_api_wechat_contacts__contact_id__get for function wechat_contact_get_api at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contact_delete_api_api_wechat_contacts__contact_id__delete for function wechat_contact_delete_api at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contact_context_api_api_wechat_contacts__contact_id__context_get for function wechat_contact_context_api at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_post_api_wechat_contacts_post for function wechat_contacts_post at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_put_api_wechat_contacts__contact_id__put for function wechat_contacts_put at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_star_api_wechat_contacts__contact_id__star_post for function wechat_contacts_star at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_unstar_all_api_wechat_contacts_unstar_all_post for function wechat_contacts_unstar_all at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_status_api_wechat_status_get for function wechat_status at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_test_api_wechat_test_get for function wechat_test at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_session_check_api_wechat_session_check_get for function wechat_session_check at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_user_info_miniprogram_api_wechat_user_info_get for function wechat_user_info_miniprogram at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_user_info_put_api_wechat_user_info_put for function wechat_user_info_put at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_task_confirm_api_wechat_task__task_id__confirm_post for function wechat_task_confirm at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_task_ignore_api_wechat_task__task_id__ignore_post for function wechat_task_ignore at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_scan_api_wechat_scan_post for function wechat_scan at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_miniprogram_style_login_api_wechat_login_post for function wechat_miniprogram_style_login at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_get_by_id_api_wechat_contacts__contact_id__get for function wechat_contacts_get_by_id at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_ensure_cache_api_wechat_contacts_ensure_contact_cache_get for function wechat_contacts_ensure_cache at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_ensure_contact_cache_post_api_wechat_contacts_ensure_contact_cache_post for function wechat_contacts_ensure_contact_cache_post at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_message_source_size_api_wechat_contacts_message_source_size_get for function wechat_contacts_message_source_size at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_send_message_api_wechat_contacts_send_message_post for function wechat_contacts_send_message at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID wechat_contacts_send_message_to_id_api_wechat_contacts__contact_id__send_message_post for function wechat_contacts_send_message_to_id at E:\XCMAX\FHD\app\fastapi_routes\legacy_wechat.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_approval_pending_api_ai_approval_pending_get for function ai_approval_pending at E:\XCMAX\FHD\app\fastapi_routes\legacy_workflow.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_config_approval_get_api_ai_config_approval_get for function ai_config_approval_get at E:\XCMAX\FHD\app\fastapi_routes\legacy_workflow.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_config_approval_post_api_ai_config_approval_post for function ai_config_approval_post at E:\XCMAX\FHD\app\fastapi_routes\legacy_workflow.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_approval_request_api_ai_approval_request_post for function ai_approval_request at E:\XCMAX\FHD\app\fastapi_routes\legacy_workflow.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_approval_approve_api_ai_approval_approve_post for function ai_approval_approve at E:\XCMAX\FHD\app\fastapi_routes\legacy_workflow.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_openapi_consistency.py::test_openapi_and_routes_are_consistent
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\fastapi\openapi\utils.py:245: UserWarning: Duplicate Operation ID ai_approval_reject_api_ai_approval_reject_post for function ai_approval_reject at E:\XCMAX\FHD\app\fastapi_routes\legacy_workflow.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_routes/test_smoke_apis.py::test_smoke_endpoint[/api/ocr/test-GET-None]
+  C:\Users\97088\AppData\Roaming\Python\Python311\site-packages\paddle\utils\cpp_extension\extension_utils.py:717: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+    warnings.warn(warning_message)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_deliverable_status.py::test_deliverable_generic_when_pack_complete
+FAILED tests/test_order_parse_voice.py::test_intent_recognition_print_model_spec_missing_bucket
+===== 2 failed, 775 passed, 2 skipped, 159 warnings in 139.80s (0:02:19) ======

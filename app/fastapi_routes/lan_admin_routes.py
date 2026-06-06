@@ -15,13 +15,9 @@
      **要么** 当前会话使用的密钥是 admin 级
 """
 
-from __future__ import annotations
-
 import logging
 import time
-from ipaddress import ip_address
-from ipaddress import ip_network
-from typing import Optional
+from ipaddress import ip_address, ip_network
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Request
 from pydantic import BaseModel, Field
@@ -29,11 +25,11 @@ from pydantic import BaseModel, Field
 from app.security.lan_config import LAN_LICENSE_SECRET_MIN_LENGTH, get_lan_config
 from app.security.lan_ip import get_client_ip
 from app.security.license_store import (
+    AccessRequest,
     AllowedClient,
+    AuditEntry,
     LicenseKey,
     LicenseSession,
-    AccessRequest,
-    AuditEntry,
     approve_access_request,
     issue_key,
     list_access_requests,
@@ -46,8 +42,8 @@ from app.security.license_store import (
     revoke_key,
     revoke_session,
     to_dict_access_request,
-    to_dict_audit,
     to_dict_allowed_client,
+    to_dict_audit,
     to_dict_key,
     to_dict_session,
     write_audit,
@@ -58,7 +54,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/lan/admin", tags=["lan-admin"])
 
 
-def _is_admin_host_ip(ip: Optional[str]) -> bool:
+def _is_admin_host_ip(ip: str | None) -> bool:
     if not ip:
         return False
     cfg = get_lan_config()
@@ -117,8 +113,8 @@ def require_admin(request: Request) -> dict:
 class IssueKeyRequest(BaseModel):
     label: str = Field(default="", max_length=200)
     is_admin: bool = False
-    expires_at: Optional[int] = Field(default=None, description="Unix 秒；不填表示永不过期")
-    plaintext: Optional[str] = Field(
+    expires_at: int | None = Field(default=None, description="Unix 秒；不填表示永不过期")
+    plaintext: str | None = Field(
         default=None,
         max_length=512,
         description="可选，传入想要的明文；不传则后端随机生成 24 字节 base64",
@@ -151,7 +147,7 @@ async def list_keys_endpoint(
 
 @router.post("/keys", response_model=IssueKeyResponse)
 async def issue_key_endpoint(
-    payload: IssueKeyRequest = Body(...),
+    payload: IssueKeyRequest,
     actor: dict = Depends(require_admin),
 ) -> IssueKeyResponse:
     if payload.expires_at and payload.expires_at <= int(time.time()):
@@ -282,10 +278,18 @@ async def revoke_allowlist_endpoint(
 
 
 class SettingsUpdate(BaseModel):
-    enabled: Optional[bool] = None
-    license_secret: Optional[str] = None
-    admin_bootstrap_key: Optional[str] = None
-    allowed_cidrs: Optional[list[str]] = None
+    enabled: bool | None = None
+    license_secret: str | None = None
+    admin_bootstrap_key: str | None = None
+    allowed_cidrs: list[str] | None = None
+
+
+def _rebuild_lan_admin_openapi_models() -> None:
+    for _cls in (IssueKeyRequest, IssueKeyResponse, AccessRequestReview, SettingsUpdate):
+        _cls.model_rebuild()
+
+
+_rebuild_lan_admin_openapi_models()
 
 
 def _normalize_cidrs(values: list[str]) -> list[str]:
@@ -315,13 +319,19 @@ def _normalize_cidrs(values: list[str]) -> list[str]:
 # Duplicate Operation ID 告警。
 @router.get("/settings", include_in_schema=False)
 async def get_settings(actor: dict = Depends(require_admin_host)) -> dict:
-    from app.security.lan_settings_store import load_overrides
     import os
+
+    from app.security.lan_settings_store import load_overrides
 
     cfg = get_lan_config()
     overrides = load_overrides()
 
-    env_enabled = (os.environ.get("LAN_GUARD_ENABLED") or "").strip().lower() in {"1", "true", "yes", "on"}
+    env_enabled = (os.environ.get("LAN_GUARD_ENABLED") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     env_secret = (os.environ.get("LAN_LICENSE_SECRET") or "").strip()
     env_bootstrap = (os.environ.get("LAN_ADMIN_BOOTSTRAP_KEY") or "").strip()
     env_cidrs = (os.environ.get("LAN_ALLOWED_CIDRS") or "").strip()
@@ -336,7 +346,11 @@ async def get_settings(actor: dict = Depends(require_admin_host)) -> dict:
             if env_cidrs:
                 return "env"
             return "default"
-        env_val = {"enabled": env_enabled, "license_secret": env_secret, "admin_bootstrap_key": env_bootstrap}[key]
+        env_val = {
+            "enabled": env_enabled,
+            "license_secret": env_secret,
+            "admin_bootstrap_key": env_bootstrap,
+        }[key]
         if env_val or (key == "enabled" and env_val):
             return "env"
         return "unset"
@@ -345,33 +359,40 @@ async def get_settings(actor: dict = Depends(require_admin_host)) -> dict:
         "enabled": cfg.enabled,
         "secret_ready": cfg.is_secret_ready(),
         "secret_length": len(cfg.license_secret) if cfg.license_secret else 0,
-        "secret_preview": (cfg.license_secret[:4] + "***" + cfg.license_secret[-4:]) if cfg.license_secret and len(cfg.license_secret) >= 8 else "",
+        "secret_preview": (
+            (cfg.license_secret[:4] + "***" + cfg.license_secret[-4:])
+            if cfg.license_secret and len(cfg.license_secret) >= 8
+            else ""
+        ),
         "bootstrap_set": bool(cfg.admin_bootstrap_key),
         "bootstrap_length": len(cfg.admin_bootstrap_key) if cfg.admin_bootstrap_key else 0,
-        "bootstrap_preview": (cfg.admin_bootstrap_key[:4] + "***" + cfg.admin_bootstrap_key[-4:]) if cfg.admin_bootstrap_key and len(cfg.admin_bootstrap_key) >= 8 else "",
+        "bootstrap_preview": (
+            (cfg.admin_bootstrap_key[:4] + "***" + cfg.admin_bootstrap_key[-4:])
+            if cfg.admin_bootstrap_key and len(cfg.admin_bootstrap_key) >= 8
+            else ""
+        ),
         "allowed_cidrs": list(cfg.allowed_cidrs),
         "source": {
             "enabled": _source("enabled"),
             "license_secret": _source("license_secret"),
             "admin_bootstrap_key": _source("admin_bootstrap_key"),
             "allowed_cidrs": _source("allowed_cidrs"),
-        }
+        },
     }
 
 
 @router.post("/settings", include_in_schema=False)
 @router.put("/settings", include_in_schema=False)
 async def update_settings(
-    payload: SettingsUpdate = Body(...),
-    actor: dict = Depends(require_admin_host)
+    payload: SettingsUpdate, actor: dict = Depends(require_admin_host)
 ) -> dict:
-    from app.security.lan_settings_store import LanSettingsOverride, save_overrides
     from app.security.lan_config import reset_lan_config_cache
+    from app.security.lan_settings_store import LanSettingsOverride, save_overrides
 
     if payload.license_secret is not None:
         if len(payload.license_secret) < LAN_LICENSE_SECRET_MIN_LENGTH:
             raise HTTPException(status_code=400, detail="license_secret_too_short")
-    next_cidrs: Optional[list[str]] = None
+    next_cidrs: list[str] | None = None
     if payload.allowed_cidrs is not None:
         next_cidrs = _normalize_cidrs(payload.allowed_cidrs)
 
@@ -385,4 +406,3 @@ async def update_settings(
     reset_lan_config_cache()
 
     return await get_settings(actor)
-

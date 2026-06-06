@@ -1,0 +1,23 @@
+@keyframes navDropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sidebar-menu .menu-item.nav-reveal-active,
+.sidebar-menu-bottom .menu-item.nav-reveal-active {
+  animation: navDropIn 0.35s ease-out both;
+  animation-delay: calc(var(--nav-stagger, 0) * 48ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-menu .menu-item.nav-reveal-active,
+  .sidebar-menu-bottom .menu-item.nav-reveal-active {
+    animation: none;
+  }
+}

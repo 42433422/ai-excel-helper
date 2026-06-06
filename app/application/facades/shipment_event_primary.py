@@ -5,10 +5,9 @@ Read/query methods delegate to the core application service via __getattr__.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 from app.application.shipment_app_service import ShipmentApplicationService
 from app.contexts.flags import is_event_primary_enabled
@@ -27,7 +26,9 @@ class ShipmentApplicationServiceEventPrimary:
     def __getattr__(self, name: str):
         return getattr(self._core, name)
 
-    async def _dispatch_command(self, event_type: str, payload: dict, timeout: float = 120.0) -> Any:
+    async def _dispatch_command(
+        self, event_type: str, payload: dict, timeout: float = 120.0
+    ) -> Any:
         gw = get_command_gateway()
         bus = get_neuro_bus()
         evt = NeuroEvent(event_type=event_type, payload=dict(payload), priority=EventPriority.HIGH)
@@ -37,7 +38,7 @@ class ShipmentApplicationServiceEventPrimary:
             return {"success": False, "message": "NeuroBus 未运行或无法入队"}
         try:
             return await gw.wait_for_result(rid, timeout=timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return {"success": False, "message": "发货操作超时"}
 
     def _run_cmd(self, coro):
@@ -50,10 +51,10 @@ class ShipmentApplicationServiceEventPrimary:
     def create_shipment(
         self,
         unit_name: str,
-        items_data: List[Dict[str, Any]],
+        items_data: list[dict[str, Any]],
         contact_person: str = "",
         contact_phone: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if not is_event_primary_enabled("shipment"):
             return self._core.create_shipment(unit_name, items_data, contact_person, contact_phone)
         payload = {
@@ -66,7 +67,7 @@ class ShipmentApplicationServiceEventPrimary:
         }
         return self._run_cmd(self._dispatch_command("shipment.created", payload))
 
-    def cancel_shipment(self, shipment_id: int) -> Dict[str, Any]:
+    def cancel_shipment(self, shipment_id: int) -> dict[str, Any]:
         if not is_event_primary_enabled("shipment"):
             return self._core.cancel_shipment(shipment_id)
         return self._run_cmd(
@@ -76,12 +77,14 @@ class ShipmentApplicationServiceEventPrimary:
             )
         )
 
-    def delete_shipment(self, shipment_id: int) -> Dict[str, Any]:
+    def delete_shipment(self, shipment_id: int) -> dict[str, Any]:
         if not is_event_primary_enabled("shipment"):
             return self._core.delete_shipment(shipment_id)
-        return self._run_cmd(self._dispatch_command("shipment.deleted", {"shipment_id": shipment_id}))
+        return self._run_cmd(
+            self._dispatch_command("shipment.deleted", {"shipment_id": shipment_id})
+        )
 
-    def mark_as_printed(self, shipment_id: int, printer_name: str = "") -> Dict[str, Any]:
+    def mark_as_printed(self, shipment_id: int, printer_name: str = "") -> dict[str, Any]:
         if not is_event_primary_enabled("shipment"):
             return self._core.mark_as_printed(shipment_id, printer_name)
         return self._run_cmd(

@@ -7,31 +7,31 @@ Quantity 值对象
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
-from typing import Optional, Union
 
 
 class UnitOfMeasure(Enum):
     """计量单位"""
+
     # 重量
-    KG = "kg"           # 千克
-    G = "g"             # 克
-    TON = "ton"         # 吨
+    KG = "kg"  # 千克
+    G = "g"  # 克
+    TON = "ton"  # 吨
     # 体积
-    LITER = "L"         # 升
-    ML = "ml"           # 毫升
+    LITER = "L"  # 升
+    ML = "ml"  # 毫升
     CUBIC_METER = "m³"  # 立方米
     # 数量
-    PIECE = "pcs"       # 件
-    BOX = "box"         # 箱
-    BOTTLE = "bottle"   # 瓶
-    BUCKET = "bucket"   # 桶
-    SET = "set"         # 套
-    ROLL = "roll"       # 卷
+    PIECE = "pcs"  # 件
+    BOX = "box"  # 箱
+    BOTTLE = "bottle"  # 瓶
+    BUCKET = "bucket"  # 桶
+    SET = "set"  # 套
+    ROLL = "roll"  # 卷
     # 长度
-    METER = "m"         # 米
-    CENTIMETER = "cm"   # 厘米
+    METER = "m"  # 米
+    CENTIMETER = "cm"  # 厘米
 
 
 @dataclass(frozen=True)
@@ -49,15 +49,16 @@ class Quantity:
         >>> total = qty * 3
         >>> qty.to_unit(UnitOfMeasure.TON)  # 转换为吨
     """
+
     value: Decimal
     unit: UnitOfMeasure
 
     def __post_init__(self):
         if not isinstance(self.value, Decimal):
-            object.__setattr__(self, 'value', Decimal(str(self.value)))
+            object.__setattr__(self, "value", Decimal(str(self.value)))
         # 标准化精度
         rounded = self.value.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
-        object.__setattr__(self, 'value', rounded)
+        object.__setattr__(self, "value", rounded)
 
     @classmethod
     def from_float(cls, value: float, unit: UnitOfMeasure) -> Quantity:
@@ -89,11 +90,11 @@ class Quantity:
             raise ValueError("Result would be negative")
         return Quantity(result, self.unit)
 
-    def multiply(self, factor: Union[int, float, Decimal]) -> Quantity:
+    def multiply(self, factor: int | float | Decimal) -> Quantity:
         """乘法"""
         return Quantity(self.value * Decimal(str(factor)), self.unit)
 
-    def divide(self, divisor: Union[int, float, Decimal]) -> Quantity:
+    def divide(self, divisor: int | float | Decimal) -> Quantity:
         """除法"""
         if divisor == 0:
             raise ValueError("Cannot divide by zero")
@@ -167,18 +168,12 @@ class Quantity:
 
     def to_dict(self) -> dict:
         """转换为字典"""
-        return {
-            "value": float(self.value),
-            "unit": self.unit.value
-        }
+        return {"value": float(self.value), "unit": self.unit.value}
 
     @classmethod
     def from_dict(cls, data: dict) -> Quantity:
         """从字典创建"""
-        return cls(
-            value=Decimal(str(data["value"])),
-            unit=UnitOfMeasure(data.get("unit", "pcs"))
-        )
+        return cls(value=Decimal(str(data["value"])), unit=UnitOfMeasure(data.get("unit", "pcs")))
 
     def __str__(self) -> str:
         return f"{self.value} {self.unit.value}"
@@ -192,10 +187,10 @@ class Quantity:
     def __sub__(self, other: Quantity) -> Quantity:
         return self.subtract(other)
 
-    def __mul__(self, factor: Union[int, float, Decimal]) -> Quantity:
+    def __mul__(self, factor: int | float | Decimal) -> Quantity:
         return self.multiply(factor)
 
-    def __truediv__(self, divisor: Union[int, float, Decimal]) -> Quantity:
+    def __truediv__(self, divisor: int | float | Decimal) -> Quantity:
         return self.divide(divisor)
 
     def __eq__(self, other) -> bool:

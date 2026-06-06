@@ -25,8 +25,8 @@ pip install rasa
 ### 2. 训练模型
 
 ```bash
-cd e:\FHD\XCAGI
-python rasa/train_rasa_model.py
+cd e:\FHD\rasa
+python train_rasa_model.py
 ```
 
 ### 3. 使用混合意图识别

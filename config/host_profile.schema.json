@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xcagi.local/schemas/host_profile.schema.json",
+  "title": "XCAGI Host Profile",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "sku",
+    "runtime_edition",
+    "frontend_edition",
+    "workflow_delivery",
+    "package_stage_ids",
+    "sku_bundled_mod_ids",
+    "blocked_mod_ids",
+    "excluded_from_bundle",
+    "minimal_host_mod_ids",
+    "generic_host_mod_ids",
+    "bridge_api_map",
+    "platform_shell_api_prefixes",
+    "protected_client_mod_ids",
+    "core_workflow_mod_id",
+    "client_mod_policies",
+    "employee_registry_rules",
+    "editions"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "sku": { "enum": ["personal", "enterprise"] },
+    "runtime_edition": { "enum": ["minimal", "generic", "full"] },
+    "frontend_edition": { "enum": ["minimal", "generic", "full"] },
+    "workflow_delivery": { "enum": ["monolith", "split"] },
+    "workflow_monolith_mod_id": { "type": "string" },
+    "workflow_split_mod_ids": { "type": "array", "items": { "type": "string" } },
+    "package_stage_ids": { "type": "array", "items": { "type": "string" } },
+    "sku_bundled_mod_ids": { "type": "array", "items": { "type": "string" } },
+    "blocked_mod_ids": { "type": "array", "items": { "type": "string" } },
+    "excluded_from_bundle": { "type": "array", "items": { "type": "string" } },
+    "minimal_host_mod_ids": { "type": "array", "items": { "type": "string" } },
+    "generic_host_mod_ids": { "type": "array", "items": { "type": "string" } },
+    "bridge_api_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "platform_shell_api_prefixes": { "type": "array", "items": { "type": "string" } },
+    "protected_client_mod_ids": { "type": "array", "items": { "type": "string" } },
+    "core_workflow_mod_id": { "type": "string" },
+    "client_mod_policies": {
+      "type": "object",
+      "properties": {
+        "client_primary_erp_mod_id": { "type": "string" },
+        "suppress_generic_shell_mod_ids": { "type": "array", "items": { "type": "string" } },
+        "protected_ids": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "employee_registry_rules": {
+      "type": "object",
+      "properties": {
+        "workflow_employee_id_prefixes": { "type": "array", "items": { "type": "string" } },
+        "exclude_id_suffixes": { "type": "array", "items": { "type": "string" } },
+        "exclude_artifact_types": { "type": "array", "items": { "type": "string" } },
+        "exclude_mod_ids": { "type": "array", "items": { "type": "string" } },
+        "non_workflow_desk_employee_patterns": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "editions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "legacy_routes_enabled": { "type": "boolean" }
+        }
+      }
+    },
+    "sku_aux_mod_ids": { "type": "array", "items": { "type": "string" } }
+  }
+}

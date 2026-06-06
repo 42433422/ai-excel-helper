@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """客户端运行时开关（SDK re-export）。
 
 ``read_client_mods_off_state()`` 返回布尔，表示前端是否启用了"原版模式"

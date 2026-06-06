@@ -1,50 +1,54 @@
-import { api } from './index';
+import { api } from './core';
 import type { ApiResponse } from '@/types/api';
 import type { Product, ProductCreateDTO, ProductUpdateDTO, ProductQueryParams } from '@/types/product';
+import { resolveErpApiBase, resolveErpApiPath } from '@/utils/erpDomainPaths';
 
-const MOD_BASE = '/api/mod/taiyangniao-pro';
+function erpBase(): string {
+  return resolveErpApiBase();
+}
 
 export const productsApi = {
   getProducts(params: ProductQueryParams = {}): Promise<ApiResponse<Product[]>> {
-    return api.get<ApiResponse<Product[]>>(`${MOD_BASE}/products/list`, params);
+    return api.get<ApiResponse<Product[]>>(`${erpBase()}/products/list`, params);
   },
 
   async getProductUnits(): Promise<{ success: boolean; data: string[]; count: number }> {
-    const resp = await api.get(`${MOD_BASE}/customers/list`, { page: 1, per_page: 1000 });
-    const list = resp?.data || [];
+    const resp = await api.get(resolveErpApiPath('/api/products/units'));
+    const raw = resp?.data;
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.units) ? raw.units : [];
     return {
       success: true,
-      data: (Array.isArray(list) ? list.map((c: any) => c.customer_name).filter(Boolean) : []),
-      count: Array.isArray(list) ? list.length : 0
+      data: list.map((u: unknown) => String(u ?? '').trim()).filter(Boolean),
+      count: list.length,
     };
   },
 
   getProduct(id: number | string): Promise<ApiResponse<Product>> {
-    return api.get<ApiResponse<Product>>(`${MOD_BASE}/products/${id}`);
+    return api.get<ApiResponse<Product>>(`${erpBase()}/products/${id}`);
   },
 
   createProduct(data: ProductCreateDTO): Promise<ApiResponse<Product>> {
-    return api.post<ApiResponse<Product>>(`${MOD_BASE}/products/add`, data);
+    return api.post<ApiResponse<Product>>(`${erpBase()}/products/add`, data);
   },
 
   updateProduct(id: number | string, data: ProductUpdateDTO): Promise<ApiResponse<Product>> {
-    return api.post<ApiResponse<Product>>(`${MOD_BASE}/products/update`, { id, ...data });
+    return api.post<ApiResponse<Product>>(`${erpBase()}/products/update`, { id, ...data });
   },
 
   deleteProduct(id: number | string, data: Record<string, any> = {}): Promise<ApiResponse<void>> {
-    return api.post<ApiResponse<void>>(`${MOD_BASE}/products/delete`, { id, ...data });
+    return api.post<ApiResponse<void>>(`${erpBase()}/products/delete`, { id, ...data });
   },
 
   batchDeleteProducts(productIds: (number | string)[]): Promise<ApiResponse<void>> {
-    return api.post<ApiResponse<void>>(`${MOD_BASE}/products/batch-delete`, { ids: productIds });
+    return api.post<ApiResponse<void>>(`${erpBase()}/products/batch-delete`, { ids: productIds });
   },
 
   exportUnitProductsXlsx(params: Record<string, any> = {}): Promise<Response> {
-    return api.download(`${MOD_BASE}/products/export.xlsx`, params);
+    return api.download(`${erpBase()}/products/export.xlsx`, params);
   },
 
   exportUnitProductsDocx(params: Record<string, any> = {}): Promise<Response> {
-    return api.download(`${MOD_BASE}/products/export.docx`, params);
+    return api.download(`${erpBase()}/products/export.docx`, params);
   },
 
   searchProducts(query: string, unit?: string): Promise<ApiResponse<Product[]>> {
@@ -52,19 +56,19 @@ export const productsApi = {
     const q = String(query || '').trim();
     if (q) params.keyword = q;
     if (unit) params.unit = unit;
-    return api.get<ApiResponse<Product[]>>(`${MOD_BASE}/products/list`, params);
+    return api.get<ApiResponse<Product[]>>(`${erpBase()}/products/list`, params);
   },
 
   getProductNames(params: Record<string, any> = {}): Promise<ApiResponse<any[]>> {
-    return api.get<ApiResponse<any[]>>(`${MOD_BASE}/products/product_names`, params);
+    return api.get<ApiResponse<any[]>>(`${erpBase()}/products/product_names`, params);
   },
 
   searchProductNames(keyword: string): Promise<ApiResponse<any[]>> {
-    return api.get<ApiResponse<any[]>>(`${MOD_BASE}/products/product_names/search`, { keyword });
+    return api.get<ApiResponse<any[]>>(`${erpBase()}/products/product_names/search`, { keyword });
   },
 
   batchAddProducts(products: ProductCreateDTO[]): Promise<ApiResponse<Product[]>> {
-    return api.post<ApiResponse<Product[]>>(`${MOD_BASE}/products/batch`, { products });
+    return api.post<ApiResponse<Product[]>>(`${erpBase()}/products/batch`, { products });
   }
 };
 

@@ -18,12 +18,19 @@ param(
     [switch]$ConfigureFirewallOnly,
     # 跳过「杀旧 python/node」；WMI 极慢/卡死时可加本开关（可能残留旧进程占端口）
     [switch]$SkipKillExisting,
-    [int]$BackendWaitSec = 30,
-    [int]$FrontendWaitSec = 45
+    [int]$BackendWaitSec,
+    [int]$FrontendWaitSec
 )
 
+if (-not $PSBoundParameters.ContainsKey('BackendWaitSec')) { $BackendWaitSec = 30 }
+if (-not $PSBoundParameters.ContainsKey('FrontendWaitSec')) { $FrontendWaitSec = 45 }
+
 $ErrorActionPreference = "Stop"
-$host.UI.RawUI.WindowTitle = "XCAGI v7.0 LAN Server"
+try {
+    $host.UI.RawUI.WindowTitle = "XCAGI v7.0 LAN Server"
+} catch {
+    # 非交互宿主（CI/子进程）可能无法设置控制台标题
+}
 
 function Test-IsAdmin {
     try {
@@ -37,15 +44,71 @@ function Test-IsAdmin {
 $IsAdmin = Test-IsAdmin
 
 # --- Path resolution --------------------------------------------------------
-# $PSScriptRoot = <repo>/scripts/launchers
-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+function Resolve-RepoRoot {
+    $dir = (Resolve-Path -LiteralPath $PSScriptRoot).Path
+    for ($i = 0; $i -lt 6 -and $dir; $i++) {
+        if (Test-Path (Join-Path $dir "XCAGI\run.py")) { return $dir }
+        $parent = Split-Path -Parent $dir
+        if (-not $parent -or $parent -eq $dir) { break }
+        $dir = $parent
+    }
+    throw "XCAGI\run.py not found while walking up from $PSScriptRoot"
+}
+
+$RepoRoot = Resolve-RepoRoot
+$BackendDir = Join-Path $RepoRoot "XCAGI"
 $AppDir   = Join-Path $RepoRoot "app"
 $FrontDir = Join-Path $RepoRoot "frontend"
-$ModsDir  = Join-Path $RepoRoot "mods"
-$VenvPy   = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+$ModsDir  = Join-Path $BackendDir "mods"
+$VenvPy   = Join-Path $BackendDir ".venv\Scripts\python.exe"
+
+function Get-DotEnvValue {
+    param(
+        [string]$Path,
+        [string[]]$Names
+    )
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    foreach ($line in Get-Content -LiteralPath $Path -ErrorAction SilentlyContinue) {
+        if ($line -match '^\s*(#|$)') { continue }
+        if ($line -notmatch '^\s*([^=\s]+)\s*=\s*(.*)\s*$') { continue }
+        $name = $matches[1]
+        if ($Names -notcontains $name) { continue }
+        return ($matches[2]).Trim().Trim('"').Trim("'")
+    }
+    return $null
+}
+
+function Resolve-Port {
+    param(
+        [object[]]$Candidates,
+        [int]$Default
+    )
+    foreach ($candidate in $Candidates) {
+        $raw = ([string]$candidate).Trim()
+        if (-not $raw) { continue }
+        $port = 0
+        if ([int]::TryParse($raw, [ref]$port) -and $port -gt 0 -and $port -lt 65536) {
+            return $port
+        }
+    }
+    return $Default
+}
+
+$RepoEnvPath = Join-Path $RepoRoot ".env"
+$BackendPort = Resolve-Port -Default 5000 -Candidates @(
+    $env:XCAGI_API_PORT,
+    $env:FASTAPI_PORT,
+    (Get-DotEnvValue -Path $RepoEnvPath -Names @("XCAGI_API_PORT", "FASTAPI_PORT"))
+)
+$FrontendPort = Resolve-Port -Default 5001 -Candidates @(
+    $env:VITE_DEV_PORT,
+    (Get-DotEnvValue -Path (Join-Path $FrontDir ".env.development.local") -Names @("VITE_DEV_PORT")),
+    (Get-DotEnvValue -Path (Join-Path $FrontDir ".env.local") -Names @("VITE_DEV_PORT")),
+    (Get-DotEnvValue -Path (Join-Path $FrontDir ".env.development") -Names @("VITE_DEV_PORT"))
+)
 
 # Sanity
-if (-not (Test-Path (Join-Path $RepoRoot "XCAGI\run.py"))) {
+if (-not (Test-Path (Join-Path $BackendDir "run_fastapi.py"))) {
     Write-Host "[ERROR] XCAGI\run.py not found under $RepoRoot" -ForegroundColor Red
     Write-Host "        Expected layout: <repo>/scripts/launchers/start-lan.ps1" -ForegroundColor Red
     exit 1
@@ -146,9 +209,9 @@ if ($ConfigureFirewallOnly) {
         Write-Err "[ERROR] -ConfigureFirewallOnly 需要管理员权限。请接受 UAC，或使用 start-lan.bat /Firewall。"
         exit 1
     }
-    Write-Info "Adding inbound firewall rules (TCP 5000/5001) ..."
-    Ensure-FirewallRule -Name "XCAGI Backend (5000)"  -Port 5000
-    Ensure-FirewallRule -Name "XCAGI Frontend (5001)" -Port 5001
+    Write-Info ("Adding inbound firewall rules (TCP {0}/{1}) ..." -f $BackendPort, $FrontendPort)
+    Ensure-FirewallRule -Name ("XCAGI Backend ({0})" -f $BackendPort)  -Port $BackendPort
+    Ensure-FirewallRule -Name ("XCAGI Frontend ({0})" -f $FrontendPort) -Port $FrontendPort
     Write-Success "Firewall rules OK. Close this window; the parent launcher will continue."
     exit 0
 }
@@ -422,48 +485,76 @@ function Stop-Existing {
 
 # --- Backend ----------------------------------------------------------------
 function Start-Backend {
-    $bindHost = '0.0.0.0:5000'
+    $bindHost = "0.0.0.0:$BackendPort"
     Write-Info ("Starting backend ($bindHost) via $Python ...")
 
     # Runtime env. DATABASE_URL is only set if not already provided so the
     # caller can override (e.g. point at a staging DB without editing this script).
-    if (-not $env:DATABASE_URL)   { $env:DATABASE_URL   = 'postgresql+psycopg://xcagi:xcagi@127.0.0.1:5432/xcagi' }
-    if (-not $env:VECTOR_DB_URL)  { $env:VECTOR_DB_URL  = 'postgresql+psycopg://xcagi:xcagi@127.0.0.1:5432/xcagi' }
-    $env:PYTHONPATH = $RepoRoot
+    if (-not $env:DATABASE_URL -and (Test-Path (Join-Path $BackendDir ".env"))) {
+        $envLine = Get-Content -LiteralPath (Join-Path $BackendDir ".env") -ErrorAction SilentlyContinue |
+            Where-Object { $_ -match '^\s*DATABASE_URL\s*=' } |
+            Select-Object -First 1
+        if ($envLine) { $env:DATABASE_URL = ($envLine -replace '^\s*DATABASE_URL\s*=', '').Trim().Trim('"').Trim("'") }
+    }
+    if (-not $env:VECTOR_DB_URL -and (Test-Path (Join-Path $BackendDir ".env"))) {
+        $envLine = Get-Content -LiteralPath (Join-Path $BackendDir ".env") -ErrorAction SilentlyContinue |
+            Where-Object { $_ -match '^\s*VECTOR_DB_URL\s*=' } |
+            Select-Object -First 1
+        if ($envLine) { $env:VECTOR_DB_URL = ($envLine -replace '^\s*VECTOR_DB_URL\s*=', '').Trim().Trim('"').Trim("'") }
+    }
+    if (-not $env:DATABASE_URL) {
+        $pgPort = $null
+        foreach ($port in @(5433, 5432)) {
+            try {
+                $client = New-Object Net.Sockets.TcpClient
+                $iar = $client.BeginConnect('127.0.0.1', $port, $null, $null)
+                if ($iar.AsyncWaitHandle.WaitOne(800, $false) -and $client.Connected) { $pgPort = $port; break }
+            } catch {
+            } finally {
+                if ($client) { $client.Dispose() }
+            }
+        }
+        if ($pgPort) {
+            $env:DATABASE_URL = "postgresql+psycopg://xcagi:xcagi@127.0.0.1:$pgPort/xcagi"
+            Write-Info "Auto-detected PostgreSQL on 127.0.0.1:$pgPort"
+        } else {
+            $dataDir = Join-Path $BackendDir "data"
+            if (-not (Test-Path $dataDir)) { New-Item -ItemType Directory -Path $dataDir -Force | Out-Null }
+            $sqlitePath = (Join-Path $dataDir "products.db").Replace('\', '/')
+            $env:DATABASE_URL = "sqlite:///$sqlitePath"
+            Write-Warn "No local PostgreSQL detected on 5433/5432; using SQLite: $env:DATABASE_URL"
+        }
+    }
+    if (-not $env:VECTOR_DB_URL)  { $env:VECTOR_DB_URL = $env:DATABASE_URL }
+    # 治根注：FHD 仓库根放在前，XCAGI 入口目录放在后。
+    # 历史上反过来（XCAGI 在前）会让 XCAGI/resources/、XCAGI/scripts/ 下的
+    # 僵尸副本永远赢 FHD 主版本（namespace package 先到先得），导致
+    # /api/system/industries 之类接口拿到 4-14 的旧 industry_config，前端下拉
+    # 出现"4 项 YAML 硬编码"幽灵。修过该文件后请保持 RepoRoot 在 BackendDir 之前。
+    $env:PYTHONPATH = @($RepoRoot, $BackendDir) -join [System.IO.Path]::PathSeparator
     $env:PYTHONUTF8 = '1'
     $env:XCAGI_DEV_ALLOW_LAN_CORS = '1'
     $env:FHD_BUSINESS_DATA_REQUIRES_EXTENSION_MOD = '1'
     $env:XCAGI_MODS_ROOT = $ModsDir
     $env:LAN_ADMIN_HOST_AUTO_BYPASS = '1'
 
-    # Narrow the reload watcher to .py only. Avoids noise from .pyc, editor
-    # swap files, and -- crucially -- Git line-ending rewrites. Combined with
-    # .gitattributes pinning eol per extension, this prevents the false-positive
-    # mass-reload storm seen after checkout / branch switch.
-    $reloadArgs = if (-not $NoReload) {
-        @(
-            "--reload",
-            "--reload-dir",     $AppDir,
-            "--reload-include", "*.py",
-            "--reload-exclude", "*.pyc",
-            "--reload-exclude", "__pycache__",
-            "--reload-exclude", "*.db",
-            "--reload-exclude", "*.log"
-        )
-    } else { @() }
+    if ($NoReload) {
+        $env:XCAGI_UVICORN_RELOAD = '0'
+    } else {
+        $env:XCAGI_UVICORN_RELOAD = '1'
+    }
+    $env:FASTAPI_HOST = '0.0.0.0'
+    $env:FASTAPI_PORT = [string]$BackendPort
+    $env:XCAGI_API_PORT = [string]$BackendPort
 
     $arguments = @(
-        "-m", "uvicorn",
-        "app.fastapi_app:get_fastapi_app",
-        "--factory",
-        "--host", '0.0.0.0',
-        "--port", "5000"
-    ) + $reloadArgs
+        (Join-Path $BackendDir "run_fastapi.py")
+    )
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName         = $Python
     $psi.Arguments        = ($arguments | ForEach-Object { if ($_ -match '\s') { '"{0}"' -f $_ } else { $_ } }) -join " "
-    $psi.WorkingDirectory = $RepoRoot
+    $psi.WorkingDirectory = $BackendDir
     $psi.UseShellExecute  = $false
     $psi.CreateNoWindow   = $false
     [System.Diagnostics.Process]::Start($psi) | Out-Null
@@ -472,7 +563,7 @@ function Start-Backend {
     for ($i = 1; $i -le $BackendWaitSec; $i++) {
         Start-Sleep -Seconds 1
         try {
-            $r = Invoke-WebRequest -Uri 'http://127.0.0.1:5000/api/lan/host-info' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            $r = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}/api/lan/host-info" -f $BackendPort) -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
             if ($r.StatusCode -eq 200) { $ok = $true; break }
         } catch {}
         if ($i % 5 -eq 0) { Write-Host (' [{0}s]' -f $i) -NoNewline } else { Write-Host "." -NoNewline }
@@ -483,7 +574,7 @@ function Start-Backend {
         Write-Success ('Backend started in ~{0}s' -f $i)
     } else {
         Write-Warn ('Backend still not responding after {0}s; it may still be booting (reload subprocess cold-start).' -f $BackendWaitSec)
-        Write-Warn 'Probe URL: http://127.0.0.1:5000/api/lan/host-info'
+        Write-Warn ('Probe URL: http://127.0.0.1:{0}/api/lan/host-info' -f $BackendPort)
     }
 }
 
@@ -493,7 +584,7 @@ function Start-Frontend {
         Write-Warn "Frontend skipped: $FrontDir\package.json missing"
         return
     }
-    Write-Info "Starting frontend (Vite dev on port 5001) in $FrontDir ..."
+    Write-Info ("Starting frontend (Vite dev on port {0}) in {1} ..." -f $FrontendPort, $FrontDir)
     try { [Console]::Out.Flush() } catch {}
 
     $viteEntry = Join-Path $FrontDir "node_modules\vite\bin\vite.js"
@@ -523,12 +614,14 @@ function Start-Frontend {
         $npmPrefix = 'set VITE_DEV_HMR_HOST=' + $lip + '&& '
         Write-Info ('VITE_DEV_HMR_HOST={0} (手机/平板 HMR WebSocket 指向本机私网 IP)' -f $lip)
     }
+    $npmPrefix += 'set VITE_API_BASE=http://127.0.0.1:' + $BackendPort + '&& '
+    Write-Info ('VITE_API_BASE=http://127.0.0.1:{0} (Vite 代理目标)' -f $BackendPort)
 
     # 必须用 Start-Process 新开控制台：Process.Start(..., UseShellExecute=$false) 的子进程会挂到当前 PowerShell 上，
     # 往往看不到独立 cmd 窗口，npm/vite 日志也「像没启动」。
     $fdQ = '"' + ($FrontDir.Replace('"', '')) + '"'
     $devSep = [string]::new([char[]]@(0x20, 0x26, 0x26, 0x20))  # ' && ' 避免无 BOM 时编码错位导致引号未闭合
-    $devLine = 'cd /d ' + $fdQ + $devSep + $npmPrefix + 'npm run dev -- --host 0.0.0.0 --port 5001'
+    $devLine = 'cd /d ' + $fdQ + $devSep + $npmPrefix + 'npm run dev -- --host 0.0.0.0 --port ' + $FrontendPort
     Start-Process -FilePath $env:ComSpec -ArgumentList @('/k', $devLine) -WorkingDirectory $FrontDir -WindowStyle Normal
     Write-Info '已单独弹出 cmd 窗口跑 Vite（标题为命令提示符）；npm/vite 日志在该窗口，可最小化但不要关。'
 
@@ -536,7 +629,7 @@ function Start-Frontend {
     for ($i = 1; $i -le $FrontendWaitSec; $i++) {
         Start-Sleep -Seconds 1
         try {
-            $r = Invoke-WebRequest -Uri 'http://127.0.0.1:5001' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            $r = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}" -f $FrontendPort) -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
             if ($r.StatusCode -eq 200) { $ok = $true; break }
         } catch {}
         if ($i % 5 -eq 0) { Write-Host (' [{0}s]' -f $i) -NoNewline } else { Write-Host "." -NoNewline }
@@ -569,7 +662,7 @@ function Show-Info {
     } else {
         foreach ($r in $rows) {
             $tag = if ($r.IP -eq $lanIp) { "  ← 默认优先" } else { "" }
-            Write-Host ('     http://{0}:5001   [{1}]{2}' -f $r.IP, $r.InterfaceAlias, $tag) -ForegroundColor Cyan
+            Write-Host ('     http://{0}:{1}   [{2}]{3}' -f $r.IP, $FrontendPort, $r.InterfaceAlias, $tag) -ForegroundColor Cyan
         }
         if ($rows.Count -gt 1) {
             Write-Host ""
@@ -579,17 +672,17 @@ function Show-Info {
     Write-Host ""
     # 双引号内勿写 ::1（PS 5.1 会把 :: 当类型/作用域解析，导致整文件级联语法错）
     Write-Host '  本机浏览器 (建议用 IPv4，避免 localhost 解析到 ::1 时连不上):' -ForegroundColor Cyan
-    Write-Host '     http://127.0.0.1:5001'
+    Write-Host ('     http://127.0.0.1:{0}' -f $FrontendPort)
     Write-Host ""
     Write-Host "  API 后端 :" -ForegroundColor Cyan
     if ($rows.Count -ge 1) {
         foreach ($r in $rows) {
-            Write-Host ('     http://{0}:5000   [{1}]' -f $r.IP, $r.InterfaceAlias) -ForegroundColor Cyan
+            Write-Host ('     http://{0}:{1}   [{2}]' -f $r.IP, $BackendPort, $r.InterfaceAlias) -ForegroundColor Cyan
         }
-        Write-Host ('     http://{0}:5000/docs' -f $lanIp) -ForegroundColor Cyan
+        Write-Host ('     http://{0}:{1}/docs' -f $lanIp, $BackendPort) -ForegroundColor Cyan
     } else {
-        Write-Host ('     http://{0}:5000' -f $lanIp)
-        Write-Host ('     http://{0}:5000/docs' -f $lanIp)
+        Write-Host ('     http://{0}:{1}' -f $lanIp, $BackendPort)
+        Write-Host ('     http://{0}:{1}/docs' -f $lanIp, $BackendPort)
     }
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Green
@@ -604,11 +697,11 @@ function Show-Info {
         $ip = [string]$r.IP
         if (-not $ip -or $ip -eq "127.0.0.1") { continue }
         try {
-            $t1 = Test-NetConnection -ComputerName $ip -Port 5001 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
-            $t0 = Test-NetConnection -ComputerName $ip -Port 5000 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $t1 = Test-NetConnection -ComputerName $ip -Port $FrontendPort -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+            $t0 = Test-NetConnection -ComputerName $ip -Port $BackendPort -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
             $s1 = if ($t1.TcpTestSucceeded) { "OK" } else { "FAIL" }
             $s0 = if ($t0.TcpTestSucceeded) { "OK" } else { "FAIL" }
-            Write-Host ('     {0}  TCP 5001={1}  TCP 5000={2}' -f $ip, $s1, $s0) -ForegroundColor DarkGray
+            Write-Host ('     {0}  TCP {1}={2}  TCP {3}={4}' -f $ip, $FrontendPort, $s1, $BackendPort, $s0) -ForegroundColor DarkGray
         } catch {
             Write-Host ('     {0}  (自检跳过)' -f $ip) -ForegroundColor DarkGray
         }
@@ -616,6 +709,12 @@ function Show-Info {
 }
 
 # --- Main -------------------------------------------------------------------
+if ($StopOnly) {
+    Stop-Existing
+    Write-Success "StopOnly requested; not starting anything."
+    exit 0
+}
+
 Clear-Host
 Write-Host ""
 Write-Host '              XCAGI  v7.0' -ForegroundColor Green
@@ -628,24 +727,19 @@ Write-Host '  /  \ |___ / ___ \ |_| || | ' -ForegroundColor Cyan
 Write-Host ' /_/\_\____/_/   \_\____|___|' -ForegroundColor Cyan
 Write-Host ""
 Write-Host '            -----  v7.0  -----' -ForegroundColor Yellow
-Write-Host '       LAN Dev Launcher · FastAPI :5000 + Vite :5001' -ForegroundColor DarkGray
+Write-Host ('       LAN Dev Launcher · FastAPI :{0} + Vite :{1}' -f $BackendPort, $FrontendPort) -ForegroundColor DarkGray
 Write-Host ""
 
 Stop-Existing
-
-if ($StopOnly) {
-    Write-Success "StopOnly requested; not starting anything."
-    exit 0
-}
 
 # --- Firewall rules (only when running as admin) ---------------------------
 if ($ConfigureFirewall) {
     if (-not $IsAdmin) {
         Write-Warn "-ConfigureFirewall requires Administrator; firewall rules skipped. Run start-lan.bat /Firewall and accept UAC, then try again."
     } else {
-        Write-Info "Adding inbound firewall rules (TCP 5000/5001) because -ConfigureFirewall / start-lan.bat /Firewall was used."
-        Ensure-FirewallRule -Name "XCAGI Backend (5000)"  -Port 5000
-        Ensure-FirewallRule -Name "XCAGI Frontend (5001)" -Port 5001
+        Write-Info ("Adding inbound firewall rules (TCP {0}/{1}) because -ConfigureFirewall / start-lan.bat /Firewall was used." -f $BackendPort, $FrontendPort)
+        Ensure-FirewallRule -Name ("XCAGI Backend ({0})" -f $BackendPort)  -Port $BackendPort
+        Ensure-FirewallRule -Name ("XCAGI Frontend ({0})" -f $FrontendPort) -Port $FrontendPort
     }
 }
 

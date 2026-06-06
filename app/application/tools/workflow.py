@@ -1,5 +1,8 @@
 """Workflow tool registry + dispatcher + Excel/import handlers.
 
+import logging
+
+logger = logging.getLogger(__name__)
 Phase 4B 从 ``app.legacy.tools`` 吸收实现。本模块汇总所有工作流工具的:
 
 - 注册表 :func:`get_workflow_tool_registry` / :func:`_base_registry`
@@ -120,19 +123,47 @@ def _read_excel_dataframe(
     return pd.read_excel(p, **kw)
 
 
-def run_natural_language_pandas(df: pd.DataFrame, natural_language: str, **kwargs) -> dict[str, Any]:
+def run_natural_language_pandas(
+    df: pd.DataFrame, natural_language: str, **kwargs
+) -> dict[str, Any]:
+    """将自然语言查询转换为 pandas 操作并执行（接 excel_text_to_pandas）。"""
+    generated_code = ""
+    error_msg: str | None = None
+    result_df = df
+
+    try:
+        from app.legacy.excel_text_to_pandas import ExcelTextToPandas  # type: ignore
+
+        converter = ExcelTextToPandas()
+        code = converter.translate(natural_language, df)
+        if code and code.strip():
+            generated_code = code
+            local_ns: dict = {"df": df.copy()}
+            exec(code, {"pd": pd, "__builtins__": {}}, local_ns)  # noqa: S102
+            out = local_ns.get("result", local_ns.get("df"))
+            if isinstance(out, pd.DataFrame):
+                result_df = out
+    except Exception as e:
+        error_msg = str(e)
+
+    records = json.loads(
+        result_df.head(200).replace({float("nan"): None}).to_json(orient="records")
+    )
     return {
-        "generated_code": "",
+        "generated_code": generated_code,
         "result_kind": "dataframe",
-        "row_count": len(df),
-        "truncated": len(df) > 200,
-        "returned_rows": min(len(df), 200),
-        "columns": list(df.columns.astype(str)),
-        "records": json.loads(df.head(200).replace({float("nan"): None}).to_json(orient="records")),
+        "row_count": len(result_df),
+        "truncated": len(result_df) > 200,
+        "returned_rows": min(len(result_df), 200),
+        "columns": list(result_df.columns.astype(str)),
+        "records": records,
+        **({"error": error_msg} if error_msg else {}),
     }
 
 
-def handle_excel_analysis(args: dict[str, Any], workspace_root: str | None = None) -> dict[str, Any]:
+def handle_excel_analysis(
+    args: dict[str, Any], workspace_root: str | None = None
+) -> dict[str, Any]:
     file_path = str(args.get("file_path") or "")
     action = str(args.get("action") or "read")
     sheet_name = args.get("sheet_name")
@@ -191,7 +222,7 @@ def handle_excel_analysis(args: dict[str, Any], workspace_root: str | None = Non
             if customer_hint:
                 out["customer_hint"] = customer_hint
         except Exception:
-            pass
+            logger.debug("suppressed exception", exc_info=True)
         if header_1b is not None:
             out["header_row"] = header_1b
         return out
@@ -203,7 +234,9 @@ def handle_excel_analysis(args: dict[str, Any], workspace_root: str | None = Non
             "action": "query",
             "file_path": file_path,
             "row_count": int(len(out_df)),
-            "records": json.loads(out_df.head(200).replace({float("nan"): None}).to_json(orient="records")),
+            "records": json.loads(
+                out_df.head(200).replace({float("nan"): None}).to_json(orient="records")
+            ),
             "columns": list(out_df.columns.astype(str)),
         }
     if action == "aggregate":
@@ -221,7 +254,11 @@ def handle_excel_analysis(args: dict[str, Any], workspace_root: str | None = Non
             if agg_map:
                 out_df = df.groupby(group_by, dropna=False).agg(agg_map).reset_index()
                 out_df.columns = [
-                    "_".join([str(c) for c in x if str(c) != ""]).strip("_") if isinstance(x, tuple) else str(x)
+                    (
+                        "_".join([str(c) for c in x if str(c) != ""]).strip("_")
+                        if isinstance(x, tuple)
+                        else str(x)
+                    )
                     for x in out_df.columns
                 ]
             else:
@@ -233,7 +270,9 @@ def handle_excel_analysis(args: dict[str, Any], workspace_root: str | None = Non
             "action": "aggregate",
             "file_path": file_path,
             "row_count": int(len(out_df)),
-            "records": json.loads(out_df.head(200).replace({float("nan"): None}).to_json(orient="records")),
+            "records": json.loads(
+                out_df.head(200).replace({float("nan"): None}).to_json(orient="records")
+            ),
             "columns": list(out_df.columns.astype(str)),
         }
     if action == "statistics":
@@ -257,19 +296,42 @@ def _base_registry() -> list[dict[str, Any]]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "file_path": {"type": "string", "description": "Excel 文件路径（相对于工作区的相对路径或绝对路径）"},
-                        "sheet_name": {"type": "string", "description": "工作表名称（Sheet名），用于读取特定工作表。如果用户选中了某个工作表，请使用此参数指定。"},
-                        "header_row": {"type": "integer", "description": "表头所在行号（Excel 从 1 开始计数）。报价单等多行标题表格必须与上传预览 extract-grid 检测到的 header_row_index / tables[].header_row 一致，否则会出现 Unnamed 列、大量 nan、价格错位。"},
-                        "action": {"type": "string", "enum": ["read", "query", "aggregate", "statistics"], "description": "操作类型：read读取数据、query按条件查询、aggregate聚合统计、statistics统计信息"},
-                        "query_expression": {"type": "string", "description": "当 action=query 时使用的查询表达式（pandas query 语法）"},
-                        "group_by": {"type": "array", "items": {"type": "string"}, "description": "当 action=aggregate 时的分组列名"},
+                        "file_path": {
+                            "type": "string",
+                            "description": "Excel 文件路径（相对于工作区的相对路径或绝对路径）",
+                        },
+                        "sheet_name": {
+                            "type": "string",
+                            "description": "工作表名称（Sheet名），用于读取特定工作表。如果用户选中了某个工作表，请使用此参数指定。",
+                        },
+                        "header_row": {
+                            "type": "integer",
+                            "description": "表头所在行号（Excel 从 1 开始计数）。报价单等多行标题表格必须与上传预览 extract-grid 检测到的 header_row_index / tables[].header_row 一致，否则会出现 Unnamed 列、大量 nan、价格错位。",
+                        },
+                        "action": {
+                            "type": "string",
+                            "enum": ["read", "query", "aggregate", "statistics"],
+                            "description": "操作类型：read读取数据、query按条件查询、aggregate聚合统计、statistics统计信息",
+                        },
+                        "query_expression": {
+                            "type": "string",
+                            "description": "当 action=query 时使用的查询表达式（pandas query 语法）",
+                        },
+                        "group_by": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "当 action=aggregate 时的分组列名",
+                        },
                         "metrics": {
                             "type": "array",
                             "items": {
                                 "type": "object",
                                 "properties": {
                                     "column": {"type": "string"},
-                                    "op": {"type": "string", "enum": ["sum", "mean", "count", "min", "max"]},
+                                    "op": {
+                                        "type": "string",
+                                        "enum": ["sum", "mean", "count", "min", "max"],
+                                    },
                                 },
                             },
                             "description": "当 action=aggregate 时的聚合指标",
@@ -287,9 +349,18 @@ def _base_registry() -> list[dict[str, Any]]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "file_path": {"type": "string", "description": "Excel 文件路径（相对于工作区的相对路径或绝对路径）"},
-                        "sheet_name": {"type": "string", "description": "可选：工作表名称，默认第一个表。"},
-                        "header_row": {"type": "integer", "description": "可选：表头行号（Excel 从 1 开始）。多行标题表若不填则默认第一行为表头，易产生 Unnamed 列。"},
+                        "file_path": {
+                            "type": "string",
+                            "description": "Excel 文件路径（相对于工作区的相对路径或绝对路径）",
+                        },
+                        "sheet_name": {
+                            "type": "string",
+                            "description": "可选：工作表名称，默认第一个表。",
+                        },
+                        "header_row": {
+                            "type": "integer",
+                            "description": "可选：表头行号（Excel 从 1 开始）。多行标题表若不填则默认第一行为表头，易产生 Unnamed 列。",
+                        },
                     },
                     "required": ["file_path"],
                 },
@@ -303,13 +374,39 @@ def _base_registry() -> list[dict[str, Any]]:
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "action": {"type": "string", "enum": ["join", "diff"], "description": "操作类型：join合并、diff差异对比"},
-                        "file_paths": {"type": "array", "items": {"type": "string"}, "description": "当 action=join 时，两个文件的路径列表 [file1, file2]"},
-                        "file_path_a": {"type": "string", "description": "当 action=diff 时，第一个文件路径"},
-                        "file_path_b": {"type": "string", "description": "当 action=diff 时，第二个文件路径"},
-                        "join_keys": {"type": "array", "items": {"type": "string"}, "description": "当 action=join 时，用于合并的列名列表"},
-                        "how": {"type": "string", "enum": ["inner", "left", "right", "outer"], "description": "当 action=join 时，合并方式（默认 inner）"},
-                        "key_columns": {"type": "array", "items": {"type": "string"}, "description": "当 action=diff 时，用于对比的主键列名列表"},
+                        "action": {
+                            "type": "string",
+                            "enum": ["join", "diff"],
+                            "description": "操作类型：join合并、diff差异对比",
+                        },
+                        "file_paths": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "当 action=join 时，两个文件的路径列表 [file1, file2]",
+                        },
+                        "file_path_a": {
+                            "type": "string",
+                            "description": "当 action=diff 时，第一个文件路径",
+                        },
+                        "file_path_b": {
+                            "type": "string",
+                            "description": "当 action=diff 时，第二个文件路径",
+                        },
+                        "join_keys": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "当 action=join 时，用于合并的列名列表",
+                        },
+                        "how": {
+                            "type": "string",
+                            "enum": ["inner", "left", "right", "outer"],
+                            "description": "当 action=join 时，合并方式（默认 inner）",
+                        },
+                        "key_columns": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "当 action=diff 时，用于对比的主键列名列表",
+                        },
                     },
                     "required": ["action"],
                 },
@@ -322,7 +419,9 @@ def _base_registry() -> list[dict[str, Any]]:
                 "description": "根据 Excel 数据内容推荐合适的图表类型。",
                 "parameters": {
                     "type": "object",
-                    "properties": {"file_path": {"type": "string", "description": "Excel 文件路径"}},
+                    "properties": {
+                        "file_path": {"type": "string", "description": "Excel 文件路径"}
+                    },
                 },
             },
         },
@@ -339,15 +438,43 @@ def _base_registry() -> list[dict[str, Any]]:
                     "type": "object",
                     "properties": {
                         "file_path": {"type": "string", "description": "Excel 文件路径"},
-                        "sheet_name": {"type": "string", "description": "工作表名称；与 excel_analysis 所选表一致"},
-                        "header_row": {"type": "integer", "description": "表头所在 Excel 行号（从 1 开始）。必须与上传预览检测的 header_row / excel_analysis 一致。"},
-                        "last_data_row_1based": {"type": "integer", "description": "可选：数据区最后一行的 Excel 行号（含），用于去掉表尾条款/说明行。与 header_row 同时使用时，保留的数据行数 = last_data_row_1based - header_row。"},
-                        "import_type": {"type": "string", "enum": ["products", "customers", "orders"], "description": "导入类型：products产品、customers客户、orders订单"},
-                        "unit_name": {"type": "string", "description": "客户公司全称（业务上亦称「购买单位」= 往来客户，非件/桶等计量单位）。导入产品时必须指向该客户；可留空由服务端从 excel_customer_hint / customer_hint 推断"},
-                        "price_column": {"type": "string", "description": "可选：用作单价的表头子串（如「调价前」「调价后」）。不传时自动推断；若同时存在调价前/调价后等价类列，默认取调价前列。"},
-                        "confirm": {"type": "boolean", "description": "是否执行写入。默认 true（直接导入）；仅显式传 false 时返回预览。已配置令牌且请求已携带正确 db_write_token 时，服务端仍按已确认写入处理。"},
-                        "preview_only": {"type": "boolean", "description": "可选：是否仅预览不写入。true 时即使未传 confirm 也只返回预览。"},
-                        "db_write_token": {"type": "string", "description": "数据库写入授权令牌（如系统要求）"},
+                        "sheet_name": {
+                            "type": "string",
+                            "description": "工作表名称；与 excel_analysis 所选表一致",
+                        },
+                        "header_row": {
+                            "type": "integer",
+                            "description": "表头所在 Excel 行号（从 1 开始）。必须与上传预览检测的 header_row / excel_analysis 一致。",
+                        },
+                        "last_data_row_1based": {
+                            "type": "integer",
+                            "description": "可选：数据区最后一行的 Excel 行号（含），用于去掉表尾条款/说明行。与 header_row 同时使用时，保留的数据行数 = last_data_row_1based - header_row。",
+                        },
+                        "import_type": {
+                            "type": "string",
+                            "enum": ["products", "customers", "orders"],
+                            "description": "导入类型：products产品、customers客户、orders订单",
+                        },
+                        "unit_name": {
+                            "type": "string",
+                            "description": "客户公司全称（业务上亦称「购买单位」= 往来客户，非件/桶等计量单位）。导入产品时必须指向该客户；可留空由服务端从 excel_customer_hint / customer_hint 推断",
+                        },
+                        "price_column": {
+                            "type": "string",
+                            "description": "可选：用作单价的表头子串（如「调价前」「调价后」）。不传时自动推断；若同时存在调价前/调价后等价类列，默认取调价前列。",
+                        },
+                        "confirm": {
+                            "type": "boolean",
+                            "description": "是否执行写入。默认 true（直接导入）；仅显式传 false 时返回预览。已配置令牌且请求已携带正确 db_write_token 时，服务端仍按已确认写入处理。",
+                        },
+                        "preview_only": {
+                            "type": "boolean",
+                            "description": "可选：是否仅预览不写入。true 时即使未传 confirm 也只返回预览。",
+                        },
+                        "db_write_token": {
+                            "type": "string",
+                            "description": "数据库写入授权令牌（如系统要求）",
+                        },
                     },
                     "required": ["file_path", "import_type"],
                 },
@@ -430,8 +557,20 @@ def execute_workflow_tool(
             args = json.loads(args or "{}")
         except Exception:
             args = {}
+    try:
+        from app.mod_sdk.planner_native_tools import try_execute_native_planner_tool
+
+        native_raw, _mod = try_execute_native_planner_tool(
+            name, args, workspace_root, db_write_token=db_write_token
+        )
+        if native_raw is not None:
+            return native_raw
+    except Exception:
+        logger.debug("planner native tool dispatch skipped", exc_info=True)
     if name == "excel_analysis":
-        return json.dumps(handle_excel_analysis(args, workspace_root=workspace_root), ensure_ascii=False)
+        return json.dumps(
+            handle_excel_analysis(args, workspace_root=workspace_root), ensure_ascii=False
+        )
     if name == "excel_chart_recommend":
         return json.dumps(
             {
@@ -450,21 +589,33 @@ def execute_workflow_tool(
                 p1 = resolve_safe_excel_path(workspace_root or str(Path.cwd()), str(f1))
                 p2 = resolve_safe_excel_path(workspace_root or str(Path.cwd()), str(f2))
                 if not p1.exists():
-                    return json.dumps({"success": False, "error": f"file not found: {f1}"}, ensure_ascii=False)
+                    return json.dumps(
+                        {"success": False, "error": f"file not found: {f1}"}, ensure_ascii=False
+                    )
                 if not p2.exists():
-                    return json.dumps({"success": False, "error": f"file not found: {f2}"}, ensure_ascii=False)
+                    return json.dumps(
+                        {"success": False, "error": f"file not found: {f2}"}, ensure_ascii=False
+                    )
                 d1 = pd.read_excel(p1)
                 d2 = pd.read_excel(p2)
                 keys = [str(x) for x in (args.get("join_keys") or []) if str(x)]
                 how = str(args.get("how") or "inner")
                 out = d1.merge(d2, on=keys, how=how) if keys else d1
                 return json.dumps(
-                    {"action": "join", "row_count": int(len(out)), "columns": list(out.columns.astype(str))},
+                    {
+                        "action": "join",
+                        "row_count": int(len(out)),
+                        "columns": list(out.columns.astype(str)),
+                    },
                     ensure_ascii=False,
                 )
             elif action == "diff":
-                pa = resolve_safe_excel_path(workspace_root or str(Path.cwd()), str(args.get("file_path_a") or ""))
-                pb = resolve_safe_excel_path(workspace_root or str(Path.cwd()), str(args.get("file_path_b") or ""))
+                pa = resolve_safe_excel_path(
+                    workspace_root or str(Path.cwd()), str(args.get("file_path_a") or "")
+                )
+                pb = resolve_safe_excel_path(
+                    workspace_root or str(Path.cwd()), str(args.get("file_path_b") or "")
+                )
                 if not pa.exists():
                     return json.dumps(
                         {"success": False, "error": f"file not found: {args.get('file_path_a')}"},
@@ -498,17 +649,75 @@ def execute_workflow_tool(
                         ensure_ascii=False,
                     )
                 else:
-                    return json.dumps({"action": "diff", "row_count": int(len(a))}, ensure_ascii=False)
+                    return json.dumps(
+                        {"action": "diff", "row_count": int(len(a))}, ensure_ascii=False
+                    )
             else:
-                return json.dumps({"success": False, "error": f"unknown action: {action}"}, ensure_ascii=False)
+                return json.dumps(
+                    {"success": False, "error": f"unknown action: {action}"}, ensure_ascii=False
+                )
         except Exception as e:
             return json.dumps({"success": False, "error": str(e)}, ensure_ascii=False)
     if name == "excel_prophet":
-        periods = int(args.get("periods") or 0)
-        return json.dumps(
-            {"action": "forecast", "future_forecast": [{"yhat": 0}] * max(0, periods)},
-            ensure_ascii=False,
-        )
+        try:
+            file_path = str(args.get("file_path") or "")
+            value_col = str(args.get("value_column") or args.get("y") or "").strip()
+            date_col = str(args.get("date_column") or args.get("ds") or "").strip()
+            periods = max(1, min(30, int(args.get("periods") or 6)))
+            root = workspace_root or str(Path.cwd())
+            if file_path:
+                p = resolve_safe_excel_path(root, file_path)
+                df = _read_excel_dataframe(p)
+                if not value_col or value_col not in df.columns:
+                    num_cols = [
+                        c
+                        for c in df.columns
+                        if pd.to_numeric(df[c], errors="coerce").notna().sum() > 2
+                    ]
+                    value_col = num_cols[0] if num_cols else ""
+                y = (
+                    pd.to_numeric(df[value_col], errors="coerce").dropna()
+                    if value_col
+                    else pd.Series([], dtype=float)
+                )
+            else:
+                y = pd.Series([], dtype=float)
+            if len(y) < 2:
+                return json.dumps(
+                    {
+                        "action": "forecast",
+                        "future_forecast": [{"yhat": 0.0}] * periods,
+                        "note": "数据不足，使用零预测",
+                    },
+                    ensure_ascii=False,
+                )
+            x = list(range(len(y)))
+            # 简单线性回归预测
+            n = len(x)
+            sx = sum(x)
+            sy = float(y.sum())
+            sxy = sum(xi * yi for xi, yi in zip(x, y))
+            sxx = sum(xi**2 for xi in x)
+            denom = n * sxx - sx * sx
+            slope = (n * sxy - sx * sy) / denom if denom else 0
+            intercept = (sy - slope * sx) / n
+            future = [
+                {"period": i + 1, "yhat": round(intercept + slope * (len(y) + i), 4)}
+                for i in range(periods)
+            ]
+            return json.dumps(
+                {
+                    "action": "forecast",
+                    "future_forecast": future,
+                    "model": "linear_regression",
+                    "periods": periods,
+                },
+                ensure_ascii=False,
+            )
+        except Exception as e:
+            return json.dumps(
+                {"action": "forecast", "future_forecast": [], "error": str(e)}, ensure_ascii=False
+            )
     if name == "excel_schema_understand":
         try:
             file_path = str(args.get("file_path") or "")
@@ -545,8 +754,41 @@ def execute_workflow_tool(
 
         out = run_bulk_import(args)
         return json.dumps(out, ensure_ascii=False)
+    if name == "excel_vector_index":
+        file_path = str(args.get("file_path") or "").strip()
+        if not file_path:
+            return json.dumps(
+                {"success": False, "error": "file_path is required"}, ensure_ascii=False
+            )
+        root = workspace_root or str(Path.cwd())
+        p = resolve_safe_excel_path(root, file_path)
+        if not p.exists():
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": "file_not_found",
+                    "file_path": file_path,
+                    "resolved_path": str(p),
+                },
+                ensure_ascii=False,
+            )
+        from app.application import get_excel_vector_ingest_app_service
+
+        index_name = str(args.get("index_name") or "").strip() or None
+        index_id = str(args.get("index_id") or "").strip() or None
+        result = get_excel_vector_ingest_app_service().ingest_excel(
+            file_path=str(p),
+            index_name=index_name,
+            index_id=index_id,
+        )
+        if isinstance(result, dict) and result.get("success") and result.get("index_id"):
+            result["excel_vector_index_id"] = result.get("index_id")
+            result["excel_index_id"] = result.get("index_id")
+        return json.dumps(result, ensure_ascii=False)
     if name == "import_excel_to_database":
-        return _handle_import_excel_to_database(args, workspace_root=workspace_root, db_write_token=db_write_token)
+        return _handle_import_excel_to_database(
+            args, workspace_root=workspace_root, db_write_token=db_write_token
+        )
     if name == "generate_office_document":
         try:
             req = str(args.get("user_request") or args.get("prompt") or "").strip()
@@ -554,7 +796,9 @@ def execute_workflow_tool(
             if fmt not in ("docx", "xlsx"):
                 fmt = "docx"
             if not req:
-                return json.dumps({"success": False, "error": "missing_user_request"}, ensure_ascii=False)
+                return json.dumps(
+                    {"success": False, "error": "missing_user_request"}, ensure_ascii=False
+                )
             from app.services.kitten_ai_document.generate import generate_office_file
             from app.services.kitten_ai_document.pickup import store_document_pickup
 
@@ -642,7 +886,9 @@ def _handle_import_excel_to_database(
                     sheet_n = sn
 
         if not file_path:
-            return json.dumps({"success": False, "error": "file_path is required"}, ensure_ascii=False)
+            return json.dumps(
+                {"success": False, "error": "file_path is required"}, ensure_ascii=False
+            )
 
         p = resolve_safe_excel_path(workspace_root or str(Path.cwd()), file_path)
         if not p.exists():
@@ -664,7 +910,9 @@ def _handle_import_excel_to_database(
                     ).strip()
             if not unit_name:
                 try:
-                    from app.routes.template_grid_core import _extract_inline_customer_hits_from_cell
+                    from app.routes.template_grid_core import (
+                        _extract_inline_customer_hits_from_cell,
+                    )
 
                     linked_items: list[dict[str, Any]] = []
                     one = req_ctx.get("excel_linked_grid_preview")
@@ -682,16 +930,17 @@ def _handle_import_excel_to_database(
                                 unit_name = str(hits[0]).strip()
                                 break
                 except Exception:
-                    pass
+                    logger.debug("suppressed exception", exc_info=True)
             if not unit_name:
                 try:
                     from app.routes.template_grid_core import _extract_customer_hint_from_excel
 
                     unit_name = str(
-                        _extract_customer_hint_from_excel(str(p), sheet_n if sheet_n else None) or ""
+                        _extract_customer_hint_from_excel(str(p), sheet_n if sheet_n else None)
+                        or ""
                     ).strip()
                 except Exception:
-                    pass
+                    logger.debug("suppressed exception", exc_info=True)
 
         preview_only = bool(args.get("preview_only", False))
         confirm = bool(args.get("confirm", True))
@@ -724,13 +973,17 @@ def _handle_import_excel_to_database(
                 ensure_ascii=False,
             )
         if df.empty:
-            return json.dumps({"success": False, "error": "Excel file is empty"}, ensure_ascii=False)
+            return json.dumps(
+                {"success": False, "error": "Excel file is empty"}, ensure_ascii=False
+            )
 
         price_column_hint = str(args.get("price_column") or "").strip() or None
 
         last_data = args.get("last_data_row_1based")
         try:
-            last_data_i = int(last_data) if last_data is not None and str(last_data).strip() != "" else None
+            last_data_i = (
+                int(last_data) if last_data is not None and str(last_data).strip() != "" else None
+            )
         except (TypeError, ValueError):
             last_data_i = None
         if last_data_i is not None and last_data_i >= 1:
@@ -770,6 +1023,8 @@ def _handle_import_excel_to_database(
             )
         elif import_type == "customers":
             return _import_customers_preview_or_execute(df, columns, confirm, row_count)
+        elif import_type == "orders":
+            return _import_orders_preview_or_execute(df, columns, unit_name, confirm, row_count)
         else:
             return json.dumps(
                 {
@@ -1030,9 +1285,7 @@ def _import_products_preview_or_execute(
             spec_val = _excel_cell_as_clean_str(row.get(spec_col, ""))
         elif model_col:
             spec_val = _excel_cell_as_clean_str(row.get(model_col, ""))
-        name_val = (
-            _excel_cell_as_clean_str(row.get(name_col, "")) if name_col else ""
-        )
+        name_val = _excel_cell_as_clean_str(row.get(name_col, "")) if name_col else ""
         model_val = (
             _excel_cell_as_clean_str(row.get(field_mapping["model_number"], ""))
             if "model_number" in field_mapping
@@ -1051,9 +1304,11 @@ def _import_products_preview_or_execute(
             "model_number": ((model_val or None) if "model_number" in field_mapping else None),
             "name": ((name_val or None) if name_col else None),
             "specification": spec_val or None,
-            "price": _excel_cell_as_float(row.get(field_mapping.get("price", ""), 0), 0.0)
-            if "price" in field_mapping
-            else 0.0,
+            "price": (
+                _excel_cell_as_float(row.get(field_mapping.get("price", ""), 0), 0.0)
+                if "price" in field_mapping
+                else 0.0
+            ),
             "unit": detected_unit or unit_name or "件",
             "quantity": qty_i if "quantity" in field_mapping else 0,
             "description": (
@@ -1220,6 +1475,113 @@ def _import_customers_preview_or_execute(df, columns, confirm, row_count):
 
     except Exception as e:
         return json.dumps({"success": False, "error": f"导入失败: {str(e)}"}, ensure_ascii=False)
+
+
+def _import_orders_preview_or_execute(df, columns, unit_name, confirm, row_count):
+    """从 Excel 导入出货记录（订单）。"""
+    sample_data = json.loads(df.head(5).replace({float("nan"): None}).to_json(orient="records"))
+    # 推断列映射
+    col_map: dict[str, str] = {}
+    name_hints = {
+        "产品名称": "product_name",
+        "product_name": "product_name",
+        "名称": "product_name",
+    }
+    model_hints = {
+        "型号": "model_number",
+        "model_number": "model_number",
+        "产品型号": "model_number",
+    }
+    qty_hints = {
+        "数量": "quantity",
+        "quantity": "quantity",
+        "qty": "quantity",
+        "数量(桶)": "quantity",
+    }
+    unit_name_hints = {"购买单位": "unit_name", "客户": "unit_name", "purchase_unit": "unit_name"}
+    for col in columns:
+        col_lower = str(col).strip().lower()
+        if col in name_hints or col_lower in {k.lower() for k in name_hints}:
+            col_map[col] = "product_name"
+        elif col in model_hints or col_lower in {k.lower() for k in model_hints}:
+            col_map[col] = "model_number"
+        elif col in qty_hints or col_lower in {k.lower() for k in qty_hints}:
+            col_map[col] = "quantity"
+        elif col in unit_name_hints or col_lower in {k.lower() for k in unit_name_hints}:
+            col_map[col] = "unit_name"
+
+    if not confirm:
+        return json.dumps(
+            {
+                "success": True,
+                "preview": True,
+                "import_type": "orders",
+                "columns": columns,
+                "column_mapping": col_map,
+                "row_count": row_count,
+                "sample_data": sample_data,
+                "message": f"检测到 {row_count} 条出货记录，确认导入请设置 confirm=true。",
+            },
+            ensure_ascii=False,
+        )
+
+    try:
+        from app.bootstrap import get_shipment_app_service
+
+        svc = get_shipment_app_service()
+        imported = 0
+        failed = 0
+        for _, row in df.iterrows():
+            try:
+                effective_unit = (
+                    unit_name
+                    or str(
+                        row.get(next((c for c, f in col_map.items() if f == "unit_name"), ""), "")
+                        or ""
+                    ).strip()
+                )
+                if not effective_unit:
+                    failed += 1
+                    continue
+                product_name = str(
+                    row.get(next((c for c, f in col_map.items() if f == "product_name"), ""), "")
+                    or ""
+                ).strip()
+                model_number = str(
+                    row.get(next((c for c, f in col_map.items() if f == "model_number"), ""), "")
+                    or ""
+                ).strip()
+                qty_raw = row.get(next((c for c, f in col_map.items() if f == "quantity"), ""), 1)
+                qty = max(1, int(float(qty_raw))) if qty_raw else 1
+                items = [
+                    {
+                        "product_name": product_name or model_number,
+                        "model_number": model_number,
+                        "quantity": qty,
+                    }
+                ]
+                result = svc.create_shipment(unit_name=effective_unit, items_data=items)
+                if result.get("success"):
+                    imported += 1
+                else:
+                    failed += 1
+            except Exception:
+                failed += 1
+
+        return json.dumps(
+            {
+                "success": True,
+                "preview": False,
+                "imported": imported,
+                "failed": failed,
+                "message": f"成功导入 {imported} 条出货记录，失败 {failed} 条",
+            },
+            ensure_ascii=False,
+        )
+    except Exception as e:
+        return json.dumps(
+            {"success": False, "error": f"订单导入失败: {str(e)}"}, ensure_ascii=False
+        )
 
 
 __all__ = [

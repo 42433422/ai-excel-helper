@@ -75,17 +75,18 @@ class TestExcelVectorAppServiceWiring:
         mod._pg_vector_store_instance = None
         mod._vector_store_instance = None
 
-        from app.application.excel_vector_app_service import get_pg_vector_store
-
         # 不实际建连接：PgVectorStore 在 __init__ 时会调 _ensure_tables；
         # 这里 patch 掉 _ensure_tables 只验证 factory 确实构造出 pg 实例。
         from unittest.mock import patch
 
-        with patch(
-            "app.infrastructure.persistence.pg_vector_store.PgVectorStore._ensure_tables",
-            return_value=None,
-        ), patch(
-            "sqlalchemy.create_engine"
+        from app.application.excel_vector_app_service import get_pg_vector_store
+
+        with (
+            patch(
+                "app.infrastructure.persistence.pg_vector_store.PgVectorStore._ensure_tables",
+                return_value=None,
+            ),
+            patch("sqlalchemy.create_engine"),
         ):
             store = get_pg_vector_store()
 

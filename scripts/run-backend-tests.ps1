@@ -44,6 +44,6 @@ if (-not (Test-DockerUp)) {
     }
 }
 
-Write-Host ("pytest backend/tests " + ($PytestArgs -join " "))
-& python -m pytest backend/tests -q --tb=short @PytestArgs
+Write-Host ("pytest tests/ " + ($PytestArgs -join " "))
+& python -m pytest tests/ -q --tb=short @PytestArgs
 exit $LASTEXITCODE

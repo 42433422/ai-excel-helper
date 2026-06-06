@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 from app.domain.value_objects import ModelNumber, Money
 
@@ -8,7 +7,8 @@ from app.domain.value_objects import ModelNumber, Money
 @dataclass
 class Product:
     """产品实体"""
-    id: Optional[int] = None
+
+    id: int | None = None
     model_number: ModelNumber = None
     name: str = ""
     specification: str = ""
@@ -50,7 +50,7 @@ class Product:
         }
 
     @classmethod
-    def create(cls, name: str, model_number: str = "", price: float = 0.0) -> 'Product':
+    def create(cls, name: str, model_number: str = "", price: float = 0.0) -> "Product":
         return cls(
             name=name,
             model_number=ModelNumber(model_number) if model_number else None,

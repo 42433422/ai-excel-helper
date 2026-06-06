@@ -63,10 +63,11 @@ def sqlite_database_url(data_dir: str | os.PathLike[str] | None = None) -> str:
 def configure_desktop_environment(data_dir: str | os.PathLike[str] | None = None) -> Path:
     """Set process environment defaults for the local desktop runtime.
 
-    The function is intentionally idempotent and only fills missing values for
-    mutable infrastructure such as DATABASE_URL, so explicit operator settings
-    still win in enterprise deployments.
+    Delivery default is SQLite under userData. Optional ``config/database.json``
+    may enable remote PostgreSQL later (``remote.enabled``); UI is not required yet.
     """
+
+    from .database_profile import apply_database_profile_to_env
 
     os.environ[DESKTOP_ENV] = "1"
     dirs = ensure_desktop_dirs(data_dir)
@@ -74,13 +75,8 @@ def configure_desktop_environment(data_dir: str | os.PathLike[str] | None = None
     os.environ[DATA_DIR_ENV] = str(root)
     os.environ[LEGACY_DATA_DIR_ENV] = str(root)
 
-    if os.environ.get("XCAGI_DESKTOP_KEEP_DATABASE_URL", "").lower() not in {"1", "true", "yes", "on"}:
-        desktop_db_url = os.environ.get("XCAGI_DESKTOP_DATABASE_URL") or sqlite_database_url(root)
-        os.environ["DATABASE_URL"] = desktop_db_url
-        os.environ["VECTOR_DB_URL"] = os.environ.get("XCAGI_DESKTOP_VECTOR_DB_URL") or desktop_db_url
-    else:
-        os.environ.setdefault("DATABASE_URL", sqlite_database_url(root))
-        os.environ.setdefault("VECTOR_DB_URL", os.environ["DATABASE_URL"])
+    (root / "config").mkdir(parents=True, exist_ok=True)
+    apply_database_profile_to_env(root, local_sqlite_url=sqlite_database_url(root))
     os.environ.setdefault("DATABASE_PATH", str(dirs["data"]))
     os.environ.setdefault("UPLOAD_FOLDER", str(dirs["uploads"]))
     os.environ.setdefault("EXCEL_VECTOR_DB_PATH", str(dirs["data"] / "excel_vectors.db"))
@@ -100,4 +96,28 @@ def configure_desktop_environment(data_dir: str | os.PathLike[str] | None = None
     os.environ.setdefault("FASTAPI_HOST", "127.0.0.1")
     os.environ.setdefault("XCAGI_UVICORN_RELOAD", "0")
     os.environ.setdefault("PYTHONUTF8", "1")
+
+    import sys
+
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            base = Path(meipass)
+            bundled = base / "mods"
+            if bundled.is_dir():
+                os.environ.setdefault("XCAGI_BUNDLED_MODS_DIR", str(bundled))
+            sku_file = base / "product-sku.json"
+            if sku_file.is_file():
+                os.environ.setdefault("XCAGI_PRODUCT_SKU_FILE", str(sku_file))
+
+    from app.mod_sdk.edition_policy import configure_edition_defaults, seed_edition_mods_from_bundle
+
+    configure_edition_defaults(desktop=True)
+    try:
+        seed_edition_mods_from_bundle()
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).warning("Desktop mod seed skipped: %s", exc)
+
     return root

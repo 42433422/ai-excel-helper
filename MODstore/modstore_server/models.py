@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -22,6 +22,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
+
+def _utc_now_naive() -> datetime:
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -34,7 +39,7 @@ class User(Base):
     email = Column(String(128), unique=True, nullable=True)
     password_hash = Column(String(256), nullable=False)
     is_admin = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now_naive)
 
 
 class Wallet(Base):
@@ -43,7 +48,7 @@ class Wallet(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     balance = Column(Float, default=0.0)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=_utc_now_naive)
 
 
 class Transaction(Base):
@@ -55,7 +60,7 @@ class Transaction(Base):
     txn_type = Column(String(32), nullable=False)
     status = Column(String(16), default="completed")
     description = Column(Text, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now_naive)
 
 
 class CatalogItem(Base):
@@ -72,7 +77,8 @@ class CatalogItem(Base):
     stored_filename = Column(String(256), default="")
     sha256 = Column(String(64), default="")
     is_public = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    compliance_status = Column(String(32), default="approved")
+    created_at = Column(DateTime, default=_utc_now_naive)
 
 
 class Purchase(Base):
@@ -82,7 +88,16 @@ class Purchase(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     catalog_id = Column(Integer, ForeignKey("catalog_items.id"), nullable=False)
     amount = Column(Float, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now_naive)
+
+
+class Workflow(Base):
+    """Minimal workflow row for ``employee_config_v2`` validation in tests."""
+
+    __tablename__ = "workflows"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=True)
 
 
 def default_db_path() -> Path:
@@ -111,6 +126,7 @@ def _migrate_sqlite_schema(engine) -> None:
         ("stored_filename", "VARCHAR(256) DEFAULT ''"),
         ("sha256", "VARCHAR(64) DEFAULT ''"),
         ("is_public", "BOOLEAN DEFAULT 1"),
+        ("compliance_status", "VARCHAR(32) DEFAULT 'approved'"),
         ("created_at", "DATETIME"),
     ]
     with engine.begin() as conn:
@@ -121,6 +137,13 @@ def _migrate_sqlite_schema(engine) -> None:
 
 _engine = None
 _SessionFactory = None
+
+
+def reset_session_factory() -> None:
+    """Clear cached engine (tests set ``MODSTORE_DB_PATH`` per case)."""
+    global _engine, _SessionFactory
+    _engine = None
+    _SessionFactory = None
 
 
 def get_engine(db_path: Optional[Path] = None):
@@ -138,6 +161,8 @@ def get_session_factory(db_path: Optional[Path] = None):
     global _SessionFactory
     if _SessionFactory is None:
         engine = get_engine(db_path)
+        Base.metadata.create_all(engine)
+        _migrate_sqlite_schema(engine)
         _SessionFactory = sessionmaker(bind=engine)
     return _SessionFactory
 

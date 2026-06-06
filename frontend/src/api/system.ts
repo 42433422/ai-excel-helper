@@ -1,4 +1,4 @@
-import { api } from './index';
+import { api } from './core';
 import type { ApiResponse } from '@/types/api';
 
 export interface Industry {
@@ -29,7 +29,23 @@ export const systemApi = {
 
   getSystemConfig(): Promise<ApiResponse<any>> {
     return api.get<ApiResponse<any>>('/api/system/config');
-  }
+  },
+
+  getHostProfile(): Promise<ApiResponse<any>> {
+    return api.get<ApiResponse<any>>('/api/system/host-profile');
+  },
+
+  getIndustryPresets(): Promise<ApiResponse<any>> {
+    return api.get<ApiResponse<any>>('/api/system/industry-presets');
+  },
+
+  getWorkflowEmployeeCatalog(): Promise<ApiResponse<any>> {
+    return api.get<ApiResponse<any>>('/api/system/workflow-employee-catalog');
+  },
+
+  getEmployeeRegistryRules(): Promise<ApiResponse<any>> {
+    return api.get<ApiResponse<any>>('/api/system/employee-registry-rules');
+  },
 };
 
 export default systemApi;

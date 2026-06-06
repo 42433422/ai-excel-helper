@@ -21,20 +21,13 @@ from __future__ import annotations
 此文件保留为统一导出入口。
 """
 
-# 精简版（无 is_available / return_probs）；桌面包未内置 transformers 时会退化为不可用占位。
-from app.ai_engines.bert import BertIntentClassifier
+# 桌面包 / 精简服务器可能未安装 torch；BERT 意图为可选能力，缺失时占位为 None。
+try:
+    from app.ai_engines.bert import BertIntentClassifier
+except ModuleNotFoundError:
+    BertIntentClassifier = None  # type: ignore[misc, assignment]
 from app.ai_engines.deepseek.intent_service import DeepseekIntentClassifier
 from app.ai_engines.rasa.nlu_service import RasaNLUService, get_rasa_nlu_service
-from app.domain.services.intent_confirmation_service import (
-    IntentConfirmationService,
-    get_confirmation_service,
-)
-# Prefer domain layer for intent recognition (new unified service)
-from app.domain.services.intent_recognition_service import (
-    IntentRecognitionService,
-    RecognizerResult,
-    get_intent_recognition_service,
-)
 from app.domain.services.unified_intent_recognizer import (
     UnifiedIntentRecognizer,
     get_unified_intent_recognizer,
@@ -47,6 +40,7 @@ from app.services.ai_conversation_service import (
 )
 from app.services.auth_service import AuthService, get_auth_service
 from app.services.extract_log_service import ExtractLogService
+
 # Intent services - prefer domain layer; these are kept for backward compatibility.
 # NOTE: printer_service is imported later to avoid circular import with application/print_app_service
 from app.services.hybrid_intent_service import (
@@ -55,7 +49,12 @@ from app.services.hybrid_intent_service import (
     hybrid_recognize_intents,
     hybrid_recognize_intents_sync,
 )
+from app.services.intent_confirmation_service import (
+    IntentConfirmationService,
+    get_confirmation_service,
+)
 from app.services.intent_service import get_tool_key_with_negation_check, recognize_intents
+
 # Lazy imports for services that cause circular dependencies with application layer
 # These are only imported when their getter functions are called
 from app.services.task_agent import TaskAgent, get_task_agent
@@ -71,6 +70,7 @@ def get_wechat_task_service() -> WechatTaskService:
     """获取微信任务服务单例"""
     return WechatTaskService()
 
+
 from app.services.ai_product_parser import AIProductParser
 from app.services.conversation_service import ConversationService, get_conversation_service
 from app.services.session_service import SessionService, get_session_service
@@ -82,6 +82,7 @@ from app.services.user_preference_service import UserPreferenceService, get_user
 def get_ai_product_parser() -> AIProductParser:
     """获取 AI 产品解析器单例"""
     return AIProductParser()
+
 
 from app.infrastructure.skills import execute_skill, get_skill_registry
 from app.services.products_service import ProductsService
@@ -98,9 +99,10 @@ def get_products_service() -> ProductsService:
     return service
 
 
-def get_printer_service() -> "PrinterService":
+def get_printer_service() -> PrinterService:
     """获取打印机服务单例 (lazy to avoid circular imports)"""
     from .printer_service import PrinterService
+
     return PrinterService()
 
 
@@ -117,6 +119,7 @@ def get_product_import_service() -> ProductImportService:
 def get_extract_log_service() -> ExtractLogService:
     """获取提取日志服务单例"""
     return ExtractLogService()
+
 
 __all__ = [
     "recognize_intents",
@@ -144,9 +147,6 @@ __all__ = [
     "get_extract_log_service",
     "IntentConfirmationService",
     "get_confirmation_service",
-    "IntentRecognitionService",
-    "RecognizerResult",
-    "get_intent_recognition_service",
     "UnifiedIntentRecognizer",
     "get_unified_intent_recognizer",
     "BertIntentClassifier",

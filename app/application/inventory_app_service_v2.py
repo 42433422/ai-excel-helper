@@ -5,9 +5,8 @@ inventory_app_service V2 - 事件驱动版本
 """
 
 import logging
-import asyncio
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 from app.neuro_bus.bus import get_neuro_bus
 from app.neuro_bus.events.base import EventPriority, NeuroEvent
@@ -22,24 +21,28 @@ logger = logging.getLogger(__name__)
 class InventoryAppServiceV2:
     """
     InventoryAppService V2 - 事件驱动版本
-    
+
     Level 2 事件驱动实现:
     - 所有业务操作通过事件发布
     - 支持异步处理和事件链
     - 完整的可追溯性和可观测性
     """
-    
+
     def __init__(self):
         self._bus = get_neuro_bus()
         self._correlation_prefix = "inventory"
-    
+
     def _create_correlation_id(self) -> str:
         """创建事件关联 ID"""
         return f"{self._correlation_prefix}-{datetime.now().strftime('%Y%m%d%H%M%S')}-{id(self)}"
-    
-    def _publish_event(self, event_type: str, payload: Dict[str, Any], 
-                     priority: EventPriority = EventPriority.NORMAL,
-                     correlation_id: Optional[str] = None) -> Optional[NeuroEvent]:
+
+    def _publish_event(
+        self,
+        event_type: str,
+        payload: dict[str, Any],
+        priority: EventPriority = EventPriority.NORMAL,
+        correlation_id: str | None = None,
+    ) -> NeuroEvent | None:
         """内部方法：发布事件到 NeuroBus"""
         try:
             cid = correlation_id or self._create_correlation_id()
@@ -48,22 +51,22 @@ class InventoryAppServiceV2:
                 payload=payload,
                 source="inventoryappservice_v2",
                 correlation_id=cid,
-                priority=priority
+                priority=priority,
             )
             self._bus.publish(event)
             return event
         except Exception as e:
             logger.error(f"[InventoryAppServiceV2] 发布事件失败: {e}")
             return None
-    
+
     # ========== Level 2: 事件驱动核心方法 ==========
-    
-    async def stock_in(self, data: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def stock_in(self, data: dict[str, Any]) -> dict[str, Any]:
         """入库 - 事件驱动实现"""
         try:
             correlation_id = self._create_correlation_id()
             batch_no = data.get("batch_no") or f"BATCH{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            
+
             event = InventoryStockInEvent(
                 payload={
                     "product_id": data.get("product_id"),
@@ -76,34 +79,34 @@ class InventoryAppServiceV2:
                     "reference_type": data.get("reference_type"),
                     "reference_id": data.get("reference_id"),
                     "operator": data.get("operator"),
-                    "remark": data.get("remark")
+                    "remark": data.get("remark"),
                 },
                 source="inventoryappservice_v2",
-                correlation_id=correlation_id
+                correlation_id=correlation_id,
             )
-            
+
             self._bus.publish(event)
-            
+
             logger.info(f"[InventoryAppServiceV2] 入库事件已发布: {batch_no}")
-            
+
             return {
                 "success": True,
                 "batch_no": batch_no,
                 "event_id": event.metadata.event_id,
                 "correlation_id": correlation_id,
                 "message": "入库事件已提交",
-                "mode": "event_driven"
+                "mode": "event_driven",
             }
-            
+
         except Exception as e:
             logger.exception(f"[InventoryAppServiceV2] 入库失败: {e}")
             return {"success": False, "message": str(e), "error": str(e)}
-    
-    async def stock_out(self, data: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def stock_out(self, data: dict[str, Any]) -> dict[str, Any]:
         """出库 - 事件驱动实现"""
         try:
             correlation_id = self._create_correlation_id()
-            
+
             event = InventoryStockOutEvent(
                 payload={
                     "product_id": data.get("product_id"),
@@ -114,34 +117,34 @@ class InventoryAppServiceV2:
                     "reference_type": data.get("reference_type"),
                     "reference_id": data.get("reference_id"),
                     "operator": data.get("operator"),
-                    "remark": data.get("remark")
+                    "remark": data.get("remark"),
                 },
                 source="inventoryappservice_v2",
-                correlation_id=correlation_id
+                correlation_id=correlation_id,
             )
-            
+
             self._bus.publish(event)
-            
-            logger.info(f"[InventoryAppServiceV2] 出库事件已发布")
-            
+
+            logger.info("[InventoryAppServiceV2] 出库事件已发布")
+
             return {
                 "success": True,
                 "event_id": event.metadata.event_id,
                 "correlation_id": correlation_id,
                 "message": "出库事件已提交",
-                "mode": "event_driven"
+                "mode": "event_driven",
             }
-            
+
         except Exception as e:
             logger.exception(f"[InventoryAppServiceV2] 出库失败: {e}")
             return {"success": False, "message": str(e), "error": str(e)}
-    
-    async def transfer(self, data: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def transfer(self, data: dict[str, Any]) -> dict[str, Any]:
         """库存调拨 - 事件驱动实现"""
         try:
             correlation_id = self._create_correlation_id()
             transfer_id = data.get("transfer_id") or f"TRF{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            
+
             event = InventoryTransferEvent(
                 payload={
                     "transfer_id": transfer_id,
@@ -150,34 +153,34 @@ class InventoryAppServiceV2:
                     "to_warehouse_id": data.get("to_warehouse_id"),
                     "quantity": data.get("quantity", 0),
                     "operator": data.get("operator"),
-                    "remark": data.get("remark")
+                    "remark": data.get("remark"),
                 },
                 source="inventoryappservice_v2",
-                correlation_id=correlation_id
+                correlation_id=correlation_id,
             )
-            
+
             self._bus.publish(event)
-            
+
             logger.info(f"[InventoryAppServiceV2] 调拨事件已发布: {transfer_id}")
-            
+
             return {
                 "success": True,
                 "transfer_id": transfer_id,
                 "event_id": event.metadata.event_id,
                 "correlation_id": correlation_id,
                 "message": "调拨事件已提交",
-                "mode": "event_driven"
+                "mode": "event_driven",
             }
-            
+
         except Exception as e:
             logger.exception(f"[InventoryAppServiceV2] 调拨失败: {e}")
             return {"success": False, "message": str(e), "error": str(e)}
-    
-    async def adjust_stock(self, data: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def adjust_stock(self, data: dict[str, Any]) -> dict[str, Any]:
         """库存调整 - 事件驱动实现"""
         try:
             correlation_id = self._create_correlation_id()
-            
+
             event = InventoryStockChangedEvent(
                 payload={
                     "product_id": data.get("product_id"),
@@ -185,31 +188,31 @@ class InventoryAppServiceV2:
                     "quantity_delta": data.get("quantity_delta", 0),
                     "reason": data.get("reason", "库存调整"),
                     "operator": data.get("operator"),
-                    "adjustment_id": data.get("adjustment_id")
+                    "adjustment_id": data.get("adjustment_id"),
                 },
                 source="inventoryappservice_v2",
-                correlation_id=correlation_id
+                correlation_id=correlation_id,
             )
-            
+
             self._bus.publish(event)
-            
-            logger.info(f"[InventoryAppServiceV2] 库存调整事件已发布")
-            
+
+            logger.info("[InventoryAppServiceV2] 库存调整事件已发布")
+
             return {
                 "success": True,
                 "event_id": event.metadata.event_id,
                 "correlation_id": correlation_id,
                 "message": "库存调整事件已提交",
-                "mode": "event_driven"
+                "mode": "event_driven",
             }
-            
+
         except Exception as e:
             logger.exception(f"[InventoryAppServiceV2] 库存调整失败: {e}")
             return {"success": False, "message": str(e), "error": str(e)}
-    
+
     # ========== 统一命令执行入口 ==========
-    
-    async def execute_command(self, command: str, data: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def execute_command(self, command: str, data: dict[str, Any]) -> dict[str, Any]:
         """统一命令执行入口"""
         command_map = {
             "stock_in": self.stock_in,
@@ -217,15 +220,15 @@ class InventoryAppServiceV2:
             "transfer": self.transfer,
             "adjust_stock": self.adjust_stock,
         }
-        
+
         handler = command_map.get(command)
         if not handler:
             return {
                 "success": False,
                 "message": f"未知命令: {command}",
-                "supported_commands": list(command_map.keys())
+                "supported_commands": list(command_map.keys()),
             }
-        
+
         try:
             return await handler(**data)
         except TypeError as e:
@@ -235,7 +238,7 @@ class InventoryAppServiceV2:
 
 
 # ========== 单例实例 ==========
-_inventory_app_service_v2: Optional[InventoryAppServiceV2] = None
+_inventory_app_service_v2: InventoryAppServiceV2 | None = None
 
 
 def get_inventory_app_service_v2() -> InventoryAppServiceV2:

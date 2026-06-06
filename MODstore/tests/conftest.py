@@ -35,6 +35,18 @@ def isolated_modstore(tmp_path, monkeypatch):
     monkeypatch.setattr("modstore_server.app.load_config", fake_load)
     monkeypatch.setattr("modstore_server.app.save_config", fake_save)
     monkeypatch.setattr("modstore_server.app.project_root", lambda: project_home)
+    monkeypatch.setattr("modman.repo_config.load_config", fake_load)
+    monkeypatch.setattr("modman.repo_config.save_config", fake_save)
+    monkeypatch.setattr("modman.store.project_root", lambda: project_home)
+    monkeypatch.setattr("modstore_server.fhd_routes_api.load_config", fake_load)
+    monkeypatch.setattr("modstore_server.fhd_routes_api.save_config", fake_save)
+    monkeypatch.setattr("modstore_server.fhd_routes_api.project_root", lambda: project_home)
+    monkeypatch.setattr("modstore_server.fhd_modstore_state.load_config", fake_load)
+    monkeypatch.setenv("MODSTORE_DB_PATH", str(tmp_path / "modstore.db"))
+    from modstore_server.models import init_db, reset_session_factory
+
+    reset_session_factory()
+    init_db()
 
     from modstore_server.app import app
 

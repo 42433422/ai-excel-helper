@@ -1,69 +1,45 @@
-enabled: true
-
 approval_rules:
-  - tool_id: shipment_generate
-    action: execute
-    trigger: always
-    description: 发货单生成需要审批
-    conditions: {}
-
-  - tool_id: print
-    action: execute
-    trigger: always
-    description: 打印操作需要审批
-    conditions: {}
-
-  - tool_id: products
-    action: create
-    trigger: always
-    description: 创建产品需要审批
-    conditions: {}
-
-  - tool_id: products
-    action: delete
-    trigger: always
-    description: 删除产品需要审批
-    conditions: {}
-
-  - tool_id: customers
-    action: create
-    trigger: always
-    description: 创建客户需要审批
-    conditions: {}
-
-  - tool_id: import_excel
-    action: import
-    trigger: always
-    description: Excel导入数据库需要审批
-    conditions: {}
-
-  - tool_id: customers
-    action: ensure_exists
-    trigger: always
-    description: 创建/确认客户需要审批
-    conditions: {}
-
-# 钉钉考勤 → 太阳鸟明细（流程规则页可改；每人 B 列备注仍见 mapper 解析）
+- action: execute
+  conditions: {}
+  description: 发货单生成需要审批
+  tool_id: shipment_generate
+  trigger: always
+- action: execute
+  conditions: {}
+  description: 打印操作需要审批
+  tool_id: print
+  trigger: always
+- action: create
+  conditions: {}
+  description: 创建产品需要审批
+  tool_id: products
+  trigger: always
+- action: delete
+  conditions: {}
+  description: 删除产品需要审批
+  tool_id: products
+  trigger: always
+- action: create
+  conditions: {}
+  description: 创建客户需要审批
+  tool_id: customers
+  trigger: always
+- action: import
+  conditions: {}
+  description: Excel导入数据库需要审批
+  tool_id: import_excel
+  trigger: always
+- action: ensure_exists
+  conditions: {}
+  description: 创建/确认客户需要审批
+  tool_id: customers
+  trigger: always
 attendance_policy:
   company_factory_group_keywords:
-    - 公司-考勤
-    - 公司正班
-    - 惠州工厂-正班
-    - 工厂正班
-  weekday_segments:
-    - 08:00-12:00
-    - 13:30-17:30
-  saturday_company_alt_segment: 13:30-16:00
+  - test
   sunday_empty_schedule: true
   sunday_map_sqrt_to_star: true
-  company_alternate_saturday:
-    enabled: true
-    anchor_saturday: "2026-01-03"
-    group_match_substrings:
-      - 公司-考勤
-      - 公司正班
-    big_week_segments:
-      - 09:00-12:00
-    small_week_segments:
-      - 09:00-12:00
-      - 13:30-16:00
+  weekday_segments:
+  - 08:00-12:00
+  - 13:30-17:30
+enabled: true

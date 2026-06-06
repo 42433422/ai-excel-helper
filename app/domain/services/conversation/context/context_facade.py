@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ContextFacade - 统一上下文门面
 
@@ -11,21 +10,21 @@ ContextFacade - 统一上下文门面
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-from app.domain.services.conversation.context.intent_context import (
-    PendingIntent,
-    IntentContext,
-    get_intent_context,
-    AdoptionReason,
-    SPECIAL_INTENTS,
-)
 from app.domain.services.conversation.context.chat_context import (
-    ChatTurn,
     ChatContext,
+    ChatTurn,
     get_chat_context,
+)
+from app.domain.services.conversation.context.intent_context import (
+    SPECIAL_INTENTS,
+    AdoptionReason,
+    IntentContext,
+    PendingIntent,
+    get_intent_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 class ProcessingAction(Enum):
     """处理动作枚举"""
+
     GREETING = "greeting"
     GOODBYE = "goodbye"
     HELP = "help"
@@ -47,9 +47,10 @@ class ProcessingAction(Enum):
 @dataclass
 class IntentResult:
     """意图识别结果"""
-    primary_intent: Optional[str]
-    tool_key: Optional[str]
-    slots: Dict[str, Any]
+
+    primary_intent: str | None
+    tool_key: str | None
+    slots: dict[str, Any]
     is_greeting: bool = False
     is_goodbye: bool = False
     is_help: bool = False
@@ -63,22 +64,24 @@ class IntentResult:
 @dataclass
 class ProcessingResult:
     """处理结果"""
+
     action: ProcessingAction
     text: str
-    data: Dict[str, Any]
-    pending_intent: Optional[PendingIntent] = None
+    data: dict[str, Any]
+    pending_intent: PendingIntent | None = None
     is_duplicate: bool = False
-    cached_response: Optional[str] = None
+    cached_response: str | None = None
 
 
 @dataclass
 class ContextDecision:
     """上下文决策"""
+
     should_continue: bool
     action: ProcessingAction
     reason: str
-    merged_slots: Optional[Dict[str, Any]] = None
-    pending_to_preserve: Optional[PendingIntent] = None
+    merged_slots: dict[str, Any] | None = None
+    pending_to_preserve: PendingIntent | None = None
 
 
 class ContextFacade:
@@ -98,10 +101,12 @@ class ContextFacade:
 
     def __init__(
         self,
-        intent_context: Optional[IntentContext] = None,
-        chat_context: Optional[ChatContext] = None
+        intent_context: IntentContext | None = None,
+        chat_context: ChatContext | None = None,
     ) -> None:
-        self._intent_context = intent_context if intent_context is not None else get_intent_context()
+        self._intent_context = (
+            intent_context if intent_context is not None else get_intent_context()
+        )
         self._chat_context = chat_context if chat_context is not None else get_chat_context()
 
     @property
@@ -117,7 +122,7 @@ class ContextFacade:
         user_id: str,
         message: str,
         intent_result: IntentResult,
-        response_text: Optional[str] = None
+        response_text: str | None = None,
     ) -> ProcessingResult:
         """
         处理用户消息的上下文
@@ -142,7 +147,7 @@ class ContextFacade:
             message=message,
             intent=intent_result.primary_intent,
             tool_key=intent_result.tool_key,
-            slots=intent_result.slots
+            slots=intent_result.slots,
         )
 
         if is_dup and cached_resp:
@@ -154,7 +159,7 @@ class ContextFacade:
                 slots=intent_result.slots,
                 response_text=cached_resp,
                 is_exact_duplicate=True,
-                is_semantic_duplicate=not is_exact
+                is_semantic_duplicate=not is_exact,
             )
             self._chat_context.add_turn(user_id, turn)
 
@@ -164,7 +169,7 @@ class ContextFacade:
                 text=cached_resp,
                 data={},
                 is_duplicate=True,
-                cached_response=cached_resp
+                cached_response=cached_resp,
             )
 
         decision = self._make_decision(user_id, message, intent_result)
@@ -185,9 +190,7 @@ class ContextFacade:
             result = self._handle_intent_switch_query(user_id, message, intent_result, decision)
         else:
             result = ProcessingResult(
-                action=ProcessingAction.AI_RESPONSE,
-                text="抱歉，我没有理解您的意思。",
-                data={}
+                action=ProcessingAction.AI_RESPONSE, text="抱歉，我没有理解您的意思。", data={}
             )
 
         if response_text:
@@ -199,17 +202,14 @@ class ContextFacade:
                 slots=intent_result.slots,
                 response_text=response_text,
                 is_exact_duplicate=False,
-                is_semantic_duplicate=False
+                is_semantic_duplicate=False,
             )
             self._chat_context.add_turn(user_id, turn)
 
         return result
 
     def _make_decision(
-        self,
-        user_id: str,
-        message: str,
-        intent_result: IntentResult
+        self, user_id: str, message: str, intent_result: IntentResult
     ) -> ContextDecision:
         """
         做出上下文决策
@@ -224,7 +224,7 @@ class ContextFacade:
             return ContextDecision(
                 should_continue=True,
                 action=ProcessingAction.TOOL_CALL,
-                reason="user_confirmed_pending"
+                reason="user_confirmed_pending",
             )
 
         if intent_result.is_negation_intent and pending:
@@ -232,7 +232,7 @@ class ContextFacade:
                 should_continue=False,
                 action=ProcessingAction.NEGATED,
                 reason="user_negated",
-                pending_to_preserve=None
+                pending_to_preserve=None,
             )
 
         if primary_intent in SPECIAL_INTENTS:
@@ -240,14 +240,14 @@ class ContextFacade:
                 should_continue=True,
                 action=ProcessingAction(primary_intent),
                 reason="special_intent",
-                pending_to_preserve=pending
+                pending_to_preserve=pending,
             )
 
         if not pending:
             return ContextDecision(
                 should_continue=True,
                 action=self._decide_action_for_new_intent(intent_result),
-                reason="new_intent"
+                reason="new_intent",
             )
 
         should_adopt, reason, merged = self._intent_context.should_adopt_new_intent(
@@ -259,7 +259,7 @@ class ContextFacade:
                 should_continue=True,
                 action=self._decide_action_for_preserved_intent(pending, intent_result),
                 reason=f"preserved_{reason.value}",
-                pending_to_preserve=pending
+                pending_to_preserve=pending,
             )
 
         if reason == AdoptionReason.MERGE_SLOTS:
@@ -270,7 +270,7 @@ class ContextFacade:
                 action=self._decide_action_for_merged(merged_slots, primary_intent),
                 reason="merged_slots",
                 merged_slots=merged_slots,
-                pending_to_preserve=pending
+                pending_to_preserve=pending,
             )
 
         if reason == AdoptionReason.SWITCH_REQUESTED:
@@ -279,7 +279,7 @@ class ContextFacade:
                 action=ProcessingAction.INTENT_SWITCH_QUERY,
                 reason="switch_requested",
                 merged_slots=merged.slots if merged else {},
-                pending_to_preserve=pending
+                pending_to_preserve=pending,
             )
 
         return ContextDecision(
@@ -287,7 +287,7 @@ class ContextFacade:
             action=self._decide_action_for_new_intent(intent_result),
             reason="switched_intent",
             merged_slots=intent_result.slots,
-            pending_to_preserve=None
+            pending_to_preserve=None,
         )
 
     def _decide_action_for_new_intent(self, intent_result: IntentResult) -> ProcessingAction:
@@ -305,9 +305,7 @@ class ContextFacade:
         return ProcessingAction.TOOL_CALL
 
     def _decide_action_for_preserved_intent(
-        self,
-        pending: PendingIntent,
-        intent_result: IntentResult
+        self, pending: PendingIntent, intent_result: IntentResult
     ) -> ProcessingAction:
         """为保留的 pending 决定动作"""
         if intent_result.is_greeting:
@@ -320,9 +318,7 @@ class ContextFacade:
         return ProcessingAction.TOOL_CALL
 
     def _decide_action_for_merged(
-        self,
-        merged_slots: Dict[str, Any],
-        intent: str
+        self, merged_slots: dict[str, Any], intent: str
     ) -> ProcessingAction:
         """为合并后的槽位决定动作"""
         required_slots = self._get_required_slots(intent)
@@ -332,7 +328,7 @@ class ContextFacade:
             return ProcessingAction.SLOT_FILL
         return ProcessingAction.TOOL_CALL
 
-    def _get_required_slots(self, intent: str) -> List[str]:
+    def _get_required_slots(self, intent: str) -> list[str]:
         """获取意图所需的必填槽位"""
         slot_map = {
             "shipment_generate": ["unit_name", "model_number", "tin_spec", "quantity_tins"],
@@ -346,10 +342,7 @@ class ContextFacade:
         return slot_map.get(intent, [])
 
     def _handle_greeting(
-        self,
-        user_id: str,
-        message: str,
-        decision: ContextDecision
+        self, user_id: str, message: str, decision: ContextDecision
     ) -> ProcessingResult:
         """处理问候"""
         greeting_texts = [
@@ -365,7 +358,7 @@ class ContextFacade:
                 f"{base_text}\n\n"
                 f"（您有一个【{pending.intent}】任务尚未完成，"
                 f"还缺少：{', '.join(pending.missing_slots) if pending.missing_slots else '无'}。\n"
-                f"请继续补充信息，或说\"取消\"结束当前任务。）"
+                f'请继续补充信息，或说"取消"结束当前任务。）'
             )
             self._notify_pending_preserved(user_id, pending, "greeting")
         else:
@@ -375,14 +368,11 @@ class ContextFacade:
             action=ProcessingAction.GREETING,
             text=text,
             data={},
-            pending_intent=decision.pending_to_preserve
+            pending_intent=decision.pending_to_preserve,
         )
 
     def _handle_goodbye(
-        self,
-        user_id: str,
-        message: str,
-        decision: ContextDecision
+        self, user_id: str, message: str, decision: ContextDecision
     ) -> ProcessingResult:
         """处理告别"""
         if decision.pending_to_preserve:
@@ -391,14 +381,11 @@ class ContextFacade:
             action=ProcessingAction.GOODBYE,
             text="再见！祝您工作顺利！如有需要，随时联系我。",
             data={},
-            pending_intent=decision.pending_to_preserve
+            pending_intent=decision.pending_to_preserve,
         )
 
     def _handle_help(
-        self,
-        user_id: str,
-        message: str,
-        decision: ContextDecision
+        self, user_id: str, message: str, decision: ContextDecision
     ) -> ProcessingResult:
         """处理帮助请求"""
         if decision.pending_to_preserve:
@@ -416,15 +403,11 @@ class ContextFacade:
             action=ProcessingAction.HELP,
             text=help_text,
             data={},
-            pending_intent=decision.pending_to_preserve
+            pending_intent=decision.pending_to_preserve,
         )
 
     def _handle_slot_fill(
-        self,
-        user_id: str,
-        message: str,
-        intent_result: IntentResult,
-        decision: ContextDecision
+        self, user_id: str, message: str, intent_result: IntentResult, decision: ContextDecision
     ) -> ProcessingResult:
         """处理槽位填充"""
         intent = intent_result.primary_intent
@@ -434,7 +417,7 @@ class ContextFacade:
             intent=intent,
             slots=slots,
             missing_slots=self._get_missing_slots(intent, slots),
-            source="context_facade"
+            source="context_facade",
         )
         self._intent_context.set_pending(user_id, pending)
 
@@ -443,20 +426,12 @@ class ContextFacade:
         return ProcessingResult(
             action=ProcessingAction.SLOT_FILL,
             text=question,
-            data={
-                "intent": intent,
-                "slots": slots,
-                "missing_slots": pending.missing_slots
-            },
-            pending_intent=pending
+            data={"intent": intent, "slots": slots, "missing_slots": pending.missing_slots},
+            pending_intent=pending,
         )
 
     def _handle_tool_call(
-        self,
-        user_id: str,
-        message: str,
-        intent_result: IntentResult,
-        decision: ContextDecision
+        self, user_id: str, message: str, intent_result: IntentResult, decision: ContextDecision
     ) -> ProcessingResult:
         """处理工具调用"""
         intent = intent_result.primary_intent
@@ -467,33 +442,19 @@ class ContextFacade:
         return ProcessingResult(
             action=ProcessingAction.TOOL_CALL,
             text=self._get_action_description(intent, slots),
-            data={
-                "intent": intent,
-                "tool_key": intent_result.tool_key or intent,
-                "slots": slots
-            }
+            data={"intent": intent, "tool_key": intent_result.tool_key or intent, "slots": slots},
         )
 
-    def _handle_negated(
-        self,
-        user_id: str,
-        message: str
-    ) -> ProcessingResult:
+    def _handle_negated(self, user_id: str, message: str) -> ProcessingResult:
         """处理否定"""
         self._intent_context.clear_pending(user_id)
 
         return ProcessingResult(
-            action=ProcessingAction.NEGATED,
-            text="好的，已取消。有其他需要帮助的吗？",
-            data={}
+            action=ProcessingAction.NEGATED, text="好的，已取消。有其他需要帮助的吗？", data={}
         )
 
     def _handle_intent_switch_query(
-        self,
-        user_id: str,
-        message: str,
-        intent_result: IntentResult,
-        decision: ContextDecision
+        self, user_id: str, message: str, intent_result: IntentResult, decision: ContextDecision
     ) -> ProcessingResult:
         """处理意图切换询问"""
         pending = decision.pending_to_preserve
@@ -502,8 +463,8 @@ class ContextFacade:
         text = (
             f"您之前有一个【{pending.intent}】任务还没完成。\n"
             f"现在您是想继续完成这个任务，还是切换到【{new_intent}】？\n"
-            f"• 说\"继续\"保留原任务\n"
-            f"• 说\"切换\"开始新任务\n"
+            f'• 说"继续"保留原任务\n'
+            f'• 说"切换"开始新任务\n'
             f"• 直接提供信息继续补充"
         )
 
@@ -514,21 +475,18 @@ class ContextFacade:
                 "pending_intent": pending.intent,
                 "pending_slots": pending.slots,
                 "new_intent": new_intent,
-                "new_slots": intent_result.slots
+                "new_slots": intent_result.slots,
             },
-            pending_intent=pending
+            pending_intent=pending,
         )
 
-    def _get_missing_slots(self, intent: str, slots: Dict[str, Any]) -> List[str]:
+    def _get_missing_slots(self, intent: str, slots: dict[str, Any]) -> list[str]:
         """获取缺失的槽位"""
         required = self._get_required_slots(intent)
         return [s for s in required if not slots.get(s)]
 
     def _build_followup_question(
-        self,
-        intent: str,
-        missing_slots: List[str],
-        current_slots: Dict[str, Any]
+        self, intent: str, missing_slots: list[str], current_slots: dict[str, Any]
     ) -> str:
         """生成追问问题"""
         if not missing_slots:
@@ -556,33 +514,31 @@ class ContextFacade:
             },
             "customer_query": {
                 "keyword": "请问要搜索什么关键词？",
-            }
+            },
         }
 
         intent_questions = questions.get(intent, {})
         return intent_questions.get(slot, f"请问{slot}是多少呢？")
 
-    def _get_action_description(self, intent: str, slots: Dict[str, Any]) -> str:
+    def _get_action_description(self, intent: str, slots: dict[str, Any]) -> str:
         """获取动作描述"""
         descriptions = {
             "shipment_generate": f"正在为 {slots.get('unit_name', '该客户')} 生成发货单",
             "products": f"正在查询 {slots.get('keyword', '该产品')} 的产品信息",
-            "customers": f"正在查询客户信息",
-            "shipments": f"正在查询发货记录",
-            "print_label": f"正在处理标签打印",
-            "wechat_send": f"正在发送微信消息",
+            "customers": "正在查询客户信息",
+            "shipments": "正在查询发货记录",
+            "print_label": "正在处理标签打印",
+            "wechat_send": "正在发送微信消息",
         }
         return descriptions.get(intent, f"正在处理 {intent}")
 
     def update_pending_with_slots(
-        self,
-        user_id: str,
-        new_slots: Dict[str, Any]
-    ) -> Optional[PendingIntent]:
+        self, user_id: str, new_slots: dict[str, Any]
+    ) -> PendingIntent | None:
         """更新 pending 的槽位"""
         return self._intent_context.merge_slots(user_id, new_slots)
 
-    def confirm_pending(self, user_id: str) -> Optional[PendingIntent]:
+    def confirm_pending(self, user_id: str) -> PendingIntent | None:
         """确认 pending，准备执行"""
         pending = self._intent_context.get_pending(user_id)
         if pending:
@@ -593,11 +549,11 @@ class ContextFacade:
         """取消 pending"""
         self._intent_context.clear_pending(user_id)
 
-    def get_context_summary(self, user_id: str) -> Dict[str, Any]:
+    def get_context_summary(self, user_id: str) -> dict[str, Any]:
         """获取上下文摘要"""
         return {
             "pending": self._intent_context.get_pending_summary(user_id),
-            "history": self._chat_context.get_history_summary(user_id)
+            "history": self._chat_context.get_history_summary(user_id),
         }
 
     def _notify_pending_preserved(self, user_id: str, pending: PendingIntent, action: str) -> None:
@@ -612,9 +568,10 @@ class ContextFacade:
 
     def _get_notifier(self):
         """懒加载获取通知器"""
-        if not hasattr(self, '_notifier'):
+        if not hasattr(self, "_notifier"):
             try:
                 from app.routes.context_api import get_context_notifier
+
                 self._notifier = get_context_notifier()
             except ImportError:
                 self._notifier = None
@@ -622,7 +579,7 @@ class ContextFacade:
 
 
 class ContextFacadeContainer:
-    _instance: Optional[ContextFacade] = None
+    _instance: ContextFacade | None = None
 
     @classmethod
     def get_instance(cls) -> ContextFacade:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Mod 间通信总线（SDK re-export）。"""
 
 from __future__ import annotations

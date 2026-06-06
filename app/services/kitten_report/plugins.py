@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from statistics import mean
-from typing import Any, Dict, List
+from typing import Any
 
 
 def _safe_float(value: Any) -> float | None:
@@ -16,9 +15,9 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
-def _extract_numeric_values(dataset: Dict[str, Any]) -> List[float]:
+def _extract_numeric_values(dataset: dict[str, Any]) -> list[float]:
     preview = dataset.get("preview") or []
-    values: List[float] = []
+    values: list[float] = []
     for row in preview:
         if isinstance(row, list):
             for item in row:
@@ -39,14 +38,14 @@ class PluginResult:
     title: str
     level: str
     summary: str
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
 
 class AnalysisPlugin:
     key = "plugin"
     title = "基础插件"
 
-    def run(self, payload: Dict[str, Any]) -> PluginResult:
+    def run(self, payload: dict[str, Any]) -> PluginResult:
         return PluginResult(
             key=self.key,
             title=self.title,
@@ -60,7 +59,7 @@ class RuleStatsPlugin(AnalysisPlugin):
     key = "rule_stats"
     title = "规则统计分析"
 
-    def run(self, payload: Dict[str, Any]) -> PluginResult:
+    def run(self, payload: dict[str, Any]) -> PluginResult:
         dataset = payload.get("dataset") or {}
         messages = payload.get("messages") or []
         rows = int(dataset.get("rows") or 0)
@@ -87,7 +86,7 @@ class ForecastHeuristicPlugin(AnalysisPlugin):
     key = "forecast_heuristic"
     title = "预测启发式模型"
 
-    def run(self, payload: Dict[str, Any]) -> PluginResult:
+    def run(self, payload: dict[str, Any]) -> PluginResult:
         dataset = payload.get("dataset") or {}
         values = _extract_numeric_values(dataset)
         if not values:
@@ -121,17 +120,19 @@ class TimeSeriesModelPlugin(AnalysisPlugin):
     title = "时间序列模型插件"
 
     @staticmethod
-    def _build_series(values: List[float]) -> List[Dict[str, Any]]:
+    def _build_series(values: list[float]) -> list[dict[str, Any]]:
         base_date = datetime.now().date() - timedelta(days=max(len(values) - 1, 0))
-        points: List[Dict[str, Any]] = []
+        points: list[dict[str, Any]] = []
         for idx, value in enumerate(values):
-            points.append({
-                "ds": (base_date + timedelta(days=idx)).isoformat(),
-                "y": float(value),
-            })
+            points.append(
+                {
+                    "ds": (base_date + timedelta(days=idx)).isoformat(),
+                    "y": float(value),
+                }
+            )
         return points
 
-    def _run_prophet(self, values: List[float]) -> Dict[str, Any] | None:
+    def _run_prophet(self, values: list[float]) -> dict[str, Any] | None:
         try:
             import pandas as pd
             from prophet import Prophet
@@ -152,7 +153,7 @@ class TimeSeriesModelPlugin(AnalysisPlugin):
             "points": len(values),
         }
 
-    def _run_arima(self, values: List[float]) -> Dict[str, Any] | None:
+    def _run_arima(self, values: list[float]) -> dict[str, Any] | None:
         try:
             import numpy as np
             from statsmodels.tsa.arima.model import ARIMA
@@ -172,7 +173,7 @@ class TimeSeriesModelPlugin(AnalysisPlugin):
             "points": len(values),
         }
 
-    def run(self, payload: Dict[str, Any]) -> PluginResult:
+    def run(self, payload: dict[str, Any]) -> PluginResult:
         dataset = payload.get("dataset") or {}
         values = _extract_numeric_values(dataset)
         if len(values) < 3:
@@ -181,7 +182,11 @@ class TimeSeriesModelPlugin(AnalysisPlugin):
                 title=self.title,
                 level="warn",
                 summary="样本点不足（至少3个）或未识别到数值字段，无法运行 Prophet/ARIMA。",
-                details={"forecast_available": False, "required_points": 3, "actual_points": len(values)},
+                details={
+                    "forecast_available": False,
+                    "required_points": 3,
+                    "actual_points": len(values),
+                },
             )
 
         prophet_result = self._run_prophet(values)
@@ -230,7 +235,7 @@ class IndustryStrategyPlugin(AnalysisPlugin):
         "物流": "建议关注运输时效与异常签收。",
     }
 
-    def run(self, payload: Dict[str, Any]) -> PluginResult:
+    def run(self, payload: dict[str, Any]) -> PluginResult:
         industry = str(payload.get("industry") or "通用").strip()
         hint = "通用策略：建议补充时间字段，支持趋势与预测分析。"
         for key, value in self._industry_hints.items():

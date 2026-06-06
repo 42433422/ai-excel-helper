@@ -24,7 +24,12 @@ def test_register_all_neuro_domains_includes_shipment():
 
 
 def test_neuro_uow_runs_session():
-    with NeuroUnitOfWork() as session:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine("sqlite:///:memory:")
+    factory = sessionmaker(bind=engine)
+    with NeuroUnitOfWork(session_factory=factory) as session:
         session.execute(text("SELECT 1"))
 
 
@@ -47,10 +52,10 @@ async def test_coordinator_exception_triggers_emit_intent_event():
 
 def test_neuro_domains_package_imports():
     from app.neuro_domains import (
-        ShipmentNeuroDomain,
-        get_shipment_domain,
-        get_processor_coordinator,
         NeuroUnitOfWork,
+        ShipmentNeuroDomain,
+        get_processor_coordinator,
+        get_shipment_domain,
     )
 
     assert ShipmentNeuroDomain.domain_name == "shipment"

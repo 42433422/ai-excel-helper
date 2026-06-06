@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 用户记忆服务 - UserMemoryService
 
@@ -17,12 +16,10 @@ import hashlib
 import json
 import logging
 import os
-import time
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -39,16 +36,16 @@ MAX_CONTEXT_SUMMARIES = 10
 class ActionPattern:
     pattern: str
     intent: str
-    slots: Dict[str, Any]
+    slots: dict[str, Any]
     frequency: int = 1
     last_used: str = field(default_factory=lambda: datetime.now().isoformat())
     confidence: float = 0.5
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ActionPattern':
+    def from_dict(cls, data: dict[str, Any]) -> "ActionPattern":
         return cls(**data)
 
 
@@ -58,14 +55,14 @@ class FeedbackRecord:
     message: str
     recognized_intent: str
     user_feedback: str
-    corrected_intent: Optional[str] = None
-    slots: Dict[str, Any] = field(default_factory=dict)
+    corrected_intent: str | None = None
+    slots: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'FeedbackRecord':
+    def from_dict(cls, data: dict[str, Any]) -> "FeedbackRecord":
         return cls(**data)
 
 
@@ -73,32 +70,32 @@ class FeedbackRecord:
 class ContextSummary:
     timestamp: str
     intent: str
-    slots: Dict[str, Any]
+    slots: dict[str, Any]
     message: str
     turn_count: int = 1
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ContextSummary':
+    def from_dict(cls, data: dict[str, Any]) -> "ContextSummary":
         return cls(**data)
 
 
 @dataclass
 class UserMemory:
     user_id: str
-    preferences: Dict[str, Any] = field(default_factory=dict)
-    frequent_actions: List[Dict[str, Any]] = field(default_factory=list)
-    historical_contexts: List[Dict[str, Any]] = field(default_factory=list)
-    feedback_history: List[Dict[str, Any]] = field(default_factory=list)
+    preferences: dict[str, Any] = field(default_factory=dict)
+    frequent_actions: list[dict[str, Any]] = field(default_factory=list)
+    historical_contexts: list[dict[str, Any]] = field(default_factory=list)
+    feedback_history: list[dict[str, Any]] = field(default_factory=list)
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'UserMemory':
+    def from_dict(cls, data: dict[str, Any]) -> "UserMemory":
         return cls(**data)
 
 
@@ -118,8 +115,8 @@ class UserMemoryStore:
             return
 
         self.storage_type = storage_type
-        self._memory_cache: Dict[str, UserMemory] = {}
-        self._cache_dirty: Dict[str, bool] = {}
+        self._memory_cache: dict[str, UserMemory] = {}
+        self._cache_dirty: dict[str, bool] = {}
         self._load_all_memories()
         self._initialized = True
 
@@ -127,7 +124,7 @@ class UserMemoryStore:
         """加载所有用户记忆"""
         if self.storage_type == "json" and os.path.exists(JSON_MEMORY_PATH):
             try:
-                with open(JSON_MEMORY_PATH, "r", encoding="utf-8") as f:
+                with open(JSON_MEMORY_PATH, encoding="utf-8") as f:
                     data = json.load(f)
                     for user_id, memory_data in data.items():
                         self._memory_cache[user_id] = UserMemory.from_dict(memory_data)
@@ -150,7 +147,7 @@ class UserMemoryStore:
         except Exception as e:
             logger.error(f"保存用户记忆失败: {e}")
 
-    def get_memory(self, user_id: str) -> Optional[UserMemory]:
+    def get_memory(self, user_id: str) -> UserMemory | None:
         """获取用户记忆"""
         if user_id not in self._memory_cache:
             self._memory_cache[user_id] = UserMemory(user_id=user_id)
@@ -216,7 +213,7 @@ class UserMemoryService:
         memory.preferences[key] = {
             "value": value,
             "updated_at": datetime.now().isoformat(),
-            "count": memory.preferences.get(key, {}).get("count", 0) + 1
+            "count": memory.preferences.get(key, {}).get("count", 0) + 1,
         }
 
         self._store.save_memory(user_id, memory)
@@ -239,7 +236,7 @@ class UserMemoryService:
             return memory.preferences[key].get("value", default)
         return default
 
-    def get_all_preferences(self, user_id: str) -> Dict[str, Any]:
+    def get_all_preferences(self, user_id: str) -> dict[str, Any]:
         """获取用户所有偏好"""
         memory = self._store.get_memory(user_id)
         if memory:
@@ -247,11 +244,7 @@ class UserMemoryService:
         return {}
 
     def record_action(
-        self,
-        user_id: str,
-        intent: str,
-        slots: Dict[str, Any],
-        message: str = ""
+        self, user_id: str, intent: str, slots: dict[str, Any], message: str = ""
     ) -> None:
         """
         记录用户操作模式
@@ -288,7 +281,7 @@ class UserMemoryService:
                 slots=slots,
                 frequency=1,
                 last_used=datetime.now().isoformat(),
-                confidence=0.5
+                confidence=0.5,
             )
             memory.frequent_actions.insert(0, new_pattern.to_dict())
 
@@ -300,7 +293,7 @@ class UserMemoryService:
         self._store.save_memory(user_id, memory)
         logger.debug(f"用户 {user_id} 操作已记录: intent={intent}, slots={slots}")
 
-    def _make_pattern_key(self, intent: str, slots: Dict[str, Any]) -> str:
+    def _make_pattern_key(self, intent: str, slots: dict[str, Any]) -> str:
         """生成模式唯一键"""
         key_parts = [intent]
         important_slots = ["unit_name", "product_name", "model_number"]
@@ -308,14 +301,10 @@ class UserMemoryService:
             if slot_key in slots and slots[slot_key]:
                 key_parts.append(f"{slot_key}={slots[slot_key]}")
         key_str = "|".join(key_parts)
-        return hashlib.md5(key_str.encode()).hexdigest()[:16]
+        return hashlib.sha256(key_str.encode()).hexdigest()[:16]
 
     def _save_context_summary(
-        self,
-        memory: UserMemory,
-        intent: str,
-        slots: Dict[str, Any],
-        message: str
+        self, memory: UserMemory, intent: str, slots: dict[str, Any], message: str
     ) -> None:
         """保存上下文摘要"""
         summary = ContextSummary(
@@ -323,17 +312,14 @@ class UserMemoryService:
             intent=intent,
             slots=slots,
             message=message[:100] if message else "",
-            turn_count=1
+            turn_count=1,
         )
         memory.historical_contexts.insert(0, summary.to_dict())
         memory.historical_contexts = memory.historical_contexts[:MAX_CONTEXT_SUMMARIES]
 
     def get_recent_actions(
-        self,
-        user_id: str,
-        limit: int = 5,
-        intent_filter: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, user_id: str, limit: int = 5, intent_filter: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         获取最近操作模式
 
@@ -356,12 +342,8 @@ class UserMemoryService:
         return actions[:limit]
 
     def get_similar_pattern(
-        self,
-        user_id: str,
-        intent: str,
-        slots: Dict[str, Any],
-        threshold: float = 0.2
-    ) -> Optional[Dict[str, Any]]:
+        self, user_id: str, intent: str, slots: dict[str, Any], threshold: float = 0.2
+    ) -> dict[str, Any] | None:
         """
         查找相似的操作模式
 
@@ -402,11 +384,7 @@ class UserMemoryService:
 
         return best_match
 
-    def _calculate_similarity(
-        self,
-        slots1: Dict[str, Any],
-        slots2: Dict[str, Any]
-    ) -> float:
+    def _calculate_similarity(self, slots1: dict[str, Any], slots2: dict[str, Any]) -> float:
         """计算槽位相似度"""
         if not slots1 and not slots2:
             return 1.0
@@ -434,8 +412,8 @@ class UserMemoryService:
         message: str,
         recognized_intent: str,
         feedback: str,
-        corrected_intent: Optional[str] = None,
-        slots: Optional[Dict[str, Any]] = None
+        corrected_intent: str | None = None,
+        slots: dict[str, Any] | None = None,
     ) -> None:
         """
         添加用户反馈
@@ -458,7 +436,7 @@ class UserMemoryService:
             recognized_intent=recognized_intent,
             user_feedback=feedback,
             corrected_intent=corrected_intent,
-            slots=slots or {}
+            slots=slots or {},
         )
         memory.feedback_history.insert(0, record.to_dict())
         memory.feedback_history = memory.feedback_history[:MAX_FEEDBACK_HISTORY]
@@ -466,14 +444,16 @@ class UserMemoryService:
         self._adjust_pattern_weights(memory, recognized_intent, corrected_intent, feedback)
 
         self._store.save_memory(user_id, memory)
-        logger.debug(f"用户 {user_id} 反馈已记录: feedback={feedback}, recognized={recognized_intent}")
+        logger.debug(
+            f"用户 {user_id} 反馈已记录: feedback={feedback}, recognized={recognized_intent}"
+        )
 
     def _adjust_pattern_weights(
         self,
         memory: UserMemory,
         recognized_intent: str,
-        corrected_intent: Optional[str],
-        feedback: str
+        corrected_intent: str | None,
+        feedback: str,
     ) -> None:
         """调整模式权重"""
         weight_delta = 0
@@ -492,7 +472,7 @@ class UserMemoryService:
                 new_confidence = action.get("confidence", 0.5) + weight_delta
                 action["confidence"] = max(0.1, min(0.99, new_confidence))
 
-    def get_feedback_stats(self, user_id: str) -> Dict[str, Any]:
+    def get_feedback_stats(self, user_id: str) -> dict[str, Any]:
         """获取反馈统计"""
         memory = self._store.get_memory(user_id)
         if not memory:
@@ -520,10 +500,10 @@ class UserMemoryService:
             "confirmed": feedback_counts.get("confirmed", 0),
             "negated": feedback_counts.get("negated", 0),
             "corrected": feedback_counts.get("corrected", 0),
-            "error_rates": error_rates
+            "error_rates": error_rates,
         }
 
-    def get_habit_suggestions(self, user_id: str) -> List[Dict[str, Any]]:
+    def get_habit_suggestions(self, user_id: str) -> list[dict[str, Any]]:
         """
         获取操作习惯建议
 
@@ -539,16 +519,18 @@ class UserMemoryService:
 
         for seq in action_sequence:
             if seq["confidence"] >= 0.8 and len(seq["actions"]) >= 2:
-                suggestions.append({
-                    "type": "action_sequence",
-                    "actions": seq["actions"],
-                    "confidence": seq["confidence"],
-                    "suggestion": f"执行 {seq['actions'][0]} 后主动提示 {seq['actions'][1]}"
-                })
+                suggestions.append(
+                    {
+                        "type": "action_sequence",
+                        "actions": seq["actions"],
+                        "confidence": seq["confidence"],
+                        "suggestion": f"执行 {seq['actions'][0]} 后主动提示 {seq['actions'][1]}",
+                    }
+                )
 
         return suggestions
 
-    def _analyze_action_sequence(self, memory: UserMemory) -> List[Dict[str, Any]]:
+    def _analyze_action_sequence(self, memory: UserMemory) -> list[dict[str, Any]]:
         """分析操作序列"""
         sequences = defaultdict(lambda: {"count": 0, "first_action": ""})
 
@@ -564,20 +546,19 @@ class UserMemoryService:
         for seq_key, stats in sequences.items():
             if stats["count"] >= 2:
                 actions = seq_key.split("->")
-                result.append({
-                    "actions": actions,
-                    "confidence": min(0.95, stats["count"] * 0.15),
-                    "count": stats["count"]
-                })
+                result.append(
+                    {
+                        "actions": actions,
+                        "confidence": min(0.95, stats["count"] * 0.15),
+                        "count": stats["count"],
+                    }
+                )
 
         return result
 
     def apply_preference_to_slots(
-        self,
-        user_id: str,
-        intent: str,
-        slots: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, user_id: str, intent: str, slots: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         将用户偏好应用到槽位
 
@@ -603,7 +584,7 @@ class UserMemoryService:
 
         return filled_slots
 
-    def get_memory_summary(self, user_id: str) -> Dict[str, Any]:
+    def get_memory_summary(self, user_id: str) -> dict[str, Any]:
         """获取用户记忆摘要"""
         memory = self._store.get_memory(user_id)
         if not memory:
@@ -615,11 +596,11 @@ class UserMemoryService:
             "action_count": len(memory.frequent_actions),
             "feedback_count": len(memory.feedback_history),
             "last_updated": memory.updated_at,
-            "top_intents": [a.get("intent") for a in memory.frequent_actions[:3]]
+            "top_intents": [a.get("intent") for a in memory.frequent_actions[:3]],
         }
 
 
-_user_memory_service: Optional[UserMemoryService] = None
+_user_memory_service: UserMemoryService | None = None
 
 
 def get_user_memory_service() -> UserMemoryService:

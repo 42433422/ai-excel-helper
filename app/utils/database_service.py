@@ -10,9 +10,7 @@ import logging
 import os
 import shutil
 from datetime import datetime
-from typing import Any, Dict, List
-
-from app.db.session import get_db
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +36,12 @@ class DatabaseService:
     def _get_backup_dir(self) -> str:
         """获取备份目录"""
         from app.utils.path_utils import get_data_dir
+
         backup_dir = os.path.join(get_data_dir(), "database_backups")
         os.makedirs(backup_dir, exist_ok=True)
         return backup_dir
 
-    def backup_database(self) -> Dict[str, Any]:
+    def backup_database(self) -> dict[str, Any]:
         """
         备份数据库
 
@@ -61,7 +60,7 @@ class DatabaseService:
                     "success": False,
                     "message": "仅支持 SQLite 数据库备份",
                     "file_path": None,
-                    "filename": None
+                    "filename": None,
                 }
 
             if not os.path.exists(db_path):
@@ -69,7 +68,7 @@ class DatabaseService:
                     "success": False,
                     "message": f"数据库文件不存在：{db_path}",
                     "file_path": None,
-                    "filename": None
+                    "filename": None,
                 }
 
             backup_dir = self._get_backup_dir()
@@ -86,7 +85,7 @@ class DatabaseService:
                 "success": True,
                 "message": "数据库备份成功",
                 "file_path": backup_path,
-                "filename": backup_filename
+                "filename": backup_filename,
             }
 
         except Exception as e:
@@ -95,10 +94,10 @@ class DatabaseService:
                 "success": False,
                 "message": f"备份失败：{str(e)}",
                 "file_path": None,
-                "filename": None
+                "filename": None,
             }
 
-    def restore_database(self, backup_file: str) -> Dict[str, Any]:
+    def restore_database(self, backup_file: str) -> dict[str, Any]:
         """
         恢复数据库
 
@@ -112,10 +111,7 @@ class DatabaseService:
             db_path = self._get_db_path()
 
             if not db_path:
-                return {
-                    "success": False,
-                    "message": "仅支持 SQLite 数据库恢复"
-                }
+                return {"success": False, "message": "仅支持 SQLite 数据库恢复"}
 
             if not os.path.isabs(backup_file):
                 backup_dir = self._get_backup_dir()
@@ -124,10 +120,7 @@ class DatabaseService:
                 backup_path = backup_file
 
             if not os.path.exists(backup_path):
-                return {
-                    "success": False,
-                    "message": f"备份文件不存在：{backup_path}"
-                }
+                return {"success": False, "message": f"备份文件不存在：{backup_path}"}
 
             db_dir = os.path.dirname(db_path)
             if db_dir and not os.path.exists(db_dir):
@@ -137,19 +130,13 @@ class DatabaseService:
 
             logger.info(f"数据库恢复成功：从 {backup_path} 恢复到 {db_path}")
 
-            return {
-                "success": True,
-                "message": "数据库恢复成功"
-            }
+            return {"success": True, "message": "数据库恢复成功"}
 
         except Exception as e:
             logger.exception(f"数据库恢复失败：{e}")
-            return {
-                "success": False,
-                "message": f"恢复失败：{str(e)}"
-            }
+            return {"success": False, "message": f"恢复失败：{str(e)}"}
 
-    def list_backups(self) -> Dict[str, Any]:
+    def list_backups(self) -> dict[str, Any]:
         """
         列出所有备份文件
 
@@ -163,31 +150,27 @@ class DatabaseService:
             backup_dir = self._get_backup_dir()
 
             if not os.path.exists(backup_dir):
-                return {
-                    "success": True,
-                    "backups": [],
-                    "count": 0
-                }
+                return {"success": True, "backups": [], "count": 0}
 
             backups = []
             for filename in os.listdir(backup_dir):
                 if filename.endswith(".bak"):
                     file_path = os.path.join(backup_dir, filename)
                     stat = os.stat(file_path)
-                    backups.append({
-                        "filename": filename,
-                        "file_path": file_path,
-                        "size": stat.st_size,
-                        "created_at": datetime.fromtimestamp(stat.st_ctime).strftime("%Y-%m-%d %H:%M:%S")
-                    })
+                    backups.append(
+                        {
+                            "filename": filename,
+                            "file_path": file_path,
+                            "size": stat.st_size,
+                            "created_at": datetime.fromtimestamp(stat.st_ctime).strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            ),
+                        }
+                    )
 
             backups.sort(key=lambda x: x["created_at"], reverse=True)
 
-            return {
-                "success": True,
-                "backups": backups,
-                "count": len(backups)
-            }
+            return {"success": True, "backups": backups, "count": len(backups)}
 
         except Exception as e:
             logger.exception(f"列出备份失败：{e}")
@@ -195,10 +178,10 @@ class DatabaseService:
                 "success": False,
                 "message": f"列出备份失败：{str(e)}",
                 "backups": [],
-                "count": 0
+                "count": 0,
             }
 
-    def delete_backup(self, backup_file: str) -> Dict[str, Any]:
+    def delete_backup(self, backup_file: str) -> dict[str, Any]:
         """
         删除备份文件
 
@@ -216,26 +199,17 @@ class DatabaseService:
                 backup_path = backup_file
 
             if not os.path.exists(backup_path):
-                return {
-                    "success": False,
-                    "message": f"备份文件不存在：{backup_path}"
-                }
+                return {"success": False, "message": f"备份文件不存在：{backup_path}"}
 
             os.remove(backup_path)
 
             logger.info(f"备份文件删除成功：{backup_path}")
 
-            return {
-                "success": True,
-                "message": "备份文件删除成功"
-            }
+            return {"success": True, "message": "备份文件删除成功"}
 
         except Exception as e:
             logger.exception(f"删除备份失败：{e}")
-            return {
-                "success": False,
-                "message": f"删除失败：{str(e)}"
-            }
+            return {"success": False, "message": f"删除失败：{str(e)}"}
 
 
 def get_database_service() -> DatabaseService:

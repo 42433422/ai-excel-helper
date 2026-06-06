@@ -5,14 +5,14 @@ TTS 基础设施实现
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
 
 
 class TTSPort(ABC):
     """TTS 端口接口"""
 
     @abstractmethod
-    def text_to_speech(self, text: str, output_path: str) -> Dict[str, Any]:
+    def text_to_speech(self, text: str, output_path: str) -> dict[str, Any]:
         """文本转语音"""
         pass
 
@@ -23,13 +23,9 @@ class TTSAdapter(TTSPort):
     def __init__(self):
         pass
 
-    def text_to_speech(self, text: str, output_path: str) -> Dict[str, Any]:
+    def text_to_speech(self, text: str, output_path: str) -> dict[str, Any]:
         """文本转语音"""
-        return {
-            "success": True,
-            "output_path": output_path,
-            "message": "语音合成完成"
-        }
+        return {"success": True, "output_path": output_path, "message": "语音合成完成"}
 
 
 def get_tts_adapter() -> TTSPort:

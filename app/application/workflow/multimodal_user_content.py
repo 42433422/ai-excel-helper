@@ -85,7 +85,7 @@ def _pdf_bytes_to_text(raw: bytes, filename: str) -> str:
             if not body:
                 return f"[PDF {filename}: 未解析到文本（可能是扫描件）]"
             if len(body) > _MAX_PDF_TEXT_CHARS:
-                body = body[: _MAX_PDF_TEXT_CHARS] + "\n…(truncated)"
+                body = body[:_MAX_PDF_TEXT_CHARS] + "\n…(truncated)"
             return f"[PDF 文件: {filename}]\n{body}"
     except Exception as exc:
         logger.info("pdf extract failed name=%r: %s", filename, exc)
@@ -112,7 +112,9 @@ def build_openai_user_content(
     for item in raw_list[:_MAX_ATTACHMENTS]:
         if not isinstance(item, dict):
             continue
-        filename = str(item.get("filename") or item.get("name") or "attachment").strip() or "attachment"
+        filename = (
+            str(item.get("filename") or item.get("name") or "attachment").strip() or "attachment"
+        )
         mime_in = _normalize_mime(str(item.get("mime_type") or item.get("mime") or ""))
         data_url = str(item.get("data_url") or "").strip()
         b64_field = str(item.get("data_base64") or "").strip()
@@ -129,7 +131,12 @@ def build_openai_user_content(
                 if len(raw_bytes) > _MAX_B64_DECODE_BYTES:
                     raise ValueError("attachment too large")
             else:
-                parts.append({"type": "text", "text": f"\n[跳过附件 {filename}: 无 data_url / data_base64]\n"})
+                parts.append(
+                    {
+                        "type": "text",
+                        "text": f"\n[跳过附件 {filename}: 无 data_url / data_base64]\n",
+                    }
+                )
                 continue
         except (binascii.Error, ValueError, TypeError) as exc:
             parts.append({"type": "text", "text": f"\n[跳过附件 {filename}: {exc}]\n"})

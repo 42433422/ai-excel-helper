@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 AI 聊天辅助工具函数
 
@@ -10,27 +9,28 @@ AI 聊天辅助工具函数
 """
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 
-def is_pro_source(source: Optional[str]) -> bool:
+def is_pro_source(source: str | None) -> bool:
     """判断是否为专业模式来源（pro/pro_mode/promode）"""
     normalized = str(source or "").strip().lower().replace("-", "_")
     return normalized in {"pro", "pro_mode", "promode"}
 
-def is_qclaw_source(source: Optional[str]) -> bool:
+
+def is_qclaw_source(source: str | None) -> bool:
     """判断是否为 Qclaw 生态来源。"""
     normalized = str(source or "").strip().lower().replace("-", "_")
     return normalized in {"qclaw", "qclaw_lobster", "lobster"}
 
 
-def is_professional_mode(mode: Optional[str]) -> bool:
+def is_professional_mode(mode: str | None) -> bool:
     """判断是否为专业模式"""
     normalized = str(mode or "").strip().lower().replace("-", "_")
     return normalized in {"professional", "pro", "pro_mode"}
 
 
-def safe_float(value) -> Optional[float]:
+def safe_float(value) -> float | None:
     """安全转换为 float，失败返回 None"""
     try:
         if value is None:
@@ -44,14 +44,14 @@ def safe_float(value) -> Optional[float]:
         return None
 
 
-def format_money(value: Optional[float]) -> str:
+def format_money(value: float | None) -> str:
     """格式化金额为字符串"""
     if value is None:
         return "-"
     return f"{value:.2f}"
 
 
-def route_normal_mode_message(message: str) -> Dict[str, Any]:
+def route_normal_mode_message(message: str) -> dict[str, Any]:
     """
     普通版轻量槽位提取与任务分流：
     - shipment: 发货单/开单/打印等单据语境

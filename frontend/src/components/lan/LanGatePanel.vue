@@ -34,14 +34,14 @@
             <template v-if="!inWhitelist">
               <strong>非授权网络</strong>
               <p>当前 IP <code>{{ ip || '未知' }}</code> 不在许可网段内，站点访问将被拦截。</p>
-              <p class="muted">请先提交访问申请；管理员批准后，本机 IP 会进入动态白名单，再使用普通密钥或从下方使用管理员密钥。</p>
+              <p class="muted">提交申请，待管理员批准后再用密钥。</p>
             </template>
             <template v-else>
               <strong>普通密钥须先经审批</strong>
               <p>
                 本机 <code>{{ ip || '—' }}</code> 已在许可网段内，但使用<strong>普通（非管理员）密钥</strong>前，必须由管理员在主机控制台批准访问申请（本机 IP 进入动态白名单）。
               </p>
-              <p class="muted">批准后请点击「重新检测」，或若您持有管理员级密钥，可使用下方入口直接输入。</p>
+              <p class="muted">批准后点「重新检测」，或用管理员密钥。</p>
             </template>
           </div>
         </div>

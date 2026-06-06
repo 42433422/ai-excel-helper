@@ -1,6 +1,9 @@
-import { api } from './index';
+import { api } from './core';
 import { ApiError } from './core';
 import type { ApiResponse } from '@/types/api';
+import { resolveErpApiPath } from '@/utils/erpDomainPaths';
+
+const erp = (path: string) => resolveErpApiPath(path);
 
 export interface WechatTask {
   id: number;
@@ -25,48 +28,48 @@ export interface WechatContact {
 
 export const wechatApi = {
   getTasks(params: Record<string, any> = {}): Promise<ApiResponse<WechatTask[]>> {
-    return api.get<ApiResponse<WechatTask[]>>('/api/wechat/tasks', params);
+    return api.get<ApiResponse<WechatTask[]>>(erp('/api/wechat/tasks'), params);
   },
 
   confirmTask(id: number | string): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>(`/api/wechat/task/${id}/confirm`);
+    return api.post<ApiResponse<any>>(erp(`/api/wechat/task/${id}/confirm`));
   },
 
   ignoreTask(id: number | string): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>(`/api/wechat/task/${id}/ignore`);
+    return api.post<ApiResponse<any>>(erp(`/api/wechat/task/${id}/ignore`));
   },
 
   getContacts(params: Record<string, any> = {}): Promise<ApiResponse<WechatContact[]>> {
-    return api.get<ApiResponse<WechatContact[]>>('/api/wechat/contacts', params);
+    return api.get<ApiResponse<WechatContact[]>>(erp('/api/wechat/contacts'), params);
   },
 
   addContact(data: any): Promise<ApiResponse<WechatContact>> {
-    return api.post<ApiResponse<WechatContact>>('/api/wechat/contacts', data);
+    return api.post<ApiResponse<WechatContact>>(erp('/api/wechat/contacts'), data);
   },
 
   getContact(id: number | string): Promise<ApiResponse<WechatContact>> {
-    return api.get<ApiResponse<WechatContact>>(`/api/wechat/contacts/${id}`);
+    return api.get<ApiResponse<WechatContact>>(erp(`/api/wechat/contacts/${id}`));
   },
 
   updateContact(id: number | string, data: any): Promise<ApiResponse<WechatContact>> {
-    return api.put<ApiResponse<WechatContact>>(`/api/wechat/contacts/${id}`, data);
+    return api.put<ApiResponse<WechatContact>>(erp(`/api/wechat/contacts/${id}`), data);
   },
 
   deleteContact(id: number | string): Promise<ApiResponse<void>> {
-    return api.delete<ApiResponse<void>>(`/api/wechat/contacts/${id}`);
+    return api.delete<ApiResponse<void>>(erp(`/api/wechat/contacts/${id}`));
   },
 
   scanMessages(): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>('/api/wechat/scan');
+    return api.post<ApiResponse<any>>(erp('/api/wechat/scan'));
   },
 
   getContactContext(id: number | string): Promise<ApiResponse<any>> {
-    return api.get<ApiResponse<any>>(`/api/wechat/contacts/${id}/context`);
+    return api.get<ApiResponse<any>>(erp(`/api/wechat/contacts/${id}/context`));
   },
 
   // Legacy-compatible contacts endpoints used by current console pages.
   getStarredContacts(params: Record<string, any> = {}): Promise<ApiResponse<WechatContact[]>> {
-    return api.get<ApiResponse<WechatContact[]>>('/api/wechat_contacts', params);
+    return api.get<ApiResponse<WechatContact[]>>(erp('/api/wechat_contacts'), params);
   },
 
   async ensureContactCache(): Promise<ApiResponse<any>> {
@@ -82,21 +85,21 @@ export const wechatApi = {
 
     const tryPostFallback = async (): Promise<ApiResponse<any>> => {
       try {
-        return await api.post<ApiResponse<any>>('/api/wechat_contacts/ensure_contact_cache', {});
+        return await api.post<ApiResponse<any>>(erp('/api/wechat_contacts/ensure_contact_cache'), {});
       } catch (postError) {
         const noSourceMessage = normalizeNoSource404(postError);
         if (noSourceMessage) {
           return { success: true, message: noSourceMessage, data: { skipped: true } };
         }
         if (postError instanceof ApiError && (postError.status === 404 || postError.status === 405)) {
-          return api.post<ApiResponse<any>>('/api/wechat_contacts/refresh_contact_cache', {});
+          return api.post<ApiResponse<any>>(erp('/api/wechat_contacts/refresh_contact_cache'), {});
         }
         throw postError;
       }
     };
 
     try {
-      return await api.get<ApiResponse<any>>('/api/wechat_contacts/ensure_contact_cache');
+      return await api.get<ApiResponse<any>>(erp('/api/wechat_contacts/ensure_contact_cache'));
     } catch (error) {
       const noSourceMessage = normalizeNoSource404(error);
       if (noSourceMessage) {
@@ -110,47 +113,47 @@ export const wechatApi = {
   },
 
   searchContacts(query: string): Promise<ApiResponse<WechatContact[]>> {
-    return api.get<ApiResponse<WechatContact[]>>('/api/wechat_contacts/search', { q: query || '' });
+    return api.get<ApiResponse<WechatContact[]>>(erp('/api/wechat_contacts/search'), { q: query || '' });
   },
 
   addStarredContact(data: any): Promise<ApiResponse<WechatContact>> {
-    return api.post<ApiResponse<WechatContact>>('/api/wechat_contacts', data);
+    return api.post<ApiResponse<WechatContact>>(erp('/api/wechat_contacts'), data);
   },
 
   updateStarredContact(id: number | string, data: any): Promise<ApiResponse<WechatContact>> {
-    return api.put<ApiResponse<WechatContact>>(`/api/wechat_contacts/${id}`, data);
+    return api.put<ApiResponse<WechatContact>>(erp(`/api/wechat_contacts/${id}`), data);
   },
 
   deleteStarredContact(id: number | string): Promise<ApiResponse<void>> {
-    return api.delete<ApiResponse<void>>(`/api/wechat_contacts/${id}`);
+    return api.delete<ApiResponse<void>>(erp(`/api/wechat_contacts/${id}`));
   },
 
   unstarAllContacts(): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>('/api/wechat_contacts/unstar_all', {});
+    return api.post<ApiResponse<any>>(erp('/api/wechat_contacts/unstar_all'), {});
   },
 
   getStarredContactContext(id: number | string): Promise<ApiResponse<any>> {
-    return api.get<ApiResponse<any>>(`/api/wechat_contacts/${id}/context`);
+    return api.get<ApiResponse<any>>(erp(`/api/wechat_contacts/${id}/context`));
   },
 
   refreshContactMessages(id: number | string): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>(`/api/wechat_contacts/${id}/refresh_messages`, {});
+    return api.post<ApiResponse<any>>(erp(`/api/wechat_contacts/${id}/refresh_messages`), {});
   },
 
   refreshMessagesCache(): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>('/api/wechat_contacts/refresh_messages_cache', {});
+    return api.post<ApiResponse<any>>(erp('/api/wechat_contacts/refresh_messages_cache'), {});
   },
 
   refreshContactCache(): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>('/api/wechat_contacts/refresh_contact_cache', {});
+    return api.post<ApiResponse<any>>(erp('/api/wechat_contacts/refresh_contact_cache'), {});
   },
 
   openChat(contactName: string): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>('/api/wechat_contacts/open_chat', { contact_name: contactName });
+    return api.post<ApiResponse<any>>(erp('/api/wechat_contacts/open_chat'), { contact_name: contactName });
   },
 
   sendMessage(contactName: string, message: string): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>('/api/wechat_contacts/send_message', {
+    return api.post<ApiResponse<any>>(erp('/api/wechat_contacts/send_message'), {
       contact_name: contactName,
       message
     });

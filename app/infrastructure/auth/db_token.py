@@ -10,8 +10,11 @@ import os
 
 from fastapi import HTTPException, Request
 
+
 def _normalize_mod_for_env(mod_id: str) -> str:
-    return "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").upper()
+    return (
+        "".join(ch if ch.isalnum() else "_" for ch in str(mod_id or "").strip()).strip("_").upper()
+    )
 
 
 def _get_active_mod_id_from_ctx() -> str:

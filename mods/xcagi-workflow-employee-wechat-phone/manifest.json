@@ -1,0 +1,39 @@
+{
+  "id": "xcagi-workflow-employee-wechat-phone",
+  "name": "微信电话对接业务员",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "副窗启用 → phone-agent start/stop → Win32 来电监控 → ASR/TTS（与 /status 轮询同步）。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=8.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes.js"
+  },
+  "hooks": {},
+  "comms": {
+    "exports": []
+  },
+  "config": {
+    "workflow_employee_single": true,
+    "employee_id": "wechat_phone",
+    "store_collection": "workflow_employee"
+  },
+  "workflow_employees": [
+    {
+      "id": "wechat_phone",
+      "label": "微信电话对接业务员",
+      "panel_title": "工作流 · 微信电话对接业务员",
+      "panel_summary": "副窗启用 → phone-agent start/stop → Win32 来电监控 → ASR/TTS（与 /status 轮询同步）。",
+      "api_base_path": "employees/wechat_phone",
+      "phone_agent_api_base": "/api/mod/sz-qsm-pro/phone-agent",
+      "phone_agent_status_poll": true,
+      "phone_channel": "wechat"
+    }
+  ]
+}

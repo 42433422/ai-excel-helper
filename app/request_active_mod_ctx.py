@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextvars
 import re
 from collections.abc import Mapping
-from typing import Optional
 
 _active_mod_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar(
     "xcagi_request_active_mod_id",
@@ -43,4 +42,3 @@ def get_request_active_mod_id() -> str:
 
 def has_request_active_mod_id() -> bool:
     return bool(get_request_active_mod_id())
-

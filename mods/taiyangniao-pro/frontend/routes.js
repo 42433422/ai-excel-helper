@@ -6,14 +6,20 @@ const modRoutes = [
     name: 'taiyangniao-pro-home',
     component: () => import('./views/HomeView.vue'),
     meta: { title: '太阳鸟pro', mod: 'taiyangniao-pro' }
+  },
+  {
+    path: '/taiyangniao-pro/settings',
+    name: 'taiyangniao-pro-settings',
+    component: () => import('./views/AttendanceSettingsView.vue'),
+    meta: { title: '考勤设置', mod: 'taiyangniao-pro' }
   }
 ];
 
 const modMenu = [
   {
     id: 'taiyangniao-pro-home',
-    label: '太阳鸟pro',
-    icon: 'fa-cube',
+    label: '考勤表转换',
+    icon: 'fa-file-excel-o',
     path: '/taiyangniao-pro'
   }
 ];

@@ -13,15 +13,13 @@ This fulfills the postgres-foundation todo and solves cross-database FK and conc
 """
 
 import logging
-import os
-from typing import Optional
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from app.request_active_mod_ctx import get_request_active_mod_id
 from app.db.sqlite_mod_paths import mod_suffix_token
+from app.request_active_mod_ctx import get_request_active_mod_id
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +37,9 @@ def set_search_path(dbapi_connection, connection_record):
     active_mod_id = get_request_active_mod_id()
     if not active_mod_id:
         return
-    
+
     schema_name = normalize_schema_name(active_mod_id)
-    
+
     try:
         cursor = dbapi_connection.cursor()
         cursor.execute(f"SET search_path TO {schema_name}, public")
@@ -65,10 +63,10 @@ def ensure_mod_schema(db: Session, mod_id: str) -> bool:
     """Ensure the schema for a Mod exists (idempotent)."""
     if not mod_id:
         return True
-    
+
     schema_name = normalize_schema_name(mod_id)
     try:
-        db.execute(f'CREATE SCHEMA IF NOT EXISTS {schema_name}')
+        db.execute(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
         db.commit()
         logger.info(f"Ensured schema {schema_name} for Mod {mod_id}")
         return True
@@ -91,9 +89,10 @@ def get_current_schema(db: Session) -> str:
 def init_mod_schema_routing():
     """Call this during app startup to enable Mod schema routing."""
     from app.db import engine
-    if hasattr(engine, 'sync_engine') and engine.sync_engine is not None:  # Some engines wrap
+
+    if hasattr(engine, "sync_engine") and engine.sync_engine is not None:  # Some engines wrap
         setup_mod_schema_routing(engine.sync_engine)
-    elif hasattr(engine, 'engine'):
+    elif hasattr(engine, "engine"):
         setup_mod_schema_routing(engine.engine)
     else:
         # The proxy engine

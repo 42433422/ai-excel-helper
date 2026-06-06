@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.application.ports.shipment_record_store import ShipmentRecordStorePort
 from app.db.models import ShipmentRecord
@@ -16,11 +16,11 @@ class SQLAlchemyShipmentRecordStore(ShipmentRecordStorePort):
         self,
         *,
         unit_name: str,
-        unit_id: Optional[int],
-        products: List[Dict[str, Any]],
-        document_result: Dict[str, Any],
+        unit_id: int | None,
+        products: list[dict[str, Any]],
+        document_result: dict[str, Any],
         raw_text: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         # 现有 schema 是“扁平记录”，历史上也通常只存首个产品 + 汇总
         first = (products or [{}])[0] or {}
         product_name = first.get("name") or first.get("product_name") or ""
@@ -83,4 +83,3 @@ class SQLAlchemyShipmentRecordStore(ShipmentRecordStorePort):
             db.refresh(record)
 
         return {"success": True, "record_id": record.id}
-

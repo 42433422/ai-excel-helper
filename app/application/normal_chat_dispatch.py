@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 普通版聊天槽位路由与产品查询响应（与 unified_chat 行为一致）。
 
@@ -10,18 +9,21 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.utils.ai_helpers import format_money, safe_float
 
 logger = logging.getLogger(__name__)
 
 
-def route_normal_mode_message(message: str) -> Dict[str, Any]:
+def route_normal_mode_message(message: str) -> dict[str, Any]:
     """
     普通版轻量槽位提取与任务分流：
     - shipment: 发货单 / 开单 / 打印 / 出货单等单据语境
     - product_query: 产品库检索
+    - customers_query: 客户/购买单位查询
+    - inventory_alert: 库存预警
+    - label_print: 标签打印
     - unknown: 未命中
     """
     text = (message or "").strip()
@@ -43,8 +45,48 @@ def route_normal_mode_message(message: str) -> Dict[str, Any]:
     query_keywords = ("查询", "查一下", "查下", "查", "看看", "看下", "搜索", "找下", "找", "检索")
     model_signal = bool(re.search(r"(?:型号|编号)\s*[:：]?\s*([0-9A-Za-z-]{2,})", text))
     unit_model_signal = bool(re.search(r"([^\s，,。]{2,})\s*的\s*([0-9A-Za-z-]{2,})", text))
+    # 客户/购买单位查询
+    customer_keywords = (
+        "客户",
+        "购买单位",
+        "买家",
+        "客户列表",
+        "客户信息",
+        "有哪些客户",
+        "客户名单",
+    )
+    if any(k in text for k in customer_keywords):
+        keyword_match = re.search(
+            r"(?:查询|查找|找到|搜索)?\s*([^\s，,。]{2,})\s*(?:的)?(?:客户|购买单位)", text
+        )
+        return {
+            "intent": "customers_query",
+            "slots": {"keyword": (keyword_match.group(1) if keyword_match else "").strip()},
+        }
+
+    # 库存预警
+    inventory_keywords = ("库存", "库存预警", "低库存", "库存不足", "缺货", "原材料库存", "仓库")
+    if any(k in text for k in inventory_keywords):
+        return {
+            "intent": "inventory_alert",
+            "slots": {},
+        }
+
+    # 标签打印
+    print_label_keywords = ("标签", "打标签", "打印标签", "商标", "贴标")
+    if any(k in text for k in print_label_keywords):
+        model_m = re.search(r"([0-9A-Za-z-]{2,})", text)
+        qty_m = re.search(r"(\d+)\s*(?:张|份|个|次|条)?", text)
+        return {
+            "intent": "label_print",
+            "slots": {
+                "model_number": (model_m.group(1) if model_m else "").strip().upper(),
+                "quantity": int(qty_m.group(1)) if qty_m else 1,
+            },
+        }
+
     if any(k in text for k in query_keywords) or model_signal or unit_model_signal:
-        slots: Dict[str, Any] = {}
+        slots: dict[str, Any] = {}
 
         m_unit_model = re.search(r"([^\s，,。]{2,})\s*的\s*([0-9A-Za-z-]{2,})", text)
         if m_unit_model:
@@ -81,7 +123,9 @@ def route_normal_mode_message(message: str) -> Dict[str, Any]:
                 ).strip()
                 m_combo = re.search(r"([\u4e00-\u9fff]{2,})([0-9A-Za-z-]{2,})", tail)
                 if m_combo:
-                    slots["keyword"] = f"{m_combo.group(1).strip()}{m_combo.group(2).strip().upper()}"
+                    slots["keyword"] = (
+                        f"{m_combo.group(1).strip()}{m_combo.group(2).strip().upper()}"
+                    )
                 else:
                     slots["keyword"] = slots.get("model_number")
             else:
@@ -99,7 +143,7 @@ def route_normal_mode_message(message: str) -> Dict[str, Any]:
     return {"intent": "unknown", "slots": {}}
 
 
-def build_product_query_response_dict(route_result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def build_product_query_response_dict(route_result: dict[str, Any]) -> dict[str, Any] | None:
     """构造与 unified_chat 产品查询分支一致的响应 dict。"""
     if route_result.get("intent") != "product_query":
         return None
@@ -116,13 +160,16 @@ def build_product_query_response_dict(route_result: Dict[str, Any]) -> Optional[
 
         products_service = get_products_service()
         kw_preview = (keyword or "").strip() or (model_number or "").strip()
-        result = products_service.get_products(
-            unit_name=None,
-            model_number=None,
-            keyword=kw_preview or None,
-            page=1,
-            per_page=5,
-        ) or {}
+        result = (
+            products_service.get_products(
+                unit_name=None,
+                model_number=None,
+                keyword=kw_preview or None,
+                page=1,
+                per_page=5,
+            )
+            or {}
+        )
         rows = result.get("data") or []
         preview_count = len(rows)
         for row in rows[:3]:
@@ -142,9 +189,7 @@ def build_product_query_response_dict(route_result: Dict[str, Any]) -> Optional[
         query_desc_bits.append(f"关键词：{keyword}")
     query_desc = "，".join(query_desc_bits) if query_desc_bits else "按当前输入"
     preview_suffix = (
-        f"\n预览命中 {preview_count} 条：\n" + "\n".join(preview_lines)
-        if preview_lines else
-        ""
+        f"\n预览命中 {preview_count} 条：\n" + "\n".join(preview_lines) if preview_lines else ""
     )
 
     return {
@@ -170,9 +215,9 @@ def build_product_query_response_dict(route_result: Dict[str, Any]) -> Optional[
 
 def run_workflow_products_query_normal_profile(
     user_message: str,
-    node_params: Optional[Dict[str, Any]] = None,
+    node_params: dict[str, Any] | None = None,
     per_page: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """工作流 products.query 在普通工具画像下：与普通版 product_query 相同 keyword 策略。"""
     node_params = dict(node_params or {})
     text = (user_message or "").strip()
@@ -194,13 +239,16 @@ def run_workflow_products_query_normal_profile(
         from app.bootstrap import get_products_service
 
         svc = get_products_service()
-        result = svc.get_products(
-            unit_name=None,
-            model_number=None,
-            keyword=kw_preview or None,
-            page=1,
-            per_page=per_page,
-        ) or {}
+        result = (
+            svc.get_products(
+                unit_name=None,
+                model_number=None,
+                keyword=kw_preview or None,
+                page=1,
+                per_page=per_page,
+            )
+            or {}
+        )
         return {
             "success": bool(result.get("success")),
             "data": result.get("data", []),
@@ -212,7 +260,7 @@ def run_workflow_products_query_normal_profile(
         return {"success": False, "message": str(err), "data": [], "normal_tool_profile": True}
 
 
-def resolve_tool_execution_profile(runtime_context: Optional[Dict[str, Any]]) -> str:
+def resolve_tool_execution_profile(runtime_context: dict[str, Any] | None) -> str:
     """返回 normal | pro_default。"""
     rc = dict(runtime_context or {})
     explicit = str(rc.get("tool_execution_profile") or "").strip().lower()
@@ -227,7 +275,7 @@ def resolve_tool_execution_profile(runtime_context: Optional[Dict[str, Any]]) ->
     return "pro_default"
 
 
-def run_normal_slot_shipment_preview(order_text: str) -> Dict[str, Any]:
+def run_normal_slot_shipment_preview(order_text: str) -> dict[str, Any]:
     """
     normal_slot_dispatch.shipment_preview：与普通版 unified_chat shipment 分支同源（编号解析 + 预览任务）。
     延迟导入避免循环依赖。
@@ -244,7 +292,11 @@ def run_normal_slot_shipment_preview(order_text: str) -> Dict[str, Any]:
             "success": True,
             "message": "处理完成",
             "response": str(parsed.get("message") or "订单信息不完整，请补充单位/桶数/型号/规格。"),
-            "data": {"text": parsed.get("message"), "action": "followup", "data": {"parsed_data": parsed}},
+            "data": {
+                "text": parsed.get("message"),
+                "action": "followup",
+                "data": {"parsed_data": parsed},
+            },
             "normal_slot_dispatch": True,
         }
 
@@ -259,7 +311,7 @@ def run_normal_slot_shipment_preview(order_text: str) -> Dict[str, Any]:
     return body
 
 
-def run_normal_slot_product_query_from_message(message: str) -> Dict[str, Any]:
+def run_normal_slot_product_query_from_message(message: str) -> dict[str, Any]:
     """normal_slot_dispatch.product_query：整段响应 dict（含 autoAction）。"""
     rr = route_normal_mode_message(message or "")
     body = build_product_query_response_dict(rr)
@@ -271,3 +323,114 @@ def run_normal_slot_product_query_from_message(message: str) -> Dict[str, Any]:
         }
     body["normal_slot_dispatch"] = True
     return body
+
+
+def build_customers_query_response_dict(route_result: dict[str, Any]) -> dict[str, Any] | None:
+    """客户查询槽位响应。"""
+    if route_result.get("intent") != "customers_query":
+        return None
+    keyword = str((route_result.get("slots") or {}).get("keyword") or "").strip()
+    try:
+        from app.services.customers_service import CustomerService
+
+        svc = CustomerService()
+        customers = svc.search(keyword=keyword) if keyword else svc.get_all()
+        if not isinstance(customers, list):
+            customers = []
+        if not customers:
+            msg = f"未找到关键词「{keyword}」相关的客户。" if keyword else "暂无客户数据。"
+        else:
+            lines = [
+                f"- {c.get('customer_name', '')} {c.get('contact_person', '')}"
+                for c in customers[:10]
+            ]
+            msg = f"共找到 {len(customers)} 位客户：\n" + "\n".join(lines)
+        return {
+            "success": True,
+            "response": msg,
+            "data": {"intent": "customers_query", "customers": customers[:20]},
+            "normal_slot_dispatch": True,
+        }
+    except Exception as e:
+        logger.warning("customers_query 失败: %s", e)
+        return {
+            "success": False,
+            "response": "客户查询服务暂时不可用，请稍后重试。",
+            "data": {},
+            "normal_slot_dispatch": True,
+        }
+
+
+def build_inventory_alert_response_dict(route_result: dict[str, Any]) -> dict[str, Any] | None:
+    """库存预警槽位响应（聚合 materials low-stock + inventory alert）。"""
+    if route_result.get("intent") != "inventory_alert":
+        return None
+    try:
+        from app.application import get_material_application_service
+
+        result = get_material_application_service().get_low_stock_materials()
+        items = result.get("data") or []
+        if not items:
+            msg = "当前没有低库存原材料，库存状态正常。"
+        else:
+            lines = [
+                f"- {m.get('name', '')} 当前库存 {m.get('quantity', 0)} {m.get('unit', '')}"
+                for m in items[:10]
+            ]
+            msg = f"⚠️ 发现 {len(items)} 种低库存原材料：\n" + "\n".join(lines)
+        return {
+            "success": True,
+            "response": msg,
+            "data": {"intent": "inventory_alert", "low_stock_items": items[:20]},
+            "normal_slot_dispatch": True,
+        }
+    except Exception as e:
+        logger.warning("inventory_alert 失败: %s", e)
+        return {
+            "success": False,
+            "response": "库存查询服务暂时不可用，请稍后重试。",
+            "data": {},
+            "normal_slot_dispatch": True,
+        }
+
+
+def build_label_print_response_dict(route_result: dict[str, Any]) -> dict[str, Any] | None:
+    """标签打印槽位响应。"""
+    if route_result.get("intent") != "label_print":
+        return None
+    slots = route_result.get("slots") or {}
+    model_number = str(slots.get("model_number") or "").strip()
+    quantity = max(1, int(slots.get("quantity") or 1))
+    if not model_number:
+        return {
+            "success": False,
+            "response": "请告诉我要打印哪款产品的标签？例如「打印 A001 标签 2 张」",
+            "data": {"intent": "label_print"},
+            "normal_slot_dispatch": True,
+        }
+    try:
+        from app.application.print_app_service import get_print_application_service
+
+        result = get_print_application_service().print_single_label(
+            product_name=model_number,
+            model_number=model_number,
+            quantity=quantity,
+        )
+        if result.get("success"):
+            msg = f"已发送打印任务：{model_number} × {quantity} 张。"
+        else:
+            msg = f"打印失败：{result.get('message', '未知错误')}。请检查打印机连接。"
+        return {
+            "success": result.get("success", False),
+            "response": msg,
+            "data": {"intent": "label_print", **result},
+            "normal_slot_dispatch": True,
+        }
+    except Exception as e:
+        logger.warning("label_print 失败: %s", e)
+        return {
+            "success": False,
+            "response": "标签打印服务暂时不可用，请稍后重试。",
+            "data": {},
+            "normal_slot_dispatch": True,
+        }

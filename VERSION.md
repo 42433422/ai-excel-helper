@@ -10,18 +10,18 @@
 
 | 组件 | 版本 | 文件 |
 |------|------|------|
-| **XCAGI 总版本** | `7.0.0` | `CHANGELOG.md`、`README.md` |
-| **Python 包（根）** | `7.0.0` | `pyproject.toml` |
-| **Python 包（XCAGI 子树）** | `7.0.0` | `XCAGI/pyproject.toml` |
-| **前端 SPA** | `7.0.0` | `frontend/package.json` |
-| **桌面壳 npm** | `7.0.0` | `desktop/package.json` |
-| **根级 npm（脚本/测试入口）** | `7.0.0` | `package.json` |
-| **FastAPI 应用** | `7.0.0` | `app/fastapi_app.py`（`FastAPI(version=...)`） |
-| **Mod 依赖校验基线** | `7.0.0` | `app/infrastructure/mods/manifest.py` |
+| **XCAGI 总版本** | `8.0.0` | `CHANGELOG.md`、`README.md` |
+| **Python 包（根）** | `8.0.0` | `pyproject.toml` |
+| **Python 包（XCAGI 子树）** | `8.0.0` | `XCAGI/pyproject.toml` |
+| **前端 SPA** | `8.0.0` | `frontend/package.json` |
+| **桌面壳 npm** | `8.0.0` | `desktop/package.json` |
+| **根级 npm（脚本/测试入口）** | `8.0.0` | `package.json` |
+| **FastAPI 应用** | `8.0.0` | `app/fastapi_app.py`（`FastAPI(version=...)`） |
+| **Mod 依赖校验基线** | `8.0.0` | `app/infrastructure/mods/manifest.py` |
 
 > 独立子工程保留自己的版本号：`MODstore/pyproject.toml`（`0.2.0`）、`MODstore/web/package.json`（`0.2.0`）、`MODstore/market/package.json`（`1.0.0`）。
 
-## 🎯 当前定位（v7.0）
+## 🎯 当前定位（v8.0）
 
 **跨平台企业 AI 员工桌面平台** — Windows/macOS 桌面版 + Web 版并行交付，保留 Neuro-DDD + FastAPI + Mod 生态 + Token 认证钱包。
 

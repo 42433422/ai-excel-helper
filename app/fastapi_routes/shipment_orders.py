@@ -1,11 +1,11 @@
 """
-出货单 / 订单 / 出货记录 —— 自 Flask ``ai_assistant_compat`` + ``shipment`` 蓝图的 FastAPI 补全。
+出货单 / 订单 / 出货记录 —— 继承自归档 ``ai_assistant_compat`` + ``shipment`` 蓝图端点契约的 FastAPI 补全。
 
 覆盖：
 
 - ``/api/orders*``、``/orders/next_number``（AI 助手根路径）
 - ``/api/shipment/generate|print|download/*`` 与 ``/api/shipment/orders*``（与归档 ``shipment`` 蓝图对齐）
-- ``GET /api/shipment/list`` 由 ``migrated_miniprogram_api`` 统一注册（桌面 / 小程序 JWT 分流）
+- ``GET /api/shipment/list`` 统一注册
 - ``/api/shipment/shipment-records/*``
 
 历史：统一 FastAPI 入口后兼容层未挂载上述路径时，前端会出现大量 404。
@@ -17,14 +17,14 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 
-from app.bootstrap import get_shipment_app_service
+from app.application.facades.query_facade import query_service
+from app.bootstrap import get_shipment_application_service_core
 from app.db.models import ShipmentRecord
-from app.services.unified_query_service import query_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ router = APIRouter(tags=["shipment-orders-compat"])
 
 
 def _svc():
-    return get_shipment_app_service()
+    return get_shipment_application_service_core()
 
 
 def _next_order_number_payload(suffix: str = "A") -> dict[str, Any]:
@@ -277,7 +277,7 @@ def api_orders_list(limit: int = Query(default=100, ge=1, le=5000)):
 
 
 @router.delete("/api/orders")
-@router.delete("/api/orders/")
+@router.delete("/api/orders/", include_in_schema=False)
 def api_orders_delete_root():
     result = _svc().clear_all_orders()
     return JSONResponse(result, status_code=200 if result.get("success") else 500)
@@ -355,15 +355,60 @@ def shipment_orders_delete(order_number: str):
 # ----- /api/shipment/shipment-records -----
 
 
-@router.get("/api/shipment/shipment-records/records")
-@router.get("/api/shipment/shipment-records/records/")
-def shipment_records_list(
-    unit: Optional[str] = Query(default=None),
-    unit_name: Optional[str] = Query(default=None),
+@router.get("/api/shipment/records")
+def shipment_records_dashboard_alias(
+    unit: str | None = Query(default=None),
+    unit_name: str | None = Query(default=None),
+    per_page: int = Query(default=100, ge=1, le=500),
+    sort: str | None = Query(default=None),
 ):
+    """企业客服等页面使用的短路径；与 shipment-records/records 同源，支持 per_page。"""
+    _ = sort  # 预留与前端 sort=created_at_desc 对齐；列表默认按 created_at 倒序
+    u = (unit or unit_name or "").strip() or None
+    records = _svc().get_shipment_records(u, limit=per_page)
+    return {"success": True, "data": records}
+
+
+@router.get("/api/shipment/shipment-records/records")
+@router.get("/api/shipment/shipment-records/records/", include_in_schema=False)
+def shipment_records_list(
+    unit: str | None = Query(default=None),
+    unit_name: str | None = Query(default=None),
+):
+    try:
+        from app.mod_sdk.erp_domain_dispatch import try_invoke_erp_domain_handler
+
+        mod_out = try_invoke_erp_domain_handler(
+            "shipment",
+            "records_list",
+            unit=unit,
+            unit_name=unit_name,
+        )
+        if mod_out is not None:
+            return mod_out
+    except Exception:
+        logger.debug("erp domain shipment.records_list dispatch skipped", exc_info=True)
     u = (unit or unit_name or "").strip() or None
     records = _svc().get_shipment_records(u)
     return {"success": True, "data": records}
+
+
+@router.post("/api/shipment/shipment-records/record")
+def shipment_records_create(payload: dict[str, Any] = Body(...)):
+    """新建出货记录（从出货记录管理页手动建单）。"""
+    unit_name = str(payload.get("unit_name") or payload.get("purchase_unit") or "").strip()
+    if not unit_name:
+        raise HTTPException(status_code=400, detail="缺少购买单位")
+    products = payload.get("products") or []
+    if not isinstance(products, list):
+        products = []
+    result = _svc().create_shipment(
+        unit_name=unit_name,
+        items_data=products,
+        contact_person=payload.get("contact_person"),
+        contact_phone=payload.get("contact_phone"),
+    )
+    return JSONResponse(result, status_code=200 if result.get("success") else 400)
 
 
 @router.patch("/api/shipment/shipment-records/record")
@@ -392,10 +437,10 @@ def shipment_records_delete(payload: dict[str, Any] = Body(...)):
 
 @router.get("/api/shipment/shipment-records/export")
 def shipment_records_export(
-    unit: Optional[str] = Query(default=None),
-    unit_name: Optional[str] = Query(default=None),
-    template_id: Optional[str] = Query(default=None),
-    status: Optional[str] = Query(default=None),
+    unit: str | None = Query(default=None),
+    unit_name: str | None = Query(default=None),
+    template_id: str | None = Query(default=None),
+    status: str | None = Query(default=None),
 ):
     u = (unit or unit_name or "").strip() or None
     result = _svc().export_shipment_records(

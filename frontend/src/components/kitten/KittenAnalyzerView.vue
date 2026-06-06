@@ -39,6 +39,16 @@
         </div>
       </div>
 
+      <KittenChartPanel
+        v-if="datasetSummary && datasetRows.length"
+        :rows="datasetRows"
+        :field-profiles="fieldProfiles"
+        :config="chartConfig"
+        :recommendations="recommendedCharts"
+        @update-config="setChartConfig"
+        @apply-recommendation="applyChartRecommendation"
+      />
+
       <aside class="side-panel" :class="{ 'is-collapsed': panelCollapsed }">
         <button class="panel-collapse-toggle" type="button" @click="panelCollapsed = !panelCollapsed">
           {{ panelCollapsed ? '设置' : '收起' }}
@@ -223,6 +233,7 @@ import { buildFullApiUrl } from '@/api/core'
 import { sanitizeChatBubbleHtml } from '@/utils/sanitizeHtml'
 import { downloadBlob, getFilenameFromDisposition } from '@/utils'
 import { appAlert } from '@/utils/appDialog'
+import KittenChartPanel from '@/components/kitten/KittenChartPanel.vue'
 import {
   useKittenAnalyzer,
   kittenQuickActions,
@@ -248,6 +259,10 @@ const {
   fileInput,
   chatMessagesRef,
   datasetSummary,
+  datasetRows,
+  fieldProfiles,
+  chartConfig,
+  recommendedCharts,
   kittenIncludeBusinessDb,
   kittenIncludeWebSearch,
   kittenDbStatsHint,
@@ -259,6 +274,8 @@ const {
   onKittenBusinessDbToggle,
   triggerFileUpload,
   handleFileSelect,
+  setChartConfig,
+  applyChartRecommendation,
   sendMessage,
   sendQuickAction,
   exportResult,
@@ -604,6 +621,13 @@ const openDownloadLink = async (link: string) => {
   overflow-y: auto;
   background: #f8fafc;
 }
+.kitten-chart-panel {
+  width: min(520px, 42vw);
+  flex-shrink: 0;
+  align-self: stretch;
+  margin: 16px 0 16px 16px;
+  overflow-y: auto;
+}
 .message {
   margin-bottom: 14px;
   max-width: 85%;
@@ -852,6 +876,15 @@ const openDownloadLink = async (link: string) => {
   min-width: 72px;
 }
 @media (max-width: 900px) {
+  .chat-container {
+    flex-direction: column;
+  }
+  .kitten-chart-panel {
+    width: auto;
+    max-height: 420px;
+    margin: 12px;
+    align-self: stretch;
+  }
   .side-panel:not(.is-collapsed) {
     position: absolute;
     right: 0;

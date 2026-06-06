@@ -1,0 +1,36 @@
+{
+  "id": "xcagi-workflow-employee-label-print",
+  "name": "标签打印 AI 员工",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "星标微信 → 意图命中「标签/打印」→ 对话执行打印。执行业务链在宿主；本 Mod 提供 run/status。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=8.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes.js"
+  },
+  "hooks": {},
+  "comms": {
+    "exports": []
+  },
+  "config": {
+    "workflow_employee_single": true,
+    "employee_id": "label_print",
+    "store_collection": "workflow_employee"
+  },
+  "workflow_employees": [
+    {
+      "id": "label_print",
+      "label": "标签打印 AI 员工",
+      "panel_title": "工作流 · 标签打印 AI 员工",
+      "panel_summary": "星标微信 → 意图命中「标签/打印」→ 对话执行打印。执行业务链在宿主；本 Mod 提供 run/status。",
+      "api_base_path": "employees/label_print"
+    }
+  ]
+}

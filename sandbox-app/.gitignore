@@ -1,0 +1,5 @@
+/data/runtime/
+/web_static/
+.env
+__pycache__/
+*.pyc

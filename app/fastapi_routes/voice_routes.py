@@ -16,7 +16,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/voice", tags=["voice"])
 _MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MB；等同于 OpenAI Whisper 官方上限，足够覆盖一次按住说话
 
 # 懒加载：第一次调用才把 faster-whisper 模型加载进内存，避免服务冷启动时白耗几百 MB
-_model_holder: Dict[str, Any] = {"instance": None, "signature": None}
+_model_holder: dict[str, Any] = {"instance": None, "signature": None}
 
 
 def _env(name: str, default: str = "") -> str:
@@ -127,9 +127,7 @@ def _save_upload_to_tempfile(upload: UploadFile, raw: bytes) -> Path:
     return Path(tmp.name)
 
 
-def _run_transcribe(
-    path: Path, language: Optional[str]
-) -> Dict[str, Any]:
+def _run_transcribe(path: Path, language: str | None) -> dict[str, Any]:
     model = _get_model()
 
     beam = max(1, int(_env("XCAGI_CHAT_ASR_BEAM", "1")))
@@ -161,7 +159,7 @@ def _run_transcribe(
 @router.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(..., description="按住说话录制的音频（webm/ogg/wav/m4a）"),
-    language: Optional[str] = Form(default=None, description="ISO 语言代码，如 zh/en；留空走默认"),
+    language: str | None = Form(default=None, description="ISO 语言代码，如 zh/en；留空走默认"),
 ):
     """短语音转文字：直接把 MediaRecorder 的 blob 发上来即可。"""
     raw = await file.read()

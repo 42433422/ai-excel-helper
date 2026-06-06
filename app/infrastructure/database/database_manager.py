@@ -4,9 +4,8 @@
 负责数据库连接和会话管理
 """
 
-from contextlib import contextmanager
 import os
-from typing import Optional
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -23,12 +22,7 @@ class DatabaseManager:
     - 连接池管理
     """
 
-    def __init__(
-        self,
-        database_url: Optional[str] = None,
-        pool_size: int = 5,
-        max_overflow: int = 10
-    ):
+    def __init__(self, database_url: str | None = None, pool_size: int = 5, max_overflow: int = 10):
         self._database_url = database_url or os.environ.get(
             "DATABASE_URL",
             "postgresql+psycopg://xcagi:xcagi@localhost:5432/xcagi",
@@ -46,21 +40,17 @@ class DatabaseManager:
                 self._database_url,
                 connect_args={"check_same_thread": False},
                 poolclass=StaticPool,
-                echo=False
+                echo=False,
             )
         else:
             self._engine = create_engine(
                 self._database_url,
                 pool_size=self._pool_size,
                 max_overflow=self._max_overflow,
-                echo=False
+                echo=False,
             )
 
-        self._session_factory = sessionmaker(
-            bind=self._engine,
-            autocommit=False,
-            autoflush=False
-        )
+        self._session_factory = sessionmaker(bind=self._engine, autocommit=False, autoflush=False)
 
     @contextmanager
     def get_session(self) -> Session:
@@ -98,7 +88,7 @@ class DatabaseManager:
             self._engine.dispose()
 
 
-_database_manager: Optional[DatabaseManager] = None
+_database_manager: DatabaseManager | None = None
 
 
 def get_database_manager() -> DatabaseManager:

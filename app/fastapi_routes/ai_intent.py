@@ -98,16 +98,20 @@ def ai_intent_test(body: dict = Body(default_factory=dict)):
     try:
         return {"success": True, "data": recognize_intents(message)}
     except Exception as e:
-        return JSONResponse({"success": False, "message": f"意图识别失败：{str(e)}"}, status_code=500)
+        return JSONResponse(
+            {"success": False, "message": f"意图识别失败：{str(e)}"}, status_code=500
+        )
 
 
 @router.get("/api/intent/health")
 def intent_health():
     try:
-        from app.services.bert_intent_service import BertIntentClassifier
+        from app.application.facades.intent_facade import BertIntentClassifier
 
         model_path = os.environ.get("INTENT_MODEL_PATH")
-        classifier = BertIntentClassifier(model_path=model_path) if model_path else BertIntentClassifier()
+        classifier = (
+            BertIntentClassifier(model_path=model_path) if model_path else BertIntentClassifier()
+        )
         return {"status": "ok", "model_available": classifier.is_available()}
     except Exception as e:
         logger.error("intent health: %s", e)
@@ -124,22 +128,31 @@ def intent_packages_post(body: dict = Body(default_factory=dict)):
     for pkg_id, state in package_states.items():
         if pkg_id in _INTENT_PACKAGES_STATE:
             _INTENT_PACKAGES_STATE[pkg_id] = bool(state)
-    return {"success": True, "message": "意图包配置已更新", "data": {"packages": _INTENT_PACKAGES_STATE}}
+    return {
+        "success": True,
+        "message": "意图包配置已更新",
+        "data": {"packages": _INTENT_PACKAGES_STATE},
+    }
 
 
 @router.put("/api/intent-packages/{package_id}")
 def intent_packages_put(package_id: str, body: dict = Body(default_factory=dict)):
     if package_id not in _INTENT_PACKAGES_STATE:
-        return JSONResponse({"success": False, "error": f"未知的意图包: {package_id}"}, status_code=404)
+        return JSONResponse(
+            {"success": False, "error": f"未知的意图包: {package_id}"}, status_code=404
+        )
     data = body or {}
     enabled = data.get("enabled")
     if enabled is not None:
         _INTENT_PACKAGES_STATE[package_id] = bool(enabled)
-    return {"success": True, "data": {"package_id": package_id, "enabled": _INTENT_PACKAGES_STATE[package_id]}}
+    return {
+        "success": True,
+        "data": {"package_id": package_id, "enabled": _INTENT_PACKAGES_STATE[package_id]},
+    }
 
 
 def _bert_intent_classifier():
-    from app.services.bert_intent_service import BertIntentClassifier
+    from app.application.facades.intent_facade import BertIntentClassifier
 
     model_path = os.environ.get("INTENT_MODEL_PATH")
     if model_path:

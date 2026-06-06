@@ -1,44 +1,28 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextvars import ContextVar, Token
 from functools import wraps
-from typing import Any, Callable, List, Optional
+from typing import Any
 
 from app.config import Config
 from app.db.models import User
 from app.http.json_response import json_response
 from app.services import get_auth_service, get_session_service
 
-_session_service = None
-_auth_service = None
-
-_current_user_ctx: ContextVar[Optional[User]] = ContextVar("current_user", default=None)
-_session_id_ctx: ContextVar[Optional[str]] = ContextVar("session_id", default=None)
+_current_user_ctx: ContextVar[User | None] = ContextVar("current_user", default=None)
+_session_id_ctx: ContextVar[str | None] = ContextVar("session_id", default=None)
 
 
-def _get_session_service():
-    global _session_service
-    if _session_service is None:
-        _session_service = get_session_service()
-    return _session_service
-
-
-def _get_auth_service():
-    global _auth_service
-    if _auth_service is None:
-        _auth_service = get_auth_service()
-    return _auth_service
-
-
-def get_current_user() -> Optional[User]:
+def get_current_user() -> User | None:
     return _current_user_ctx.get()
 
 
-def get_current_session_id() -> Optional[str]:
+def get_current_session_id() -> str | None:
     return _session_id_ctx.get()
 
 
-def _extract_session_id() -> Optional[str]:
+def _extract_session_id() -> str | None:
     from app.http.request_context import get_current_http_request
 
     req = get_current_http_request()
@@ -56,36 +40,45 @@ def login_required(f: Callable) -> Callable:
     def decorated_function(*args: Any, **kwargs: Any):
         session_id = _extract_session_id()
         if not session_id:
-            return json_response(
-                {
-                    "success": False,
-                    "message": {"code": "UNAUTHORIZED", "message": "请先登录"},
-                },
+            return (
+                json_response(
+                    {
+                        "success": False,
+                        "message": {"code": "UNAUTHORIZED", "message": "请先登录"},
+                    },
+                    401,
+                ),
                 401,
-            ), 401
+            )
 
-        session_service = _get_session_service()
+        session_service = get_session_service()
         user = session_service.validate_session(session_id)
         if not user:
-            return json_response(
-                {
-                    "success": False,
-                    "message": {"code": "SESSION_EXPIRED", "message": "会话已过期，请重新登录"},
-                },
+            return (
+                json_response(
+                    {
+                        "success": False,
+                        "message": {"code": "SESSION_EXPIRED", "message": "会话已过期，请重新登录"},
+                    },
+                    401,
+                ),
                 401,
-            ), 401
+            )
 
         if not user.is_active:
-            return json_response(
-                {
-                    "success": False,
-                    "message": {"code": "ACCOUNT_DISABLED", "message": "账户已被禁用"},
-                },
+            return (
+                json_response(
+                    {
+                        "success": False,
+                        "message": {"code": "ACCOUNT_DISABLED", "message": "账户已被禁用"},
+                    },
+                    403,
+                ),
                 403,
-            ), 403
+            )
 
-        t_user: Token[Optional[User]] = _current_user_ctx.set(user)
-        t_sid: Token[Optional[str]] = _session_id_ctx.set(session_id)
+        t_user: Token[User | None] = _current_user_ctx.set(user)
+        t_sid: Token[str | None] = _session_id_ctx.set(session_id)
         try:
             return f(*args, **kwargs)
         finally:
@@ -95,28 +88,34 @@ def login_required(f: Callable) -> Callable:
     return decorated_function
 
 
-def role_required(roles: List[str]) -> Callable:
+def role_required(roles: list[str]) -> Callable:
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def decorated_function(*args: Any, **kwargs: Any):
             user = get_current_user()
             if not user:
-                return json_response(
-                    {
-                        "success": False,
-                        "message": {"code": "UNAUTHORIZED", "message": "请先登录"},
-                    },
+                return (
+                    json_response(
+                        {
+                            "success": False,
+                            "message": {"code": "UNAUTHORIZED", "message": "请先登录"},
+                        },
+                        401,
+                    ),
                     401,
-                ), 401
+                )
 
             if user.role not in roles and user.role != "admin":
-                return json_response(
-                    {
-                        "success": False,
-                        "message": {"code": "FORBIDDEN", "message": "权限不足"},
-                    },
+                return (
+                    json_response(
+                        {
+                            "success": False,
+                            "message": {"code": "FORBIDDEN", "message": "权限不足"},
+                        },
+                        403,
+                    ),
                     403,
-                ), 403
+                )
 
             return f(*args, **kwargs)
 
@@ -131,23 +130,29 @@ def permission_required(permission_code: str) -> Callable:
         def decorated_function(*args: Any, **kwargs: Any):
             user = get_current_user()
             if not user:
-                return json_response(
-                    {
-                        "success": False,
-                        "message": {"code": "UNAUTHORIZED", "message": "请先登录"},
-                    },
+                return (
+                    json_response(
+                        {
+                            "success": False,
+                            "message": {"code": "UNAUTHORIZED", "message": "请先登录"},
+                        },
+                        401,
+                    ),
                     401,
-                ), 401
+                )
 
-            auth_service = _get_auth_service()
+            auth_service = get_auth_service()
             if not auth_service.has_permission(user, permission_code):
-                return json_response(
-                    {
-                        "success": False,
-                        "message": {"code": "FORBIDDEN", "message": "权限不足"},
-                    },
+                return (
+                    json_response(
+                        {
+                            "success": False,
+                            "message": {"code": "FORBIDDEN", "message": "权限不足"},
+                        },
+                        403,
+                    ),
                     403,
-                ), 403
+                )
 
             return f(*args, **kwargs)
 

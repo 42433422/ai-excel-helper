@@ -20,20 +20,26 @@ const MIDDLE_BUTTON = 1
  * 四工位拼接：单格缩放。默认按「舞台视口宽度」反算，使条带 + 外框余量与可视区域接近（全图时 zoom≈100%），
  * 避免固定 3.35 导致画布过宽、长期靠缩小显示。
  */
-/** 与 COMPOSED_TARGET_SHRINK 配合：允许明显缩小，避免被下限抬回偏大 */
 const COMPOSED_SCALE_MIN = 0.55
-const COMPOSED_SCALE_MAX = 3.5
+const COMPOSED_SCALE_MAX = 5.5
 const COMPOSED_SCALE_FALLBACK = 3.35
 /** 与 computeFitZoom 内边距一致 */
 const COMPOSED_FIT_PAD = 20
 /** 与模板 `composedStripW + 48` 中 +48 一致（外框水平余量） */
 const COMPOSED_OUTER_WIDTH_EXTRA = 48
-/** 相对「按宽铺满」再缩小一档（全图时仍略留空，不顶满）；过小会导致工位行极扁、头像看不见 */
-const COMPOSED_TARGET_SHRINK = 0.52
+/**
+ * 默认让横条几乎铺满舞台宽（保留 ~6% 安全留白以避免轻微溢出 / clampPan 抖动），
+ * 同时不超过视口高度的安全上限——避免全景空一大片黑底而像素只占左上角。
+ */
+const COMPOSED_TARGET_SHRINK = 0.94
+/** 视口高度的最大占比上限：strip 高 = baseH × scale，超过此比例则按高反算 scale */
+const COMPOSED_TARGET_HEIGHT_RATIO = 0.78
 /** 裁边后逻辑格高约 58px，scale 后低于此像素则人物头部与上半身难以辨认 */
-const COMPOSED_MIN_STATION_H_PX = 72
+const COMPOSED_MIN_STATION_H_PX = 96
 /** 相邻工位格水平重叠（px），盖住 contain 左右留白与亚像素竖缝，横条视觉上连成一体 */
 const COMPOSED_CELL_OVERLAP_PX = 3
+/** 与 `.stitch-composed` 的 border(3+3) + padding(18+14) 一致，用于固定高度与 fit 测量 */
+const COMPOSED_ROOT_VERTICAL_CHROME = 3 + 3 + 18 + 14
 
 /** desk.png 实际像素（naturalWidth/Height）；未加载前为默认 80×58 */
 const { deskW, deskH } = useYuangongDeskIntrinsicSize()
@@ -55,8 +61,9 @@ const composedLayoutDeskH = computed(() =>
     : deskH.value
 )
 
-/** 舞台视口宽度（ResizeObserver），用于 composed 动态缩放 */
+/** 舞台视口宽高（ResizeObserver），用于 composed 动态缩放 */
 const viewportW = ref(0)
+const viewportH = ref(0)
 let viewportResizeObserver: ResizeObserver | null = null
 
 const composedBaseSize = computed(() =>
@@ -69,10 +76,16 @@ const composedStationScale = computed(() => {
   const bw = composedBaseW.value
   const bh = composedBaseH.value
   const w = viewportW.value
+  const h = viewportH.value
   if (w < 64 || bw < 1 || bh < 1) return COMPOSED_SCALE_FALLBACK
-  const usable = Math.max(0, w - COMPOSED_FIT_PAD * 2)
-  const rawFit = (usable - COMPOSED_OUTER_WIDTH_EXTRA) / (4 * bw)
-  let raw = rawFit * COMPOSED_TARGET_SHRINK
+  const usableW = Math.max(0, w - COMPOSED_FIT_PAD * 2)
+  const widthFit = (usableW - COMPOSED_OUTER_WIDTH_EXTRA) / (4 * bw)
+  let raw = widthFit * COMPOSED_TARGET_SHRINK
+  if (h > 64) {
+    const usableH = Math.max(0, h - COMPOSED_FIT_PAD * 2 - COMPOSED_ROOT_VERTICAL_CHROME)
+    const heightFit = (usableH * COMPOSED_TARGET_HEIGHT_RATIO) / bh
+    if (heightFit > 0) raw = Math.min(raw, heightFit)
+  }
   if (!Number.isFinite(raw) || raw <= 0) raw = COMPOSED_SCALE_FALLBACK
   raw = Math.min(COMPOSED_SCALE_MAX, Math.max(COMPOSED_SCALE_MIN, Number(raw.toFixed(3))))
   const minScaleForHead = COMPOSED_MIN_STATION_H_PX / bh
@@ -97,8 +110,6 @@ const composedLabelFontPx = computed(() => {
   return Math.max(8, Math.min(16, Math.round(w * 0.038)))
 })
 const composedTrackH = computed(() => composedStationH.value + composedLabelBandH.value)
-/** 与 `.stitch-composed` 的 border(3+3) + padding(18+14) 一致，用于固定高度与 fit 测量 */
-const COMPOSED_ROOT_VERTICAL_CHROME = 3 + 3 + 18 + 14
 const composedOuterHeightPx = computed(() => composedTrackH.value + COMPOSED_ROOT_VERTICAL_CHROME)
 
 const props = withDefaults(
@@ -295,11 +306,21 @@ function computeFitZoom(): void {
     ch = im.naturalHeight
   }
 
-  const z = Math.min(1, vw / cw, vh / ch)
-  const next = Math.max(minZoom, Math.min(1, Number(z.toFixed(4)) || minZoom))
+  /**
+   * composed: 允许填满视口的 fit zoom（最高 maxZoom），并把条带在视口中居中——
+   * 以前夹在 ≤1 导致 strip 永远只占左上角一小块。tutorial: 仍夹在 ≤1，避免大底图被强行放大失真。
+   */
+  const upperBound = props.mode === 'composed' ? maxZoom : 1
+  const z = Math.min(upperBound, vw / cw, vh / ch)
+  const next = Math.max(minZoom, Math.min(maxZoom, Number(z.toFixed(4)) || minZoom))
   zoom.value = next
-  panX.value = 0
-  panY.value = 0
+
+  const totalVw = vp.clientWidth
+  const totalVh = vp.clientHeight
+  const sw = cw * next
+  const sh = ch * next
+  panX.value = sw < totalVw ? Math.max(0, (totalVw - sw) / 2) : 0
+  panY.value = sh < totalVh ? Math.max(0, (totalVh - sh) / 2) : 0
   void nextTick(() => clampPan())
 }
 
@@ -344,19 +365,22 @@ function onImgLoad() {
   })
 }
 
-function updateViewportWidth(): void {
+function updateViewportSize(): void {
   const el = viewportRef.value
-  if (el) viewportW.value = el.clientWidth
+  if (el) {
+    viewportW.value = el.clientWidth
+    viewportH.value = el.clientHeight
+  }
 }
 
 /** 缓存图已就绪时（含磁盘缓存）补一次适配；composed 在布局后量宽 */
 onMounted(() => {
   void nextTick(() => {
-    updateViewportWidth()
+    updateViewportSize()
     const el = viewportRef.value
     if (el && typeof ResizeObserver !== 'undefined') {
       viewportResizeObserver = new ResizeObserver(() => {
-        updateViewportWidth()
+        updateViewportSize()
         void nextTick(() => scheduleFit())
       })
       viewportResizeObserver.observe(el)

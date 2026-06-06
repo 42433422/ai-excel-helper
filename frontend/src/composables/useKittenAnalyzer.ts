@@ -1,15 +1,17 @@
 import { ref, computed, nextTick, onMounted, watch, type Ref } from 'vue'
 import { buildFullApiUrl } from '@/api/core'
-import { KITTEN_PHASE } from '@/composables/useKittenWorkflowState'
+import { KITTEN_PHASE, type KittenPhase } from '@/composables/useKittenWorkflowState'
 import { downloadBlob, getFilenameFromDisposition } from '@/utils'
 import { safeJsonRequest } from '@/utils/safeJsonRequest'
 import { appAlert } from '@/utils/appDialog'
 import { chatApi, parseChatStreamErrorResponse } from '@/api/chat'
+import { resolvePlannerChatPath } from '@/utils/plannerChatPaths'
 import {
   readPlannerSseResponse,
   isChatStreamEnabled,
   type PlannerSseEvent,
 } from '@/utils/chatSseStream'
+import type { KittenFieldProfile } from '@/utils/kittenDatasetParser'
 
 const MAX_CHAT_MESSAGES = 120
 const KITTEN_SNAPSHOT_CACHE_MS = 90_000
@@ -67,6 +69,24 @@ export interface KittenAnalysisResult {
   chart: boolean
   type: string
   kind: string
+}
+
+export type KittenChartType = 'bar' | 'line' | 'pie' | 'scatter' | 'area'
+export type KittenChartAggregate = 'count' | 'sum' | 'avg' | 'max' | 'min'
+
+export interface KittenChartConfig {
+  type: KittenChartType
+  xField: string
+  yField: string
+  groupField: string
+  aggregate: KittenChartAggregate
+}
+
+export interface KittenChartRecommendation {
+  id: string
+  label: string
+  description: string
+  config: KittenChartConfig
 }
 
 function makeKittenUserId(): string {
@@ -244,6 +264,68 @@ function formatExportTimestamp(date = new Date()): string {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
 }
 
+const emptyChartConfig = (): KittenChartConfig => ({
+  type: 'bar',
+  xField: '',
+  yField: '',
+  groupField: '',
+  aggregate: 'count'
+})
+
+function buildRecommendedCharts(fields: KittenFieldProfile[]): KittenChartRecommendation[] {
+  const numericFields = fields.filter((f) => f.type === 'number')
+  const categoryFields = fields.filter((f) => f.type === 'category')
+  const dateFields = fields.filter((f) => f.type === 'date')
+  const textFields = fields.filter((f) => f.type === 'text')
+  const dimension = categoryFields[0] || textFields[0]
+  const metric = numericFields[0]
+  const secondMetric = numericFields[1]
+  const recommendations: KittenChartRecommendation[] = []
+
+  if (dimension) {
+    recommendations.push({
+      id: `category-count-${dimension.name}`,
+      label: `${dimension.name} 分布`,
+      description: '按分类字段统计记录数',
+      config: { type: 'bar', xField: dimension.name, yField: '', groupField: '', aggregate: 'count' }
+    })
+  }
+  if (dimension && metric) {
+    recommendations.push({
+      id: `category-sum-${dimension.name}-${metric.name}`,
+      label: `${metric.name} 分类汇总`,
+      description: '按分类字段汇总核心数值',
+      config: { type: 'bar', xField: dimension.name, yField: metric.name, groupField: '', aggregate: 'sum' }
+    })
+  }
+  if (dateFields[0] && metric) {
+    recommendations.push({
+      id: `date-line-${dateFields[0].name}-${metric.name}`,
+      label: `${metric.name} 时间趋势`,
+      description: '按日期字段观察数值变化',
+      config: { type: 'line', xField: dateFields[0].name, yField: metric.name, groupField: '', aggregate: 'sum' }
+    })
+  }
+  if (dimension) {
+    recommendations.push({
+      id: `pie-${dimension.name}`,
+      label: `${dimension.name} 占比`,
+      description: '用饼图查看分类占比',
+      config: { type: 'pie', xField: dimension.name, yField: metric?.name || '', groupField: '', aggregate: metric ? 'sum' : 'count' }
+    })
+  }
+  if (metric && secondMetric) {
+    recommendations.push({
+      id: `scatter-${metric.name}-${secondMetric.name}`,
+      label: `${metric.name} / ${secondMetric.name} 相关性`,
+      description: '用散点图查看两个数值字段关系',
+      config: { type: 'scatter', xField: metric.name, yField: secondMetric.name, groupField: '', aggregate: 'sum' }
+    })
+  }
+
+  return recommendations.slice(0, 5)
+}
+
 export function useKittenAnalyzer() {
   const messages = ref<KittenChatMessage[]>([
     {
@@ -258,12 +340,16 @@ export function useKittenAnalyzer() {
   /** 流式生成时隐藏底部「正在分析」占位条，改由气泡内逐字更新 */
   const isKittenStreaming = ref(false)
   const isDatasetParsing = ref(false)
-  const kittenPhase = ref(KITTEN_PHASE.idle)
+  const kittenPhase = ref<KittenPhase>(KITTEN_PHASE.idle)
   const currentResult = ref<KittenAnalysisResult | null>(null)
   const fileInput = ref<HTMLInputElement | null>(null)
   const chatMessagesRef = ref<HTMLElement | null>(null)
 
   const datasetSummary = ref<KittenDatasetSummary | null>(null)
+  const datasetRows = ref<Record<string, unknown>[]>([])
+  const fieldProfiles = ref<KittenFieldProfile[]>([])
+  const chartConfig = ref<KittenChartConfig>(emptyChartConfig())
+  const recommendedCharts = computed(() => buildRecommendedCharts(fieldProfiles.value))
   const kittenIncludeBusinessDb = ref(false)
   const kittenIncludeWebSearch = ref(true)
   const kittenDbStatsHint = ref('')
@@ -415,6 +501,9 @@ export function useKittenAnalyzer() {
     kittenPhase.value = KITTEN_PHASE.idle
     currentResult.value = null
     datasetSummary.value = null
+    datasetRows.value = []
+    fieldProfiles.value = []
+    chartConfig.value = emptyChartConfig()
     kittenIncludeBusinessDb.value = false
     kittenIncludeWebSearch.value = false
     kittenDbStatsHint.value = ''
@@ -461,6 +550,29 @@ export function useKittenAnalyzer() {
   const generateDataPreview = (data: { columns: string[]; rows: number }) =>
     `字段：${data.columns.slice(0, 5).join('、')}${data.columns.length > 5 ? '...' : ''}<br>共 ${data.rows} 条记录`
 
+  const setChartConfig = (next: Partial<KittenChartConfig>) => {
+    chartConfig.value = {
+      ...chartConfig.value,
+      ...next
+    }
+    const cfg = chartConfig.value
+    if (cfg.xField) {
+      currentResult.value = {
+        id: Date.now(),
+        title: '图表分析',
+        summary: `${cfg.type} · ${cfg.xField}${cfg.yField ? ` / ${cfg.yField}` : ''} · ${cfg.aggregate}`,
+        chart: true,
+        type: 'chart',
+        kind: 'datasetChart'
+      }
+      kittenPhase.value = KITTEN_PHASE.delivered
+    }
+  }
+
+  const applyChartRecommendation = (rec: KittenChartRecommendation) => {
+    setChartConfig(rec.config)
+  }
+
   const handleFileSelect = async (e: Event) => {
     const input = e.target as HTMLInputElement
     const file = input.files?.[0]
@@ -483,6 +595,10 @@ export function useKittenAnalyzer() {
         fieldNames,
         previewText: buildPreviewTextFromData(data)
       }
+      datasetRows.value = Array.isArray(data.sampleRows) ? data.sampleRows : []
+      fieldProfiles.value = Array.isArray(data.fieldProfiles) ? data.fieldProfiles : []
+      const firstRecommendation = buildRecommendedCharts(fieldProfiles.value)[0]
+      chartConfig.value = firstRecommendation?.config || emptyChartConfig()
 
       addMessage(
         'ai',
@@ -493,9 +609,9 @@ export function useKittenAnalyzer() {
         id: Date.now(),
         title: '数据概览',
         summary: `${fieldNames.slice(0, 12).join('、')}${fieldNames.length > 12 ? '…' : ''}`,
-        chart: false,
-        type: 'table',
-        kind: 'datasetOverview'
+        chart: Boolean(firstRecommendation),
+        type: firstRecommendation ? 'chart' : 'table',
+        kind: firstRecommendation ? 'datasetChart' : 'datasetOverview'
       }
       kittenPhase.value = KITTEN_PHASE.schemaReady
     } catch (err) {
@@ -551,6 +667,17 @@ export function useKittenAnalyzer() {
       XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(dataRows), '数据摘要')
     }
 
+    if (chartConfig.value.xField) {
+      const chartRows: (string | number)[][] = [
+        ['图表类型', chartConfig.value.type],
+        ['X 字段', chartConfig.value.xField],
+        ['Y 字段', chartConfig.value.yField || '记录数'],
+        ['分组字段', chartConfig.value.groupField || ''],
+        ['聚合方式', chartConfig.value.aggregate]
+      ]
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(chartRows), '图表配置')
+    }
+
     return workbook
   }
 
@@ -559,6 +686,7 @@ export function useKittenAnalyzer() {
       phase: kittenPhase.value,
       result: currentResult.value || {},
       dataset: datasetSummary.value || null,
+      chart: chartConfig.value.xField ? chartConfig.value : undefined,
       messages: messages.value || [],
       industry: localStorage.getItem('currentIndustry') || '通用行业',
       web_search_results: lastWebSearchHits.value.length ? lastWebSearchHits.value : undefined
@@ -592,6 +720,7 @@ export function useKittenAnalyzer() {
       phase: kittenPhase.value,
       result: currentResult.value || {},
       dataset: datasetSummary.value || null,
+      chart: chartConfig.value.xField ? chartConfig.value : undefined,
       messages: messages.value || [],
       industry: localStorage.getItem('currentIndustry') || '通用行业',
       web_search_results: lastWebSearchHits.value.length ? lastWebSearchHits.value : undefined
@@ -805,7 +934,7 @@ export function useKittenAnalyzer() {
       const jsonAbort = new AbortController()
       const jsonKill = window.setTimeout(() => jsonAbort.abort(), KITTEN_CHAT_TIMEOUT_MS)
       try {
-        const result = await safeJsonRequest<Record<string, unknown>>('/api/ai/chat', {
+        const result = await safeJsonRequest<Record<string, unknown>>(resolvePlannerChatPath(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(buildKittenChatPayload(query)),
@@ -921,6 +1050,10 @@ export function useKittenAnalyzer() {
     fileInput,
     chatMessagesRef,
     datasetSummary,
+    datasetRows,
+    fieldProfiles,
+    chartConfig,
+    recommendedCharts,
     kittenIncludeBusinessDb,
     kittenIncludeWebSearch,
     kittenDbStatsHint,
@@ -933,6 +1066,8 @@ export function useKittenAnalyzer() {
     onKittenBusinessDbToggle,
     triggerFileUpload,
     handleFileSelect,
+    setChartConfig,
+    applyChartRecommendation,
     sendMessage,
     sendQuickAction,
     exportResult,

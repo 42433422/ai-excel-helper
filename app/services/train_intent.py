@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 意图识别模型训练入口脚本
 
@@ -16,17 +15,11 @@
 """
 
 import argparse
-import json
 import logging
-import os
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 import torch
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -96,7 +89,7 @@ def train_model(
         return None
 
 
-def evaluate_model(model_path: str, data_path: Optional[str] = None):
+def evaluate_model(model_path: str, data_path: str | None = None):
     """评估模型"""
     try:
         from app.services.bert_intent_service import (
@@ -147,7 +140,9 @@ def evaluate_model(model_path: str, data_path: Optional[str] = None):
         if is_correct:
             correct += 1
         status = "✓" if is_correct else "✗"
-        logger.info(f"  {status} '{text}' -> {predicted} (期望: {expected}, 置信度: {confidence:.4f})")
+        logger.info(
+            f"  {status} '{text}' -> {predicted} (期望: {expected}, 置信度: {confidence:.4f})"
+        )
 
     accuracy = correct / total * 100
     logger.info("=" * 60)
@@ -155,7 +150,7 @@ def evaluate_model(model_path: str, data_path: Optional[str] = None):
     logger.info("=" * 60)
 
 
-def test_model(model_path: str, texts: List[str]):
+def test_model(model_path: str, texts: list[str]):
     """测试模型"""
     try:
         from app.services.bert_intent_service import BertIntentClassifier
@@ -218,7 +213,9 @@ def main():
         help="运行模式",
     )
     parser.add_argument("--data", type=str, help="训练数据路径")
-    parser.add_argument("--model", type=str, default="models/intent_bert/final", help="模型路径或名称")
+    parser.add_argument(
+        "--model", type=str, default="models/intent_bert/final", help="模型路径或名称"
+    )
     parser.add_argument("--output", type=str, default="models/intent_bert", help="输出目录")
     parser.add_argument("--epochs", type=int, default=10, help="训练轮数")
     parser.add_argument("--batch_size", type=int, default=16, help="批次大小")

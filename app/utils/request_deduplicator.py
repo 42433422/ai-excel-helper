@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 请求去重器
 
@@ -19,10 +18,11 @@ import logging
 import os
 import time
 from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
 from threading import Lock
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,9 @@ DEDUP_MAX_KEYS = int(os.environ.get("XCAGI_DEDUP_MAX_KEYS", "10000"))
 @dataclass
 class DedupRecord:
     """去重记录"""
+
     key: str
-    result: Optional[Any] = None
+    result: Any | None = None
     timestamp: float = field(default_factory=time.time)
     is_processing: bool = False
     waiters: list = field(default_factory=list)
@@ -50,11 +51,7 @@ class RequestDeduplicator:
     3. 时间窗口：在指定时间内的重复请求
     """
 
-    def __init__(
-        self,
-        window_seconds: int = DEDUP_WINDOW_SECONDS,
-        max_keys: int = DEDUP_MAX_KEYS
-    ):
+    def __init__(self, window_seconds: int = DEDUP_WINDOW_SECONDS, max_keys: int = DEDUP_MAX_KEYS):
         self._window_seconds = window_seconds
         self._max_keys = max_keys
         self._records: OrderedDict[str, DedupRecord] = OrderedDict()
@@ -70,13 +67,13 @@ class RequestDeduplicator:
         """生成去重键"""
         parts = []
         for arg in args:
-            if hasattr(arg, '__dict__'):
+            if hasattr(arg, "__dict__"):
                 parts.append(str(sorted(arg.__dict__.items())))
             else:
                 parts.append(str(arg))
         parts.extend(f"{k}={v}" for k, v in sorted(kwargs.items()))
         key_str = "|".join(parts)
-        return hashlib.sha256(key_str.encode('utf-8')).hexdigest()[:32]
+        return hashlib.sha256(key_str.encode("utf-8")).hexdigest()[:32]
 
     def _cleanup_expired(self) -> int:
         """清理过期记录"""
@@ -89,13 +86,8 @@ class RequestDeduplicator:
         return len(expired)
 
     def deduplicate(
-        self,
-        func: Callable,
-        *args,
-        use_cache: bool = True,
-        cache_result: bool = True,
-        **kwargs
-    ) -> Tuple[bool, Any]:
+        self, func: Callable, *args, use_cache: bool = True, cache_result: bool = True, **kwargs
+    ) -> tuple[bool, Any]:
         """
         执行去重检查并调用函数
 
@@ -145,12 +137,8 @@ class RequestDeduplicator:
             raise e
 
     def check_and_wait(
-        self,
-        func: Callable,
-        *args,
-        timeout: float = 30.0,
-        **kwargs
-    ) -> Tuple[bool, Any]:
+        self, func: Callable, *args, timeout: float = 30.0, **kwargs
+    ) -> tuple[bool, Any]:
         """
         检查重复，如果正在处理则等待结果
 
@@ -209,7 +197,7 @@ class RequestDeduplicator:
             return count
 
     @property
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """获取统计信息"""
         total = self._stats.get("total_requests", 1)
         if total == 0:
@@ -230,7 +218,7 @@ class RequestDeduplicator:
             self._stats[k] = 0
 
 
-_deduplicator_instance: Optional[RequestDeduplicator] = None
+_deduplicator_instance: RequestDeduplicator | None = None
 
 
 def get_request_deduplicator() -> RequestDeduplicator:
@@ -252,17 +240,20 @@ def deduplicate_request(window_seconds: int = DEDUP_WINDOW_SECONDS):
 
         # 相同参数在 30 秒内只会执行一次
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
             deduplicator = get_request_deduplicator()
             is_dup, result = deduplicator.deduplicate(func, *args, **kwargs)
             return result
+
         return wrapper
+
     return decorator
 
 
-def idempotent_operation(idempotency_key_func: Optional[Callable] = None, ttl: int = 86400):
+def idempotent_operation(idempotency_key_func: Callable | None = None, ttl: int = 86400):
     """
     幂等性操作装饰器
 
@@ -273,6 +264,7 @@ def idempotent_operation(idempotency_key_func: Optional[Callable] = None, ttl: i
         def process_payment(order_no, amount):
             ...
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -284,15 +276,14 @@ def idempotent_operation(idempotency_key_func: Optional[Callable] = None, ttl: i
                 key = f"idempotent:{func.__name__}:{str(args)}:{str(kwargs)}"
 
             is_dup, result = deduplicator.deduplicate(
-                func, *args,
-                use_cache=True,
-                cache_result=True,
-                **kwargs
+                func, *args, use_cache=True, cache_result=True, **kwargs
             )
 
             if is_dup:
                 logger.info(f"幂等操作跳过: {key}")
 
             return result
+
         return wrapper
+
     return decorator

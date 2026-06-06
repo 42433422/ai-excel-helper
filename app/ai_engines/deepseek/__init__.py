@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 DeepSeek 意图识别服务
 

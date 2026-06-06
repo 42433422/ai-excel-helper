@@ -1,15 +1,21 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.utils.time import utc_now_naive
 
 role_permissions = Table(
-    'role_permissions',
+    "role_permissions",
     Base.metadata,
-    Column('role_id', Integer, ForeignKey('roles.id', ondelete='CASCADE'), primary_key=True),
-    Column('permission_id', Integer, ForeignKey('permissions.id', ondelete='CASCADE'), primary_key=True)
+    Column("role_id", Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "permission_id", Integer, ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True
+    ),
 )
 
 
@@ -17,18 +23,17 @@ class Role(Base):
     __tablename__ = "roles"
     __table_args__ = {"sqlite_autoincrement": True}
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, unique=True, nullable=False)
-    description = Column(String, default="")
-    is_system = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    description: Mapped[str] = mapped_column(String, default="")
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=utc_now_naive)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, default=utc_now_naive, onupdate=utc_now_naive
+    )
 
-    permissions = relationship(
-        "Permission",
-        secondary=role_permissions,
-        back_populates="roles",
-        lazy="joined"
+    permissions: Mapped[list[Permission]] = relationship(
+        "Permission", secondary=role_permissions, back_populates="roles", lazy="joined"
     )
 
 
@@ -36,18 +41,15 @@ class Permission(Base):
     __tablename__ = "permissions"
     __table_args__ = {"sqlite_autoincrement": True}
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
-    code = Column(String, unique=True, nullable=False)
-    description = Column(String, default="")
-    module = Column(String, default="")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    code: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    description: Mapped[str] = mapped_column(String, default="")
+    module: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime, default=utc_now_naive)
 
-    roles = relationship(
-        "Role",
-        secondary=role_permissions,
-        back_populates="permissions",
-        lazy="joined"
+    roles: Mapped[list[Role]] = relationship(
+        "Role", secondary=role_permissions, back_populates="permissions", lazy="joined"
     )
 
 
@@ -71,31 +73,41 @@ DEFAULT_ROLES = [
     {
         "name": "viewer",
         "description": "只读用户",
-        "permissions": [
-            "customer.view", "product.view", "shipment.view", "material.view"
-        ]
+        "permissions": ["customer.view", "product.view", "shipment.view", "material.view"],
     },
     {
         "name": "operator",
         "description": "操作员",
         "permissions": [
-            "customer.view", "customer.edit",
-            "product.view", "product.edit",
-            "shipment.view", "shipment.create", "shipment.edit",
-            "material.view", "material.edit",
-            "print.label"
-        ]
+            "customer.view",
+            "customer.edit",
+            "product.view",
+            "product.edit",
+            "shipment.view",
+            "shipment.create",
+            "shipment.edit",
+            "material.view",
+            "material.edit",
+            "print.label",
+        ],
     },
     {
         "name": "admin",
         "description": "管理员",
         "permissions": [
-            "customer.view", "customer.edit",
-            "product.view", "product.edit",
-            "shipment.view", "shipment.create", "shipment.edit", "shipment.approve",
-            "material.view", "material.edit",
+            "customer.view",
+            "customer.edit",
+            "product.view",
+            "product.edit",
+            "shipment.view",
+            "shipment.create",
+            "shipment.edit",
+            "shipment.approve",
+            "material.view",
+            "material.edit",
             "print.label",
-            "admin.manage_users", "admin.system_config"
-        ]
+            "admin.manage_users",
+            "admin.system_config",
+        ],
     },
 ]

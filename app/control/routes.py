@@ -9,7 +9,11 @@ import logging
 from fastapi import APIRouter, Body, Query
 from pydantic import BaseModel, Field
 
-from app.control.input_command_store import ack_control_input, enqueue_control_input, peek_latest_control_input
+from app.control.input_command_store import (
+    ack_control_input,
+    enqueue_control_input,
+    peek_latest_control_input,
+)
 
 logger = logging.getLogger(__name__)
 

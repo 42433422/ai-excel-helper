@@ -1,0 +1,38 @@
+{
+  "id": "xcagi-workflow-employee-real-phone",
+  "name": "真实电话业务员",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "ADB 设备连通 → 来电检测/接听 → 语音转写与回复（与状态轮询同步）。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=8.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes.js"
+  },
+  "hooks": {},
+  "comms": {
+    "exports": []
+  },
+  "config": {
+    "workflow_employee_single": true,
+    "employee_id": "real_phone",
+    "store_collection": "workflow_employee"
+  },
+  "workflow_employees": [
+    {
+      "id": "real_phone",
+      "label": "真实电话业务员",
+      "panel_title": "工作流 · 真实电话业务员",
+      "panel_summary": "ADB 设备连通 → 来电检测/接听 → 语音转写与回复（与状态轮询同步）。",
+      "api_base_path": "employees/real_phone",
+      "workflow_placeholder": true,
+      "phone_channel": "adb"
+    }
+  ]
+}

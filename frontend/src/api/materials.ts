@@ -1,4 +1,4 @@
-import { api } from './index';
+import { api } from './core';
 import type { ApiResponse } from '@/types/api';
 import type { Material, MaterialCreateDTO, MaterialUpdateDTO } from '@/types/material';
 

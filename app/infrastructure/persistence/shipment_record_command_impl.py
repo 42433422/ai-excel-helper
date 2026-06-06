@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
 
@@ -10,11 +11,13 @@ from app.db.models import ShipmentRecord
 from app.db.session import get_db
 from app.infrastructure.lookups import resolve_purchase_unit
 
+logger = logging.getLogger(__name__)
+
 
 class SQLAlchemyShipmentRecordCommand(ShipmentRecordCommandPort):
     """shipment_records 的写操作实现（Command side）。"""
 
-    def clear_all(self) -> Dict[str, Any]:
+    def clear_all(self) -> dict[str, Any]:
         try:
             with get_db() as db:
                 inspector = sa_inspect(db.bind)
@@ -32,7 +35,7 @@ class SQLAlchemyShipmentRecordCommand(ShipmentRecordCommandPort):
         except Exception as e:
             return {"success": False, "message": f"清空失败：{str(e)}"}
 
-    def clear_by_unit(self, purchase_unit: str) -> Dict[str, Any]:
+    def clear_by_unit(self, purchase_unit: str) -> dict[str, Any]:
         try:
             if not purchase_unit:
                 return {"success": False, "message": "purchase_unit 不能为空"}
@@ -43,7 +46,7 @@ class SQLAlchemyShipmentRecordCommand(ShipmentRecordCommandPort):
                 if resolved:
                     purchase_unit = resolved.unit_name
             except Exception:
-                pass
+                logger.debug("suppressed exception", exc_info=True)
 
             with get_db() as db:
                 inspector = sa_inspect(db.bind)
@@ -58,9 +61,9 @@ class SQLAlchemyShipmentRecordCommand(ShipmentRecordCommandPort):
 
                 if count == 0:
                     # fuzzy fallback：历史数据 purchase_unit 写法不一致时，归一到 customers 规范名再删
-                    memo: dict[str, Optional[str]] = {}
+                    memo: dict[str, str | None] = {}
 
-                    def norm(val: str) -> Optional[str]:
+                    def norm(val: str) -> str | None:
                         if val in memo:
                             return memo[val]
                         try:
@@ -106,10 +109,10 @@ class SQLAlchemyShipmentRecordCommand(ShipmentRecordCommandPort):
         self,
         record_id: int,
         *,
-        unit_name: Optional[str] = None,
-        date: Optional[str] = None,
-        fields: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        unit_name: str | None = None,
+        date: str | None = None,
+        fields: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         try:
             with get_db() as db:
                 inspector = sa_inspect(db.bind)
@@ -136,7 +139,7 @@ class SQLAlchemyShipmentRecordCommand(ShipmentRecordCommandPort):
         except Exception as e:
             return {"success": False, "message": f"更新失败：{str(e)}"}
 
-    def delete_record(self, record_id: int) -> Dict[str, Any]:
+    def delete_record(self, record_id: int) -> dict[str, Any]:
         try:
             with get_db() as db:
                 inspector = sa_inspect(db.bind)
@@ -153,4 +156,3 @@ class SQLAlchemyShipmentRecordCommand(ShipmentRecordCommandPort):
             return {"success": True, "message": "出货记录已删除"}
         except Exception as e:
             return {"success": False, "message": f"删除失败：{str(e)}"}
-

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 class WechatContactStorePort(ABC):
@@ -11,16 +11,16 @@ class WechatContactStorePort(ABC):
     def list_contacts(
         self,
         *,
-        keyword: Optional[str] = None,
-        contact_type: Optional[str] = None,
+        keyword: str | None = None,
+        contact_type: str | None = None,
         starred_only: bool = False,
         limit: int = 100,
         default_starred_when_all: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_contact(self, contact_id: int) -> Optional[Dict[str, Any]]:
+    def get_contact(self, contact_id: int) -> dict[str, Any] | None:
         raise NotImplementedError
 
     @abstractmethod
@@ -32,26 +32,25 @@ class WechatContactStorePort(ABC):
         wechat_id: str = "",
         contact_type: str = "contact",
         is_starred: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def update_contact(self, contact_id: int, fields: Dict[str, Any]) -> Dict[str, Any]:
+    def update_contact(self, contact_id: int, fields: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def delete_contact(self, contact_id: int) -> Dict[str, Any]:
+    def delete_contact(self, contact_id: int) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def unstar_all(self) -> Dict[str, Any]:
+    def unstar_all(self) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_context(self, contact_id: int) -> List[Dict[str, Any]]:
+    def get_context(self, contact_id: int) -> list[dict[str, Any]]:
         raise NotImplementedError
 
     @abstractmethod
-    def save_context(self, contact_id: int, wechat_id: str, messages: List[Dict[str, Any]]) -> bool:
+    def save_context(self, contact_id: int, wechat_id: str, messages: list[dict[str, Any]]) -> bool:
         raise NotImplementedError
-

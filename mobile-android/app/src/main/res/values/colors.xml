@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="xiuci_launcher_bg">#FFFFFF</color>
+    <color name="xiuci_primary">#1A5FB4</color>
+    <color name="xiuci_secondary">#3584E4</color>
+    <color name="xiuci_surface">#F6F8FC</color>
+    <color name="xiuci_bg_dark">#0A0A0F</color>
+    <color name="xiuci_bg_white">#FFFFFF</color>
+</resources>

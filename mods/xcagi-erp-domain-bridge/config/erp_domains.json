@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "domains": [
+    {
+      "id": "products",
+      "host_prefix": "/api/products",
+      "facade_prefix": "/api/mod/xcagi-erp-domain-bridge/products",
+      "handler": "mod.domain_handlers"
+    },
+    {
+      "id": "customers",
+      "host_prefix": "/api/customers",
+      "facade_prefix": "/api/mod/xcagi-erp-domain-bridge/customers",
+      "handler": "mod.domain_handlers"
+    },
+    {
+      "id": "shipment",
+      "host_prefix": "/api/shipment",
+      "facade_prefix": "/api/mod/xcagi-erp-domain-bridge/shipment",
+      "handler": "mod.domain_handlers"
+    },
+    {
+      "id": "wechat",
+      "host_prefix": "/api/wechat",
+      "facade_prefix": "/api/mod/xcagi-erp-domain-bridge/wechat",
+      "handler": "mod.domain_handlers"
+    }
+  ],
+  "delegate": "mod_domain_handlers",
+  "mod_domain_handlers": ["products", "shipment", "customers", "wechat"],
+  "products_via_service": true,
+  "note": "里程碑 G+：产品 CRUD 经 ProductsService；DB/Repository 仍在宿主。"
+}

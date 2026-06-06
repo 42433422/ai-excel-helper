@@ -1,0 +1,64 @@
+name: Performance Smoke Test
+
+on:
+  pull_request:
+    branches: [main, develop, master]
+  workflow_dispatch:
+
+concurrency:
+  group: perf-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up k6
+        run: |
+          curl -sL https://github.com/grafana/k6/releases/download/v0.54.0/k6-v0.54.0-linux-amd64.tar.gz | tar xz
+          sudo mv k6-*/k6 /usr/local/bin/
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies and start API
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r deploy/requirements-server-api.txt
+          export XCAGI_DEBUG=1
+          export XCAGI_SKIP_LEGACY_COMPAT_ROUTES=1
+          export SECRET_KEY=test-secret-key-for-perf-smoke-at-least-32-chars
+          export DATABASE_URL=sqlite:///./perf_smoke.db
+          python run.py &
+          echo $! > /tmp/xcagi.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:5000/api/health >/dev/null 2>&1; then
+              echo "API ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::API did not become ready on :5000"
+          exit 1
+
+      - name: Run k6 smoke test
+        env:
+          BASE_URL: http://127.0.0.1:5000
+        run: k6 run scripts/loadtest/smoke.js
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results
+          path: results.json
+          if-no-files-found: ignore
+
+      - name: Teardown
+        if: always()
+        run: |
+          if [ -f /tmp/xcagi.pid ]; then kill "$(cat /tmp/xcagi.pid)" 2>/dev/null || true; fi

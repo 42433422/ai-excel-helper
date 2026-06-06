@@ -1,0 +1,52 @@
+{
+  "id": "xcagi-planner-bridge",
+  "name": "XCAGI 对话 Planner 门面 Mod",
+  "version": "1.4.0",
+  "author": "成都修茈科技有限公司",
+  "description": "Planner 对话/工具 API 门面（3d/B）+ 主对话与智能生态/智脑业务页（K/O+/P 物理视图）。",
+  "primary": true,
+  "dependencies": { "xcagi": ">=8.0.0" },
+  "backend": { "entry": "blueprints", "init": "mod_init" },
+  "frontend": {
+    "routes": "frontend/routes",
+    "menu": [
+      {
+        "id": "mod-planner-chat",
+        "label": "智能对话",
+        "icon": "fa-comments",
+        "path": "/mod/xcagi-planner-bridge/chat"
+      },
+      {
+        "id": "mod-planner-ai-ecosystem",
+        "label": "智能生态",
+        "icon": "fa-sitemap",
+        "path": "/mod/xcagi-planner-bridge/ai-ecosystem"
+      },
+      {
+        "id": "mod-planner-brain",
+        "label": "智脑集成",
+        "icon": "fa-brain",
+        "path": "/mod/xcagi-planner-bridge/brain"
+      }
+    ],
+    "menu_overrides": [
+      { "key": "chat", "hidden": true },
+      { "key": "ai-ecosystem", "hidden": true },
+      { "key": "brain", "hidden": true }
+    ]
+  },
+  "hooks": {},
+  "comms": { "exports": [] },
+  "config": {
+    "planner_facade": true,
+    "planner_pages_via_mod": true,
+    "planner_chat_via_mod": true,
+    "views_physical": true,
+    "physical_views": ["ChatView.vue", "AIEcosystemView.vue", "BrainView.vue", "ChatDebugView.vue"],
+    "planner_tools_execution": true,
+    "planner_tools": { "execution_via_mod_facade": true },
+    "legacy_host_paths": ["/api/ai/chat", "/api/ai/chat/stream", "/api/ai/chat/batch"],
+    "legacy_host_page_paths": ["/", "/ai-ecosystem", "/brain", "/chat-debug"],
+    "phase": "P"
+  }
+}

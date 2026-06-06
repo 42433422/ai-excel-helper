@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 """出货域（ShipmentNeuroDomain）：与 ``shipment_domain_handlers`` 事件名对齐的域级订阅与指标。"""
 
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from app.neuro_bus.domains.base import DomainChannel, NeuroDomain, get_domain_registry
 from app.neuro_bus.neuro_trace_config import bump_domain_handler_metric
@@ -32,12 +30,16 @@ class ShipmentNeuroDomain(NeuroDomain):
                 priority=handler_def.priority,
             )
         self._registered = True
-        logger.info("Domain [%s] registered (flat) with %d handlers", self.domain_name, len(self._handlers))
+        logger.info(
+            "Domain [%s] registered (flat) with %d handlers", self.domain_name, len(self._handlers)
+        )
 
     def _setup_handlers(self):
         @self.on("shipment.created", priority=2, channel=DomainChannel.STANDARD)
         async def on_shipment_created(event):
-            logger.debug("[ShipmentNeuroDomain] shipment.created %s", event.payload.get("shipment_id"))
+            logger.debug(
+                "[ShipmentNeuroDomain] shipment.created %s", event.payload.get("shipment_id")
+            )
             bump_domain_handler_metric("shipment.created")
 
         @self.on("shipment.item_added", priority=2, channel=DomainChannel.STANDARD)
@@ -71,7 +73,7 @@ class ShipmentNeuroDomain(NeuroDomain):
         logger.debug("ShipmentNeuroDomain shutdown")
 
 
-_shipment_domain: Optional[ShipmentNeuroDomain] = None
+_shipment_domain: ShipmentNeuroDomain | None = None
 
 
 def get_shipment_domain() -> ShipmentNeuroDomain:

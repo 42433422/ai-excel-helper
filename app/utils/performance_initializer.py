@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 性能优化统一初始化器
 
@@ -12,7 +11,7 @@
 import logging
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +38,12 @@ class PerformanceOptimizer:
         self._performance_monitor = None
         self._start_time = time.time()
 
-    def initialize(self, app=None) -> Dict[str, bool]:
+    def initialize(self, app=None) -> dict[str, bool]:
         """
         初始化所有优化组件
 
         Args:
-            app: 应用实例（可选；保留以兼容历史调用，不再注册任何 Flask 钩子）
+            app: 应用实例（可选；保留以兼容历史调用，不再注册任何 WSGI 钩子）
 
         Returns:
             各组件初始化状态
@@ -68,10 +67,13 @@ class PerformanceOptimizer:
                 self._redis_cache = init_redis_cache_from_app(app)
             else:
                 from app.utils.redis_cache import get_redis_cache
+
                 self._redis_cache = get_redis_cache()
 
             status["redis_cache"] = self._redis_cache is not None and self._redis_cache.is_available
-            logger.info(f"✅ Redis 缓存: {'已连接' if status['redis_cache'] else '不可用 (使用本地缓存)'}")
+            logger.info(
+                f"✅ Redis 缓存: {'已连接' if status['redis_cache'] else '不可用 (使用本地缓存)'}"
+            )
         except Exception as e:
             status["redis_cache"] = False
             logger.warning(f"⚠️  Redis 缓存初始化失败: {e}")
@@ -79,6 +81,7 @@ class PerformanceOptimizer:
         # 2. 查询优化器
         try:
             from app.utils.query_optimizer import get_query_optimizer
+
             self._query_optimizer = get_query_optimizer()
             status["query_optimizer"] = True
             logger.info("✅ 查询优化器: 已启用")
@@ -89,6 +92,7 @@ class PerformanceOptimizer:
         # 3. 异步任务管理
         try:
             from app.utils.async_tasks import get_async_task_manager
+
             self._async_task_manager = get_async_task_manager()
             status["async_tasks"] = True
             logger.info("✅ 异步任务管理: 已启用")
@@ -99,6 +103,7 @@ class PerformanceOptimizer:
         # 4. 请求去重
         try:
             from app.utils.request_deduplicator import get_request_deduplicator
+
             self._request_deduplicator = get_request_deduplicator()
             status["request_dedup"] = True
             logger.info("✅ 请求去重: 已启用")
@@ -109,6 +114,7 @@ class PerformanceOptimizer:
         # 5. 性能监控
         try:
             from app.utils.performance_monitor import get_performance_monitor
+
             self._performance_monitor = get_performance_monitor()
             status["performance_monitor"] = True
             logger.info("✅ 性能监控: 已启用")
@@ -119,6 +125,7 @@ class PerformanceOptimizer:
         # 6. 限流器
         try:
             from app.utils.rate_limiter import get_rate_limiter
+
             _test_limiter = get_rate_limiter("health_check", max_requests=1000, window_seconds=60)
             status["rate_limiter"] = True
             logger.info("✅ 限流器: 已启用")
@@ -129,7 +136,10 @@ class PerformanceOptimizer:
         # 7. 熔断器预加载
         try:
             from app.utils.rate_limiter import get_circuit_breaker
-            _test_breaker = get_circuit_breaker("health_check", failure_threshold=10, recovery_timeout=30)
+
+            _test_breaker = get_circuit_breaker(
+                "health_check", failure_threshold=10, recovery_timeout=30
+            )
             status["circuit_breaker"] = True
             logger.info("✅ 熔断器: 已启用")
         except Exception as e:
@@ -150,7 +160,7 @@ class PerformanceOptimizer:
 
         return status
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """获取所有组件状态"""
         status = {
             "initialized": self._initialized,
@@ -174,11 +184,13 @@ class PerformanceOptimizer:
             status["components"]["request_dedup"] = self._request_deduplicator.stats
 
         if self._performance_monitor:
-            status["components"]["performance_monitor"] = self._performance_monitor.get_metrics_summary(minutes=5)
+            status["components"]["performance_monitor"] = (
+                self._performance_monitor.get_metrics_summary(minutes=5)
+            )
 
         return status
 
-    def get_health_check(self) -> Dict[str, Any]:
+    def get_health_check(self) -> dict[str, Any]:
         """健康检查"""
         health = {
             "status": "healthy",
@@ -198,6 +210,7 @@ class PerformanceOptimizer:
         # 内存检查
         try:
             import psutil
+
             process = psutil.Process(os.getpid())
             mem_mb = process.memory_info().rss / (1024 * 1024)
             mem_percent = process.memory_percent()
@@ -254,7 +267,7 @@ class PerformanceOptimizer:
         return self._performance_monitor
 
 
-_optimizer_instance: Optional[PerformanceOptimizer] = None
+_optimizer_instance: PerformanceOptimizer | None = None
 
 
 def get_performance_optimizer() -> PerformanceOptimizer:

@@ -5,18 +5,17 @@ OCR 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class OCRTaskSubmittedEvent(NeuroEvent):
     """OCR 任务提交事件"""
-    
+
     event_type: str = "ocr.task_submitted"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["task_id", "image_url", "ocr_type"]
@@ -28,10 +27,10 @@ class OCRTaskSubmittedEvent(NeuroEvent):
 @dataclass
 class OCRTaskStartedEvent(NeuroEvent):
     """OCR 任务开始处理事件"""
-    
+
     event_type: str = "ocr.task_started"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "task_id" not in self.payload:
@@ -41,10 +40,10 @@ class OCRTaskStartedEvent(NeuroEvent):
 @dataclass
 class OCRTaskCompletedEvent(NeuroEvent):
     """OCR 任务完成事件"""
-    
+
     event_type: str = "ocr.task_completed"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["task_id", "result", "confidence"]
@@ -56,10 +55,10 @@ class OCRTaskCompletedEvent(NeuroEvent):
 @dataclass
 class OCRTaskFailedEvent(NeuroEvent):
     """OCR 任务失败事件"""
-    
+
     event_type: str = "ocr.task_failed"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["task_id", "error_code", "error_message"]
@@ -71,10 +70,10 @@ class OCRTaskFailedEvent(NeuroEvent):
 @dataclass
 class OCRResultValidatedEvent(NeuroEvent):
     """OCR 结果人工验证事件"""
-    
+
     event_type: str = "ocr.result_validated"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["task_id", "validated_by", "is_correct", "corrections"]
@@ -86,10 +85,10 @@ class OCRResultValidatedEvent(NeuroEvent):
 @dataclass
 class OCRBatchProcessingCompletedEvent(NeuroEvent):
     """OCR 批量处理完成事件"""
-    
+
     event_type: str = "ocr.batch_completed"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["batch_id", "total_count", "success_count", "failed_count"]

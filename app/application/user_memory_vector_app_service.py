@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.application.excel_vector_app_service import HashEmbedder
 from app.application.ports.vector_store import VectorStorePort
@@ -13,7 +14,7 @@ from app.infrastructure.persistence.user_memory_vector_store import get_user_mem
 class UserMemoryVectorChunk:
     chunk_id: str
     content: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class UserMemoryVectorIngestApplicationService:
@@ -21,8 +22,8 @@ class UserMemoryVectorIngestApplicationService:
 
     def __init__(
         self,
-        vector_store: Optional[VectorStorePort] = None,
-        embedder: Optional[HashEmbedder] = None,
+        vector_store: VectorStorePort | None = None,
+        embedder: HashEmbedder | None = None,
     ) -> None:
         self._vector_store = vector_store or get_user_memory_vector_store()
         self._embedder = embedder or HashEmbedder()
@@ -30,13 +31,13 @@ class UserMemoryVectorIngestApplicationService:
     def _ensure_user_index(self, user_id: str) -> None:
         if hasattr(self._vector_store, "create_or_update_index"):
             # index_id 直接映射为 user_id，便于 RAG 查询只传 user_id。
-            getattr(self._vector_store, "create_or_update_index")(index_id=user_id, user_id=user_id)
+            self._vector_store.create_or_update_index(index_id=user_id, user_id=user_id)
 
     def ingest_chunks(
         self,
         user_id: str,
-        chunks: List[UserMemoryVectorChunk],
-    ) -> Dict[str, Any]:
+        chunks: list[UserMemoryVectorChunk],
+    ) -> dict[str, Any]:
         if not user_id:
             return {"success": False, "message": "缺少 user_id"}
         if not chunks:
@@ -46,7 +47,7 @@ class UserMemoryVectorIngestApplicationService:
 
         texts = [c.content for c in chunks]
         embeddings = self._embedder.embed_texts(texts)
-        store_payload: List[Dict[str, Any]] = []
+        store_payload: list[dict[str, Any]] = []
         for c, emb in zip(chunks, embeddings):
             store_payload.append(
                 {
@@ -60,11 +61,22 @@ class UserMemoryVectorIngestApplicationService:
         written = self._vector_store.upsert_chunks(index_id=user_id, chunks=store_payload)
         return {"success": True, "index_id": user_id, "written": written, "chunk_count": written}
 
-    def build_action_chunk(self, user_id: str, intent: str, slots: Dict[str, Any], message: str) -> UserMemoryVectorChunk:
+    def build_action_chunk(
+        self, user_id: str, intent: str, slots: dict[str, Any], message: str
+    ) -> UserMemoryVectorChunk:
         ts = datetime.now().isoformat()
         # content 既用于 embedding 也用于“调试可读”，尽量包含关键槽位与意图。
-        slot_brief: Dict[str, Any] = {}
-        for k in ("unit_name", "product_name", "model_number", "tin_spec", "quantity_tins", "keyword", "customer_name", "unit_price"):
+        slot_brief: dict[str, Any] = {}
+        for k in (
+            "unit_name",
+            "product_name",
+            "model_number",
+            "tin_spec",
+            "quantity_tins",
+            "keyword",
+            "customer_name",
+            "unit_price",
+        ):
             if k in (slots or {}) and (slots or {}).get(k) not in (None, ""):
                 slot_brief[k] = (slots or {}).get(k)
         content = (
@@ -80,7 +92,7 @@ class UserMemoryVectorIngestApplicationService:
                 "intent": intent,
                 "slots": slot_brief,
                 "last_used": ts,
-                "message_preview": str(message or '').strip()[:200],
+                "message_preview": str(message or "").strip()[:200],
                 "ts": ts,
                 "user_id": user_id,
             },
@@ -92,13 +104,23 @@ class UserMemoryVectorIngestApplicationService:
         message: str,
         recognized_intent: str,
         feedback: str,
-        corrected_intent: Optional[str],
-        slots: Optional[Dict[str, Any]] = None,
+        corrected_intent: str | None,
+        slots: dict[str, Any] | None = None,
     ) -> UserMemoryVectorChunk:
         ts = datetime.now().isoformat()
-        slot_brief: Dict[str, Any] = {}
+        slot_brief: dict[str, Any] = {}
         slots = slots or {}
-        for k in ("unit_name", "product_name", "model_number", "tin_spec", "quantity_tins", "keyword", "customer_name", "field_name", "field_value"):
+        for k in (
+            "unit_name",
+            "product_name",
+            "model_number",
+            "tin_spec",
+            "quantity_tins",
+            "keyword",
+            "customer_name",
+            "field_name",
+            "field_value",
+        ):
             if k in slots and slots.get(k) not in (None, ""):
                 slot_brief[k] = slots.get(k)
 
@@ -119,7 +141,7 @@ class UserMemoryVectorIngestApplicationService:
                 "corrected_intent": corrected_intent,
                 "slots": slot_brief,
                 "last_used": ts,
-                "message_preview": str(message or '').strip()[:200],
+                "message_preview": str(message or "").strip()[:200],
                 "ts": ts,
                 "user_id": user_id,
             },
@@ -131,13 +153,13 @@ class UserMemoryRagApplicationService:
 
     def __init__(
         self,
-        vector_store: Optional[VectorStorePort] = None,
-        embedder: Optional[HashEmbedder] = None,
+        vector_store: VectorStorePort | None = None,
+        embedder: HashEmbedder | None = None,
     ) -> None:
         self._vector_store = vector_store or get_user_memory_vector_store()
         self._embedder = embedder or HashEmbedder()
 
-    def query(self, user_id: str, query_text: str, top_k: int = 5) -> Dict[str, Any]:
+    def query(self, user_id: str, query_text: str, top_k: int = 5) -> dict[str, Any]:
         if not user_id:
             return {"success": False, "message": "缺少 user_id"}
         query_text = str(query_text or "").strip()
@@ -146,13 +168,21 @@ class UserMemoryRagApplicationService:
 
         query_vector = self._embedder.embed_query(query_text)
         hits = self._vector_store.query(index_id=user_id, query_vector=query_vector, top_k=top_k)
-        return {"success": True, "user_id": user_id, "query": query_text, "top_k": top_k, "hits": hits}
+        return {
+            "success": True,
+            "user_id": user_id,
+            "query": query_text,
+            "top_k": top_k,
+            "hits": hits,
+        }
 
-    def format_for_prompt(self, user_id: str, query_text: str, hits: List[Dict[str, Any]], max_hits: int = 6) -> str:
+    def format_for_prompt(
+        self, user_id: str, query_text: str, hits: list[dict[str, Any]], max_hits: int = 6
+    ) -> str:
         if not hits:
             return "【UserMemoryRAG】未召回用户记忆片段。"
 
-        lines: List[str] = ["【UserMemoryRAG】召回到以下用户记忆片段（用于辅助决策）:"]
+        lines: list[str] = ["【UserMemoryRAG】召回到以下用户记忆片段（用于辅助决策）:"]
         for idx, hit in enumerate(hits[:max_hits], start=1):
             score = float(hit.get("score") or 0.0)
             md = hit.get("metadata") if isinstance(hit.get("metadata"), dict) else {}
@@ -183,8 +213,8 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 instrument_application_service_class(UserMemoryVectorIngestApplicationService)
 instrument_application_service_class(UserMemoryRagApplicationService)
 
-_user_memory_vector_ingest_service: Optional[UserMemoryVectorIngestApplicationService] = None
-_user_memory_rag_service: Optional[UserMemoryRagApplicationService] = None
+_user_memory_vector_ingest_service: UserMemoryVectorIngestApplicationService | None = None
+_user_memory_rag_service: UserMemoryRagApplicationService | None = None
 
 
 def get_user_memory_vector_ingest_app_service() -> UserMemoryVectorIngestApplicationService:
@@ -199,4 +229,3 @@ def get_user_memory_rag_app_service() -> UserMemoryRagApplicationService:
     if _user_memory_rag_service is None:
         _user_memory_rag_service = UserMemoryRagApplicationService()
     return _user_memory_rag_service
-

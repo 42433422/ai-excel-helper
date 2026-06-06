@@ -1,6 +1,11 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import relationship, validates
-from typing import Any, TYPE_CHECKING
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Optional
+
+from sqlalchemy import DateTime, Float, Integer, Numeric, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base
 
@@ -12,74 +17,48 @@ class ShipmentRecord(Base):
     __tablename__ = "shipment_records"
     __table_args__ = {"sqlite_autoincrement": True}
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    purchase_unit = Column(String, nullable=False)
-    # Note: ForeignKey removed - cross-database constraints not supported in SQLite
-    # Use application-level validation via validate_unit_id() and service-layer checks
-    unit_id = Column(Integer)
-    product_name = Column(String, nullable=False)
-    model_number = Column(String)
-    quantity_kg = Column(Float, nullable=False)
-    quantity_tins = Column(Integer, nullable=False)
-    tin_spec = Column(Float)
-    unit_price = Column(Float, default=0)
-    amount = Column(Float, default=0)
-    status = Column(String, default="pending")
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
-    printed_at = Column(DateTime)
-    printer_name = Column(String)
-    raw_text = Column(Text)
-    parsed_data = Column(Text)
-    
-    # Relationship removed - cross-database relationships not supported
-    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    purchase_unit: Mapped[str] = mapped_column(String, nullable=False)
+    unit_id: Mapped[Optional[int]] = mapped_column(Integer)
+    product_name: Mapped[str] = mapped_column(String, nullable=False)
+    model_number: Mapped[Optional[str]] = mapped_column(String)
+    quantity_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    quantity_tins: Mapped[int] = mapped_column(Integer, nullable=False)
+    tin_spec: Mapped[Optional[float]] = mapped_column(Float)
+    unit_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2), default=0)
+    amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2), default=0)
+    status: Mapped[str] = mapped_column(String, default="pending")
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    printed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    printer_name: Mapped[Optional[str]] = mapped_column(String)
+    raw_text: Mapped[Optional[str]] = mapped_column(Text)
+    parsed_data: Mapped[Optional[str]] = mapped_column(Text)
+
     @validates("unit_id")
     def validate_unit_id(self, key: str, unit_id: Any) -> Any:
-        """Application-level foreign key validation for cross-database reference.
-        
-        Performs format validation immediately and logs FK violations.
-        For full FK enforcement, use validate_foreign_keys() before commit.
-        """
         if unit_id is None:
             return unit_id
-        
-        # Format validation
+
         if not isinstance(unit_id, int):
             raise ValueError(f"Invalid unit_id type: {type(unit_id)}. Must be integer.")
-        
+
         if unit_id <= 0:
             raise ValueError(f"Invalid unit_id: {unit_id}. Must be positive integer.")
-        
+
         return unit_id
-    
-    def validate_foreign_keys(self, validator: "ForeignKeyValidator") -> bool:
-        """
-        执行完整的外键验证
-        
-        在服务层调用此方法进行完整的外键约束检查
-        
-        Args:
-            validator: 外键验证器实例
-            
-        Returns:
-            bool: True 如果所有外键有效
-            
-        Raises:
-            ValueError: 如果外键约束违反且 strict=True
-        """
+
+    def validate_foreign_keys(self, validator: ForeignKeyValidator) -> bool:
         return validator.validate_purchase_unit_exists(self.unit_id)
-    
-    def to_dict_with_validation(self, validator: "ForeignKeyValidator") -> dict:
-        """转换为字典，包含外键验证状态"""
+
+    def to_dict_with_validation(self, validator: ForeignKeyValidator) -> dict:
         data = self.to_dict()
         data["_fk_valid"] = self.validate_foreign_keys(validator)
         if self.unit_id and not data["_fk_valid"]:
             data["_fk_warning"] = f"unit_id={self.unit_id} does not exist in purchase_units"
         return data
-    
+
     def to_dict(self) -> dict:
-        """转换为字典"""
         return {
             "id": self.id,
             "purchase_unit": self.purchase_unit,

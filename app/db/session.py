@@ -1,9 +1,8 @@
 import hashlib
 import logging
 import time
-import traceback
 from contextlib import contextmanager
-from functools import lru_cache, wraps
+from functools import wraps
 
 from app.db import SessionLocal
 
@@ -40,9 +39,7 @@ def clear_query_cache():
 
 def _log_slow_query(query_name: str, duration: float, details: str = ""):
     if duration >= _SLOW_QUERY_THRESHOLD:
-        logger.warning(
-            f"Slow query detected: {query_name} took {duration:.3f}s. {details}"
-        )
+        logger.warning(f"Slow query detected: {query_name} took {duration:.3f}s. {details}")
 
 
 class _QueryTimer:
@@ -66,7 +63,9 @@ def timed_query(query_name: str):
         def wrapper(*args, **kwargs):
             with _QueryTimer(query_name):
                 return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -74,8 +73,10 @@ def timed_query(query_name: str):
 def get_db():
     db = SessionLocal()
     query_count = [0]
+
     def _count_query():
         query_count[0] += 1
+
     try:
         yield db
         db.commit()

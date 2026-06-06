@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from pathlib import Path
 import re
 import shutil
@@ -36,7 +36,6 @@ DETAIL_ONSHEET_BLOCK_TOTAL_COL = 86
 DETAIL_ARABIC_NUMBER_DISPLAY = "0.0"
 # ``CH``（块内数字合计）：用显式小数格式避免 ``General`` 在保存后变回 ``[DBNum1]``；与考勤格一致一位小数。
 DETAIL_BLOCK_TOTAL_NUMBER_DISPLAY = "0.0"
-
 # 考勤符号整格保留，勿把「〇」等当成数字 0 改写。
 _ATT_MARK: frozenset[str] = frozenset({"√", "☆", "★", "〇", "o", "O", "¤"})
 
@@ -298,35 +297,12 @@ class TemplateEmployeeProfile:
     overtime_start: time
     # B 列「HH:MM上班」解析：首段 1h 从该时刻起，与 block_values 首格上限配合 convert._profile_blocks
     morning_work_start: time | None = None
-    # B 列「大小周锚YYYY-MM-DD」：该人自己的「大周六」所在周对齐；未写则用流程规则里全局锚点
-    size_week_anchor: date | None = None
 
 
 _NATURE_OT_RE = re.compile(
     r"(?P<h>\d{1,2})\s*[:：]\s*(?P<m>\d{2})\s*(?:记加班|加班)"
 )
 _NATURE_WORK_RE = re.compile(r"(?P<h>\d{1,2})\s*[:：]\s*(?P<m>\d{2})\s*上班")
-_SIZE_WEEK_ANCHOR_RE = re.compile(
-    r"(?:大小周锚|锚周六|个人大周六)\s*[:：]?\s*(\d{4})-(\d{1,2})-(\d{1,2})"
-)
-
-
-def _floor_to_saturday(d: date) -> date:
-    off = (d.weekday() - 5) % 7
-    return d - timedelta(days=off)
-
-
-def _parse_size_week_anchor(nature_plain: str) -> date | None:
-    m = _SIZE_WEEK_ANCHOR_RE.search(nature_plain)
-    if not m:
-        return None
-    try:
-        y, mo, da = int(m.group(1)), int(m.group(2)), int(m.group(3))
-        return _floor_to_saturday(date(y, mo, da))
-    except ValueError:
-        return None
-
-
 def _safe_hhmm(h: int, m: int) -> time | None:
     if 0 <= h <= 23 and 0 <= m <= 59:
         return time(h, m)
@@ -501,7 +477,7 @@ def _paste_one_person_block(
         except ValueError:
             pass
     _normalize_block_chinese_numerals(
-        ws, block_top, 1, DETAIL_TEMPLATE_SUMMARY_BEGIN_COL - 1
+        ws, block_top, DETAIL_SUM_COL_START, DETAIL_TEMPLATE_SUMMARY_BEGIN_COL - 1
     )
 
 
@@ -512,11 +488,21 @@ def rebuild_detail_sheet_person_blocks(
     header_rows: int = DETAIL_HEADER_ROWS,
     prototype_block_top: int = 4,
 ) -> None:
-    """按数据人员名单重排「明细」：保留前 ``header_rows`` 行与首块版式（含合并），每人仍占 6 行；打卡区清空待写。"""
+    """按数据人员名单重排「明细」：保留前 ``header_rows`` 行与首块版式（含合并），每人仍占 6 行；打卡区清空待写。
+
+    明细右侧整条「侧表」（约 BP—CG：序号、姓名、BR..CC 累计、CD、夜班 CE—CG）在版式快照里只复制到第
+    ``DETAIL_TEMPLATE_SUMMARY_BEGIN_COL-1`` 列；≥70 的侧栏公式会在删除正文行前单独快照首块 CE—CG，
+    并在粘贴回第一数据行后写回，供 ``_refresh_detail_side_summary_formulas`` 按首格模板套用到每人，
+    避免重排后侧栏只剩 BR..CC、夜班区整段空白或断续。
+    """
     if not people:
         return
     if ws.max_row < prototype_block_top + DETAIL_PERSON_BLOCK_ROWS - 1:
         raise ValueError("明细表过短：缺少模板首个人员 6 行块")
+
+    night_tpl = tuple(
+        ws.cell(prototype_block_top, col).value for col in DETAIL_SIDE_SUMMARY_NIGHT_COLS
+    )
 
     proto_vals, rel_merges = _snapshot_first_person_block(ws, prototype_block_top)
     proto_styles = _snapshot_block_cell_styles(ws, prototype_block_top)
@@ -528,25 +514,70 @@ def rebuild_detail_sheet_person_blocks(
         top = header_rows + 1 + i * DETAIL_PERSON_BLOCK_ROWS
         _paste_one_person_block(ws, top, proto_vals, rel_merges, dept, nature, name, proto_styles)
 
+    first_body = header_rows + 1
+    for col, val in zip(DETAIL_SIDE_SUMMARY_NIGHT_COLS, night_tpl):
+        if val not in (None, ""):
+            ws.cell(first_body, col).value = val
+
 
 def find_template_base_rows(ws) -> dict[str, int]:
     """每人块仅认第 1 行（块首）C 列姓名，与 ``rebuild_detail_sheet_person_blocks`` 的 6 行步进一致。"""
     mapping: dict[str, int] = {}
-    row = DETAIL_HEADER_ROWS + 1
-    while row <= ws.max_row:
+    for row in iter_detail_sheet_block_base_rows(ws):
         name = ws.cell(row, 3).value
         if name not in (None, ""):
             key = str(name).strip()
             if key:
                 mapping[key] = row
-        row += DETAIL_PERSON_BLOCK_ROWS
     return mapping
+
+
+def find_template_side_summary_rows(ws, header_rows: int = DETAIL_HEADER_ROWS) -> dict[str, int]:
+    """侧表每人一行连续汇总所在行；姓名 → 行号。
+
+    「月度统计」引用 ``明细!BR``、``明细!CE`` 等时使用本映射；``find_template_base_rows`` 仍为考勤块首行。
+    """
+    block_rows = iter_detail_sheet_block_base_rows(ws, header_rows)
+    if not block_rows:
+        return {}
+    first_body = header_rows + 1
+    mapping: dict[str, int] = {}
+    for pidx, base_row in enumerate(block_rows, start=1):
+        name = ws.cell(base_row, 3).value
+        if name in (None, ""):
+            continue
+        key = str(name).strip()
+        if key:
+            mapping[key] = first_body + pidx - 1
+    return mapping
+
+
+def _unmerge_cell_rectangle(ws, r1: int, r2: int, c1: int, c2: int) -> None:
+    """解除与矩形 [r1..r2]×[c1..c2] 相交的合并，便于清空侧栏单元格。"""
+    for rng in list(ws.merged_cells.ranges):
+        min_col, min_row, max_col, max_row = range_boundaries(str(rng))
+        if max_row < r1 or min_row > r2 or max_col < c1 or min_col > c2:
+            continue
+        ws.unmerge_cells(str(rng))
+
+
+def iter_detail_sheet_block_base_rows(
+    ws,
+    header_rows: int = DETAIL_HEADER_ROWS,
+) -> list[int]:
+    """按「每人 6 行」几何位置枚举明细块首行（自上而下）。"""
+    first_body = header_rows + 1
+    rows: list[int] = []
+    row = first_body
+    while row + DETAIL_PERSON_BLOCK_ROWS - 1 <= ws.max_row:
+        rows.append(row)
+        row += DETAIL_PERSON_BLOCK_ROWS
+    return rows
 
 
 def build_template_profiles(ws) -> dict[str, TemplateEmployeeProfile]:
     profiles: dict[str, TemplateEmployeeProfile] = {}
-    first_block = DETAIL_HEADER_ROWS + 1
-    for base_row in range(first_block, ws.max_row + 1, DETAIL_PERSON_BLOCK_ROWS):
+    for base_row in iter_detail_sheet_block_base_rows(ws):
         name = ws.cell(base_row, 3).value
         if name in (None, ""):
             continue
@@ -556,7 +587,6 @@ def build_template_profiles(ws) -> dict[str, TemplateEmployeeProfile]:
         overtime_start, block_values, morning_work_start = _parse_profile_rules_from_nature_plain(
             nature_plain
         )
-        size_week_anchor = _parse_size_week_anchor(nature_plain)
         profiles[employee_name] = TemplateEmployeeProfile(
             employee_name=employee_name,
             base_row=base_row,
@@ -565,7 +595,6 @@ def build_template_profiles(ws) -> dict[str, TemplateEmployeeProfile]:
             block_values=block_values,
             overtime_start=overtime_start,
             morning_work_start=morning_work_start,
-            size_week_anchor=size_week_anchor,
         )
     return profiles
 
@@ -670,18 +699,15 @@ def _detail_side_metric_symbol_columns(ws) -> tuple[int | None, int | None, int 
 
 
 def _refresh_detail_side_summary_formulas(ws, *, header_rows: int = DETAIL_HEADER_ROWS) -> None:
-    """重写明细右侧 BP—CG：按表头符号行（图示）做 SUMIF，对每人 6 行考勤区求相邻数值之和。
+    """重写明细右侧 BP—CG：侧表从第一个数据行开始连续排列，每人一行。
 
-    条件列引用 ``BR..CC`` 第 ``header_rows-1`` 行（太阳鸟模板为第 2 行图示：√☆★…☆〓★〓），
-    数据区仍为 ``OFFSET($E$4:$BM$9, off,)`` 与 ``OFFSET($F$4:$BN$9, off,)``，
-    ``off = 该人块首行行号 - (表头行数+1)``（每人仅块首一行写侧栏公式，其余行清空）。
-
-    另解决：rebuild 复制首块侧栏 ROWS 错位、清空擦掉 BQ、日历起点列误写 BP 等问题。
+    左侧考勤主表仍是每人 6 行块；右侧侧表独立压缩为连续单行列表。
+    ``SUMIF`` 的 ``OFFSET`` 仍按对应人员 6 行明细块计算，避免侧表每 6 行才出现一条。
     """
     first_body = header_rows + 1
     crit_row = max(1, header_rows - 1)
-    mapping = find_template_base_rows(ws)
-    if not mapping:
+    block_rows = iter_detail_sheet_block_base_rows(ws, header_rows)
+    if not block_rows:
         return
 
     ce0 = ws.cell(first_body, DETAIL_SIDE_SUMMARY_NIGHT_COLS[0]).value
@@ -690,29 +716,30 @@ def _refresh_detail_side_summary_formulas(ws, *, header_rows: int = DETAIL_HEADE
 
     side_lo = DETAIL_SIDE_SUMMARY_BP_COL
     side_hi = max(DETAIL_SIDE_SUMMARY_NIGHT_COLS)
+    mr = ws.max_row
+    _unmerge_cell_rectangle(ws, first_body, mr, side_lo, side_hi)
+    for r in range(first_body, mr + 1):
+        for c in range(side_lo, side_hi + 1):
+            ws.cell(r, c).value = None
 
-    for base_row in sorted(set(mapping.values())):
-        for rr in range(base_row + 1, base_row + DETAIL_PERSON_BLOCK_ROWS):
-            for c in range(side_lo, side_hi + 1):
-                ws.cell(rr, c).value = None
+    for pidx, base_row in enumerate(block_rows, start=1):
+        side_row = first_body + pidx - 1
+        off = base_row - first_body
 
-    for pidx, base_row in enumerate(sorted(mapping.values()), start=1):
-        r = base_row
-        off = r - first_body
-        c_bp = ws.cell(r, DETAIL_SIDE_SUMMARY_BP_COL)
+        c_bp = ws.cell(side_row, DETAIL_SIDE_SUMMARY_BP_COL)
         c_bp.value = float(pidx)
         _force_arabic_number_format(c_bp, float(pidx))
 
-        nm = ws.cell(r, 3).value
-        ws.cell(r, DETAIL_SIDE_SUMMARY_BQ_COL).value = nm if nm not in (None, "") else None
+        nm = ws.cell(base_row, 3).value
+        ws.cell(side_row, DETAIL_SIDE_SUMMARY_BQ_COL).value = nm if nm not in (None, "") else None
 
-        c_cd = ws.cell(r, DETAIL_SIDE_SUMMARY_CD_COL)
-        c_cd.value = f"=BQ{r}"
+        c_cd = ws.cell(side_row, DETAIL_SIDE_SUMMARY_CD_COL)
+        c_cd.value = f"=BQ{side_row}"
         _force_arabic_number_format(c_cd, None)
 
         for c in range(DETAIL_SIDE_SUMMARY_SUMIF_START_COL, DETAIL_SIDE_SUMMARY_SUMIF_END_COL + 1):
             letter = get_column_letter(c)
-            c_sum = ws.cell(r, c)
+            c_sum = ws.cell(side_row, c)
             c_sum.value = (
                 f"=SUMIF(OFFSET($E$4:$BM$9,{off},),{letter}${crit_row},"
                 f"OFFSET($F$4:$BN$9,{off},))"
@@ -720,21 +747,25 @@ def _refresh_detail_side_summary_formulas(ws, *, header_rows: int = DETAIL_HEADE
             _force_arabic_number_format(c_sum, None)
 
         if isinstance(ce0, str) and ce0.startswith("="):
-            n = 1 + (r - first_body)
+            n_mark = 1 + (base_row - first_body)
 
             def _night(tpl: str) -> str:
-                out = re.sub(r"\$CD\d+", f"$CD{r}", tpl)
-                return re.sub(r"COLUMN\(([B-D])\d+\)", lambda m: f"COLUMN({m.group(1)}{n})", out)
+                out = re.sub(r"\$CD\d+", f"$CD{side_row}", tpl)
+                return re.sub(
+                    r"COLUMN\(([B-D])\d+\)",
+                    lambda m: f"COLUMN({m.group(1)}{n_mark})",
+                    out,
+                )
 
-            c_ce = ws.cell(r, DETAIL_SIDE_SUMMARY_NIGHT_COLS[0])
+            c_ce = ws.cell(side_row, DETAIL_SIDE_SUMMARY_NIGHT_COLS[0])
             c_ce.value = _night(ce0)
             _force_arabic_number_format(c_ce, None)
             if isinstance(cf0, str) and cf0.startswith("="):
-                c_cf = ws.cell(r, DETAIL_SIDE_SUMMARY_NIGHT_COLS[1])
+                c_cf = ws.cell(side_row, DETAIL_SIDE_SUMMARY_NIGHT_COLS[1])
                 c_cf.value = _night(cf0)
                 _force_arabic_number_format(c_cf, None)
             if isinstance(cg0, str) and cg0.startswith("="):
-                c_cg = ws.cell(r, DETAIL_SIDE_SUMMARY_NIGHT_COLS[2])
+                c_cg = ws.cell(side_row, DETAIL_SIDE_SUMMARY_NIGHT_COLS[2])
                 c_cg.value = _night(cg0)
                 _force_arabic_number_format(c_cg, None)
 
@@ -818,24 +849,25 @@ def write_detail_sheet(
     ws = workbook["明细"] if "明细" in workbook.sheetnames else workbook.active
     set_template_month(ws, month_label)
 
-    base_rows = find_template_base_rows(ws)
-    probe_row = min(base_rows.values()) if base_rows else (DETAIL_HEADER_ROWS + 1)
+    name_to_base = find_template_base_rows(ws)
+    block_base_rows = iter_detail_sheet_block_base_rows(ws)
+    probe_row = min(name_to_base.values()) if name_to_base else (DETAIL_HEADER_ROWS + 1)
     first_sym_col = _first_attendance_symbol_col(ws, probe_row)
     proto_styles_body = _snapshot_block_cell_styles(ws, probe_row)
 
-    clear_template_blocks(ws, base_rows.values(), proto_styles_body)
+    clear_template_blocks(ws, block_base_rows, proto_styles_body)
     # 考勤区 E/AJ/BO… 与侧栏 BP—CH 等列常带 [DBNum1]，会盖过单元格格式导致 ``1.`` / 中文数字。
     _strip_dbnum_column_styles(ws, DETAIL_SUM_COL_START, DETAIL_ONSHEET_BLOCK_TOTAL_COL)
-    for br in base_rows.values():
+    for br in block_base_rows:
         _normalize_block_chinese_numerals(
-            ws, br, 1, DETAIL_TEMPLATE_SUMMARY_BEGIN_COL - 1
+            ws, br, DETAIL_SUM_COL_START, DETAIL_TEMPLATE_SUMMARY_BEGIN_COL - 1
         )
 
     matched = 0
     unmatched: list[str] = []
 
     for employee_name, payload in employees.items():
-        base_row = base_rows.get(employee_name)
+        base_row = name_to_base.get(employee_name)
         if base_row is None:
             unmatched.append(employee_name)
             continue
@@ -867,9 +899,9 @@ def write_detail_sheet(
                 proto_styles=proto_styles_body,
             )
 
-    for br in sorted(set(base_rows.values())):
+    for br in block_base_rows:
         _normalize_block_chinese_numerals(
-            ws, br, 1, DETAIL_TEMPLATE_SUMMARY_BEGIN_COL - 1
+            ws, br, DETAIL_SUM_COL_START, DETAIL_TEMPLATE_SUMMARY_BEGIN_COL - 1
         )
 
     _refresh_detail_side_summary_formulas(ws)
@@ -877,7 +909,7 @@ def write_detail_sheet(
     _ensure_onsheet_block_total_header(ws)
     lo_letter = get_column_letter(DETAIL_SUM_COL_START)
     hi_letter = get_column_letter(DETAIL_TEMPLATE_SUMMARY_BEGIN_COL - 1)
-    for br in sorted(set(base_rows.values())):
+    for br in block_base_rows:
         c_tot = ws.cell(br, DETAIL_ONSHEET_BLOCK_TOTAL_COL)
         bottom = br + DETAIL_PERSON_BLOCK_ROWS - 1
         c_tot.value = f"=SUM({lo_letter}{br}:{hi_letter}{bottom})"
@@ -1013,7 +1045,7 @@ def write_monthly_sheet(
     name_to_base: dict[str, int] = {}
     if link_detail_side_totals and detail_ws is not None:
         link_map = _detail_side_month_link_column_map(detail_ws)
-        name_to_base = find_template_base_rows(detail_ws)
+        name_to_base = find_template_side_summary_rows(detail_ws)
 
     detail_title = str(detail_ws.title) if detail_ws is not None else "明细"
 

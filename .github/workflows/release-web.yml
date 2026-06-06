@@ -34,7 +34,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ./XCAGI
-          file: ./XCAGI/Dockerfile
+          file: ./Dockerfile
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/backend:${{ github.event.inputs.version || github.ref_name }}

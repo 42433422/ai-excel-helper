@@ -1,0 +1,46 @@
+{
+  "id": "xcagi-customer-service-bridge",
+  "name": "客服业务页桥接 Mod",
+  "version": "1.1.0",
+  "author": "成都修茈科技有限公司",
+  "description": "里程碑 K/O（客服）：外部/内部客服页物理视图在 Mod 包；API 仍走宿主门面。",
+  "primary": false,
+  "dependencies": { "xcagi": ">=8.0.0" },
+  "backend": { "entry": "blueprints", "init": "mod_init" },
+  "frontend": {
+    "routes": "frontend/routes",
+    "menu": [
+      {
+        "id": "mod-enterprise-customer-service",
+        "label": "外部客服",
+        "icon": "fa-building-o",
+        "path": "/mod/xcagi-customer-service-bridge/enterprise-customer-service"
+      },
+      {
+        "id": "mod-internal-customer-service",
+        "label": "内部客服",
+        "icon": "fa-headphones",
+        "path": "/mod/xcagi-customer-service-bridge/internal-customer-service"
+      }
+    ],
+    "menu_overrides": [
+      { "key": "enterprise-customer-service", "hidden": true },
+      { "key": "internal-customer-service", "hidden": true }
+    ]
+  },
+  "hooks": {},
+  "comms": { "exports": [] },
+  "config": {
+    "customer_service_pages_via_mod": true,
+    "views_physical": true,
+    "physical_views": [
+      "EnterpriseCustomerServiceView.vue",
+      "InternalCustomerServiceView.vue"
+    ],
+    "legacy_host_page_paths": [
+      "/enterprise-customer-service",
+      "/internal-customer-service"
+    ],
+    "phase": "O"
+  }
+}

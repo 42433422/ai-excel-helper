@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 import httpx
 
@@ -15,10 +16,10 @@ from .types import PlanGraph, WorkflowNode, validate_plan_graph
 logger = logging.getLogger(__name__)
 
 # 同步规划 LLM 复用 Client，减轻短时多次 DeepSeek 连接失败
-_planner_http_client: Optional[httpx.Client] = None
+_planner_http_client: httpx.Client | None = None
 
 
-def get_tool_registry() -> Dict[str, Any]:
+def get_tool_registry() -> dict[str, Any]:
     """
     返回工作流工具注册表，供 ai_chat_app_service 使用。
     覆盖报价、主数据、出货、模板与微信辅助等能力，与意图层 tool_key 对齐。
@@ -216,7 +217,7 @@ def get_tool_registry() -> Dict[str, Any]:
     }
 
 
-def execute_tool(tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+def execute_tool(tool_name: str, params: dict[str, Any]) -> dict[str, Any]:
     """
     执行指定工具（支持 execute_registered_workflow_tool 注入的 _action）。
 
@@ -228,7 +229,7 @@ def execute_tool(tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
     merged.pop("_runtime_context", None)
     action = str(merged.pop("_action", "") or "").strip().lower()
     if not action:
-        action_defaults: Dict[str, str] = {
+        action_defaults: dict[str, str] = {
             "price_list": "export",
             "products": "query",
             "customers": "query",
@@ -250,10 +251,14 @@ def execute_tool(tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
     if handler is not None:
         return handler(merged)
 
-    return {"success": False, "message": f"未知工具或动作: {tool_name}.{action}", "error_code": "unknown_tool_action"}
+    return {
+        "success": False,
+        "message": f"未知工具或动作: {tool_name}.{action}",
+        "error_code": "unknown_tool_action",
+    }
 
 
-def _execute_price_list_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_price_list_tool(params: dict[str, Any]) -> dict[str, Any]:
     """执行价格表导出工具"""
     try:
         customer_name = params.get("customer_name") or params.get("unit")
@@ -261,7 +266,11 @@ def _execute_price_list_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         date = params.get("date")
 
         if not customer_name:
-            return {"success": False, "message": "缺少 customer_name 参数", "error_code": "missing_customer_name"}
+            return {
+                "success": False,
+                "message": "缺少 customer_name 参数",
+                "error_code": "missing_customer_name",
+            }
 
         fhd_root = ensure_fhd_repo_on_syspath()
 
@@ -274,26 +283,44 @@ def _execute_price_list_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         return result
     except ImportError as e:
         logger.error("价格表导出服务导入失败: %s", e)
-        return {"success": False, "message": "价格表导出服务不可用", "error_code": "service_unavailable"}
+        return {
+            "success": False,
+            "message": "价格表导出服务不可用",
+            "error_code": "service_unavailable",
+        }
     except (ValueError, TypeError) as e:
         logger.warning("价格表导出参数错误: %s", e)
-        return {"success": False, "message": "参数错误：请检查客户名称和价格参数", "error_code": "invalid_parameters"}
-    except IOError as e:
+        return {
+            "success": False,
+            "message": "参数错误：请检查客户名称和价格参数",
+            "error_code": "invalid_parameters",
+        }
+    except OSError as e:
         logger.error("价格表导出文件操作失败: %s", e)
-        return {"success": False, "message": "文件导出失败，请检查磁盘空间", "error_code": "file_io_error"}
+        return {
+            "success": False,
+            "message": "文件导出失败，请检查磁盘空间",
+            "error_code": "file_io_error",
+        }
     except RuntimeError as e:
         logger.error("价格表导出运行时错误: %s", e)
-        return {"success": False, "message": "导出处理失败，请稍后重试", "error_code": "export_failed"}
+        return {
+            "success": False,
+            "message": "导出处理失败，请稍后重试",
+            "error_code": "export_failed",
+        }
 
 
-def _execute_products_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_products_tool(params: dict[str, Any]) -> dict[str, Any]:
     """执行产品查询工具"""
     try:
         from app.bootstrap import get_products_service
 
         keyword = str(params.get("keyword") or "").strip()
         unit_name = str(params.get("unit_name") or params.get("unit") or "").strip() or None
-        model_number = str(params.get("model_number") or params.get("product_code") or "").strip() or None
+        model_number = (
+            str(params.get("model_number") or params.get("product_code") or "").strip() or None
+        )
         page = int(params.get("page", 1))
         per_page = int(params.get("per_page", 20))
 
@@ -336,13 +363,17 @@ def _execute_products_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         return {"success": False, "message": "产品服务不可用", "error_code": "service_unavailable"}
     except (ValueError, TypeError) as e:
         logger.warning("产品查询参数错误: %s", e)
-        return {"success": False, "message": "查询参数错误，请检查输入", "error_code": "invalid_parameters"}
+        return {
+            "success": False,
+            "message": "查询参数错误，请检查输入",
+            "error_code": "invalid_parameters",
+        }
     except RuntimeError as e:
         logger.error("产品查询运行时错误: %s", e)
         return {"success": False, "message": "查询失败，请稍后重试", "error_code": "query_failed"}
 
 
-def _execute_customers_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_customers_tool(params: dict[str, Any]) -> dict[str, Any]:
     """执行客户查询工具"""
     try:
         from app.bootstrap import get_customer_app_service
@@ -362,20 +393,28 @@ def _execute_customers_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         return {"success": False, "message": "客户服务不可用", "error_code": "service_unavailable"}
     except (ValueError, TypeError) as e:
         logger.warning("客户查询参数错误: %s", e)
-        return {"success": False, "message": "查询参数错误，请检查输入", "error_code": "invalid_parameters"}
+        return {
+            "success": False,
+            "message": "查询参数错误，请检查输入",
+            "error_code": "invalid_parameters",
+        }
     except RuntimeError as e:
         logger.error("客户查询运行时错误: %s", e)
         return {"success": False, "message": "查询失败，请稍后重试", "error_code": "query_failed"}
 
 
-def _execute_customers_ensure_exists_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_customers_ensure_exists_tool(params: dict[str, Any]) -> dict[str, Any]:
     """创建客户（单位）如不存在。"""
     try:
         from app.bootstrap import get_customer_app_service
 
         unit = str(params.get("unit_name") or params.get("customer_name") or "").strip()
         if not unit:
-            return {"success": False, "message": "缺少 unit_name", "error_code": "missing_unit_name"}
+            return {
+                "success": False,
+                "message": "缺少 unit_name",
+                "error_code": "missing_unit_name",
+            }
 
         svc = get_customer_app_service()
         matched = svc.match_purchase_unit(unit)
@@ -396,16 +435,31 @@ def _execute_customers_ensure_exists_tool(params: Dict[str, Any]) -> Dict[str, A
         return out
     except ImportError as e:
         logger.error("客户创建服务导入失败: %s", e)
-        return {"success": False, "message": "客户创建服务不可用", "error_code": "service_unavailable", "created": False}
+        return {
+            "success": False,
+            "message": "客户创建服务不可用",
+            "error_code": "service_unavailable",
+            "created": False,
+        }
     except (ValueError, TypeError) as e:
         logger.warning("客户创建参数错误: %s", e)
-        return {"success": False, "message": "创建参数错误，请检查单位名称", "error_code": "invalid_parameters", "created": False}
+        return {
+            "success": False,
+            "message": "创建参数错误，请检查单位名称",
+            "error_code": "invalid_parameters",
+            "created": False,
+        }
     except RuntimeError as e:
         logger.error("客户创建运行时错误: %s", e)
-        return {"success": False, "message": "创建失败，请稍后重试", "error_code": "create_failed", "created": False}
+        return {
+            "success": False,
+            "message": "创建失败，请稍后重试",
+            "error_code": "create_failed",
+            "created": False,
+        }
 
 
-def _execute_shipment_generate_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_shipment_generate_tool(params: dict[str, Any]) -> dict[str, Any]:
     try:
         from app.bootstrap import get_shipment_app_service
         from app.routes.tools import _parse_order_text
@@ -426,7 +480,10 @@ def _execute_shipment_generate_tool(params: Dict[str, Any]) -> Dict[str, Any]:
             }
 
         if not parsed.get("success"):
-            return {"success": False, "message": parsed.get("message") or parsed.get("error") or "订单解析失败"}
+            return {
+                "success": False,
+                "message": parsed.get("message") or parsed.get("error") or "订单解析失败",
+            }
 
         svc = get_shipment_app_service()
         return svc.generate_shipment_document(
@@ -439,19 +496,35 @@ def _execute_shipment_generate_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         )
     except ImportError as e:
         logger.error("发货单服务导入失败: %s", e)
-        return {"success": False, "message": "发货单服务不可用", "error_code": "service_unavailable"}
+        return {
+            "success": False,
+            "message": "发货单服务不可用",
+            "error_code": "service_unavailable",
+        }
     except (ValueError, TypeError) as e:
         logger.warning("发货单生成参数错误: %s", e)
-        return {"success": False, "message": "订单参数错误，请检查输入", "error_code": "invalid_parameters"}
-    except IOError as e:
+        return {
+            "success": False,
+            "message": "订单参数错误，请检查输入",
+            "error_code": "invalid_parameters",
+        }
+    except OSError as e:
         logger.error("发货单文件生成失败: %s", e)
-        return {"success": False, "message": "文档生成失败，请检查磁盘空间", "error_code": "file_io_error"}
+        return {
+            "success": False,
+            "message": "文档生成失败，请检查磁盘空间",
+            "error_code": "file_io_error",
+        }
     except RuntimeError as e:
         logger.error("发货单生成运行时错误: %s", e)
-        return {"success": False, "message": "生成失败，请稍后重试", "error_code": "generation_failed"}
+        return {
+            "success": False,
+            "message": "生成失败，请稍后重试",
+            "error_code": "generation_failed",
+        }
 
 
-def _execute_shipment_records_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_shipment_records_tool(params: dict[str, Any]) -> dict[str, Any]:
     try:
         from app.bootstrap import get_shipment_app_service
 
@@ -462,16 +535,24 @@ def _execute_shipment_records_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         return {"success": True, "data": rows, "message": f"共 {len(rows)} 条出货记录"}
     except ImportError as e:
         logger.error("出货记录服务导入失败: %s", e)
-        return {"success": False, "message": "出货记录服务不可用", "error_code": "service_unavailable"}
+        return {
+            "success": False,
+            "message": "出货记录服务不可用",
+            "error_code": "service_unavailable",
+        }
     except (ValueError, TypeError) as e:
         logger.warning("出货记录查询参数错误: %s", e)
-        return {"success": False, "message": "查询参数错误，请检查单位名称", "error_code": "invalid_parameters"}
+        return {
+            "success": False,
+            "message": "查询参数错误，请检查单位名称",
+            "error_code": "invalid_parameters",
+        }
     except RuntimeError as e:
         logger.error("出货记录查询运行时错误: %s", e)
         return {"success": False, "message": "查询失败，请稍后重试", "error_code": "query_failed"}
 
 
-def _execute_materials_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_materials_tool(params: dict[str, Any]) -> dict[str, Any]:
     try:
         from app.bootstrap import get_materials_service
 
@@ -487,25 +568,39 @@ def _execute_materials_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         )
     except ImportError as e:
         logger.error("原材料服务导入失败: %s", e)
-        return {"success": False, "message": "原材料服务不可用", "error_code": "service_unavailable"}
+        return {
+            "success": False,
+            "message": "原材料服务不可用",
+            "error_code": "service_unavailable",
+        }
     except (ValueError, TypeError) as e:
         logger.warning("原材料查询参数错误: %s", e)
-        return {"success": False, "message": "查询参数错误，请检查输入", "error_code": "invalid_parameters"}
+        return {
+            "success": False,
+            "message": "查询参数错误，请检查输入",
+            "error_code": "invalid_parameters",
+        }
     except RuntimeError as e:
         logger.error("原材料查询运行时错误: %s", e)
         return {"success": False, "message": "查询失败，请稍后重试", "error_code": "query_failed"}
 
 
-def _execute_print_label_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_print_label_tool(params: dict[str, Any]) -> dict[str, Any]:
     try:
         import os
 
-        from app.infrastructure.documents.shipment_document_generator_impl import SimpleLabelGenerator
+        from app.infrastructure.documents.shipment_document_generator_impl import (
+            SimpleLabelGenerator,
+        )
         from app.utils.path_utils import get_resource_path
 
         products = params.get("products")
         if not isinstance(products, list) or not products:
-            return {"success": False, "message": "缺少 products 数组", "error_code": "missing_products"}
+            return {
+                "success": False,
+                "message": "缺少 products 数组",
+                "error_code": "missing_products",
+            }
 
         labels_dir = get_resource_path("ai_assistant", "商标导出")
         os.makedirs(labels_dir, exist_ok=True)
@@ -515,47 +610,81 @@ def _execute_print_label_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         return {"success": True, "data": labels, "message": f"已生成 {len(labels)} 张标签"}
     except ImportError as e:
         logger.error("标签生成服务导入失败: %s", e)
-        return {"success": False, "message": "标签生成服务不可用", "error_code": "service_unavailable"}
+        return {
+            "success": False,
+            "message": "标签生成服务不可用",
+            "error_code": "service_unavailable",
+        }
     except (ValueError, TypeError) as e:
         logger.warning("标签生成参数错误: %s", e)
-        return {"success": False, "message": "标签参数错误，请检查产品数据", "error_code": "invalid_parameters"}
-    except IOError as e:
+        return {
+            "success": False,
+            "message": "标签参数错误，请检查产品数据",
+            "error_code": "invalid_parameters",
+        }
+    except OSError as e:
         logger.error("标签文件生成失败: %s", e)
-        return {"success": False, "message": "标签导出失败，请检查磁盘空间", "error_code": "file_io_error"}
+        return {
+            "success": False,
+            "message": "标签导出失败，请检查磁盘空间",
+            "error_code": "file_io_error",
+        }
     except RuntimeError as e:
         logger.error("标签生成运行时错误: %s", e)
-        return {"success": False, "message": "生成失败，请稍后重试", "error_code": "generation_failed"}
+        return {
+            "success": False,
+            "message": "生成失败，请稍后重试",
+            "error_code": "generation_failed",
+        }
 
 
-def _execute_excel_decompose_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_excel_decompose_tool(params: dict[str, Any]) -> dict[str, Any]:
     try:
         from app.bootstrap import get_template_app_service
 
         file_path = str(params.get("file_path") or "").strip()
         if not file_path:
-            return {"success": False, "message": "缺少 file_path", "error_code": "missing_file_path"}
+            return {
+                "success": False,
+                "message": "缺少 file_path",
+                "error_code": "missing_file_path",
+            }
         template_type = params.get("template_type") or params.get("scope")
-        return get_template_app_service().decompose_template(file_path, str(template_type).strip() if template_type else None)
+        return get_template_app_service().decompose_template(
+            file_path, str(template_type).strip() if template_type else None
+        )
     except ImportError as e:
         logger.error("模板服务导入失败: %s", e)
         return {"success": False, "message": "模板服务不可用", "error_code": "service_unavailable"}
     except (ValueError, TypeError) as e:
         logger.warning("模板分解参数错误: %s", e)
-        return {"success": False, "message": "模板参数错误，请检查文件", "error_code": "invalid_parameters"}
-    except IOError as e:
+        return {
+            "success": False,
+            "message": "模板参数错误，请检查文件",
+            "error_code": "invalid_parameters",
+        }
+    except OSError as e:
         logger.error("模板文件读取失败: %s", e)
-        return {"success": False, "message": "文件读取失败，请检查文件是否存在", "error_code": "file_not_found"}
+        return {
+            "success": False,
+            "message": "文件读取失败，请检查文件是否存在",
+            "error_code": "file_not_found",
+        }
     except RuntimeError as e:
         logger.error("模板分解运行时错误: %s", e)
-        return {"success": False, "message": "分解失败，请稍后重试", "error_code": "decomposition_failed"}
+        return {
+            "success": False,
+            "message": "分解失败，请稍后重试",
+            "error_code": "decomposition_failed",
+        }
 
 
-def _execute_template_extract_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_template_extract_tool(params: dict[str, Any]) -> dict[str, Any]:
     """与 excel_decompose 共用模板分解能力。"""
     return _execute_excel_decompose_tool(params)
 
 
-def _execute_wechat_preview_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_wechat_preview_tool(params: dict[str, Any]) -> dict[str, Any]:
     try:
         from app.bootstrap import get_wechat_contact_app_service
 
@@ -569,23 +698,36 @@ def _execute_wechat_preview_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         }
     except ImportError as e:
         logger.error("微信联系人服务导入失败: %s", e)
-        return {"success": False, "message": "微信联系人服务不可用", "error_code": "service_unavailable"}
+        return {
+            "success": False,
+            "message": "微信联系人服务不可用",
+            "error_code": "service_unavailable",
+        }
     except (ValueError, TypeError) as e:
         logger.warning("微信联系人查询参数错误: %s", e)
-        return {"success": False, "message": "查询参数错误，请检查关键词", "error_code": "invalid_parameters"}
+        return {
+            "success": False,
+            "message": "查询参数错误，请检查关键词",
+            "error_code": "invalid_parameters",
+        }
     except RuntimeError as e:
         logger.error("微信联系人查询运行时错误: %s", e)
         return {"success": False, "message": "查询失败，请稍后重试", "error_code": "query_failed"}
 
 
-def _execute_excel_schema_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_excel_schema_tool(params: dict[str, Any]) -> dict[str, Any]:
     """分析 Excel 文件的表结构。"""
     file_path = str(params.get("file_path") or "").strip()
     if not file_path:
-        return {"success": False, "message": "缺少 file_path 参数", "error_code": "missing_file_path"}
+        return {
+            "success": False,
+            "message": "缺少 file_path 参数",
+            "error_code": "missing_file_path",
+        }
 
     try:
         from app.bootstrap import get_excel_analysis_app_service
+
         service = get_excel_analysis_app_service()
         return service.analyze_schema(
             file_path=file_path,
@@ -598,6 +740,7 @@ def _execute_excel_schema_tool(params: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         import openpyxl
+
         wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
         sheet_name = params.get("sheet_name") or wb.sheetnames[0]
         ws = wb[sheet_name]
@@ -605,11 +748,13 @@ def _execute_excel_schema_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         fields = []
         for cell in next(ws.iter_rows(min_row=1, max_row=1)):
             if cell.value is not None:
-                fields.append({
-                    "name": str(cell.column_letter),
-                    "label": str(cell.value).strip(),
-                    "column_index": cell.column,
-                })
+                fields.append(
+                    {
+                        "name": str(cell.column_letter),
+                        "label": str(cell.value).strip(),
+                        "column_index": cell.column,
+                    }
+                )
 
         row_count = ws.max_row or 0
         wb.close()
@@ -624,26 +769,47 @@ def _execute_excel_schema_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         }
     except ImportError as e:
         logger.error("Excel 分析库导入失败: %s", e)
-        return {"success": False, "message": "Excel 处理库不可用", "error_code": "library_unavailable"}
+        return {
+            "success": False,
+            "message": "Excel 处理库不可用",
+            "error_code": "library_unavailable",
+        }
     except (ValueError, TypeError) as e:
         logger.warning("Excel 结构参数错误: %s", e)
-        return {"success": False, "message": "文件参数错误，请检查 Excel 文件", "error_code": "invalid_parameters"}
-    except IOError as e:
+        return {
+            "success": False,
+            "message": "文件参数错误，请检查 Excel 文件",
+            "error_code": "invalid_parameters",
+        }
+    except OSError as e:
         logger.error("Excel 文件读取失败: %s", e)
-        return {"success": False, "message": "文件读取失败，请检查文件是否存在", "error_code": "file_not_found"}
+        return {
+            "success": False,
+            "message": "文件读取失败，请检查文件是否存在",
+            "error_code": "file_not_found",
+        }
     except RuntimeError as e:
         logger.error("Excel 结构分析运行时错误: %s", e)
-        return {"success": False, "message": "分析失败，请稍后重试", "error_code": "analysis_failed"}
+        return {
+            "success": False,
+            "message": "分析失败，请稍后重试",
+            "error_code": "analysis_failed",
+        }
 
 
-def _execute_excel_analysis_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_excel_analysis_tool(params: dict[str, Any]) -> dict[str, Any]:
     """读取/查询/聚合 Excel 数据。"""
     file_path = str(params.get("file_path") or "").strip()
     if not file_path:
-        return {"success": False, "message": "缺少 file_path 参数", "error_code": "missing_file_path"}
+        return {
+            "success": False,
+            "message": "缺少 file_path 参数",
+            "error_code": "missing_file_path",
+        }
 
     try:
         from app.bootstrap import get_excel_analysis_app_service
+
         service = get_excel_analysis_app_service()
         return service.analyze_data(
             file_path=file_path,
@@ -658,6 +824,7 @@ def _execute_excel_analysis_tool(params: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         import openpyxl
+
         wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
         sheet_name = params.get("sheet_name") or wb.sheetnames[0]
         ws = wb[sheet_name]
@@ -693,23 +860,43 @@ def _execute_excel_analysis_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         }
     except ImportError as e:
         logger.error("Excel 分析库导入失败: %s", e)
-        return {"success": False, "message": "Excel 处理库不可用", "error_code": "library_unavailable"}
+        return {
+            "success": False,
+            "message": "Excel 处理库不可用",
+            "error_code": "library_unavailable",
+        }
     except (ValueError, TypeError) as e:
         logger.warning("Excel 数据参数错误: %s", e)
-        return {"success": False, "message": "文件参数错误，请检查 Excel 文件", "error_code": "invalid_parameters"}
-    except IOError as e:
+        return {
+            "success": False,
+            "message": "文件参数错误，请检查 Excel 文件",
+            "error_code": "invalid_parameters",
+        }
+    except OSError as e:
         logger.error("Excel 文件读取失败: %s", e)
-        return {"success": False, "message": "文件读取失败，请检查文件是否存在", "error_code": "file_not_found"}
+        return {
+            "success": False,
+            "message": "文件读取失败，请检查文件是否存在",
+            "error_code": "file_not_found",
+        }
     except RuntimeError as e:
         logger.error("Excel 数据分析运行时错误: %s", e)
-        return {"success": False, "message": "分析失败，请稍后重试", "error_code": "analysis_failed"}
+        return {
+            "success": False,
+            "message": "分析失败，请稍后重试",
+            "error_code": "analysis_failed",
+        }
 
 
-def _execute_import_excel_tool(params: Dict[str, Any]) -> Dict[str, Any]:
+def _execute_import_excel_tool(params: dict[str, Any]) -> dict[str, Any]:
     """将 Excel 数据导入数据库。"""
     file_path = str(params.get("file_path") or "").strip()
     if not file_path:
-        return {"success": False, "message": "缺少 file_path 参数", "error_code": "missing_file_path"}
+        return {
+            "success": False,
+            "message": "缺少 file_path 参数",
+            "error_code": "missing_file_path",
+        }
 
     unit_name = str(params.get("unit_name") or "").strip()
     price_column = str(params.get("price_column") or "").strip()
@@ -718,17 +905,23 @@ def _execute_import_excel_tool(params: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         from app.bootstrap import get_products_service
+
         products_service = get_products_service()
     except ImportError as e:
         logger.error("产品服务导入失败: %s", e)
         return {"success": False, "message": "产品服务不可用", "error_code": "service_unavailable"}
     except RuntimeError as e:
         logger.error("产品服务初始化失败: %s", e)
-        return {"success": False, "message": "产品服务初始化失败", "error_code": "service_init_failed"}
+        return {
+            "success": False,
+            "message": "产品服务初始化失败",
+            "error_code": "service_init_failed",
+        }
 
     customer_service = None
     try:
         from app.bootstrap import get_customer_app_service
+
         customer_service = get_customer_app_service()
     except ImportError:
         logger.warning("客户服务不可用，降级为仅产品入库")
@@ -737,6 +930,7 @@ def _execute_import_excel_tool(params: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         import openpyxl
+
         wb = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
         sheet_name = params.get("sheet_name") or wb.sheetnames[0]
         ws = wb[sheet_name]
@@ -768,11 +962,13 @@ def _execute_import_excel_tool(params: Dict[str, Any]) -> Dict[str, Any]:
                     params.get("_request_context"),
                 )
                 overrides = params.get("excel_import_column_overrides")
-                resolved_price_col_name, price_err = AIChatApplicationService._resolve_unit_price_column(
-                    keys=headers,
-                    current="",
-                    user_message=merged_intent,
-                    overrides=overrides if isinstance(overrides, dict) else {},
+                resolved_price_col_name, price_err = (
+                    AIChatApplicationService._resolve_unit_price_column(
+                        keys=headers,
+                        current="",
+                        user_message=merged_intent,
+                        overrides=overrides if isinstance(overrides, dict) else {},
+                    )
                 )
                 if price_err == "ambiguous_price_columns":
                     wb.close()
@@ -793,9 +989,12 @@ def _execute_import_excel_tool(params: Dict[str, Any]) -> Dict[str, Any]:
 
         for i, h in enumerate(headers):
             if not price_col:
-                if price_column and price_column in h:
-                    price_col = i
-                elif not price_column and any(k in h for k in ("单价", "价格", "价")):
+                if (
+                    price_column
+                    and price_column in h
+                    or not price_column
+                    and any(k in h for k in ("单价", "价格", "价"))
+                ):
                     price_col = i
 
         if price_column and price_col is None:
@@ -811,15 +1010,27 @@ def _execute_import_excel_tool(params: Dict[str, Any]) -> Dict[str, Any]:
 
         for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
             row_values = [c.value for c in row]
-            product_name = str(row_values[name_col] or "").strip() if name_col is not None and name_col < len(row_values) else ""
-            model_number = str(row_values[model_col] or "").strip().upper() if model_col is not None and model_col < len(row_values) else ""
+            product_name = (
+                str(row_values[name_col] or "").strip()
+                if name_col is not None and name_col < len(row_values)
+                else ""
+            )
+            model_number = (
+                str(row_values[model_col] or "").strip().upper()
+                if model_col is not None and model_col < len(row_values)
+                else ""
+            )
             unit_price = 0.0
             if price_col is not None and price_col < len(row_values):
                 try:
                     unit_price = float(row_values[price_col] or 0)
                 except (ValueError, TypeError):
                     unit_price = 0.0
-            row_unit = str(row_values[unit_col] or "").strip() if unit_col is not None and unit_col < len(row_values) else ""
+            row_unit = (
+                str(row_values[unit_col] or "").strip()
+                if unit_col is not None and unit_col < len(row_values)
+                else ""
+            )
 
             effective_unit = unit_name or row_unit
             if not effective_unit and not product_name and not model_number:
@@ -844,7 +1055,7 @@ def _execute_import_excel_tool(params: Dict[str, Any]) -> Dict[str, Any]:
                 )
                 existed = False
                 if exists_result.get("success"):
-                    for item in (exists_result.get("data") or []):
+                    for item in exists_result.get("data") or []:
                         item_model = str(item.get("model_number") or "").strip().upper()
                         item_name = str(item.get("name") or item.get("product_name") or "").strip()
                         if model_number and item_model == model_number:
@@ -858,15 +1069,17 @@ def _execute_import_excel_tool(params: Dict[str, Any]) -> Dict[str, Any]:
                     skipped_products += 1
                     continue
 
-                create_product = products_service.create_product({
-                    "name": product_name or model_number,
-                    "product_name": product_name or model_number,
-                    "product_code": model_number or None,
-                    "model_number": model_number or None,
-                    "unit_price": unit_price,
-                    "price": unit_price,
-                    "unit": effective_unit,
-                })
+                create_product = products_service.create_product(
+                    {
+                        "name": product_name or model_number,
+                        "product_name": product_name or model_number,
+                        "product_code": model_number or None,
+                        "model_number": model_number or None,
+                        "unit_price": unit_price,
+                        "price": unit_price,
+                        "unit": effective_unit,
+                    }
+                )
                 if create_product.get("success"):
                     created_products += 1
 
@@ -884,20 +1097,36 @@ def _execute_import_excel_tool(params: Dict[str, Any]) -> Dict[str, Any]:
         }
     except ImportError as e:
         logger.error("Excel 处理库导入失败: %s", e)
-        return {"success": False, "message": "Excel 处理库不可用", "error_code": "library_unavailable"}
+        return {
+            "success": False,
+            "message": "Excel 处理库不可用",
+            "error_code": "library_unavailable",
+        }
     except (ValueError, TypeError) as e:
         logger.warning("Excel 导入参数错误: %s", e)
-        return {"success": False, "message": "导入参数错误，请检查文件格式", "error_code": "invalid_parameters"}
-    except IOError as e:
+        return {
+            "success": False,
+            "message": "导入参数错误，请检查文件格式",
+            "error_code": "invalid_parameters",
+        }
+    except OSError as e:
         logger.error("Excel 文件读取失败: %s", e)
-        return {"success": False, "message": "文件读取失败，请检查文件是否存在", "error_code": "file_not_found"}
+        return {
+            "success": False,
+            "message": "文件读取失败，请检查文件是否存在",
+            "error_code": "file_not_found",
+        }
     except RuntimeError as e:
         logger.error("Excel 导入运行时错误: %s", e)
-        return {"success": False, "message": "导入失败，请检查数据格式后重试", "error_code": "import_failed"}
+        return {
+            "success": False,
+            "message": "导入失败，请检查数据格式后重试",
+            "error_code": "import_failed",
+        }
 
 
 # 与 get_tool_registry / execute_tool 默认 action 对齐；(tool_id, action) -> 实现函数
-_WORKFLOW_TOOL_HANDLERS: dict[tuple[str, str], Callable[[Dict[str, Any]], Dict[str, Any]]] = {
+_WORKFLOW_TOOL_HANDLERS: dict[tuple[str, str], Callable[[dict[str, Any]], dict[str, Any]]] = {
     ("price_list", "export"): _execute_price_list_tool,
     ("products", "query"): _execute_products_tool,
     ("customers", "query"): _execute_customers_tool,
@@ -927,14 +1156,14 @@ def _get_planner_http_client() -> httpx.Client:
 
 
 def _filter_tool_registry_for_profile(
-    tool_registry: Dict[str, Any],
+    tool_registry: dict[str, Any],
     profile: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     - normal：剔除 pro_only 工具与动作（普通界面走槽位/共享工具）。
     - pro_default：剔除 normal_only 工具与动作（全专业链路不暴露纯普通槽位工具）。
     """
-    filtered: Dict[str, Any] = {}
+    filtered: dict[str, Any] = {}
     for tool_id, spec in tool_registry.items():
         if not isinstance(spec, dict):
             continue
@@ -946,7 +1175,7 @@ def _filter_tool_registry_for_profile(
         actions = spec.get("actions") or {}
         if not isinstance(actions, dict):
             continue
-        kept_actions: Dict[str, Any] = {}
+        kept_actions: dict[str, Any] = {}
         for aname, ameta in actions.items():
             if not isinstance(ameta, dict):
                 continue
@@ -972,8 +1201,8 @@ class LLMWorkflowPlanner:
         self,
         user_id: str,
         message: str,
-        tool_registry: Dict[str, Any],
-        context: Dict[str, Any] | None = None,
+        tool_registry: dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> PlanGraph:
         context = dict(context or {})
         plan_id = uuid.uuid4().hex
@@ -992,7 +1221,9 @@ class LLMWorkflowPlanner:
             rag_res = rag.query(user_id=user_id, query_text=message, top_k=3)
             hits = (rag_res or {}).get("hits") if isinstance(rag_res, dict) else None
             if isinstance(hits, list) and hits:
-                summary = rag.format_for_prompt(user_id=user_id, query_text=message, hits=hits, max_hits=4)
+                summary = rag.format_for_prompt(
+                    user_id=user_id, query_text=message, hits=hits, max_hits=4
+                )
                 context["user_memory_rag"] = {"summary": summary}
         except ImportError:
             logger.debug("用户记忆 RAG 服务不可用（不阻断主流程）")
@@ -1021,8 +1252,8 @@ class LLMWorkflowPlanner:
         plan_id: str,
         user_id: str,
         message: str,
-        tool_registry: Dict[str, Any],
-        context: Dict[str, Any],
+        tool_registry: dict[str, Any],
+        context: dict[str, Any],
     ) -> PlanGraph | None:
         """
         多步 ReAct/CoT 风格规划（简化实现）：
@@ -1046,8 +1277,8 @@ class LLMWorkflowPlanner:
         # 1) 抽取 probe：只探测 low-risk + idempotent 的节点
         runtime_context_for_probe = dict(context or {})
         runtime_context_for_probe["message"] = str(message or "")
-        probe_requests: List[Dict[str, Any]] = []
-        for node in (candidate.nodes or []):
+        probe_requests: list[dict[str, Any]] = []
+        for node in candidate.nodes or []:
             tid = str(node.tool_id or "").strip()
             act = str(node.action or "").strip()
             if not tid or not act:
@@ -1093,7 +1324,7 @@ class LLMWorkflowPlanner:
         probe_requests = probe_requests[:3]
 
         # 2) 执行 ToolProbe（并注入检索词：对 products/customers.query 补 keyword）
-        probe_outputs: List[Dict[str, Any]] = []
+        probe_outputs: list[dict[str, Any]] = []
 
         task_agent = None
         try:
@@ -1129,7 +1360,11 @@ class LLMWorkflowPlanner:
                     required_params = []
                 missing_required = []
                 for k in required_params:
-                    if k not in (params or {}) or params.get(k) is None or str(params.get(k)).strip() == "":
+                    if (
+                        k not in (params or {})
+                        or params.get(k) is None
+                        or str(params.get(k)).strip() == ""
+                    ):
                         missing_required.append(k)
                 if missing_required:
                     continue
@@ -1137,18 +1372,30 @@ class LLMWorkflowPlanner:
                 # query 补检索词（避免探测空 keyword 导致无意义全量扫描）
                 if tool_id == "products" and action == "query":
                     # node.params 优先；否则从 message 中尽量抽取
-                    if not (params.get("keyword") or params.get("model_number") or params.get("unit_name")):
+                    if not (
+                        params.get("keyword")
+                        or params.get("model_number")
+                        or params.get("unit_name")
+                    ):
                         try:
-                            from app.application.normal_chat_dispatch import route_normal_mode_message
+                            from app.application.normal_chat_dispatch import (
+                                route_normal_mode_message,
+                            )
 
                             rr = route_normal_mode_message(message)
                             if rr.get("intent") == "product_query":
                                 slots = rr.get("slots") or {}
                                 params.update(
                                     {
-                                        "keyword": slots.get("keyword") or params.get("keyword") or "",
-                                        "model_number": slots.get("model_number") or params.get("model_number") or "",
-                                        "unit_name": slots.get("unit_name") or params.get("unit_name") or "",
+                                        "keyword": slots.get("keyword")
+                                        or params.get("keyword")
+                                        or "",
+                                        "model_number": slots.get("model_number")
+                                        or params.get("model_number")
+                                        or "",
+                                        "unit_name": slots.get("unit_name")
+                                        or params.get("unit_name")
+                                        or "",
                                     }
                                 )
                         except (ImportError, RuntimeError):
@@ -1157,9 +1404,14 @@ class LLMWorkflowPlanner:
                                 params["keyword"] = str(message or "").strip()[:80]
 
                 if tool_id == "customers" and action == "query":
-                    if not (params.get("keyword") or params.get("customer_name")) and task_agent is not None:
+                    if (
+                        not (params.get("keyword") or params.get("customer_name"))
+                        and task_agent is not None
+                    ):
                         try:
-                            cust_slots = task_agent._extract_customer_query_slots(str(message or ""))
+                            cust_slots = task_agent._extract_customer_query_slots(
+                                str(message or "")
+                            )
                             if isinstance(cust_slots, dict):
                                 params.update(cust_slots)
                         except (ImportError, RuntimeError):
@@ -1171,7 +1423,9 @@ class LLMWorkflowPlanner:
                 merged_params = dict(params or {})
                 merged_params["_runtime_context"] = dict(runtime_context_for_probe)
 
-                out = execute_registered_workflow_tool(tool_id=tool_id, action=action, params=merged_params)
+                out = execute_registered_workflow_tool(
+                    tool_id=tool_id, action=action, params=merged_params
+                )
 
                 # 只保留概要信息，避免 prompt 爆长
                 data_preview = ""
@@ -1191,7 +1445,9 @@ class LLMWorkflowPlanner:
                             "tool_id": tool_id,
                             "action": action,
                             "success": True,
-                            "message": str((out or {}).get("message") or (out or {}).get("error") or ""),
+                            "message": str(
+                                (out or {}).get("message") or (out or {}).get("error") or ""
+                            ),
                             "data_preview": data_preview,
                         }
                     )
@@ -1246,7 +1502,7 @@ class LLMWorkflowPlanner:
         return None
 
     @staticmethod
-    def _validate_required_params(plan: PlanGraph, tool_registry: Dict[str, Any]) -> Optional[str]:
+    def _validate_required_params(plan: PlanGraph, tool_registry: dict[str, Any]) -> str | None:
         """检查节点 params 是否满足 tool_registry 的 required_params。"""
         for node in plan.nodes or []:
             tool_spec = (tool_registry or {}).get(str(node.tool_id) or "")
@@ -1263,7 +1519,11 @@ class LLMWorkflowPlanner:
                 required_params = []
             params = node.params or {}
             for key in required_params:
-                if key not in params or params.get(key) is None or str(params.get(key)).strip() == "":
+                if (
+                    key not in params
+                    or params.get(key) is None
+                    or str(params.get(key)).strip() == ""
+                ):
                     return f"节点 {node.node_id} 缺少 required_params: {key}"
         return None
 
@@ -1272,8 +1532,8 @@ class LLMWorkflowPlanner:
         plan_id: str,
         user_id: str,
         message: str,
-        tool_registry: Dict[str, Any],
-        context: Dict[str, Any],
+        tool_registry: dict[str, Any],
+        context: dict[str, Any],
         error: str,
         invalid_plan: PlanGraph,
     ) -> PlanGraph | None:
@@ -1363,7 +1623,9 @@ class LLMWorkflowPlanner:
                 {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
             ]
 
-            api_url = getattr(self._ai_service, "api_url", "") or "https://api.deepseek.com/v1/chat/completions"
+            from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+
+            api_url = getattr(self._ai_service, "api_url", "") or default_chat_completions_url()
             response = _get_planner_http_client().post(
                 api_url,
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -1393,7 +1655,7 @@ class LLMWorkflowPlanner:
                 return None
             parsed = json.loads(raw)
 
-            nodes: List[WorkflowNode] = []
+            nodes: list[WorkflowNode] = []
             for idx, node in enumerate(parsed.get("nodes", []), start=1):
                 nodes.append(
                     WorkflowNode(
@@ -1411,7 +1673,9 @@ class LLMWorkflowPlanner:
             return PlanGraph(
                 plan_id=plan_id,
                 intent=str(parsed.get("intent") or invalid_plan.intent or "dynamic_workflow"),
-                todo_steps=[str(x) for x in (parsed.get("todo_steps") or invalid_plan.todo_steps or [])],
+                todo_steps=[
+                    str(x) for x in (parsed.get("todo_steps") or invalid_plan.todo_steps or [])
+                ],
                 nodes=nodes,
                 risk_level=str(parsed.get("risk_level") or invalid_plan.risk_level or "low"),
                 metadata={"planner": "critic_repair", "message": message},
@@ -1428,8 +1692,8 @@ class LLMWorkflowPlanner:
         plan_id: str,
         user_id: str,
         message: str,
-        tool_registry: Dict[str, Any],
-        context: Dict[str, Any],
+        tool_registry: dict[str, Any],
+        context: dict[str, Any],
     ) -> PlanGraph | None:
         try:
             tool_specs = []
@@ -1476,7 +1740,9 @@ class LLMWorkflowPlanner:
                 "user_message": message,
                 "recent_messages": recent_messages,
                 "context": context,
-                "tool_probe_outputs": (context or {}).get("tool_probe_outputs") if isinstance(context, dict) else [],
+                "tool_probe_outputs": (
+                    (context or {}).get("tool_probe_outputs") if isinstance(context, dict) else []
+                ),
                 "tool_registry": tool_specs,
                 "output_schema": {
                     "intent": "string",
@@ -1502,7 +1768,9 @@ class LLMWorkflowPlanner:
                 {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)},
             ]
             api_key = getattr(self._ai_service, "api_key", "") or ""
-            api_url = getattr(self._ai_service, "api_url", "") or "https://api.deepseek.com/v1/chat/completions"
+            from app.infrastructure.llm.providers.credentials import default_chat_completions_url
+
+            api_url = getattr(self._ai_service, "api_url", "") or default_chat_completions_url()
             model = getattr(self._ai_service, "model", "") or "deepseek-chat"
             if not api_key:
                 return None
@@ -1534,7 +1802,7 @@ class LLMWorkflowPlanner:
             raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
             parsed = json.loads(raw)
 
-            nodes: List[WorkflowNode] = []
+            nodes: list[WorkflowNode] = []
             for idx, node in enumerate(parsed.get("nodes", []), start=1):
                 nodes.append(
                     WorkflowNode(
@@ -1568,7 +1836,9 @@ class LLMWorkflowPlanner:
                                     "action": item.get("action"),
                                     "success": bool(item.get("success")),
                                     "message": str(item.get("message") or "").strip()[:120],
-                                    "data_preview": str(item.get("data_preview") or "").strip()[:160],
+                                    "data_preview": str(item.get("data_preview") or "").strip()[
+                                        :160
+                                    ],
                                 }
                             )
             except (ImportError, RuntimeError):
@@ -1599,10 +1869,10 @@ class LLMWorkflowPlanner:
         self,
         plan_id: str,
         message: str,
-        tool_registry: Dict[str, Any],
+        tool_registry: dict[str, Any],
     ) -> PlanGraph:
         lower = (message or "").lower()
-        nodes: List[WorkflowNode] = []
+        nodes: list[WorkflowNode] = []
         todo = ["理解用户目标", "执行可用工具", "输出执行结果"]
         intent = "generic_workflow"
 
@@ -1680,5 +1950,3 @@ class LLMWorkflowPlanner:
             risk_level=risk,
             metadata={"planner": "fallback", "message": message},
         )
-
-

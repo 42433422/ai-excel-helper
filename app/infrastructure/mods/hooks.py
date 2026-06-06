@@ -3,7 +3,7 @@ Mod Hook System - Event subscription and trigger mechanism
 """
 
 import logging
-from typing import Any, Callable, Dict, List
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ class HookManager:
     _instance = None
 
     def __init__(self):
-        self._subscribers: Dict[str, List[Callable]] = {}
+        self._subscribers: dict[str, list[Callable]] = {}
 
     @classmethod
     def get_instance(cls) -> "HookManager":
@@ -44,7 +44,7 @@ class HookManager:
             except Exception as e:
                 logger.error(f"Hook handler failed: {event} -> {handler.__name__}: {e}")
 
-    def list_subscribers(self, event: str) -> List[str]:
+    def list_subscribers(self, event: str) -> list[str]:
         if event not in self._subscribers:
             return []
         return [h.__name__ for h in self._subscribers[event]]
@@ -62,6 +62,7 @@ def trigger(event: str, *args, **kwargs) -> None:
     # 检查前端是否启用了原版模式，如果是则跳过所有 hooks
     try:
         from app.routes.state import read_client_mods_off_state
+
         if read_client_mods_off_state():
             logger.debug(f"Hook skipped (client_mods_off=True): {event}")
             return

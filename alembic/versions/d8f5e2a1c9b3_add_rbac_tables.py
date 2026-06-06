@@ -6,7 +6,6 @@ Create Date: 2026-03-21 10:00:00.000000
 
 """
 from typing import Sequence, Union
-from datetime import datetime
 
 from alembic import op
 import sqlalchemy as sa
@@ -16,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.db.models import User, Permission, Role, role_permissions as role_perm_table
 from app.utils.password_hash import generate_password_hash
+from app.utils.time import utc_now_naive
 
 
 # revision identifiers, used by Alembic.
@@ -259,12 +259,12 @@ def _seed_data(conn):
             conn.execute(text("""
                 INSERT INTO users (username, password, display_name, email, role, is_active, created_at)
                 VALUES ('admin', :password, '管理员', 'admin@local', 'admin', TRUE, :now)
-            """), {"password": generate_password_hash("admin123"), "now": datetime.utcnow()})
+            """), {"password": generate_password_hash("admin123"), "now": utc_now_naive()})
         else:
             conn.execute(text("""
                 INSERT INTO users (username, password, display_name, email, role, is_active, created_at)
                 VALUES ('admin', :password, '管理员', 'admin@local', 'admin', 1, :now)
-            """), {"password": generate_password_hash("admin123"), "now": datetime.utcnow()})
+            """), {"password": generate_password_hash("admin123"), "now": utc_now_naive()})
 
 
 def downgrade() -> None:

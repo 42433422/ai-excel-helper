@@ -55,12 +55,7 @@ def _extract_customer_and_rows_from_docx(path: Path) -> tuple[str, list[dict]]:
             else:
                 parts = re.split(r"[\t]+|报价日期", t)
                 if len(parts) >= 2:
-                    customer = (
-                        parts[0]
-                        .replace("客户名称：", "")
-                        .replace("客户名称:", "")
-                        .strip()
-                    )
+                    customer = parts[0].replace("客户名称：", "").replace("客户名称:", "").strip()
             break
 
     rows_out: list[dict] = []
@@ -121,9 +116,7 @@ def _resolve_db_path() -> Path:
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
     cur = conn.cursor()
-    cur.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='purchase_units'"
-    )
+    cur.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='purchase_units'")
     if not cur.fetchone():
         cur.execute(
             """

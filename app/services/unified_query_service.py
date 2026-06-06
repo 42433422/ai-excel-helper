@@ -9,42 +9,18 @@
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Type, TypeVar
-
-from sqlalchemy.orm import Session
+from typing import Any, TypeVar
 
 from app.db.session import get_db
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
 
-class UnifiedQueryService:
+class UnifiedQueryService(NeuroEventPublisherMixin):
     """统一查询服务"""
-
-    @staticmethod
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
 
     def _parse_filter(model_class, key, value):
         """解析过滤条件，支持 Django 风格的查找
@@ -95,11 +71,11 @@ class UnifiedQueryService:
         model_class: T,
         field_name: str,
         *,
-        keyword: Optional[str] = None,
-        filter_kwargs: Optional[Dict[str, Any]] = None,
+        keyword: str | None = None,
+        filter_kwargs: dict[str, Any] | None = None,
         order_by: str = "asc",
         limit: int = 0,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """获取去重值列表
 
         Args:
@@ -141,11 +117,11 @@ class UnifiedQueryService:
     def get_all(
         model_class: T,
         *,
-        filter_kwargs: Optional[Dict[str, Any]] = None,
-        order_by: Optional[List[tuple]] = None,
+        filter_kwargs: dict[str, Any] | None = None,
+        order_by: list[tuple] | None = None,
         offset: int = 0,
         limit: int = 100,
-    ) -> List[T]:
+    ) -> list[T]:
         """获取记录列表
 
         Args:
@@ -182,7 +158,7 @@ class UnifiedQueryService:
     def get_first(
         model_class: T,
         **filter_kwargs,
-    ) -> Optional[T]:
+    ) -> T | None:
         """获取单条记录
 
         Args:
@@ -284,20 +260,16 @@ class UnifiedQueryService:
 query_service = UnifiedQueryService()
 
 
-def get_product_names(keyword: Optional[str] = None) -> List[str]:
+def get_product_names(keyword: str | None = None) -> list[str]:
     """获取产品名称列表"""
     from app.db.models.product import Product
 
     return query_service.get_distinct_values(
-        Product,
-        "name",
-        keyword=keyword,
-        filter_kwargs={"is_active": 1},
-        order_by="asc"
+        Product, "name", keyword=keyword, filter_kwargs={"is_active": 1}, order_by="asc"
     )
 
 
-def get_purchase_units(keyword: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_purchase_units(keyword: str | None = None) -> list[dict[str, Any]]:
     """获取购买单位列表"""
     from app.db.models.purchase_unit import PurchaseUnit
 
@@ -319,7 +291,7 @@ def get_purchase_units(keyword: Optional[str] = None) -> List[Dict[str, Any]]:
         ]
 
 
-def find_purchase_unit(**kwargs) -> Optional[Dict[str, Any]]:
+def find_purchase_unit(**kwargs) -> dict[str, Any] | None:
     """查找单个购买单位"""
     from app.db.models.purchase_unit import PurchaseUnit
 
@@ -337,7 +309,7 @@ def find_purchase_unit(**kwargs) -> Optional[Dict[str, Any]]:
         }
 
 
-def find_product(**kwargs) -> Optional[Dict[str, Any]]:
+def find_product(**kwargs) -> dict[str, Any] | None:
     """查找单个产品"""
     from app.db.models.product import Product
 

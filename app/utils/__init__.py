@@ -1,3 +1,10 @@
+from app.utils.ai_helpers import (
+    format_money,
+    is_pro_source,
+    is_professional_mode,
+    route_normal_mode_message,
+    safe_float,
+)
 from app.utils.circuit_breaker import CircuitBreakerOpen, circuit_breaker, get_circuit_breaker
 from app.utils.logger import get_logger, log_operation, setup_structured_logging
 from app.utils.metrics import (
@@ -7,10 +14,3 @@ from app.utils.metrics import (
     track_request_duration,
 )
 from app.utils.retry import retry_ai_service, retry_network_operation, retry_on_exception
-from app.utils.ai_helpers import (
-    is_pro_source,
-    is_professional_mode,
-    safe_float,
-    format_money,
-    route_normal_mode_message,
-)

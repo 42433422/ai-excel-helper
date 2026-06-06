@@ -7,7 +7,7 @@ import logging
 import os
 import urllib.error
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ def catalog_base_url() -> str:
     return (os.environ.get("XCAGI_MOD_CATALOG_URL") or "").strip().rstrip("/")
 
 
-def fetch_remote_package_list(timeout_s: float = 12.0) -> List[Dict[str, Any]]:
+def fetch_remote_package_list(timeout_s: float = 12.0) -> list[dict[str, Any]]:
     base = catalog_base_url()
     if not base:
         return []
@@ -39,14 +39,14 @@ def fetch_remote_package_list(timeout_s: float = 12.0) -> List[Dict[str, Any]]:
 
 
 def merge_catalog_rows(
-    local_rows: List[Dict[str, Any]],
-    remote_rows: List[Dict[str, Any]],
+    local_rows: list[dict[str, Any]],
+    remote_rows: list[dict[str, Any]],
     *,
     prefer_remote_fields: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """按 id+version 去重；本地优先保留 package_file，远程补 artifact/commerce/download_url。"""
     key = lambda r: (str(r.get("id") or ""), str(r.get("version") or ""))
-    merged: Dict[tuple, Dict[str, Any]] = {}
+    merged: dict[tuple, dict[str, Any]] = {}
     for r in local_rows:
         if not isinstance(r, dict):
             continue

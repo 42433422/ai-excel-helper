@@ -26,3 +26,8 @@ def set_template_analysis_progress(task_id: str, **fields: Any) -> None:
     with _lock:
         cur = _analysis_progress.setdefault(task_id, {})
         cur.update(fields)
+
+
+def clear_template_analysis_progress(task_id: str) -> None:
+    with _lock:
+        _analysis_progress.pop(task_id, None)

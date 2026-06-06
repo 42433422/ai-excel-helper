@@ -1,79 +1,73 @@
-# XCAGI v7.0 快速开始
+# XCAGI v8.0 快速开始（可交付宿主）
 
-> 约 5 分钟跑通本地：**FastAPI 主入口**在 `XCAGI/run.py`（默认 `http://127.0.0.1:5000`）。根目录旧 `backend/http_app.py`（8000 端口）已移除，详见归档说明与 `CHANGELOG.md`。
+> 约 5 分钟跑通：**独立宿主 + 装 MOD 变系统**。主入口 `XCAGI/run.py` → `http://127.0.0.1:5000`
+
+---
+
+## 产品模型（1 分钟理解）
+
+1. 你拿到的是 **XCAGI 宿主**（空壳 + 通用能力），不是某一家客户的成品 ERP。
+2. 从 **扩展市场** 安装平台 MOD 后，这一份软件才变成「出货系统 / 涂料 ERP / …」。
+3. 数据在**客户自己的机器**上，不由供应商代管。
 
 ---
 
 ## 前置条件
 
-- **操作系统**：Windows 10/11、Linux 或 macOS  
-- **Python**：3.11+（与 `requirements.txt` 一致）  
-- **Node.js**：18+（可选，仅前端独立开发时需要）  
-- **Redis**：按需（缓存 / 队列）  
-- **Git**
-
-验证：
-
-```bash
-python --version   # Python 3.11.x+
-node --version     # 可选
-```
+- **Python** 3.11+
+- **Node.js** 18+（仅前端开发或重编 UI 时需要）
+- **操作系统**：Windows 10/11、Linux macOS
 
 ---
 
-## 1. 获取代码
+## 方式 A：桌面安装包（推荐客户）
+
+1. 运行供应商提供的 **XCAGI Setup 8.0.0**（generic 壳）。
+2. 首次启动：若提示装 Mod 包，在 **扩展市场** 点 **一键装齐通用包**。
+3. 验证：浏览器或壳内打开 → **智能对话** 可用；`GET http://127.0.0.1:5000/api/platform-shell/deliverable-status` 中 `"deliverable": true`。
+
+详见 [customer/CUSTOMER_SUPPORT.md](customer/CUSTOMER_SUPPORT.md)。
+
+---
+
+## 方式 B：源码 / 开发机
+
+### 1. 克隆与依赖
 
 ```bash
 git clone https://github.com/42433422/ai-excel-helper.git
 cd ai-excel-helper
-```
-
-（若远程为历史 `xcagi` 仓库名，与上同源树等价，以你实际克隆地址为准。）
-
----
-
-## 2. 安装依赖（仓库根）
-
-```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
-
 pip install -r requirements.txt
 ```
 
----
+### 2. 启动（按场景选择）
 
-## 3. 配置环境变量
+**桌面交付验收（SQLite，无需 Docker/PostgreSQL）：**
 
-在仓库根或 `XCAGI/` 下按项目约定放置 `.env`（可参考 `resources/config/.env.example` 或各模块文档）。至少配置数据库、密钥等生产必填项。
-
----
-
-## 4. 数据库迁移
-
-迁移脚本位于仓库根 `alembic/`：
-
-```bash
-alembic upgrade head
+```bat
+start-desktop-sqlite.bat
 ```
 
----
+或 `start-dev.bat`（默认同样走 `xcagi-backend-desktop.cmd`）。
 
-## 5. 启动后端（含内置前端托管方式）
+**Web / PostgreSQL 开发：**
 
 ```bash
+alembic upgrade head   # 首次需迁移
 cd XCAGI
-python run.py
+start-xcagi.bat        # 或 xcagi-backend.cmd，读取 .env 中的 DATABASE_URL
 ```
 
-浏览器打开：**http://127.0.0.1:5000/** ，API 文档：**http://127.0.0.1:5000/docs** 。
+桌面模式默认 SQLite，可跳过 `alembic` 与 PostgreSQL。详见 [guides/DESKTOP_DATABASE_DELIVERY.md](guides/DESKTOP_DATABASE_DELIVERY.md)。
 
----
+### 3. 验证
 
-## 6. 仅开发 Vue SPA（可选）
+- 桌面：`GET http://127.0.0.1:5000/api/desktop/status` → `storageMode: local_sqlite`
+- 通用：打开 **http://127.0.0.1:5000/** ，API 文档 **/docs**
 
-另开终端：
+### 4. 前端（可选，开发）
 
 ```bash
 cd frontend
@@ -81,40 +75,43 @@ npm install
 npm run dev
 ```
 
-默认 Vite 端口见 `frontend/vite.config.js`，开发时 API 通过代理指向本机 5000。
+默认构建为 **generic 壳**：`npm run build`；完整 ERP 侧栏：`npm run build:full`。
 
 ---
 
-## 7. Windows / macOS 桌面版（可选）
+## 首次使用流程（界面）
 
-使用仓库内脚本构建安装包（需已安装 Node、Python、PyInstaller 等，见 `scripts/package/build-installer.ps1` 注释）：
+generic 构建首次打开会进入 **首次设置**（`/onboarding`）：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/package/build-installer.ps1 -Version 7.0.0
-```
+1. 认识宿主 → 2. 宿主包就绪（一键装齐）→ 3. 行业定型（可跳过）→ 4. 智能对话  
 
-详见根目录 `README.md` 与 `CHANGELOG.md` **v7.0.0** 说明。
+详见 **[guides/PRODUCT_USER_FLOW.md](guides/PRODUCT_USER_FLOW.md)**。
 
----
-
-## 8. Docker（若使用 compose）
+## 装齐通用 Mod 包（命令行）
 
 ```bash
-docker compose up -d --build
+curl -X POST "http://127.0.0.1:5000/api/mod-store/bootstrap-edition-pack?edition=generic"
 ```
 
-具体服务名、镜像与环境变量以仓库内 `compose` 文件为准；完整说明见 [DEPLOYMENT.md](./DEPLOYMENT.md)。
+或在 UI：**首次设置** / **扩展市场** → **一键装齐通用包**。
 
 ---
 
-## 延伸阅读
+## 发版 / 验收（供应商）
 
-- [架构说明](./ARCHITECTURE.md)  
-- [部署指南](./DEPLOYMENT.md)  
-- [功能地图](./FEATURE_MAP.md)  
-- [根目录 README](../README.md)  
-- [变更日志](../CHANGELOG.md)
+```powershell
+powershell -File scripts/dev/adcdfg_acceptance.ps1
+powershell -File scripts/dev/deliverable_smoke.ps1
+powershell -File scripts/package/build-all-skus.ps1 -Version 8.0.0
+```
+
+完整清单：[DELIVERABLE_PRODUCT.md](DELIVERABLE_PRODUCT.md)
 
 ---
 
-*最后更新：2026-04-30 · 文档版本：v7.0*
+## 相关文档
+
+- [DELIVERABLE_PRODUCT.md](DELIVERABLE_PRODUCT.md) — 交付物与验收
+- [guides/PLATFORM_SHELL.md](guides/PLATFORM_SHELL.md) — 宿主壳与 edition
+- [guides/ADCDFG_COMPLETION_PLAN.md](guides/ADCDFG_COMPLETION_PLAN.md) — 收口计划
+- [ARCHITECTURE.md](ARCHITECTURE.md) — 架构

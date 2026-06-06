@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from sqlalchemy import create_engine, text
@@ -90,7 +90,7 @@ class PgUserMemoryVectorStore(VectorStorePort):
                 {"index_id": index_id, "user_id": user_id, "created_at": now, "updated_at": now},
             )
 
-    def upsert_chunks(self, index_id: str, chunks: List[Dict[str, Any]]) -> int:
+    def upsert_chunks(self, index_id: str, chunks: list[dict[str, Any]]) -> int:
         if not chunks:
             return 0
         now = time.time()
@@ -145,15 +145,16 @@ class PgUserMemoryVectorStore(VectorStorePort):
     def query(
         self,
         index_id: str,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         del filters  # 预留接口
         with self._engine.begin() as conn:
-            rows = conn.execute(
-                text(
-                    """
+            rows = (
+                conn.execute(
+                    text(
+                        """
                     SELECT
                         chunk_id,
                         content,
@@ -164,13 +165,16 @@ class PgUserMemoryVectorStore(VectorStorePort):
                     ORDER BY embedding <=> CAST(:query_vector AS vector)
                     LIMIT :top_k
                     """
-                ),
-                {
-                    "index_id": index_id,
-                    "query_vector": json.dumps(query_vector, ensure_ascii=False),
-                    "top_k": max(int(top_k), 1),
-                },
-            ).mappings().all()
+                    ),
+                    {
+                        "index_id": index_id,
+                        "query_vector": json.dumps(query_vector, ensure_ascii=False),
+                        "top_k": max(int(top_k), 1),
+                    },
+                )
+                .mappings()
+                .all()
+            )
 
         return [
             {
@@ -182,23 +186,28 @@ class PgUserMemoryVectorStore(VectorStorePort):
             for row in rows
         ]
 
-    def list_indexes(self) -> List[Dict[str, Any]]:
+    def list_indexes(self) -> list[dict[str, Any]]:
         with self._engine.begin() as conn:
-            rows = conn.execute(
-                text(
-                    """
+            rows = (
+                conn.execute(
+                    text(
+                        """
                     SELECT index_id, user_id, created_at, updated_at, chunk_count
                     FROM user_memory_vector_indexes
                     ORDER BY updated_at DESC
                     """
+                    )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
         return [dict(row) for row in rows]
 
     def delete_index(self, index_id: str) -> bool:
         with self._engine.begin() as conn:
             result = conn.execute(
-                text("DELETE FROM user_memory_vector_indexes WHERE index_id = :index_id"), {"index_id": index_id}
+                text("DELETE FROM user_memory_vector_indexes WHERE index_id = :index_id"),
+                {"index_id": index_id},
             )
         return bool(getattr(result, "rowcount", 0) > 0)
 
@@ -265,7 +274,7 @@ class SQLiteUserMemoryVectorStore(VectorStorePort):
             )
             conn.commit()
 
-    def upsert_chunks(self, index_id: str, chunks: List[Dict[str, Any]]) -> int:
+    def upsert_chunks(self, index_id: str, chunks: list[dict[str, Any]]) -> int:
         if not chunks:
             return 0
         now = time.time()
@@ -316,10 +325,10 @@ class SQLiteUserMemoryVectorStore(VectorStorePort):
     def query(
         self,
         index_id: str,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         del filters
         query_arr = np.array(query_vector, dtype=np.float32)
         with self._get_conn() as conn:
@@ -328,7 +337,7 @@ class SQLiteUserMemoryVectorStore(VectorStorePort):
                 (index_id,),
             ).fetchall()
 
-        scored: List[Dict[str, Any]] = []
+        scored: list[dict[str, Any]] = []
         for chunk_id, content, embedding_text, metadata_text in rows:
             try:
                 emb = np.array(json.loads(embedding_text), dtype=np.float32)
@@ -347,7 +356,7 @@ class SQLiteUserMemoryVectorStore(VectorStorePort):
         scored.sort(key=lambda item: item["score"], reverse=True)
         return scored[: max(int(top_k), 1)]
 
-    def list_indexes(self) -> List[Dict[str, Any]]:
+    def list_indexes(self) -> list[dict[str, Any]]:
         with self._get_conn() as conn:
             rows = conn.execute(
                 """
@@ -357,21 +366,29 @@ class SQLiteUserMemoryVectorStore(VectorStorePort):
                 """
             ).fetchall()
         return [
-            {"index_id": r[0], "user_id": r[1], "created_at": r[2], "updated_at": r[3], "chunk_count": r[4]}
+            {
+                "index_id": r[0],
+                "user_id": r[1],
+                "created_at": r[2],
+                "updated_at": r[3],
+                "chunk_count": r[4],
+            }
             for r in rows
         ]
 
     def delete_index(self, index_id: str) -> bool:
         with self._get_conn() as conn:
-            result = conn.execute("DELETE FROM user_memory_vector_indexes WHERE index_id = ?", (index_id,))
+            result = conn.execute(
+                "DELETE FROM user_memory_vector_indexes WHERE index_id = ?", (index_id,)
+            )
             conn.commit()
         return bool(getattr(result, "rowcount", 0) > 0)
 
 
-_user_memory_sqlite_vector_store_instance: Optional[SQLiteUserMemoryVectorStore] = None
-_user_memory_pg_vector_store_instance: Optional[PgUserMemoryVectorStore] = None
-_user_memory_pg_bound_url: Optional[str] = None
-_user_memory_vector_store_instance: Optional[VectorStorePort] = None
+_user_memory_sqlite_vector_store_instance: SQLiteUserMemoryVectorStore | None = None
+_user_memory_pg_vector_store_instance: PgUserMemoryVectorStore | None = None
+_user_memory_pg_bound_url: str | None = None
+_user_memory_vector_store_instance: VectorStorePort | None = None
 
 
 def _clear_user_memory_vector_app_singletons() -> None:
@@ -399,7 +416,9 @@ def _default_user_memory_vector_db_path() -> str:
 def get_user_memory_sqlite_vector_store() -> SQLiteUserMemoryVectorStore:
     global _user_memory_sqlite_vector_store_instance
     if _user_memory_sqlite_vector_store_instance is None:
-        _user_memory_sqlite_vector_store_instance = SQLiteUserMemoryVectorStore(db_path=_default_user_memory_vector_db_path())
+        _user_memory_sqlite_vector_store_instance = SQLiteUserMemoryVectorStore(
+            db_path=_default_user_memory_vector_db_path()
+        )
     return _user_memory_sqlite_vector_store_instance
 
 
@@ -428,10 +447,11 @@ def get_user_memory_vector_store() -> VectorStorePort:
     """获取用户记忆向量存储实例（带 SQLite fallback）。"""
 
     global _user_memory_vector_store_instance
-    use_sqlite_fallback = (os.environ.get("ENABLE_SQLITE_VECTOR_FALLBACK", "0") or "0").strip() == "1"
+    use_sqlite_fallback = (
+        os.environ.get("ENABLE_SQLITE_VECTOR_FALLBACK", "0") or "0"
+    ).strip() == "1"
     if use_sqlite_fallback:
         if _user_memory_vector_store_instance is None:
             _user_memory_vector_store_instance = get_user_memory_sqlite_vector_store()
         return _user_memory_vector_store_instance
     return get_user_memory_pg_vector_store()
-

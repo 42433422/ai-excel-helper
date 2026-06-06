@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from sqlalchemy import or_
 
@@ -16,7 +16,7 @@ from app.utils.external_sqlite import sqlite_conn
 logger = logging.getLogger(__name__)
 
 
-def resolve_decrypt_contact_db_path() -> Optional[str]:
+def resolve_decrypt_contact_db_path() -> str | None:
     """
     解密后的微信 contact.db 路径（与搜索回退、同步共用）。
     优先 resources/wechat-decrypt，其次 AI助手 遗留目录，最后 WECHAT_CONTACT_DB_PATH。
@@ -45,16 +45,13 @@ def resolve_decrypt_contact_db_path() -> Optional[str]:
     return None
 
 
-def _read_rows_from_contact_db(path: str, limit: int) -> List[Tuple[Any, ...]]:
+def _read_rows_from_contact_db(path: str, limit: int) -> list[tuple[Any, ...]]:
     queries = [
         (
             "SELECT username, nick_name, remark, is_in_chat_room FROM contact "
             "WHERE IFNULL(delete_flag, 0) = 0 LIMIT ?"
         ),
-        (
-            "SELECT username, nick_name, remark, is_in_chat_room FROM contact "
-            "LIMIT ?"
-        ),
+        ("SELECT username, nick_name, remark, is_in_chat_room FROM contact " "LIMIT ?"),
     ]
     with sqlite_conn(path) as conn:
         for q in queries:
@@ -70,12 +67,12 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
     def list_contacts(
         self,
         *,
-        keyword: Optional[str] = None,
-        contact_type: Optional[str] = None,
+        keyword: str | None = None,
+        contact_type: str | None = None,
         starred_only: bool = False,
         limit: int = 100,
         default_starred_when_all: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         with get_db() as db:
             query = db.query(WechatContact).filter(WechatContact.is_active == 1)
 
@@ -123,7 +120,7 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
                         with sqlite_conn(contact_db_path) as cconn:
                             matches = cconn.execute(sql, (like, like, like, limit)).fetchall()
 
-                        fallback: List[Dict[str, Any]] = []
+                        fallback: list[dict[str, Any]] = []
                         for username, nick_name, remark, is_in_chat_room in matches:
                             username = (username or "").strip()
                             nick_name = (nick_name or "").strip()
@@ -171,7 +168,7 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
                 for c in rows
             ]
 
-    def get_contact(self, contact_id: int) -> Optional[Dict[str, Any]]:
+    def get_contact(self, contact_id: int) -> dict[str, Any] | None:
         with get_db() as db:
             c = (
                 db.query(WechatContact)
@@ -200,7 +197,7 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
         wechat_id: str = "",
         contact_type: str = "contact",
         is_starred: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         name = (contact_name or "").strip()
         if not name:
             return {"success": False, "message": "联系人名称不能为空"}
@@ -247,7 +244,7 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
             db.refresh(c)
             return {"success": True, "message": "联系人添加成功", "contact_id": c.id}
 
-    def update_contact(self, contact_id: int, fields: Dict[str, Any]) -> Dict[str, Any]:
+    def update_contact(self, contact_id: int, fields: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             c = (
                 db.query(WechatContact)
@@ -278,7 +275,7 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
             db.commit()
             return {"success": True, "message": "联系人更新成功"}
 
-    def delete_contact(self, contact_id: int) -> Dict[str, Any]:
+    def delete_contact(self, contact_id: int) -> dict[str, Any]:
         with get_db() as db:
             c = (
                 db.query(WechatContact)
@@ -292,7 +289,7 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
             db.commit()
             return {"success": True, "message": "联系人已删除"}
 
-    def unstar_all(self) -> Dict[str, Any]:
+    def unstar_all(self) -> dict[str, Any]:
         with get_db() as db:
             count = (
                 db.query(WechatContact)
@@ -300,9 +297,13 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
                 .update({"is_starred": 0, "updated_at": datetime.now()})
             )
             db.commit()
-            return {"success": True, "message": f"已取消全部星标，共 {count} 个联系人", "count": count}
+            return {
+                "success": True,
+                "message": f"已取消全部星标，共 {count} 个联系人",
+                "count": count,
+            }
 
-    def sync_from_decrypt_contact_db(self, limit: int = 50000) -> Dict[str, Any]:
+    def sync_from_decrypt_contact_db(self, limit: int = 50000) -> dict[str, Any]:
         """
         将解密库 contact.db 中的联系人导入主库 wechat_contacts（不自动星标）。
         导入后「搜索」可走主库；「星标列表」仍需用户手动添加星标。
@@ -327,9 +328,7 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
                 "imported": 0,
                 "updated": 0,
                 "skipped": 0,
-                "message": (
-                    f"已连接解密库，但未读到联系人行（表为空或结构与预期不符）：{path}"
-                ),
+                "message": (f"已连接解密库，但未读到联系人行（表为空或结构与预期不符）：{path}"),
                 "source_path": path,
             }
         imported = 0
@@ -354,16 +353,8 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
                     name = (str(nick_name) if nick_name is not None else "").strip() or wid
                     remark_s = (str(remark) if remark is not None else "").strip()
                     raw_room = str(is_in_chat_room or "")
-                    ct = (
-                        "group"
-                        if (raw_room == "1" or "@chatroom" in wid.lower())
-                        else "contact"
-                    )
-                    c = (
-                        db.query(WechatContact)
-                        .filter(WechatContact.wechat_id == wid)
-                        .first()
-                    )
+                    ct = "group" if (raw_room == "1" or "@chatroom" in wid.lower()) else "contact"
+                    c = db.query(WechatContact).filter(WechatContact.wechat_id == wid).first()
                     if c:
                         c.contact_name = name
                         c.remark = remark_s
@@ -404,9 +395,13 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
             "source_path": path,
         }
 
-    def get_context(self, contact_id: int) -> List[Dict[str, Any]]:
+    def get_context(self, contact_id: int) -> list[dict[str, Any]]:
         with get_db() as db:
-            ctx = db.query(WechatContactContext).filter(WechatContactContext.contact_id == contact_id).first()
+            ctx = (
+                db.query(WechatContactContext)
+                .filter(WechatContactContext.contact_id == contact_id)
+                .first()
+            )
             if not ctx or not ctx.context_json:
                 return []
             try:
@@ -414,9 +409,13 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
             except Exception:
                 return []
 
-    def save_context(self, contact_id: int, wechat_id: str, messages: List[Dict[str, Any]]) -> bool:
+    def save_context(self, contact_id: int, wechat_id: str, messages: list[dict[str, Any]]) -> bool:
         with get_db() as db:
-            ctx = db.query(WechatContactContext).filter(WechatContactContext.contact_id == contact_id).first()
+            ctx = (
+                db.query(WechatContactContext)
+                .filter(WechatContactContext.contact_id == contact_id)
+                .first()
+            )
             if ctx:
                 ctx.wechat_id = wechat_id
                 ctx.context_json = json.dumps(messages, ensure_ascii=False)
@@ -433,4 +432,3 @@ class SQLAlchemyWechatContactStore(WechatContactStorePort):
                 db.add(ctx)
             db.commit()
             return True
-

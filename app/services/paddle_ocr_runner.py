@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 PaddleOCR 单例与统一解析：供 OCRService 与标签识别模板共用。
 
@@ -23,12 +22,9 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +35,7 @@ _paddle_ocr = None  # type: ignore
 def check_paddle_available() -> bool:
     try:
         import paddleocr  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -48,7 +45,7 @@ def _is_paddlex_infer_dir(path: str) -> bool:
     return bool(path) and os.path.isfile(os.path.join(path, "inference.yml"))
 
 
-def _pick_det_rec_dirs(root: str) -> Tuple[Optional[str], Optional[str]]:
+def _pick_det_rec_dirs(root: str) -> tuple[str | None, str | None]:
     """在 root 下查找含 inference.yml 的 det/rec 目录（优先 PaddleX 官方目录名）。"""
     det_candidates = (
         "PP-OCRv4_mobile_det_infer",
@@ -58,12 +55,26 @@ def _pick_det_rec_dirs(root: str) -> Tuple[Optional[str], Optional[str]]:
         "PP-OCRv4_mobile_rec_infer",
         "ch_PP-OCRv4_rec_infer",
     )
-    det = next((os.path.join(root, n) for n in det_candidates if _is_paddlex_infer_dir(os.path.join(root, n))), None)
-    rec = next((os.path.join(root, n) for n in rec_candidates if _is_paddlex_infer_dir(os.path.join(root, n))), None)
+    det = next(
+        (
+            os.path.join(root, n)
+            for n in det_candidates
+            if _is_paddlex_infer_dir(os.path.join(root, n))
+        ),
+        None,
+    )
+    rec = next(
+        (
+            os.path.join(root, n)
+            for n in rec_candidates
+            if _is_paddlex_infer_dir(os.path.join(root, n))
+        ),
+        None,
+    )
     return det, rec
 
 
-def _resolve_local_model_dirs() -> Tuple[Optional[str], Optional[str]]:
+def _resolve_local_model_dirs() -> tuple[str | None, str | None]:
     """返回 (det_dir, rec_dir)，均为 PaddleX 格式目录。"""
     det = os.environ.get("PADDLEOCR_TEXT_DET_MODEL_DIR", "").strip()
     rec = os.environ.get("PADDLEOCR_TEXT_REC_MODEL_DIR", "").strip()
@@ -81,7 +92,7 @@ def _resolve_local_model_dirs() -> Tuple[Optional[str], Optional[str]]:
     return det, rec
 
 
-def _resolve_local_model_names(det_dir: Optional[str], rec_dir: Optional[str]) -> Tuple[str, str]:
+def _resolve_local_model_names(det_dir: str | None, rec_dir: str | None) -> tuple[str, str]:
     """与 inference.yml 中 Global.model_name 一致；可通过环境变量覆盖。"""
     dname = os.environ.get("PADDLEOCR_TEXT_DET_MODEL_NAME", "").strip()
     rname = os.environ.get("PADDLEOCR_TEXT_REC_MODEL_NAME", "").strip()
@@ -103,7 +114,7 @@ def get_paddle_ocr_instance():
 
             if det_dir and rec_dir:
                 dn, rn = _resolve_local_model_names(det_dir, rec_dir)
-                kw: Dict[str, Any] = {
+                kw: dict[str, Any] = {
                     "text_detection_model_name": dn,
                     "text_detection_model_dir": det_dir,
                     "text_recognition_model_name": rn,
@@ -129,7 +140,7 @@ def get_paddle_ocr_instance():
         return _paddle_ocr
 
 
-def _normalize_predict_result(result: Any) -> Dict[str, Any]:
+def _normalize_predict_result(result: Any) -> dict[str, Any]:
     if isinstance(result, list) and len(result) > 0:
         result = result[0]
     if hasattr(result, "json"):
@@ -144,7 +155,7 @@ def _normalize_predict_result(result: Any) -> Dict[str, Any]:
     return res_data if isinstance(res_data, dict) else {}
 
 
-def predict_to_text_blocks(image_array: np.ndarray) -> List[Dict[str, Any]]:
+def predict_to_text_blocks(image_array: np.ndarray) -> list[dict[str, Any]]:
     """
     对 RGB numpy 图像执行 Paddle predict，返回与标签模板一致的 text_blocks 结构。
     """
@@ -156,7 +167,7 @@ def predict_to_text_blocks(image_array: np.ndarray) -> List[Dict[str, Any]]:
     rec_scores = res_data.get("rec_scores", []) or []
     rec_polys = res_data.get("rec_polys", []) or []
 
-    text_blocks: List[Dict[str, Any]] = []
+    text_blocks: list[dict[str, Any]] = []
     for i, text in enumerate(rec_texts):
         text = (text or "").strip()
         if not text:
@@ -182,5 +193,3 @@ def predict_to_text_blocks(image_array: np.ndarray) -> List[Dict[str, Any]]:
             }
         )
     return text_blocks
-
-

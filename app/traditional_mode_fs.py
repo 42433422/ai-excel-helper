@@ -1,4 +1,8 @@
-"""传统模式文件浏览（归档 ``traditional_mode`` 子集：list / read / watch）。"""
+"""传统模式文件浏览与 AI 托管目录能力。
+
+该模块只允许访问一个开放托管根目录，默认仍是仓库下的 ``bang``，可通过
+``TRADITIONAL_MODE_ROOT`` 指向任意本机文件夹。前端契约保持不变。
+"""
 
 from __future__ import annotations
 
@@ -7,15 +11,26 @@ import json
 import logging
 import os
 import queue
+import shutil
 import threading
-from datetime import datetime, timezone
-from typing import Any, Iterator
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from typing import Any
 
 from app.utils.path_utils import get_base_dir
 
 logger = logging.getLogger(__name__)
 
-ROOT_DIR = os.path.join(get_base_dir(), "bang")
+
+def _resolve_root_dir() -> str:
+    raw = (os.environ.get("TRADITIONAL_MODE_ROOT") or "").strip()
+    root = raw if raw else os.path.join(get_base_dir(), "bang")
+    root = os.path.abspath(os.path.expanduser(os.path.expandvars(root)))
+    os.makedirs(root, exist_ok=True)
+    return root
+
+
+ROOT_DIR = _resolve_root_dir()
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".tiff", ".svg"}
 EXCEL_EXTENSIONS = {".xlsx", ".xls"}
@@ -30,10 +45,144 @@ _watchdog_prev: dict[str, float] = {}
 
 
 def resolve_safe_path(relative_path: str = "") -> str | None:
-    safe = os.path.normpath(os.path.join(ROOT_DIR, relative_path or ""))
-    if not os.path.abspath(safe).startswith(os.path.abspath(ROOT_DIR)):
+    root_abs = os.path.abspath(ROOT_DIR)
+    safe = os.path.abspath(os.path.normpath(os.path.join(root_abs, relative_path or "")))
+    try:
+        common = os.path.commonpath([root_abs, safe])
+    except ValueError:
+        return None
+    if common != root_abs:
         return None
     return safe
+
+
+def root_info_response() -> dict[str, Any]:
+    return {
+        "success": True,
+        "data": {
+            "root": ROOT_DIR,
+            "logical_root": "bang",
+            "capabilities": [
+                "list",
+                "read",
+                "download",
+                "upload",
+                "write_excel",
+                "write_text",
+                "write_base64",
+                "append_text",
+                "mkdir",
+                "rename",
+                "delete",
+                "move",
+                "copy",
+            ],
+        },
+    }
+
+
+def _rel_from_root(path: str) -> str:
+    return os.path.relpath(path, ROOT_DIR).replace(os.sep, "/")
+
+
+def stat_response(rel_path: str = "") -> tuple[dict[str, Any], int]:
+    target = resolve_safe_path(rel_path)
+    if target is None:
+        return {"success": False, "error": "路径越权访问被拒绝"}, 403
+    if not os.path.exists(target):
+        return {"success": False, "error": "路径不存在"}, 404
+    st = os.stat(target)
+    is_dir = os.path.isdir(target)
+    return {
+        "success": True,
+        "data": {
+            "path": _rel_from_root(target) if target != ROOT_DIR else "",
+            "name": os.path.basename(target) or "bang",
+            "is_dir": is_dir,
+            "size": 0 if is_dir else st.st_size,
+            "modified_time": _format_time(st.st_mtime),
+            "type": "文件夹" if is_dir else _get_file_type(os.path.basename(target)),
+        },
+    }, 200
+
+
+def write_text_response(
+    rel_file: str, content: str, append: bool = False
+) -> tuple[dict[str, Any], int]:
+    target = resolve_safe_path(rel_file)
+    if target is None:
+        return {"success": False, "error": "路径越权访问被拒绝"}, 403
+    if os.path.isdir(target):
+        return {"success": False, "error": "目标路径是目录"}, 400
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    mode = "a" if append else "w"
+    with open(target, mode, encoding="utf-8", newline="") as f:
+        f.write(content)
+    return {
+        "success": True,
+        "data": {"path": _rel_from_root(target), "bytes": os.path.getsize(target)},
+    }, 200
+
+
+def write_base64_response(rel_file: str, content_base64: str) -> tuple[dict[str, Any], int]:
+    target = resolve_safe_path(rel_file)
+    if target is None:
+        return {"success": False, "error": "路径越权访问被拒绝"}, 403
+    if os.path.isdir(target):
+        return {"success": False, "error": "目标路径是目录"}, 400
+    try:
+        data = base64.b64decode(content_base64, validate=True)
+    except Exception:
+        return {"success": False, "error": "base64 内容无效"}, 400
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with open(target, "wb") as f:
+        f.write(data)
+    return {"success": True, "data": {"path": _rel_from_root(target), "bytes": len(data)}}, 200
+
+
+def move_response(
+    src_rel: str, dst_rel: str, overwrite: bool = False
+) -> tuple[dict[str, Any], int]:
+    src = resolve_safe_path(src_rel)
+    dst = resolve_safe_path(dst_rel)
+    if src is None or dst is None:
+        return {"success": False, "error": "路径越权访问被拒绝"}, 403
+    if not os.path.exists(src):
+        return {"success": False, "error": "源路径不存在"}, 404
+    if os.path.exists(dst):
+        if not overwrite:
+            return {"success": False, "error": "目标路径已存在"}, 409
+        if os.path.isdir(dst):
+            shutil.rmtree(dst)
+        else:
+            os.remove(dst)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    shutil.move(src, dst)
+    return {"success": True, "data": {"path": _rel_from_root(dst)}}, 200
+
+
+def copy_response(
+    src_rel: str, dst_rel: str, overwrite: bool = False
+) -> tuple[dict[str, Any], int]:
+    src = resolve_safe_path(src_rel)
+    dst = resolve_safe_path(dst_rel)
+    if src is None or dst is None:
+        return {"success": False, "error": "路径越权访问被拒绝"}, 403
+    if not os.path.exists(src):
+        return {"success": False, "error": "源路径不存在"}, 404
+    if os.path.exists(dst):
+        if not overwrite:
+            return {"success": False, "error": "目标路径已存在"}, 409
+        if os.path.isdir(dst):
+            shutil.rmtree(dst)
+        else:
+            os.remove(dst)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    if os.path.isdir(src):
+        shutil.copytree(src, dst)
+    else:
+        shutil.copy2(src, dst)
+    return {"success": True, "data": {"path": _rel_from_root(dst)}}, 200
 
 
 def _get_file_type(filename: str) -> str:
@@ -47,7 +196,7 @@ def _get_file_type(filename: str) -> str:
 
 
 def _format_time(ts: float) -> str:
-    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+    return datetime.fromtimestamp(ts, tz=UTC).isoformat()
 
 
 def list_files_response(rel_path: str = "") -> tuple[dict[str, Any], int]:
@@ -161,7 +310,7 @@ def read_file_response(rel_file: str) -> tuple[dict[str, Any], int]:
             }, 200
 
         try:
-            with open(full_path, "r", encoding="utf-8") as f:
+            with open(full_path, encoding="utf-8") as f:
                 content = f.read()
             return {"success": True, "data": {"type": "text", "content": content}}, 200
         except UnicodeDecodeError:
@@ -259,7 +408,9 @@ def sse_watch_events(rel_path: str) -> Iterator[str]:
 
     try:
         with _snapshot_lock:
-            initial = json.dumps({"changed": [], "snapshot": dict(_last_snapshot)}, ensure_ascii=False)
+            initial = json.dumps(
+                {"changed": [], "snapshot": dict(_last_snapshot)}, ensure_ascii=False
+            )
         yield f"data: {initial}\n\n"
         while True:
             try:

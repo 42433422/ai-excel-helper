@@ -10,7 +10,7 @@ import json
 import glob
 
 # 读取图片
-files = glob.glob(r'e:\FHD\26-0300001A*.png')
+files = glob.glob(r"e:\FHD\26-0300001A*.png")
 image_path = files[0]
 print(f"读取图片：{image_path}")
 
@@ -36,22 +36,22 @@ for i, item in enumerate(result):
     print(f"类型：{item.get('type', 'unknown')}")
     print(f"内容 keys：{item.keys()}")
 
-    if 'table' in item:
+    if "table" in item:
         print(f"\n表格结构：")
-        table_result = item['table']
+        table_result = item["table"]
         if isinstance(table_result, list):
             for row_idx, row in enumerate(table_result):
                 print(f"  行 {row_idx}: {row}")
 
-    if 'img' in item:
+    if "img" in item:
         print(f"\n检测到图片区域")
 
-    if 'layout' in item:
+    if "layout" in item:
         print(f"\n版面分析结果：{item['layout']}")
 
 # 保存完整结果为 JSON
-output_path = r'e:\FHD\paddleocr_result.json'
-with open(output_path, 'w', encoding='utf-8') as f:
+output_path = r"e:\FHD\paddleocr_result.json"
+with open(output_path, "w", encoding="utf-8") as f:
     json.dump(result, f, ensure_ascii=False, indent=2)
 
 print(f"\n✓ 结果已保存到：{output_path}")

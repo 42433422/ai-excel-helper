@@ -4,8 +4,7 @@
 此模块已迁移到 app/application/
 """
 
-from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class UserPreferenceApplicationService:
@@ -17,6 +16,7 @@ class UserPreferenceApplicationService:
     def get_preference(self, user_id: str, key: str, default: Any = None) -> Any:
         try:
             from app.utils.user_memory import get_user_memory_service
+
             memory_service = get_user_memory_service()
             return memory_service.get_preference(user_id, key, default)
         except Exception:
@@ -25,15 +25,17 @@ class UserPreferenceApplicationService:
     def set_preference(self, user_id: str, key: str, value: Any) -> bool:
         try:
             from app.utils.user_memory import get_user_memory_service
+
             memory_service = get_user_memory_service()
             memory_service.add_preference(user_id, key, value)
             return True
         except Exception:
             return False
 
-    def get_all_preferences(self, user_id: str) -> Dict[str, Any]:
+    def get_all_preferences(self, user_id: str) -> dict[str, Any]:
         try:
             from app.utils.user_memory import get_user_memory_service
+
             memory_service = get_user_memory_service()
             return memory_service.get_all_preferences(user_id)
         except Exception:
@@ -44,7 +46,7 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 
 instrument_application_service_class(UserPreferenceApplicationService)
 
-_user_preference_app_service: Optional[UserPreferenceApplicationService] = None
+_user_preference_app_service: UserPreferenceApplicationService | None = None
 
 
 def get_user_preference_app_service() -> UserPreferenceApplicationService:

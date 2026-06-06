@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 ChatContext - 聊天上下文
 
@@ -14,7 +13,7 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +25,13 @@ class ChatTurn:
 
     记录单轮对话的信息
     """
+
     user_id: str
     message: str
-    intent: Optional[str]
-    tool_key: Optional[str]
-    slots: Dict[str, Any]
-    response_text: Optional[str]
+    intent: str | None
+    tool_key: str | None
+    slots: dict[str, Any]
+    response_text: str | None
     timestamp: float = field(default_factory=time.time)
     is_exact_duplicate: bool = False
     is_semantic_duplicate: bool = False
@@ -39,9 +39,7 @@ class ChatTurn:
     @property
     def message_fingerprint(self) -> str:
         """消息指纹（精确匹配用）"""
-        return hashlib.md5(
-            self.message.strip().lower().encode()
-        ).hexdigest()[:16]
+        return hashlib.md5(self.message.strip().lower().encode()).hexdigest()[:16]
 
     def make_semantic_fingerprint(self) -> str:
         """语义指纹（意图+关键槽位）"""
@@ -79,9 +77,9 @@ class ChatContext:
     EXACT_DUPLICATE_TTL = 5.0
 
     def __init__(self) -> None:
-        self._history: Dict[str, List[ChatTurn]] = {}
-        self._exact_cache: Dict[str, Tuple[Any, float]] = {}
-        self._semantic_cache: Dict[str, Tuple[Any, float]] = {}
+        self._history: dict[str, list[ChatTurn]] = {}
+        self._exact_cache: dict[str, tuple[Any, float]] = {}
+        self._semantic_cache: dict[str, tuple[Any, float]] = {}
 
     def add_turn(self, user_id: str, turn: ChatTurn) -> None:
         """
@@ -97,7 +95,7 @@ class ChatContext:
         self._history[user_id].append(turn)
 
         if len(self._history[user_id]) > self.MAX_HISTORY_SIZE:
-            self._history[user_id] = self._history[user_id][-self.MAX_HISTORY_SIZE:]
+            self._history[user_id] = self._history[user_id][-self.MAX_HISTORY_SIZE :]
 
         self._update_semantic_cache(user_id, turn)
 
@@ -106,7 +104,7 @@ class ChatContext:
             f"intent={turn.intent}, history_size={len(self._history[user_id])}"
         )
 
-    def get_recent_turns(self, user_id: str, limit: int = 10) -> List[ChatTurn]:
+    def get_recent_turns(self, user_id: str, limit: int = 10) -> list[ChatTurn]:
         """
         获取最近的对话轮次
 
@@ -120,7 +118,7 @@ class ChatContext:
         turns = self._history.get(user_id, [])
         return turns[-limit:] if limit > 0 else turns
 
-    def get_recent_intents(self, user_id: str, limit: int = 3) -> List[str]:
+    def get_recent_intents(self, user_id: str, limit: int = 3) -> list[str]:
         """
         获取最近的意图列表
 
@@ -158,7 +156,7 @@ class ChatContext:
         now = time.time()
         expired_keys = []
 
-        for key, ( _, timestamp) in self._semantic_cache.items():
+        for key, (_, timestamp) in self._semantic_cache.items():
             if now - timestamp > 300:
                 expired_keys.append(key)
 
@@ -166,7 +164,8 @@ class ChatContext:
             del self._semantic_cache[key]
 
         expired_exact = [
-            key for key, (_, timestamp) in self._exact_cache.items()
+            key
+            for key, (_, timestamp) in self._exact_cache.items()
             if now - timestamp > self.EXACT_DUPLICATE_TTL
         ]
 
@@ -177,10 +176,10 @@ class ChatContext:
         self,
         user_id: str,
         message: str,
-        intent: Optional[str] = None,
-        tool_key: Optional[str] = None,
-        slots: Optional[Dict[str, Any]] = None
-    ) -> Tuple[bool, Optional[str], bool]:
+        intent: str | None = None,
+        tool_key: str | None = None,
+        slots: dict[str, Any] | None = None,
+    ) -> tuple[bool, str | None, bool]:
         """
         检测是否为重复消息
 
@@ -198,9 +197,7 @@ class ChatContext:
         Returns:
             (是否重复, 缓存的响应文本, 是否是精确重复)
         """
-        msg_fingerprint = hashlib.md5(
-            message.strip().lower().encode()
-        ).hexdigest()[:16]
+        msg_fingerprint = hashlib.md5(message.strip().lower().encode()).hexdigest()[:16]
 
         exact_key = f"{user_id}:{msg_fingerprint}"
         if exact_key in self._exact_cache:
@@ -226,9 +223,10 @@ class ChatContext:
 
             recent_turns = self.get_recent_turns(user_id, self.DUPLICATE_WINDOW)
             for turn in recent_turns:
-                if turn.make_semantic_fingerprint() == hashlib.md5(
-                    f"{intent}:{tool_key or ''}".encode()
-                ).hexdigest()[:16]:
+                if (
+                    turn.make_semantic_fingerprint()
+                    == hashlib.md5(f"{intent}:{tool_key or ''}".encode()).hexdigest()[:16]
+                ):
                     if turn.response_text:
                         logger.info(
                             f"[CHAT_CONTEXT] Semantic duplicate detected: user={user_id}, "
@@ -238,12 +236,7 @@ class ChatContext:
 
         return False, None, False
 
-    def cache_response(
-        self,
-        user_id: str,
-        message: str,
-        response_text: str
-    ) -> None:
+    def cache_response(self, user_id: str, message: str, response_text: str) -> None:
         """
         缓存响应结果
 
@@ -252,16 +245,14 @@ class ChatContext:
             message: 用户消息
             response_text: 响应文本
         """
-        msg_fingerprint = hashlib.md5(
-            message.strip().lower().encode()
-        ).hexdigest()[:16]
+        msg_fingerprint = hashlib.md5(message.strip().lower().encode()).hexdigest()[:16]
 
         exact_key = f"{user_id}:{msg_fingerprint}"
         self._exact_cache[exact_key] = (response_text, time.time())
 
         self._cleanup_cache()
 
-    def get_history_summary(self, user_id: str) -> Dict[str, Any]:
+    def get_history_summary(self, user_id: str) -> dict[str, Any]:
         """获取历史摘要"""
         turns = self.get_recent_turns(user_id)
         if not turns:
@@ -290,10 +281,7 @@ class ChatContext:
 
         for user_id, turns in list(self._history.items()):
             original_len = len(turns)
-            self._history[user_id] = [
-                t for t in turns
-                if now - t.timestamp <= max_age_seconds
-            ]
+            self._history[user_id] = [t for t in turns if now - t.timestamp <= max_age_seconds]
             cleaned += original_len - len(self._history[user_id])
 
             if not self._history[user_id]:
@@ -310,7 +298,7 @@ class ChatContext:
 
 
 class ChatContextContainer:
-    _instance: Optional[ChatContext] = None
+    _instance: ChatContext | None = None
 
     @classmethod
     def get_instance(cls) -> ChatContext:

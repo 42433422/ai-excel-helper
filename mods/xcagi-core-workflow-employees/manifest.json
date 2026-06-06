@@ -1,0 +1,67 @@
+{
+  "id": "xcagi-core-workflow-employees",
+  "name": "XCAGI 核心工作流（四名内置员工）",
+  "version": "1.0.0",
+  "author": "成都修茈科技有限公司",
+  "description": "Mod（房子）：承载原 FHD 焊死的四名工作流副窗 AI 员工。员工（家具）：label_print、shipment_mgmt、receipt_confirm、wechat_msg。前端事件链仍在宿主；本包提供 manifest 名片与 backend/employees/*.py，供 MODstore 制作与 mod:sync 安装。",
+  "primary": false,
+  "dependencies": {
+    "xcagi": ">=8.0.0"
+  },
+  "backend": {
+    "entry": "blueprints",
+    "init": "mod_init"
+  },
+  "frontend": {
+    "routes": "frontend/routes",
+    "menu": [
+      {
+        "id": "mod-workflow-visualization",
+        "label": "流程可视化",
+        "icon": "fa-project-diagram",
+        "path": "/mod/xcagi-core-workflow-employees/workflow-visualization"
+      }
+    ],
+    "menu_overrides": [{ "key": "workflow-visualization", "hidden": true }]
+  },
+  "hooks": {},
+  "comms": {
+    "exports": []
+  },
+  "config": {
+    "workflow_pages_via_mod": true,
+    "views_physical": true,
+    "physical_views": ["WorkflowVisualizationView.vue"],
+    "phase": "R"
+  },
+  "workflow_employees": [
+    {
+      "id": "label_print",
+      "label": "标签打印 AI 员工",
+      "panel_title": "工作流 · 标签打印 AI 员工",
+      "panel_summary": "星标微信 → 意图命中「标签/打印」→ 对话执行打印。执行业务链在宿主；本员工提供 Mod 侧 run/status 与平台可编辑实现。",
+      "api_base_path": "employees/label_print"
+    },
+    {
+      "id": "shipment_mgmt",
+      "label": "出货管理 AI 员工",
+      "panel_title": "工作流 · 出货管理 AI 员工",
+      "panel_summary": "对话开单 → 确认执行 → 开始打印 → 出货记录审计建议。",
+      "api_base_path": "employees/shipment_mgmt"
+    },
+    {
+      "id": "receipt_confirm",
+      "label": "收货确认 AI 员工",
+      "panel_title": "工作流 · 收货确认 AI 员工",
+      "panel_summary": "星标意图 → 收货/对账类客户反馈写入工作流进程；对话跟进确认。",
+      "api_base_path": "employees/receipt_confirm"
+    },
+    {
+      "id": "wechat_msg",
+      "label": "微信消息处理 AI 员工",
+      "panel_title": "工作流 · 微信消息处理 AI 员工",
+      "panel_summary": "星标自动刷新 → 新消息 → 意图 API 或本地规则 → 任务列表。",
+      "api_base_path": "employees/wechat_msg"
+    }
+  ]
+}

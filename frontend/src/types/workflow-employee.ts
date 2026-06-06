@@ -2,6 +2,22 @@
  * Workflow Employee Module Type Definitions
  */
 
+export type WorkflowEmployeeRegistryKind = 'core' | 'fixed_extension' | 'mod_extension'
+
+export interface WorkflowEmployeeRegistryEntry {
+  id: string
+  label: string
+  kind: WorkflowEmployeeRegistryKind
+  order: number
+  labelI18nKey?: string
+  source: 'json' | 'api' | 'mod_manifest'
+}
+
+export interface WorkflowEmployeeRegistryV1 {
+  schemaVersion: 1
+  employees: WorkflowEmployeeRegistryEntry[]
+}
+
 export interface WorkflowEmployee {
   id: string
   name: string

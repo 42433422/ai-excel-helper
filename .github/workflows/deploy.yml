@@ -27,7 +27,8 @@ jobs:
       contents: read
       packages: write
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
+      backend_image: ${{ steps.deploy-tags.outputs.backend }}
+      frontend_image: ${{ steps.deploy-tags.outputs.frontend }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,16 +49,16 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
           tags: |
-            type=ref,event=branch
+            type=sha,prefix=sha-
             type=semver,pattern={{version}}
-            type=sha,prefix=
+            type=ref,event=branch
 
       - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
           # ⚠️ 已统一主入口至 XCAGI/，Dockerfile 指向 XCAGI/
           context: ./XCAGI
-          file: ./XCAGI/Dockerfile
+          file: ./Dockerfile
           target: production
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
@@ -71,9 +72,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
           tags: |
-            type=ref,event=branch
+            type=sha,prefix=sha-
             type=semver,pattern={{version}}
-            type=sha,prefix=
+            type=ref,event=branch
 
       - name: Build and push frontend
         uses: docker/build-push-action@v5
@@ -85,6 +86,34 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Resolve primary image refs for deploy
+        id: deploy-tags
+        env:
+          META_BACKEND_JSON: ${{ steps.meta-backend.outputs.json }}
+          META_FRONTEND_JSON: ${{ steps.meta-frontend.outputs.json }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+
+          def pick(raw: str) -> str:
+              data = json.loads(raw or "{}")
+              tags = data.get("tags") or []
+              for t in tags:
+                  if "sha-" in t or "@sha256:" in t:
+                      return t
+              return tags[0] if tags else ""
+
+          backend = pick(os.environ.get("META_BACKEND_JSON", ""))
+          frontend = pick(os.environ.get("META_FRONTEND_JSON", ""))
+          out = os.environ["GITHUB_OUTPUT"]
+          with open(out, "a", encoding="utf-8") as fh:
+              fh.write(f"backend={backend}\n")
+              fh.write(f"frontend={frontend}\n")
+          print("backend=", backend)
+          print("frontend=", frontend)
+          PY
 
   deploy-staging:
     runs-on: ubuntu-latest
@@ -99,11 +128,68 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy to staging
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+
+      - name: Configure kubeconfig
+        id: kube
+        env:
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }}
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
-          echo "Deploying to staging environment..."
-          echo "Image tag: ${{ needs.build-and-push.outputs.image_tag }}"
-          echo "Add your deployment commands here (e.g., kubectl, helm, ssh)"
+          mkdir -p ~/.kube
+          if [ -n "${KUBE_CONFIG_B64}" ]; then
+            echo "${KUBE_CONFIG_B64}" | base64 -d > ~/.kube/config
+            echo "configured=1" >> "$GITHUB_OUTPUT"
+          elif [ -n "${KUBE_CONFIG}" ]; then
+            printf '%s\n' "${KUBE_CONFIG}" > ~/.kube/config
+            echo "configured=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No KUBE_CONFIG / KUBE_CONFIG_B64 — skipping cluster apply."
+            echo "configured=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy backend (Kubernetes manifests)
+        if: steps.kube.outputs.configured == '1'
+        env:
+          BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend_image }}
+          K8S_NAMESPACE_INPUT: ${{ vars.K8S_NAMESPACE }}
+        run: |
+          set -euo pipefail
+          NS="${K8S_NAMESPACE_INPUT:-default}"
+          TMP="${RUNNER_TEMP}/k8s-staging-${GITHUB_RUN_ID}"
+          mkdir -p "${TMP}"
+          sed "s|__DEPLOY_BACKEND_IMAGE__|${BACKEND_IMAGE}|g" \
+            "${GITHUB_WORKSPACE}/k8s/deployment.yaml" > "${TMP}/deployment.yaml"
+          for f in service configmap ingress hpa; do
+            cp "${GITHUB_WORKSPACE}/k8s/${f}.yaml" "${TMP}/${f}.yaml"
+          done
+          kubectl apply -f "${TMP}/configmap.yaml" -n "${NS}" --validate=true
+          kubectl apply -f "${TMP}/service.yaml" -n "${NS}" --validate=true
+          kubectl apply -f "${TMP}/deployment.yaml" -n "${NS}" --validate=true
+          # Staging: FHD_ENV + NeuroBus 去重/熔断（与 app/neuro_bus/bus.py 约定；可用 GET /api/neurobus/health 验证 reliability）
+          kubectl -n "${NS}" set env deployment/xcagi \
+            FHD_ENV=staging \
+            XCAGI_NEURO_BUS_DEDUP=1 \
+            XCAGI_NEURO_BUS_CIRCUIT=1 \
+            XCAGI_NEURO_BUS_RATE_LIMIT=1 \
+            XCAGI_NEURO_BUS_TRACE=1 \
+            XCAGI_NEURO_BUS_TRACE_SAMPLE_RATE=0.1 \
+            XCAGI_NEURO_BUS_LIFELINE=1 \
+            XCAGI_NEURO_BUS_DLQ_AUTO=1 \
+            XCAGI_NEURO_BUS_SLA_LOG=1
+          kubectl apply -f "${TMP}/hpa.yaml" -n "${NS}" --validate=true
+          kubectl apply -f "${TMP}/ingress.yaml" -n "${NS}" --validate=true
+          kubectl -n "${NS}" rollout status deployment/xcagi --timeout=300s
+
+      - name: Deploy summary (staging)
+        if: always()
+        run: |
+          echo "Staging deploy finished."
+          echo "Backend image: ${{ needs.build-and-push.outputs.backend_image }}"
+          echo "Frontend image: ${{ needs.build-and-push.outputs.frontend_image }}"
 
   deploy-production:
     runs-on: ubuntu-latest
@@ -118,11 +204,70 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy to production
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.30.0
+
+      - name: Configure kubeconfig
+        id: kube
+        env:
+          KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG_B64 }}
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
-          echo "Deploying to production environment..."
-          echo "Image tag: ${{ needs.build-and-push.outputs.image_tag }}"
-          echo "Add your deployment commands here (e.g., kubectl, helm, ssh)"
+          mkdir -p ~/.kube
+          if [ -n "${KUBE_CONFIG_B64}" ]; then
+            echo "${KUBE_CONFIG_B64}" | base64 -d > ~/.kube/config
+            echo "configured=1" >> "$GITHUB_OUTPUT"
+          elif [ -n "${KUBE_CONFIG}" ]; then
+            printf '%s\n' "${KUBE_CONFIG}" > ~/.kube/config
+            echo "configured=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No KUBE_CONFIG / KUBE_CONFIG_B64 — skipping cluster apply."
+            echo "configured=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy backend (Kubernetes manifests)
+        if: steps.kube.outputs.configured == '1'
+        env:
+          BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend_image }}
+          K8S_NAMESPACE_INPUT: ${{ vars.K8S_NAMESPACE }}
+        run: |
+          set -euo pipefail
+          NS="${K8S_NAMESPACE_INPUT:-default}"
+          TMP="${RUNNER_TEMP}/k8s-prod-${GITHUB_RUN_ID}"
+          mkdir -p "${TMP}"
+          sed "s|__DEPLOY_BACKEND_IMAGE__|${BACKEND_IMAGE}|g" \
+            "${GITHUB_WORKSPACE}/k8s/deployment.yaml" > "${TMP}/deployment.yaml"
+          for f in service configmap ingress hpa; do
+            cp "${GITHUB_WORKSPACE}/k8s/${f}.yaml" "${TMP}/${f}.yaml"
+          done
+          kubectl apply -f "${TMP}/configmap.yaml" -n "${NS}" --validate=true
+          kubectl apply -f "${TMP}/service.yaml" -n "${NS}" --validate=true
+          kubectl apply -f "${TMP}/deployment.yaml" -n "${NS}" --validate=true
+          kubectl -n "${NS}" set env deployment/xcagi \
+            FHD_ENV=production \
+            XCAGI_NEURO_BUS_DEDUP=1 \
+            XCAGI_NEURO_BUS_CIRCUIT=1 \
+            XCAGI_NEURO_BUS_RATE_LIMIT=1 \
+            XCAGI_NEURO_BUS_TRACE=1 \
+            XCAGI_NEURO_BUS_TRACE_SAMPLE_RATE=0.1 \
+            XCAGI_NEURO_BUS_LIFELINE=1 \
+            XCAGI_NEURO_BUS_DLQ_AUTO=1 \
+            XCAGI_NEURO_BUS_SLA_LOG=1 \
+            XCAGI_AUTH_RATE_LIMIT=1 \
+            XCAGI_AUTH_RATE_LIMIT_MAX=10 \
+            XCAGI_AUTH_RATE_LIMIT_WINDOW=60
+          kubectl apply -f "${TMP}/hpa.yaml" -n "${NS}" --validate=true
+          kubectl apply -f "${TMP}/ingress.yaml" -n "${NS}" --validate=true
+          kubectl -n "${NS}" rollout status deployment/xcagi --timeout=300s
+
+      - name: Deploy summary (production)
+        if: always()
+        run: |
+          echo "Production deploy finished."
+          echo "Backend image: ${{ needs.build-and-push.outputs.backend_image }}"
+          echo "Frontend image: ${{ needs.build-and-push.outputs.frontend_image }}"
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')

@@ -9,18 +9,19 @@ XCAGI 数据库路径与初始化入口（应用内）。
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
-import sqlite3
 import sys
-import json
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Sequence
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING, Any
 
 from app.utils.external_sqlite import sqlite_conn
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
+
 from app.utils.path_utils import get_app_data_dir, get_base_dir, get_resource_path
 
 logger = logging.getLogger(__name__)
@@ -130,7 +131,7 @@ def ensure_sqlite_per_mod_database_copies(
                 )
 
 
-def build_mod_database_seed_plan() -> Dict[str, Any]:
+def build_mod_database_seed_plan() -> dict[str, Any]:
     """
     供设置页 ``/api/system/test-db/status`` 展示：各扩展对应的 SQLite 文件路径与说明。
     与 manifest 可选字段 ``database.seed_files`` / ``database.notes_zh`` 对齐（若存在）。
@@ -145,7 +146,7 @@ def build_mod_database_seed_plan() -> Dict[str, Any]:
         "PostgreSQL 默认仍共用 DATABASE_URL 中的库；需要一包一库时请设置 "
         "XCAGI_MOD_ISOLATED_DATABASES=1 或为各包配置 XCAGI_MOD_DATABASE_URL_*。"
     )
-    mods_out: List[Dict[str, Any]] = []
+    mods_out: list[dict[str, Any]] = []
     try:
         from app.infrastructure.mods.mod_manager import get_mod_manager
 
@@ -159,13 +160,13 @@ def build_mod_database_seed_plan() -> Dict[str, Any]:
         if not mid:
             continue
         notes = ""
-        extra_seeds: List[Dict[str, str]] = []
+        extra_seeds: list[dict[str, str]] = []
         mod_path = str(getattr(m, "mod_path", "") or "").strip()
         if mod_path:
             man = os.path.join(mod_path, "manifest.json")
             if os.path.isfile(man):
                 try:
-                    with open(man, "r", encoding="utf-8") as fh:
+                    with open(man, encoding="utf-8") as fh:
                         data = json.load(fh)
                     db = data.get("database") if isinstance(data.get("database"), dict) else {}
                     notes = str(db.get("notes_zh") or data.get("database_notes_zh") or "").strip()
@@ -185,12 +186,10 @@ def build_mod_database_seed_plan() -> Dict[str, Any]:
                 except Exception:
                     pass
 
-        seeds: List[Dict[str, str]] = [
+        seeds: list[dict[str, str]] = [
             {"path": os.path.join(work_dir, "products.db"), "role": "sqlite_mother_products"},
             {
-                "path": os.path.join(
-                    work_dir, sqlite_filename_with_mod_suffix("products.db", mid)
-                ),
+                "path": os.path.join(work_dir, sqlite_filename_with_mod_suffix("products.db", mid)),
                 "role": "sqlite_per_mod_products",
             },
         ]
@@ -266,7 +265,7 @@ def init_wechat_tasks_table(db_path: str | None = None) -> None:
         conn.commit()
 
 
-def init_distillation_tables(engine: "Engine") -> None:
+def init_distillation_tables(engine: Engine) -> None:
     """
     在主库上创建蒸馏样本表 distillation_log / training_stats。
     与 SessionLocal 使用同一引擎，避免切换 SQLite/PostgreSQL 后路由与采集脚本连库不一致。
@@ -335,10 +334,12 @@ def init_distillation_tables(engine: "Engine") -> None:
                 )
             )
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_intent ON distillation_log(intent)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS idx_used ON distillation_log(used_for_training)"))
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS idx_used ON distillation_log(used_for_training)")
+        )
 
 
-def init_extract_logs_tables(engine: "Engine") -> None:
+def init_extract_logs_tables(engine: Engine) -> None:
     """
     在主库上创建 extract_logs（与 SessionLocal / pytest 临时 SQLite 使用同一引擎）。
     ExtractLog 仓储使用原生 SQL，需显式建表。
@@ -489,7 +490,7 @@ def init_template_tables(db_path: str | None = None) -> None:
         conn.commit()
 
 
-def init_template_tables_for_engine(engine: "Engine") -> None:
+def init_template_tables_for_engine(engine: Engine) -> None:
     """
     在主库（PostgreSQL）上创建 templates / template_usage_log。
     与 Alembic f0c2a8e1_templates 对齐；启动时幂等补齐，便于未跑迁移的环境。
@@ -552,7 +553,599 @@ def init_template_tables_for_engine(engine: "Engine") -> None:
         )
 
 
-def init_approval_tables(engine: "Engine") -> None:
+def _resolve_auth_bootstrap_engine(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+) -> Engine | None:
+    from sqlalchemy.engine import Engine as _Engine
+
+    real_engine: _Engine | None = None
+    url = (database_url or "").strip()
+    if url:
+        try:
+            from app.db import _create_engine_for_url
+
+            real_engine = _create_engine_for_url(url)
+        except Exception as exc:
+            logger.warning("auth bootstrap: 无法按 DATABASE_URL 创建引擎: %s", exc)
+    if real_engine is None and engine is not None:
+        real_engine = engine
+    if real_engine is None:
+        try:
+            from app.db import _get_engine as _get_real_engine
+
+            real_engine = _get_real_engine()
+        except Exception:
+            return None
+    return real_engine
+
+
+def _seed_default_admin_user(real_engine: Engine) -> None:
+    from sqlalchemy import text
+
+    from app.utils.password_hash import generate_password_hash
+    from app.utils.time import utc_now_naive
+
+    with real_engine.connect() as conn:
+        n = conn.execute(text("SELECT COUNT(*) FROM users")).scalar()
+    if int(n or 0) != 0:
+        return
+
+    username = (os.environ.get("ADMIN_USERNAME") or "admin").strip()
+    password = (os.environ.get("ADMIN_PASSWORD") or "admin123").strip()
+    display_name = (os.environ.get("ADMIN_DISPLAY_NAME") or "管理员").strip() or "管理员"
+    if not username or not password:
+        logger.warning("auth bootstrap: users 为空但未配置 ADMIN_USERNAME/ADMIN_PASSWORD，跳过种子")
+        return
+    hp = generate_password_hash(password)
+    with real_engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO users (username, password, display_name, email, role, is_active, created_at)
+                VALUES (:username, :password, :display_name, :email, 'admin', TRUE, :now)
+                """
+            ),
+            {
+                "username": username,
+                "password": hp,
+                "display_name": display_name,
+                "email": f"{username}@local",
+                "now": utc_now_naive(),
+            },
+        )
+    logger.info("已写入初始管理员账户（username=%s）", username)
+
+
+def ensure_sqlite_auth_bootstrap(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+    swallow_errors: bool = True,
+) -> None:
+    """桌面 SQLite 首启：创建 users/sessions 并写入默认管理员，避免 /api/auth/login 500。"""
+    from sqlalchemy import inspect
+
+    from app.db.base import Base
+    from app.db.models.user import Session, User
+
+    real_engine = _resolve_auth_bootstrap_engine(engine, database_url=database_url)
+    if real_engine is None or real_engine.dialect.name != "sqlite":
+        return
+    try:
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+        if "users" not in tables or "sessions" not in tables:
+            logger.info("SQLite 缺少 users/sessions，正在通过 ORM 创建 …")
+            Base.metadata.create_all(
+                real_engine,
+                tables=[User.__table__, Session.__table__],
+                checkfirst=True,
+            )
+        _seed_default_admin_user(real_engine)
+    except Exception as exc:
+        if swallow_errors:
+            logger.warning("ensure_sqlite_auth_bootstrap 失败: %s", exc, exc_info=True)
+            return
+        raise
+
+
+def _seed_sqlite_rbac_defaults(real_engine: Engine) -> None:
+    from sqlalchemy import text
+    from sqlalchemy.orm import sessionmaker
+
+    from app.db.models.permission import DEFAULT_PERMISSIONS, DEFAULT_ROLES, Permission, Role
+
+    with real_engine.connect() as conn:
+        perm_count = conn.execute(text("SELECT COUNT(*) FROM permissions")).scalar()
+    if int(perm_count or 0) > 0:
+        return
+
+    SessionLocal = sessionmaker(bind=real_engine)
+    with SessionLocal() as session:
+        perm_by_code: dict[str, Permission] = {}
+        for row in DEFAULT_PERMISSIONS:
+            perm = Permission(
+                name=row["name"],
+                code=row["code"],
+                description=row.get("description", ""),
+                module=row.get("module", ""),
+            )
+            session.add(perm)
+            perm_by_code[row["code"]] = perm
+        session.flush()
+        for role_row in DEFAULT_ROLES:
+            role = Role(
+                name=role_row["name"],
+                description=role_row.get("description", ""),
+                is_system=True,
+            )
+            for code in role_row.get("permissions", []):
+                perm = perm_by_code.get(code)
+                if perm is not None:
+                    role.permissions.append(perm)
+            session.add(role)
+        session.commit()
+    logger.info("SQLite RBAC 默认权限/角色已写入")
+
+
+def ensure_sqlite_rbac_bootstrap(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+    swallow_errors: bool = True,
+) -> None:
+    """桌面 SQLite：补齐 permissions/roles（/api/auth/me 管理员权限列表依赖）。"""
+    from sqlalchemy import inspect
+
+    from app.db.base import Base
+    from app.db.models.permission import Permission, Role, role_permissions
+
+    real_engine = _resolve_auth_bootstrap_engine(engine, database_url=database_url)
+    if real_engine is None or real_engine.dialect.name != "sqlite":
+        return
+    try:
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+        needed = {"permissions", "roles", "role_permissions"}
+        if not needed.issubset(tables):
+            logger.info("SQLite 缺少 RBAC 表，正在通过 ORM 创建 …")
+            Base.metadata.create_all(
+                real_engine,
+                tables=[Permission.__table__, Role.__table__, role_permissions],
+                checkfirst=True,
+            )
+        _seed_sqlite_rbac_defaults(real_engine)
+    except Exception as exc:
+        if swallow_errors:
+            logger.warning("ensure_sqlite_rbac_bootstrap 失败: %s", exc, exc_info=True)
+            return
+        raise
+
+
+def ensure_sqlite_inventory_bootstrap(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+    swallow_errors: bool = True,
+) -> None:
+    """桌面 SQLite 基库：补齐库存相关表（/api/inventory/*）。"""
+    from sqlalchemy import inspect
+
+    from app.db.base import Base
+    from app.db.models.inventory import (
+        InventoryLedger,
+        InventoryTransaction,
+        StorageLocation,
+        Warehouse,
+    )
+    from app.db.models.product import Product
+
+    real_engine = _resolve_auth_bootstrap_engine(engine, database_url=database_url)
+    if real_engine is None or real_engine.dialect.name != "sqlite":
+        return
+    try:
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+        if "warehouses" not in tables:
+            logger.info("SQLite 缺少库存表，正在通过 ORM 创建 …")
+            Base.metadata.create_all(
+                real_engine,
+                tables=[
+                    Product.__table__,
+                    Warehouse.__table__,
+                    StorageLocation.__table__,
+                    InventoryLedger.__table__,
+                    InventoryTransaction.__table__,
+                ],
+                checkfirst=True,
+            )
+    except Exception as exc:
+        if swallow_errors:
+            logger.warning("ensure_sqlite_inventory_bootstrap 失败: %s", exc, exc_info=True)
+            return
+        raise
+
+
+def ensure_runtime_auth_bootstrap(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+    swallow_errors: bool = False,
+) -> None:
+    """按运行时 DATABASE_URL 幂等补齐 users/sessions/RBAC/库存表（SQLite 或 PostgreSQL）。"""
+    from app.fastapi_app.sqlite_paths import is_sqlite_url, resolve_effective_database_url
+
+    url = (database_url or resolve_effective_database_url() or "").strip()
+    if not url:
+        return
+    if is_sqlite_url(url):
+        ensure_sqlite_auth_bootstrap(
+            engine,
+            database_url=url,
+            swallow_errors=swallow_errors,
+        )
+        ensure_sqlite_rbac_bootstrap(
+            engine,
+            database_url=url,
+            swallow_errors=swallow_errors,
+        )
+        ensure_sqlite_inventory_bootstrap(
+            engine,
+            database_url=url,
+            swallow_errors=swallow_errors,
+        )
+    else:
+        ensure_postgresql_auth_bootstrap(engine, database_url=url)
+
+
+def ensure_postgresql_auth_bootstrap(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+) -> None:
+    """空 PostgreSQL 库在未跑 Alembic 时缺少 users/sessions，登录会抛出异常并带上 error_id。
+
+    幂等创建最小表结构；仅在 ``users`` 表无任何行时写入管理员（优先 ``ADMIN_*`` 环境变量，
+    否则 ``admin`` / ``admin123``，与 ``d8f5e2a1c9b3_add_rbac_tables`` 种子行为一致。
+    业务表仍应通过 ``alembic upgrade head`` 补齐。
+    """
+    from sqlalchemy import inspect, text
+
+    real_engine = _resolve_auth_bootstrap_engine(engine, database_url=database_url)
+    if real_engine is None or real_engine.dialect.name != "postgresql":
+        return
+
+    try:
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+
+        if "users" not in tables:
+            logger.info("PostgreSQL 缺少 users 表，正在创建（空库登录引导）…")
+            with real_engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE users (
+                            id BIGSERIAL PRIMARY KEY,
+                            username VARCHAR NOT NULL UNIQUE,
+                            password VARCHAR NOT NULL,
+                            display_name VARCHAR DEFAULT '',
+                            email VARCHAR DEFAULT '',
+                            role VARCHAR DEFAULT 'user',
+                            is_active BOOLEAN DEFAULT TRUE,
+                            created_by BIGINT REFERENCES users(id),
+                            created_at TIMESTAMP,
+                            last_login TIMESTAMP,
+                            wx_openid VARCHAR(64),
+                            wx_unionid VARCHAR(64),
+                            wx_avatar_url TEXT,
+                            mp_phone VARCHAR(20),
+                            mp_nickname VARCHAR(64)
+                        )
+                        """
+                    )
+                )
+                conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_users_is_active ON users (is_active)")
+                )
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_wx_openid ON users (wx_openid)"
+                    )
+                )
+                conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS ix_users_wx_unionid ON users (wx_unionid)")
+                )
+
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+
+        if "sessions" not in tables:
+            if "users" not in tables:
+                logger.warning(
+                    "ensure_postgresql_auth_bootstrap: users 仍不存在，跳过 sessions 创建"
+                )
+                return
+            logger.info("PostgreSQL 缺少 sessions 表，正在创建 …")
+            with real_engine.begin() as conn:
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE sessions (
+                            id BIGSERIAL PRIMARY KEY,
+                            session_id VARCHAR NOT NULL UNIQUE,
+                            user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                            created_at TIMESTAMP,
+                            expires_at TIMESTAMP NOT NULL,
+                            market_access_token TEXT,
+                            market_refresh_token TEXT
+                        )
+                        """
+                    )
+                )
+
+        _seed_default_admin_user(real_engine)
+    except Exception as exc:
+        logger.warning(
+            "ensure_postgresql_auth_bootstrap 失败（可改用手工 alembic）：%s", exc, exc_info=True
+        )
+
+
+def ensure_sessions_market_access_token_column(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+) -> None:
+    """补齐 ``sessions.market_access_token``（与 Alembic ``2026_05_10_sessions_market_access_token`` 一致）。
+
+    旧库若未跑迁移，ORM 写入会话行时会触发 ``OperationalError``，登录在密码校验通过后仍失败，
+    界面仅显示「登录失败，请稍后重试」与 ``error_id``。
+
+    传入 ``database_url`` 时用其与 ``Config.DATABASE_URL`` 对齐的连接执行 DDL，避免仅依赖
+    请求上下文的 Mod 选库与 ``_get_engine()`` 不一致导致补列落在错误的文件/库上。
+    """
+    from sqlalchemy import inspect, text
+
+    real_engine: Engine | None = None
+    url = (database_url or "").strip()
+    if url:
+        try:
+            from app.db import _create_engine_for_url
+
+            real_engine = _create_engine_for_url(url)
+        except Exception as exc:
+            logger.warning(
+                "无法按 DATABASE_URL 创建引擎以补齐 sessions.market_access_token: %s", exc
+            )
+    if real_engine is None and engine is not None:
+        real_engine = engine
+    if real_engine is None:
+        try:
+            from app.db import _get_engine as _get_real_engine
+
+            real_engine = _get_real_engine()
+        except Exception:
+            return
+
+    try:
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+        if "sessions" not in tables:
+            return
+        cols = {c["name"] for c in insp.get_columns("sessions")}
+        if "market_access_token" in cols:
+            return
+        logger.info("sessions 缺少 market_access_token 列，正在补齐 …")
+        with real_engine.begin() as conn:
+            if real_engine.dialect.name == "postgresql":
+                conn.execute(
+                    text("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS market_access_token TEXT")
+                )
+            else:
+                conn.execute(text("ALTER TABLE sessions ADD COLUMN market_access_token TEXT"))
+        logger.info("sessions.market_access_token 已补齐")
+    except Exception as exc:
+        logger.warning(
+            "sessions.market_access_token 兼容补列失败（可在仓库根执行 alembic upgrade head）：%s",
+            exc,
+        )
+
+    try:
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+        if "sessions" not in tables:
+            return
+        cols = {c["name"] for c in insp.get_columns("sessions")}
+        if "market_access_token" not in cols:
+            raise RuntimeError(
+                "数据库表 sessions 缺少 market_access_token 列且自动补齐失败。"
+                "请在 FHD 仓库根执行: alembic upgrade head"
+            )
+    except RuntimeError:
+        raise
+    except Exception as verify_exc:
+        logger.warning("sessions.market_access_token 列校验跳过: %s", verify_exc)
+
+
+def ensure_sessions_market_refresh_token_column(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+) -> None:
+    """补齐 ``sessions.market_refresh_token``（与 Alembic ``2026_05_22_sessions_market_refresh_token`` 一致）。"""
+    from sqlalchemy import inspect, text
+
+    real_engine: Engine | None = None
+    url = (database_url or "").strip()
+    if url:
+        try:
+            from app.db import _create_engine_for_url
+
+            real_engine = _create_engine_for_url(url)
+        except Exception as exc:
+            logger.warning(
+                "无法按 DATABASE_URL 创建引擎以补齐 sessions.market_refresh_token: %s", exc
+            )
+    if real_engine is None and engine is not None:
+        real_engine = engine
+    if real_engine is None:
+        try:
+            from app.db import _get_engine as _get_real_engine
+
+            real_engine = _get_real_engine()
+        except Exception:
+            return
+
+    try:
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+        if "sessions" not in tables:
+            return
+        cols = {c["name"] for c in insp.get_columns("sessions")}
+        if "market_refresh_token" in cols:
+            return
+        logger.info("sessions 缺少 market_refresh_token 列，正在补齐 …")
+        with real_engine.begin() as conn:
+            if real_engine.dialect.name == "postgresql":
+                conn.execute(
+                    text("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS market_refresh_token TEXT")
+                )
+            else:
+                conn.execute(text("ALTER TABLE sessions ADD COLUMN market_refresh_token TEXT"))
+        logger.info("sessions.market_refresh_token 已补齐")
+    except Exception as exc:
+        logger.warning(
+            "sessions.market_refresh_token 兼容补列失败（可在仓库根执行 alembic upgrade head）：%s",
+            exc,
+        )
+
+
+def ensure_sessions_enterprise_entitlement_columns(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+) -> None:
+    """补齐 ``sessions.market_user_id`` / ``entitled_mod_ids_json``（企业版 Mod 隔离缓存）。"""
+    from sqlalchemy import inspect, text
+
+    real_engine: Engine | None = None
+    url = (database_url or "").strip()
+    if url:
+        try:
+            from app.db import _create_engine_for_url
+
+            real_engine = _create_engine_for_url(url)
+        except Exception as exc:
+            logger.warning("无法按 DATABASE_URL 创建引擎以补齐 sessions 企业权益列: %s", exc)
+    if real_engine is None and engine is not None:
+        real_engine = engine
+    if real_engine is None:
+        try:
+            from app.db import _get_engine as _get_real_engine
+
+            real_engine = _get_real_engine()
+        except Exception:
+            return
+
+    try:
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+        if "sessions" not in tables:
+            return
+        cols = {c["name"] for c in insp.get_columns("sessions")}
+        dialect = real_engine.dialect.name
+        with real_engine.begin() as conn:
+            if "market_user_id" not in cols:
+                logger.info("sessions 缺少 market_user_id 列，正在补齐 …")
+                if dialect == "postgresql":
+                    conn.execute(
+                        text("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS market_user_id INTEGER")
+                    )
+                else:
+                    conn.execute(text("ALTER TABLE sessions ADD COLUMN market_user_id INTEGER"))
+            if "entitled_mod_ids_json" not in cols:
+                logger.info("sessions 缺少 entitled_mod_ids_json 列，正在补齐 …")
+                if dialect == "postgresql":
+                    conn.execute(
+                        text(
+                            "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS entitled_mod_ids_json TEXT"
+                        )
+                    )
+                else:
+                    conn.execute(text("ALTER TABLE sessions ADD COLUMN entitled_mod_ids_json TEXT"))
+    except Exception as exc:
+        logger.warning(
+            "sessions 企业权益列兼容补列失败（可执行 alembic upgrade head）：%s",
+            exc,
+        )
+
+
+def ensure_sessions_account_meta_columns(
+    engine: Engine | None = None,
+    *,
+    database_url: str | None = None,
+) -> None:
+    """补齐 sessions 账号类型 / 企业品牌 / 代管列。"""
+    from sqlalchemy import inspect, text
+
+    real_engine: Engine | None = None
+    url = (database_url or "").strip()
+    if url:
+        try:
+            from app.db import _create_engine_for_url
+
+            real_engine = _create_engine_for_url(url)
+        except Exception as exc:
+            logger.warning("无法创建引擎以补齐 sessions 账号元数据列: %s", exc)
+    if real_engine is None and engine is not None:
+        real_engine = engine
+    if real_engine is None:
+        try:
+            from app.db import _get_engine as _get_real_engine
+
+            real_engine = _get_real_engine()
+        except Exception:
+            return
+
+    additions = [
+        ("account_kind", "VARCHAR(32)", "'enterprise'"),
+        ("company_brand", "VARCHAR(256)", "''"),
+        ("market_is_admin", "BOOLEAN", "FALSE"),
+        ("market_is_enterprise", "BOOLEAN", "FALSE"),
+        ("impersonating_market_user_id", "INTEGER", None),
+        ("impersonating_username", "VARCHAR(128)", "''"),
+    ]
+    try:
+        insp = inspect(real_engine)
+        tables = set(insp.get_table_names() or [])
+        if "sessions" not in tables:
+            return
+        cols = {c["name"] for c in insp.get_columns("sessions")}
+        dialect = real_engine.dialect.name
+        with real_engine.begin() as conn:
+            for name, col_type, default_sql in additions:
+                if name in cols:
+                    continue
+                logger.info("sessions 缺少 %s 列，正在补齐 …", name)
+                if dialect == "postgresql":
+                    default_clause = f" DEFAULT {default_sql}" if default_sql else ""
+                    conn.execute(
+                        text(
+                            f"ALTER TABLE sessions ADD COLUMN IF NOT EXISTS {name} {col_type}{default_clause}"
+                        )
+                    )
+                else:
+                    default_clause = f" DEFAULT {default_sql}" if default_sql else ""
+                    conn.execute(
+                        text(f"ALTER TABLE sessions ADD COLUMN {name} {col_type}{default_clause}")
+                    )
+    except Exception as exc:
+        logger.warning("sessions 账号元数据列兼容补列失败: %s", exc)
+
+
+def init_approval_tables(engine: Engine) -> None:
     """
     在主库上创建审批流相关表（approval_flows / approval_flow_nodes /
     approval_requests / approval_records / approval_delegations）。
@@ -624,7 +1217,7 @@ def init_approval_tables(engine: "Engine") -> None:
         logger.warning("approval_flows.business_type 兼容补列失败: %s", exc)
 
 
-def ensure_product_query_indexes(engine: "Engine") -> None:
+def ensure_product_query_indexes(engine: Engine) -> None:
     """
     为 products 表补齐常用查询索引（按客户 unit、型号 model_number），
     便于列表筛选与 AI 工具链查库；对已存在库使用 IF NOT EXISTS 幂等。
@@ -651,3 +1244,30 @@ def ensure_product_query_indexes(engine: "Engine") -> None:
             except Exception as e:
                 logger.debug("创建 products 索引跳过: %s | %s", sql, e)
 
+
+def init_service_bridge_tables(engine: Engine) -> None:
+    """在主库创建客服桥接表（service_requests / service_bridge_config）。"""
+    from app.db.base import Base
+    from app.db.models.service_request import (  # noqa: F401
+        ServiceBridgeConfig,
+        ServiceRequest,
+    )
+
+    target_tables = [
+        ServiceRequest.__table__,
+        ServiceBridgeConfig.__table__,
+    ]
+
+    real_engine = engine
+    try:
+        from app.db import _get_engine as _get_real_engine
+
+        real_engine = _get_real_engine()
+    except Exception:
+        pass
+
+    try:
+        Base.metadata.create_all(real_engine, tables=target_tables, checkfirst=True)
+        logger.info("service_bridge 表已就绪")
+    except Exception as exc:
+        logger.warning("service_bridge 表 create_all 失败: %s", exc)

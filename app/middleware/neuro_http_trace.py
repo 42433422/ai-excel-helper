@@ -7,15 +7,15 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import Any, Dict
+from typing import Any
 
 from starlette.requests import Request
 
 logger = logging.getLogger(__name__)
 
 
-def _redact_headers(headers: Any) -> Dict[str, str]:
-    out: Dict[str, str] = {}
+def _redact_headers(headers: Any) -> dict[str, str]:
+    out: dict[str, str] = {}
     skip = frozenset(
         {
             "authorization",
@@ -40,9 +40,9 @@ def _redact_headers(headers: Any) -> Dict[str, str]:
 async def neuro_http_trace_middleware(request: Request, call_next):
     """作为 FastAPI ``@app.middleware(\"http\")`` 的最后一道（最外层）注册。"""
     try:
+        from app.neuro_bus.application_neuro_bridge import publish_neuro_event
         from app.neuro_bus.integrations.intent_integration import is_neuro_stack_enabled
         from app.neuro_bus.neuro_trace_config import should_sample_http
-        from app.neuro_bus.application_neuro_bridge import publish_neuro_event
 
         if not is_neuro_stack_enabled() or not should_sample_http():
             return await call_next(request)

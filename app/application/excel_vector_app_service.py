@@ -6,7 +6,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pandas as pd
 
@@ -21,7 +21,7 @@ from app.utils.path_utils import get_app_data_dir
 class ExcelVectorChunk:
     chunk_id: str
     content: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class HashEmbedder(EmbedderPort):
@@ -30,24 +30,22 @@ class HashEmbedder(EmbedderPort):
     def __init__(self, dimensions: int = 256) -> None:
         self._dimensions = max(64, dimensions)
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         raw = str(text or "").strip().lower()
         if not raw:
             return []
 
-        tokens: List[str] = []
+        tokens: list[str] = []
         ascii_tokens = re.findall(r"[a-z0-9]+", raw)
         tokens.extend(ascii_tokens)
 
         cjk_chars = re.findall(r"[\u4e00-\u9fff]", raw)
         tokens.extend(cjk_chars)
         if len(cjk_chars) >= 2:
-            tokens.extend(
-                "".join(cjk_chars[i : i + 2]) for i in range(0, len(cjk_chars) - 1)
-            )
+            tokens.extend("".join(cjk_chars[i : i + 2]) for i in range(0, len(cjk_chars) - 1))
         return tokens
 
-    def _embed(self, text: str) -> List[float]:
+    def _embed(self, text: str) -> list[float]:
         vec = [0.0] * self._dimensions
         tokens = self._tokenize(text)
         if not tokens:
@@ -64,18 +62,18 @@ class HashEmbedder(EmbedderPort):
             vec = [v / norm for v in vec]
         return vec
 
-    def embed_texts(self, texts: List[str]) -> List[List[float]]:
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
         return [self._embed(text) for text in texts]
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         return self._embed(text)
 
 
 class ExcelVectorIngestApplicationService:
     def __init__(
         self,
-        vector_store: Optional[VectorStorePort] = None,
-        embedder: Optional[EmbedderPort] = None,
+        vector_store: VectorStorePort | None = None,
+        embedder: EmbedderPort | None = None,
         chunk_window_size: int = 20,
     ) -> None:
         self._vector_store = vector_store or get_vector_store()
@@ -85,9 +83,9 @@ class ExcelVectorIngestApplicationService:
     def ingest_excel(
         self,
         file_path: str,
-        index_name: Optional[str] = None,
-        index_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        index_name: str | None = None,
+        index_id: str | None = None,
+    ) -> dict[str, Any]:
         path = Path(file_path)
         if not path.exists():
             return {"success": False, "message": f"文件不存在: {file_path}"}
@@ -102,7 +100,7 @@ class ExcelVectorIngestApplicationService:
 
         texts = [chunk.content for chunk in chunks]
         embeddings = self._embedder.embed_texts(texts)
-        store_payload: List[Dict[str, Any]] = []
+        store_payload: list[dict[str, Any]] = []
         for chunk, embedding in zip(chunks, embeddings):
             store_payload.append(
                 {
@@ -129,8 +127,10 @@ class ExcelVectorIngestApplicationService:
             "chunk_count": written,
         }
 
-    def _build_chunks(self, sheets: Dict[str, pd.DataFrame], source_file: str) -> List[ExcelVectorChunk]:
-        chunks: List[ExcelVectorChunk] = []
+    def _build_chunks(
+        self, sheets: dict[str, pd.DataFrame], source_file: str
+    ) -> list[ExcelVectorChunk]:
+        chunks: list[ExcelVectorChunk] = []
 
         for sheet_name, df in sheets.items():
             if df is None or df.empty:
@@ -171,7 +171,7 @@ class ExcelVectorIngestApplicationService:
                 if not part:
                     continue
 
-                rendered_rows: List[str] = []
+                rendered_rows: list[str] = []
                 for rel_idx, record in enumerate(part, start=1):
                     items = []
                     for col in columns:
@@ -179,9 +179,7 @@ class ExcelVectorIngestApplicationService:
                         if value:
                             items.append(f"{col}: {value}")
                     if items:
-                        rendered_rows.append(
-                            f"row={start + rel_idx}; " + " | ".join(items)
-                        )
+                        rendered_rows.append(f"row={start + rel_idx}; " + " | ".join(items))
 
                 if not rendered_rows:
                     continue
@@ -210,13 +208,13 @@ class ExcelVectorIngestApplicationService:
 class ExcelVectorSearchApplicationService:
     def __init__(
         self,
-        vector_store: Optional[VectorStorePort] = None,
-        embedder: Optional[EmbedderPort] = None,
+        vector_store: VectorStorePort | None = None,
+        embedder: EmbedderPort | None = None,
     ) -> None:
         self._vector_store = vector_store or get_vector_store()
         self._embedder = embedder or HashEmbedder()
 
-    def query(self, index_id: str, query_text: str, top_k: int = 5) -> Dict[str, Any]:
+    def query(self, index_id: str, query_text: str, top_k: int = 5) -> dict[str, Any]:
         if not index_id:
             return {"success": False, "message": "缺少 index_id"}
         if not query_text:
@@ -232,10 +230,10 @@ class ExcelVectorSearchApplicationService:
             "hits": hits,
         }
 
-    def list_indexes(self) -> Dict[str, Any]:
+    def list_indexes(self) -> dict[str, Any]:
         return {"success": True, "indexes": self._vector_store.list_indexes()}
 
-    def delete_index(self, index_id: str) -> Dict[str, Any]:
+    def delete_index(self, index_id: str) -> dict[str, Any]:
         deleted = self._vector_store.delete_index(index_id)
         return {"success": deleted, "index_id": index_id}
 
@@ -257,11 +255,11 @@ from app.neuro_bus.neuro_application_instrumentation import instrument_applicati
 instrument_application_service_class(ExcelVectorIngestApplicationService)
 instrument_application_service_class(ExcelVectorSearchApplicationService)
 
-_sqlite_vector_store_instance: Optional[SQLiteVectorStore] = None
-_pg_vector_store_instance: Optional[PgVectorStore] = None
-_vector_store_instance: Optional[VectorStorePort] = None
-_excel_vector_ingest_service_instance: Optional[ExcelVectorIngestApplicationService] = None
-_excel_vector_search_service_instance: Optional[ExcelVectorSearchApplicationService] = None
+_sqlite_vector_store_instance: SQLiteVectorStore | None = None
+_pg_vector_store_instance: PgVectorStore | None = None
+_vector_store_instance: VectorStorePort | None = None
+_excel_vector_ingest_service_instance: ExcelVectorIngestApplicationService | None = None
+_excel_vector_search_service_instance: ExcelVectorSearchApplicationService | None = None
 
 
 def get_sqlite_vector_store() -> SQLiteVectorStore:
@@ -285,7 +283,9 @@ def get_vector_store() -> VectorStorePort:
     global _vector_store_instance
     if _vector_store_instance is not None:
         return _vector_store_instance
-    use_sqlite_fallback = (os.environ.get("ENABLE_SQLITE_VECTOR_FALLBACK", "0") or "0").strip() == "1"
+    use_sqlite_fallback = (
+        os.environ.get("ENABLE_SQLITE_VECTOR_FALLBACK", "0") or "0"
+    ).strip() == "1"
     if use_sqlite_fallback:
         _vector_store_instance = get_sqlite_vector_store()
     else:

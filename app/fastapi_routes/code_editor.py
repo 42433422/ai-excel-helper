@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.domain.ai.tier import assert_p2_elevated_claim_or_raise, resolve_ai_tier
 
@@ -132,7 +132,9 @@ def code_editor_edit(body: EditBody) -> dict:
     elif create:
         ext = path.suffix.lower()
         if ext not in _TEXT_EXT_OK:
-            raise HTTPException(status_code=400, detail="extension not allowed for create_if_missing")
+            raise HTTPException(
+                status_code=400, detail="extension not allowed for create_if_missing"
+            )
         if not path.parent.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
         old = ""

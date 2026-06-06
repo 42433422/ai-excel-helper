@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 结构化任务代理：解析任务 -> 校验字段 -> 追问/执行编排。
 """
@@ -6,12 +5,9 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .task_context_service import get_task_context_service
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 SLOT_LABELS = {
     "unit_name": "单位名称",
@@ -23,13 +19,26 @@ SLOT_LABELS = {
 }
 
 
-def _cn_number(token: str) -> Optional[int]:
+def _cn_number(token: str) -> int | None:
     t = (token or "").strip()
     if not t:
         return None
     if re.fullmatch(r"\d+", t):
         return int(t)
-    m = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+    m = {
+        "零": 0,
+        "〇": 0,
+        "一": 1,
+        "二": 2,
+        "两": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+    }
     if t == "十":
         return 10
     if re.fullmatch(r"[一二两三四五六七八九]十", t):
@@ -47,7 +56,9 @@ class TaskAgent:
     def __init__(self) -> None:
         self.ctx = get_task_context_service()
 
-    def parse_task(self, message: str, context: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    def parse_task(
+        self, message: str, context: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         msg = (message or "").strip()
         context = context or {}
 
@@ -109,9 +120,11 @@ class TaskAgent:
         order_signal = any(k in msg for k in ["编号", "型号", "规格", "桶"])
         # 只要明显是发货单语境，就进入结构化审查；有槽位就抽取，缺项就追问
         if order_action and (order_signal or any(k in msg for k in ["发货单", "送货单", "出货单"])):
-            slots: Dict[str, Any] = {}
+            slots: dict[str, Any] = {}
             spec_span_end = -1
-            m_model = re.search(r"(?:编号|型号)\s*[:：]?\s*(\d{3,6})", msg) or re.search(r"(\d{3,6})\s*(?:的)?\s*规格", msg)
+            m_model = re.search(r"(?:编号|型号)\s*[:：]?\s*(\d{3,6})", msg) or re.search(
+                r"(\d{3,6})\s*(?:的)?\s*规格", msg
+            )
             if m_model:
                 slots["model_number"] = m_model.group(1)
             m_spec_ar = re.search(r"规格\s*[:：]?\s*(\d+(?:\.\d+)?)", msg)
@@ -126,14 +139,16 @@ class TaskAgent:
                 spec_token = m_spec_cn.group(1)
                 # 兼容“规格二十八一共三桶”这种连读，去掉被吞进来的“共”前缀“一”
                 if spec_token.endswith("一"):
-                    suffix = msg[m_spec_cn.end(1): m_spec_cn.end(1) + 1]
+                    suffix = msg[m_spec_cn.end(1) : m_spec_cn.end(1) + 1]
                     if suffix == "共":
                         spec_token = spec_token[:-1]
                 n = _cn_number(spec_token)
                 if n is not None:
                     slots["tin_spec"] = float(n)
                     spec_span_end = m_spec_cn.span()[1]
-            m_qty = re.search(r"(?:一共|总共|共|要|来|拿)?\s*(\d+|[一二三四五六七八九十零〇两]+)\s*桶", msg)
+            m_qty = re.search(
+                r"(?:一共|总共|共|要|来|拿)?\s*(\d+|[一二三四五六七八九十零〇两]+)\s*桶", msg
+            )
             qty_value = None
             if m_qty:
                 n = self._parse_qty_token(m_qty.group(1))
@@ -148,7 +163,9 @@ class TaskAgent:
                         qty_value = int(n2)
             if qty_value is not None:
                 slots["quantity_tins"] = qty_value
-            m_unit = re.search(r"打印(?:一下)?\s*([^，,。]+?)\s*(?:的)?\s*(?:发货单|送货单|出货单)", msg) or re.search(r"([^，,。]+?)\s*(?:的)?\s*(?:发货单|送货单|出货单)", msg)
+            m_unit = re.search(
+                r"打印(?:一下)?\s*([^，,。]+?)\s*(?:的)?\s*(?:发货单|送货单|出货单)", msg
+            ) or re.search(r"([^，,。]+?)\s*(?:的)?\s*(?:发货单|送货单|出货单)", msg)
             unit = ""
             if m_unit:
                 unit = m_unit.group(1).strip()
@@ -160,8 +177,16 @@ class TaskAgent:
                 unit_part = msg.split("发货单", 1)[1]
                 unit_part = re.sub(r"(?:编号|型号)\s*[:：]?\s*\d{3,6}", " ", unit_part)
                 unit_part = re.sub(r"\d{3,6}\s*(?:的)?\s*规格", " ", unit_part)
-                unit_part = re.sub(r"规格\s*[:：]?\s*(?:\d+(?:\.\d+)?|[一二两三四五六七八九十零〇]+)", " ", unit_part)
-                unit_part = re.sub(r"(?:一共|总共|共|要|来|拿)?\s*(?:\d+|[一二三四五六七八九十零〇两]+)\s*桶", " ", unit_part)
+                unit_part = re.sub(
+                    r"规格\s*[:：]?\s*(?:\d+(?:\.\d+)?|[一二两三四五六七八九十零〇]+)",
+                    " ",
+                    unit_part,
+                )
+                unit_part = re.sub(
+                    r"(?:一共|总共|共|要|来|拿)?\s*(?:\d+|[一二三四五六七八九十零〇两]+)\s*桶",
+                    " ",
+                    unit_part,
+                )
                 unit_part = re.sub(r"\d{3,6}", " ", unit_part)
                 unit_part = re.sub(r"[，,。；;\s]+", "", unit_part).strip()
                 unit = unit_part
@@ -171,18 +196,26 @@ class TaskAgent:
 
         # 3) 其他任务（全工作模式基础覆盖）
         if any(k in msg for k in ["产品", "型号", "产品库", "查产品", "搜产品"]):
-            return {"task_type": "product_query", "slots": self._extract_product_query_slots(msg), "source": "nlu"}
+            return {
+                "task_type": "product_query",
+                "slots": self._extract_product_query_slots(msg),
+                "source": "nlu",
+            }
         if any(k in msg for k in ["客户", "购买单位", "单位列表", "查客户", "搜客户"]):
-            return {"task_type": "customer_query", "slots": self._extract_customer_query_slots(msg), "source": "nlu"}
+            return {
+                "task_type": "customer_query",
+                "slots": self._extract_customer_query_slots(msg),
+                "source": "nlu",
+            }
         if "打印机" in msg and any(k in msg for k in ["默认", "设置"]):
             return {"task_type": "print_config", "slots": {}, "source": "nlu"}
 
         return None
 
-    def validate_slots(self, plan: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_slots(self, plan: dict[str, Any]) -> dict[str, Any]:
         task_type = plan.get("task_type")
         slots = plan.get("slots") or {}
-        missing: List[str] = []
+        missing: list[str] = []
         if task_type == "shipment_generate":
             for key in ["unit_name", "model_number", "tin_spec", "quantity_tins"]:
                 if not slots.get(key):
@@ -196,7 +229,7 @@ class TaskAgent:
                     missing.append(key)
         return {"ok": len(missing) == 0, "missing_slots": missing}
 
-    def build_followup(self, plan: Dict[str, Any], missing_slots: List[str]) -> str:
+    def build_followup(self, plan: dict[str, Any], missing_slots: list[str]) -> str:
         if plan.get("task_type") != "shipment_generate":
             task_type = plan.get("task_type")
             if task_type == "product_query":
@@ -222,22 +255,24 @@ class TaskAgent:
             "unit_name": "购买单位是哪一家呢",
         }
         ordered_keys = ["unit_name", "model_number", "tin_spec", "quantity_tins"]
-        questions = [question_map[k] for k in ordered_keys if k in missing_slots and k in question_map]
+        questions = [
+            question_map[k] for k in ordered_keys if k in missing_slots and k in question_map
+        ]
         if questions:
             return "我先帮你审查了一下这句话，麻烦确认一下：" + "，".join(questions) + "。"
         zh_slots = [SLOT_LABELS.get(slot, slot) for slot in missing_slots]
         return "我先帮你审查了一下这句话，请补充：" + "、".join(zh_slots)
 
-    def execute_plan(self, plan: Dict[str, Any], original_message: str = "") -> Dict[str, Any]:
+    def execute_plan(self, plan: dict[str, Any], original_message: str = "") -> dict[str, Any]:
         task_type = plan.get("task_type")
         slots = plan.get("slots") or {}
         if task_type == "shipment_generate":
             # 只有在所有必要槽位都存在时才构建 order_text
-            unit_name = slots.get('unit_name', '')
-            quantity_tins = slots.get('quantity_tins', 0)
-            model_number = slots.get('model_number', '')
-            tin_spec = slots.get('tin_spec', 0)
-            
+            unit_name = slots.get("unit_name", "")
+            quantity_tins = slots.get("quantity_tins", 0)
+            model_number = slots.get("model_number", "")
+            tin_spec = slots.get("tin_spec", 0)
+
             # 验证槽位有效性
             if not unit_name or not quantity_tins or not model_number or not tin_spec:
                 # 槽位不完整，返回错误消息而不是生成无效的 order_text
@@ -251,10 +286,12 @@ class TaskAgent:
                         "quantity_tins": not quantity_tins,
                         "model_number": not model_number,
                         "tin_spec": not tin_spec,
-                    }
+                    },
                 }
-            
-            order_text = f"{unit_name}{int(quantity_tins)} 桶 {model_number} 规格 {int(float(tin_spec))}"
+
+            order_text = (
+                f"{unit_name}{int(quantity_tins)} 桶 {model_number} 规格 {int(float(tin_spec))}"
+            )
             return {
                 "tool_key": "shipment_generate",
                 "intent": "shipment_generate",
@@ -296,7 +333,7 @@ class TaskAgent:
             }
         return {"tool_key": None, "intent": None, "params": {}}
 
-    def process_message(self, user_id: str, message: str) -> Optional[Dict[str, Any]]:
+    def process_message(self, user_id: str, message: str) -> dict[str, Any] | None:
         plan = self.parse_task(message, {"user_id": user_id})
         if not plan:
             return None
@@ -306,13 +343,20 @@ class TaskAgent:
             return {
                 "action": "followup",
                 "text": self.build_followup(plan, check["missing_slots"]),
-                "data": {"task_type": plan.get("task_type"), "missing_slots": check["missing_slots"]},
+                "data": {
+                    "task_type": plan.get("task_type"),
+                    "missing_slots": check["missing_slots"],
+                },
             }
         # 完整可执行则清理上下文并返回 tool_call
         self.ctx.clear(user_id)
         exec_data = self.execute_plan(plan, message)
         if exec_data.get("tool_key"):
-            return {"action": "tool_call", "text": f"正在处理工具调用：{exec_data['tool_key']}", "data": exec_data}
+            return {
+                "action": "tool_call",
+                "text": f"正在处理工具调用：{exec_data['tool_key']}",
+                "data": exec_data,
+            }
         return None
 
     @staticmethod
@@ -333,15 +377,26 @@ class TaskAgent:
         if len(text) <= 24 and not any(x in text for x in ["产品", "客户", "购买单位"]):
             return text.strip(" ，,。")
         generic_phrases = [
-            "产品", "产品列表", "查产品", "查询产品", "看看产品", "看产品",
-            "客户", "客户列表", "购买单位", "单位列表", "查客户", "查询客户", "看客户",
+            "产品",
+            "产品列表",
+            "查产品",
+            "查询产品",
+            "看看产品",
+            "看产品",
+            "客户",
+            "客户列表",
+            "购买单位",
+            "单位列表",
+            "查客户",
+            "查询客户",
+            "看客户",
         ]
         if text in generic_phrases:
             return ""
         return ""
 
-    def _extract_product_query_slots(self, msg: str) -> Dict[str, Any]:
-        slots: Dict[str, Any] = {}
+    def _extract_product_query_slots(self, msg: str) -> dict[str, Any]:
+        slots: dict[str, Any] = {}
         model = re.search(r"(?:编号|型号)\s*[:：]?\s*(\d{3,8})", msg)
         if model:
             slots["model_number"] = model.group(1)
@@ -369,8 +424,8 @@ class TaskAgent:
             slots["keyword"] = keyword
         return slots
 
-    def _extract_customer_query_slots(self, msg: str) -> Dict[str, Any]:
-        slots: Dict[str, Any] = {}
+    def _extract_customer_query_slots(self, msg: str) -> dict[str, Any]:
+        slots: dict[str, Any] = {}
         keyword = self._extract_query_keyword(msg)
         m_name = re.search(r"(?:客户|购买单位|单位)\s*(?:是|叫|名称是)?\s*([^\s，,。]{2,30})", msg)
         if m_name:
@@ -382,7 +437,7 @@ class TaskAgent:
         return slots
 
     @staticmethod
-    def _parse_qty_token(token: str) -> Optional[int]:
+    def _parse_qty_token(token: str) -> int | None:
         t = (token or "").strip()
         n = _cn_number(t)
         if n is not None:
@@ -397,7 +452,7 @@ class TaskAgent:
         return None
 
 
-_task_agent: Optional[TaskAgent] = None
+_task_agent: TaskAgent | None = None
 
 
 def get_task_agent() -> TaskAgent:
@@ -411,5 +466,3 @@ def get_task_agent() -> TaskAgent:
 from app.neuro_bus.neuro_service_instrumentation import instrument_service_layer_class
 
 instrument_service_layer_class(TaskAgent, "app.services.task_agent")
-
-

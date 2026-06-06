@@ -2,18 +2,18 @@
  * 统一 TTS 入口，支持多种引擎：
  *   - system：浏览器 `speechSynthesis`（零成本，音质取决于操作系统里装的语音包）
  *   - online：经本机后端 `POST /api/tts` 调用 Microsoft Edge TTS（edge-tts），需联网，
- *     默认神经网络音色如 zh-CN-XiaoxiaoNeural；失败时 `speakText` 自动回退 system
+ *     默认神经网络音色如 zh-CN-XiaoxiaoNeural；失败时 `speakText` 自动回退 offline/system
  *   - offline：transformers.js + MMS-TTS 中文 ONNX 模型（首次下载约 60MB，
  *     之后通过 Cache API / IndexedDB 离线可用，全平台统一音质）
  *
  * 默认策略（auto）：
- *   - 若系统里存在云希(Yunxi)/晓晓(Xiaoxiao) 等高质量中文语音包 → 用 system
- *   - 否则若本机已有 Huihui/Yaoyao 等本地中文音 → 仍用 system
- *   - 否则若用户已下载离线包 → 用 offline
- *   - 否则回退 system（并由 TtsSetupBanner 提示可选在线/离线方案）
+ *   - 优先使用 online
+ *   - 离线包默认不后台预热，避免受限网络启动时刷屏失败；用户点击下载或显式启用后再缓存
+ *   - online 不可用时优先用 offline，最后才回退 system
  */
 
 import { getApiBase } from './apiBase'
+import { readCsrfTokenFromCookie, shouldAttachCsrfHeader } from './csrfCookie'
 import { playOfflinePcm, synthesizeOffline, ensureOfflineReady, isOfflineReady, isOfflineLoading, getOfflineProgress, stopOffline } from './offlineTts'
 
 const VOICE_PREF_KEY = 'xcagi_tts_voice'
@@ -24,26 +24,26 @@ const DEFAULT_SPEECH_RATE = 1.15
 /** Edge TTS voice id，须匹配后端 ``^[a-z]{2,3}-[A-Z]{2,3}-[A-Za-z]+Neural$``，默认与 ``app/services/tts_service.DEFAULT_EDGE_VOICE`` 一致 */
 const ONLINE_VOICE_KEY = 'xcagi_tts_online_voice'
 const DEFAULT_ONLINE_VOICE_ID = 'zh-CN-XiaoxiaoNeural'
+const AUTO_PRELOAD_OFFLINE_TTS = String(import.meta.env.VITE_PRELOAD_OFFLINE_TTS || '').toLowerCase() === 'true'
 
 export type TtsEngineMode = 'auto' | 'system' | 'offline' | 'online'
 
 let onlineAudioEl: HTMLAudioElement | null = null
+let offlineWarmupStarted = false
 
 function stopOnlinePlayback(): void {
   if (!onlineAudioEl) return
+  const el = onlineAudioEl
+  onlineAudioEl = null
   try {
-    onlineAudioEl.pause()
-    onlineAudioEl.removeAttribute('src')
-    try {
-      onlineAudioEl.src = ''
-    } catch {
-      /* ignore */
-    }
-    onlineAudioEl.load()
+    el.pause()
+    // Setting src to empty releases the media resource without calling load(),
+    // which avoids triggering Windows audio-session teardown (and the resulting
+    // volume-restore "pop" from OS audio ducking).
+    el.src = ''
   } catch {
     /* ignore */
   }
-  onlineAudioEl = null
 }
 
 const NEURAL_KEYWORDS = [
@@ -332,9 +332,14 @@ async function fetchOnlineTtsDataUri(text: string): Promise<string> {
   const voice = getOnlineVoiceId()
   const rate = getSpeechRate()
   const ratePercent = Math.round(rate * 100)
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (shouldAttachCsrfHeader('POST', headers)) {
+    const tok = readCsrfTokenFromCookie()
+    if (tok) headers['X-CSRF-Token'] = tok
+  }
   const res = await fetch(`${base}/api/tts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     credentials: 'include',
     body: JSON.stringify({ text, lang: 'zh', voice, rate: `+${ratePercent - 100}%` }),
   })
@@ -428,6 +433,16 @@ export async function speakText(text: string, options?: { onEnd?: () => void; on
       options?.onEnd?.()
     } catch (e) {
       options?.onError?.(e)
+      if (isOfflineReady()) {
+        try {
+          const { audio, samplingRate } = await synthesizeOffline(plain)
+          await playOfflinePcm(audio, samplingRate)
+          options?.onEnd?.()
+          return
+        } catch {
+          // Fall through to system TTS.
+        }
+      }
       await speakWithBrowserTts(plain, { onEnd: options?.onEnd })
     }
     return
@@ -438,7 +453,14 @@ export async function speakText(text: string, options?: { onEnd?: () => void; on
 
 export function stopSpeaking(): void {
   stopOnlinePlayback()
-  try { if (hasSpeechSynthesis()) window.speechSynthesis.cancel() } catch { /* ignore */ }
+  // Only cancel speechSynthesis when it is actually active; unconditional cancel
+  // releases the Windows "communications" audio session even when idle, which
+  // causes other apps' volumes to snap back (OS audio-ducking restore).
+  try {
+    if (hasSpeechSynthesis() && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
+      window.speechSynthesis.cancel()
+    }
+  } catch { /* ignore */ }
   try { stopOffline() } catch { /* ignore */ }
 }
 
@@ -449,6 +471,19 @@ export async function startOfflineDownload(onProgress?: (p: number) => void): Pr
     emitChange()
   })
   emitChange()
+}
+
+/** 后台预热离线语音包；失败只记录日志，不打扰聊天界面。 */
+export async function preloadOfflineTts(): Promise<void> {
+  if (offlineWarmupStarted || isOfflineReady() || isOfflineLoading()) return
+  offlineWarmupStarted = true
+  try {
+    await startOfflineDownload()
+  } catch (e) {
+    offlineWarmupStarted = false
+    console.warn('[tts] offline preload failed:', e)
+    emitChange()
+  }
 }
 
 function exposeDebugHelpers(): void {
@@ -499,3 +534,9 @@ function exposeDebugHelpers(): void {
 if (hasSpeechSynthesis()) {
   void loadVoicesOnce()
 }
+if (typeof window !== 'undefined' && AUTO_PRELOAD_OFFLINE_TTS) {
+  window.setTimeout(() => {
+    void preloadOfflineTts()
+  }, 1500)
+}
+

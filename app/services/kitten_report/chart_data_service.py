@@ -1,42 +1,24 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ChartDataService:
+class ChartDataService(NeuroEventPublisherMixin):
     def __init__(self):
         pass
 
-    def _publish_event(self, event_type: str, payload: dict, priority: EventPriority = EventPriority.NORMAL) -> str:
-        """发布领域事件"""
+    def get_revenue_chart_data(self, months: int = 6) -> dict[str, Any]:
         try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source="ChartDataService",
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
-    def get_revenue_chart_data(self, months: int = 6) -> Dict[str, Any]:
-        try:
-            from app.db.session import get_db
-            from app.db.models.shipment import ShipmentRecord
             from sqlalchemy import func as sa_func
+
+            from app.db.models.shipment import ShipmentRecord
+            from app.db.session import get_db
 
             chart_data = {"labels": [], "revenue": [], "orders": []}
 
@@ -51,13 +33,17 @@ class ChartDataService:
                         next_month = month_start + timedelta(days=32)
                         month_end = next_month.replace(day=1)
 
-                    result = db.query(
-                        sa_func.coalesce(sa_func.sum(ShipmentRecord.amount), 0),
-                        sa_func.count(ShipmentRecord.id),
-                    ).filter(
-                        ShipmentRecord.created_at >= month_start,
-                        ShipmentRecord.created_at < month_end,
-                    ).first()
+                    result = (
+                        db.query(
+                            sa_func.coalesce(sa_func.sum(ShipmentRecord.amount), 0),
+                            sa_func.count(ShipmentRecord.id),
+                        )
+                        .filter(
+                            ShipmentRecord.created_at >= month_start,
+                            ShipmentRecord.created_at < month_end,
+                        )
+                        .first()
+                    )
 
                     chart_data["labels"].insert(0, month_start.strftime("%Y-%m"))
                     chart_data["revenue"].insert(0, round(float(result[0] or 0), 2))
@@ -73,11 +59,12 @@ class ChartDataService:
             logger.exception("get_revenue_chart_data failed: %s", e)
             return {"success": False, "message": str(e)}
 
-    def get_product_pie_chart_data(self) -> Dict[str, Any]:
+    def get_product_pie_chart_data(self) -> dict[str, Any]:
         try:
-            from app.db.session import get_db
-            from app.db.models.shipment import ShipmentRecord
             from sqlalchemy import func as sa_func
+
+            from app.db.models.shipment import ShipmentRecord
+            from app.db.session import get_db
 
             now = datetime.now()
             month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -111,11 +98,12 @@ class ChartDataService:
             logger.exception("get_product_pie_chart_data failed: %s", e)
             return {"success": False, "message": str(e)}
 
-    def get_customer_bar_chart_data(self) -> Dict[str, Any]:
+    def get_customer_bar_chart_data(self) -> dict[str, Any]:
         try:
-            from app.db.session import get_db
-            from app.db.models.shipment import ShipmentRecord
             from sqlalchemy import func as sa_func
+
+            from app.db.models.shipment import ShipmentRecord
+            from app.db.session import get_db
 
             now = datetime.now()
             month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -135,7 +123,14 @@ class ChartDataService:
                 )
 
                 data = {
-                    "labels": [r.purchase_unit[:10] + "..." if len(r.purchase_unit) > 10 else r.purchase_unit for r in results],
+                    "labels": [
+                        (
+                            r.purchase_unit[:10] + "..."
+                            if len(r.purchase_unit) > 10
+                            else r.purchase_unit
+                        )
+                        for r in results
+                    ],
                     "amounts": [round(float(r.total or 0), 2) for r in results],
                     "orders": [int(r.count or 0) for r in results],
                 }
@@ -150,11 +145,12 @@ class ChartDataService:
             logger.exception("get_customer_bar_chart_data failed: %s", e)
             return {"success": False, "message": str(e)}
 
-    def get_profit_trend_chart_data(self, months: int = 6) -> Dict[str, Any]:
+    def get_profit_trend_chart_data(self, months: int = 6) -> dict[str, Any]:
         try:
-            from app.db.session import get_db
-            from app.db.models.shipment import ShipmentRecord
             from sqlalchemy import func as sa_func
+
+            from app.db.models.shipment import ShipmentRecord
+            from app.db.session import get_db
 
             chart_data = {"labels": [], "revenue": [], "estimated_cost": [], "profit": []}
 
@@ -197,18 +193,24 @@ class ChartDataService:
             logger.exception("get_profit_trend_chart_data failed: %s", e)
             return {"success": False, "message": str(e)}
 
-    def get_inventory_chart_data(self) -> Dict[str, Any]:
+    def get_inventory_chart_data(self) -> dict[str, Any]:
         try:
-            from app.db.session import get_db
+            from sqlalchemy import Float as SAFloat
+            from sqlalchemy import cast
+            from sqlalchemy import func as sa_func
+
             from app.db.models.material import Material
-            from sqlalchemy import Float as SAFloat, cast, func as sa_func
+            from app.db.session import get_db
 
             with get_db() as db:
                 category_results = (
                     db.query(
                         Material.category,
                         sa_func.coalesce(
-                            sa_func.sum(cast(Material.quantity, SAFloat) * cast(Material.unit_price, SAFloat)),
+                            sa_func.sum(
+                                cast(Material.quantity, SAFloat)
+                                * cast(Material.unit_price, SAFloat)
+                            ),
                             0.0,
                         ).label("value"),
                     )
@@ -247,7 +249,7 @@ class ChartDataService:
             logger.exception("get_inventory_chart_data failed: %s", e)
             return {"success": False, "message": str(e)}
 
-    def get_all_charts_data(self) -> Dict[str, Any]:
+    def get_all_charts_data(self) -> dict[str, Any]:
         return {
             "revenue_trend": self.get_revenue_chart_data(),
             "product_distribution": self.get_product_pie_chart_data(),
@@ -264,4 +266,3 @@ chart_service = ChartDataService()
 from app.neuro_bus.neuro_service_instrumentation import instrument_service_layer_class
 
 instrument_service_layer_class(ChartDataService, "app.services.kitten_report.chart_data_service")
-

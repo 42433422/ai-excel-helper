@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "employees": [],
+  "_comment": "工作流员工仅由已安装 Mod 的 manifest.workflow_employees 注入；商店 6 个独立 Mod + 流程全景桥接 Mod。"
+}

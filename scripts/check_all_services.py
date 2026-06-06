@@ -3,15 +3,15 @@
 
 from pathlib import Path
 
-services_dir = Path('app/services')
-services = [f for f in services_dir.glob('*.py') if not f.name.startswith('__')]
+services_dir = Path("app/services")
+services = [f for f in services_dir.glob("*.py") if not f.name.startswith("__")]
 
 migrated = []
 need_migration = []
 
 for svc in sorted(services):
-    content = svc.read_text(encoding='utf-8')
-    has_neuro = 'get_neuro_bus' in content or 'NeuroEvent' in content
+    content = svc.read_text(encoding="utf-8")
+    has_neuro = "get_neuro_bus" in content or "NeuroEvent" in content
     if has_neuro:
         migrated.append(svc.name)
     else:

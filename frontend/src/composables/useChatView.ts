@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { ref, computed, watch, onMounted, onBeforeUnmount, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTutorialStore } from '@/stores/tutorial'
@@ -23,6 +24,31 @@ import {
 } from '@/utils/chatSseStream'
 import { inferWechatCustomerIntent } from '@/utils/wechatIntent'
 import { fetchShipmentRecordsForUnit, summarizeShipmentRecordsForAudit } from '@/utils/shipmentMgmtPostPrint'
+import { isCoreWorkflowEmployeeId, isCoreWorkflowModInstalled } from '@/constants/coreWorkflowMod'
+import {
+  listPhoneAgentEmployeeIds,
+  resolvePhoneChannelForEmployee,
+} from '@/utils/modWorkflowEmployees'
+import {
+  appendCoreWorkflowSummaryParts,
+  buildCoreWorkflowMonitorLine,
+  buildCoreWorkflowStepsForEmployee,
+  computeCoreWorkflowCurrentHint,
+  computeCoreWorkflowProgressState,
+  computeCoreWorkflowStageLine,
+  computeWorkflowProgressFromSteps,
+  mergeCorePayloadFromExisting,
+  type WorkflowMonitorPayload,
+  type WorkflowStepRow,
+} from '@/workflow/coreWorkflowMonitor'
+import {
+  buildLabelPrintHostUpdate,
+  buildReceiptFeedbackHostUpdate,
+  buildWechatMonitorUpdate,
+  dispatchCoreWorkflowModRun,
+  runLabelPrintSideEffect,
+} from '@/workflow/coreWorkflowDispatcher'
+import { formatWorkflowClock, formatWorkflowHintTime } from '@/workflow/coreWorkflowPrefs'
 import {
   XCAGI_PROMPT_DB_READ_TOKEN_EVENT,
   XCAGI_PROMPT_DB_WRITE_TOKEN_EVENT,
@@ -40,11 +66,11 @@ import {
   buildChatSessionMetaKey,
   extractSessionIdForActiveMod,
 } from '@/utils/chatStorageKeys'
+import { isIndustryWelcomePlainText } from '@/constants/industryPresets'
 
 /** 刷新后仍能把「分析 Excel」结果随 /api/ai/chat 的 context 带上，避免「加入数据库」落 LLM 空转 */
 const EXCEL_ANALYSIS_STORAGE_PREFIX = 'xcagi_excel_analysis_ctx_'
 const CHAT_TASK_PANEL_STORAGE_PREFIX = 'xcagi_chat_task_panel_'
-const HISTORY_WELCOME_PREFIX = '您好！我是您的 AI 智能助手'
 
 function readPersistedExcelAnalysisContext(sessionKey: string): Record<string, any> | null {
   if (typeof sessionStorage === 'undefined') return null
@@ -533,7 +559,7 @@ export function useChatView(options: UseChatViewOptions) {
   }
 
   function isWelcomeMessage(msg: { role?: unknown; content?: unknown }): boolean {
-    return String(msg?.role || '') === 'ai' && toPlainText(msg?.content).startsWith(HISTORY_WELCOME_PREFIX)
+    return String(msg?.role || '') === 'ai' && isIndustryWelcomePlainText(toPlainText(msg?.content))
   }
 
   function toHistoryTimestamp(raw: unknown): number {
@@ -854,10 +880,16 @@ export function useChatView(options: UseChatViewOptions) {
 
     const wf = taskList.value.find((t) => t.id === 'workflow_emp_wechat_msg')
     if (wf) {
+      const line = `${name}：${msg.replace(/\s+/g, ' ').slice(0, 120)}`
+      dispatchCoreWorkflowModRun(isCoreWorkflowModInstalled(modsStore.modsForUi), 'wechat_msg', {
+        action: 'enqueue_ack',
+        contact: name,
+        line,
+      })
       upsertWorkflowEmployeeTask('wechat_msg', {
         lastWechat: {
           at: Date.now(),
-          line: `${name}：${msg.replace(/\s+/g, ' ').slice(0, 120)}`,
+          line,
         },
       })
     }
@@ -865,38 +897,8 @@ export function useChatView(options: UseChatViewOptions) {
 
   /** 与副窗「一键托管」员工开关一致：启用后在任务面板展示工作流状态 */
   const WORKFLOW_AI_EMPLOYEES_STORAGE_KEY = 'xcagi_workflow_ai_employees'
-  const STAR_REFRESH_STORAGE_KEY = 'xcagi_auto_refresh_starred_wechat'
-  const PRO_INTENT_STORAGE_KEY = 'xcagi_pro_intent_experience'
-
-  type WorkflowStepRow = { id: string; label: string; status: 'done' | 'active' | 'pending' }
-
-  const WORKFLOW_EMPLOYEE_PANEL_META: Record<string, { title: string; summary: string }> = {
-    label_print: {
-      title: '工作流 · 标签打印 AI 员工',
-      summary:
-        '仅接收星标微信经意图预处理后的「标签/打印」类信号（与微信消息员工共用星标轮询与同一套意图规则）。未命中前不推进执行；命中后请在智能对话补充型号/张数并触发打印。',
-    },
-    shipment_mgmt: {
-      title: '工作流 · 出货管理 AI 员工',
-      summary:
-        '对话完成发货单并在「开始打印」成功后，自动拉取本单位出货记录做统计与审计，并给出保存（导出 Excel 存档）与推送（转发摘要/文件）建议。生成环节已写入数据库，打印后侧重核对与对外同步。',
-    },
-    receipt_confirm: {
-      title: '工作流 · 收货确认 AI 员工',
-      summary:
-        '与「微信消息处理」共用星标轮询与同一套意图预处理：客户发来收货、到货、签收、对账等反馈时，自动把对应联系人与业务进程摘要写入本工作流，便于在对话中跟进确认。',
-    },
-    wechat_msg: {
-      title: '工作流 · 微信消息处理 AI 员工',
-      summary:
-        '整条链路：启用员工 → 星标自动刷新 → 拉取消息与推送 → 意图预处理 → 结果写入本列表。下方为各步状态与当前工作情况。',
-    },
-    // 微信电话 / 真实电话：标题与摘要由各 Mod manifest.workflow_employees 提供（buildModWorkflowPanelMeta）
-  }
 
   function resolveWorkflowEmployeePanelMeta(empId: string): { title: string; summary: string } | null {
-    const builtIn = WORKFLOW_EMPLOYEE_PANEL_META[empId]
-    if (builtIn) return builtIn
     const modMap = buildModWorkflowPanelMeta(modsStore.modsForUi)
     return modMap[empId] || null
   }
@@ -1084,15 +1086,16 @@ export function useChatView(options: UseChatViewOptions) {
   let phoneAgentPollTimer: ReturnType<typeof setInterval> | null = null
 
   function resolvePhoneChannelByEmployee(empId: string): 'wechat' | 'adb' {
-    return empId === 'real_phone' ? 'adb' : 'wechat'
+    return resolvePhoneChannelForEmployee(modsStore.modsForUi, empId)
   }
 
-  /** 所有已启用的电话类员工（微信 / ADB 各一条，需分别带 channel 拉 status）；无 manifest 时不算启用 */
-  function getEnabledPhoneEmployeeIds(): Array<'wechat_phone' | 'real_phone'> {
+  /** 所有已启用的电话类员工（manifest 含 phone_agent API）；无 manifest 时不算启用 */
+  function getEnabledPhoneEmployeeIds(): string[] {
     const enabled = readWorkflowEmployeeEnabledMap()
-    const out: Array<'wechat_phone' | 'real_phone'> = []
-    if (enabled.wechat_phone && resolveWorkflowEmployeePanelMeta('wechat_phone')) out.push('wechat_phone')
-    if (enabled.real_phone && resolveWorkflowEmployeePanelMeta('real_phone')) out.push('real_phone')
+    const out: string[] = []
+    for (const empId of listPhoneAgentEmployeeIds(modsStore.modsForUi)) {
+      if (enabled[empId] && resolveWorkflowEmployeePanelMeta(empId)) out.push(empId)
+    }
     return out
   }
 
@@ -1107,7 +1110,7 @@ export function useChatView(options: UseChatViewOptions) {
   }
 
   /** 与 TopAssistantFloat 一致：启用微信电话员工时应启动后端 phone-agent。重启 run.py 后 _running 为 false，仅靠 localStorage 开关不会再次 POST /start，故在轮询侧兜底。 */
-  async function requestPhoneAgentStart(empId: 'wechat_phone' | 'real_phone'): Promise<void> {
+  async function requestPhoneAgentStart(empId: string): Promise<void> {
     const base = getPhoneAgentApiBase(empId).replace(/\/+$/, '')
     if (!base) return
     const ch = resolvePhoneChannelByEmployee(empId)
@@ -1137,9 +1140,7 @@ export function useChatView(options: UseChatViewOptions) {
     }
   }
 
-  async function fetchPhoneAgentStatusPayload(
-    empId: 'wechat_phone' | 'real_phone'
-  ): Promise<PhoneAgentStatusPayload> {
+  async function fetchPhoneAgentStatusPayload(empId: string): Promise<PhoneAgentStatusPayload> {
     const base = getPhoneAgentApiBase(empId).replace(/\/+$/, '')
     const lastPolledAt = Date.now()
     if (!base) {
@@ -1201,66 +1202,6 @@ export function useChatView(options: UseChatViewOptions) {
     }, PHONE_AGENT_POLL_MS)
   }
 
-  function isStarredChatAutoRefreshOn(): boolean {
-    try {
-      return localStorage.getItem(STAR_REFRESH_STORAGE_KEY) === '1'
-    } catch {
-      return false
-    }
-  }
-
-  function isProIntentExperienceOn(): boolean {
-    try {
-      return localStorage.getItem(PRO_INTENT_STORAGE_KEY) === '1'
-    } catch {
-      return false
-    }
-  }
-
-  function formatWorkflowHintTime(ts: number): string {
-    try {
-      return new Date(ts).toLocaleString('zh-CN', {
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    } catch {
-      return ''
-    }
-  }
-
-  function formatWorkflowClock(ts: number): string {
-    try {
-      return new Date(ts).toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      })
-    } catch {
-      return ''
-    }
-  }
-
-  type WorkflowMonitorPayload = {
-    lastPolledAt: number
-    pollIntervalMs: number
-    starredContactCount?: number
-    pollOk?: boolean
-  }
-
-  function computeWorkflowProgressFromSteps(steps: WorkflowStepRow[]): { pct: number; label: string } {
-    if (!steps.length) return { pct: 0, label: '0 / 0 步' }
-    const total = steps.length
-    const done = steps.filter((s) => s.status === 'done').length
-    const hasActive = steps.some((s) => s.status === 'active')
-    const visual = done + (hasActive ? 0.5 : 0)
-    const pct = Math.min(100, Math.round((visual / total) * 100))
-    const label = `${done} / ${total} 步已完成${hasActive ? ' · 1 步进行中' : ''}`
-    return { pct, label }
-  }
-
   function buildWorkflowMonitorLine(
     empId: string,
     steps: WorkflowStepRow[],
@@ -1271,73 +1212,28 @@ export function useChatView(options: UseChatViewOptions) {
     lastReceiptFeedback?: { at: number; line: string; detail?: string },
     phoneStatus?: PhoneAgentStatusPayload
   ): string {
-    if (empId === 'wechat_msg') {
-      const refreshOn = isStarredChatAutoRefreshOn()
-      if (!refreshOn) {
-        return '监控已暂停：未开启「星标聊天自动刷新」，无法定时拉取星标会话。'
-      }
-      if (monitor?.lastPolledAt) {
-        const t = formatWorkflowClock(monitor.lastPolledAt)
-        const sec = Math.max(1, Math.round((monitor.pollIntervalMs || 60000) / 1000))
-        const n = monitor.starredContactCount
-        const cnt = typeof n === 'number' ? `星标联系人 ${n} 位` : '星标联系人'
-        const ok = monitor.pollOk !== false ? '拉取通道正常' : '上次拉取失败，将重试'
-        const tail = lastWechat
-          ? ` · 最近预处理：${formatWorkflowHintTime(lastWechat.at)}`
-          : ' · 持续监听新消息'
-        return `${ok} · 上次检查 ${t} · 每 ${sec}s 轮询 · ${cnt}${tail}`
-      }
-      return '监控就绪：等待首次轮询（通常 1 分钟内）…'
+    if (isCoreWorkflowEmployeeId(empId)) {
+      return buildCoreWorkflowMonitorLine(empId, monitor, {
+        lastWechat,
+        lastLabelPrint,
+        lastShipmentAudit,
+        lastReceiptFeedback,
+      })
     }
-    if (empId === 'label_print') {
-      const refreshOn = isStarredChatAutoRefreshOn()
-      if (!refreshOn) {
-        return '未开星标自动刷新：无法从微信侧接收标签/打印信号。'
-      }
-      if (lastLabelPrint) {
-        const line = lastLabelPrint.line.slice(0, 100)
-        return `已接收标签/打印类信号 · ${formatWorkflowHintTime(lastLabelPrint.at)} · ${line}${
-          lastLabelPrint.line.length > 100 ? '…' : ''
-        }`
-      }
-      return '星标轮询中：尚未命中标签/打印类意图；命中后本工作流才会推进。'
-    }
-    if (empId === 'shipment_mgmt') {
-      if (lastShipmentAudit) {
-        const line = lastShipmentAudit.line.slice(0, 100)
-        return `打印后审计 · ${formatWorkflowHintTime(lastShipmentAudit.at)} · ${line}${
-          lastShipmentAudit.line.length > 100 ? '…' : ''
-        }`
-      }
-      return '等待「开始打印」成功：结束后将自动统计出货记录并提示保存/推送建议。'
-    }
-    if (empId === 'receipt_confirm') {
-      const refreshOn = isStarredChatAutoRefreshOn()
-      if (!refreshOn) {
-        return '未开星标自动刷新：无法从微信侧接收客户收货/对账类反馈。'
-      }
-      if (lastReceiptFeedback) {
-        const line = lastReceiptFeedback.line.slice(0, 100)
-        return `客户业务进程 · ${formatWorkflowHintTime(lastReceiptFeedback.at)} · ${line}${
-          lastReceiptFeedback.line.length > 100 ? '…' : ''
-        }`
-      }
-      return '星标轮询中：尚未命中收货/对账类客户反馈；命中后将写入进程摘要。'
-    }
-    if (empId === 'wechat_phone') {
+    if (resolvePhoneChannelByEmployee(empId) === 'wechat') {
       const ps = phoneStatus
-      const phoneBase = getPhoneAgentApiBase('wechat_phone').replace(/\/+$/, '')
+      const phoneBase = getPhoneAgentApiBase(empId).replace(/\/+$/, '')
       if (!ps) {
         if (!phoneBase) {
           return '当前为原版模式（已关闭 Mod 界面）：不包含微信电话扩展。'
         }
-        return `尚未同步后端：副窗勾选本员工后约每 ${Math.round(PHONE_AGENT_POLL_MS / 1000)} 秒拉取 phone-agent 状态；若已勾选仍如此，请刷新页面并确认后端与 Mod 已加载。`
+        return '电话状态同步中…'
       }
       if (ps.fetchError) {
         if (!phoneBase) {
           return `无法拉取 phone-agent：${ps.fetchError}`
         }
-        return `无法拉取 phone-agent 状态：${ps.fetchError}。请确认后端已启动（如 127.0.0.1:5000）、Mod 已加载，开发环境需 Vite 将 /api 代理到该端口。接口：GET ${phoneBase}/status`
+        return `无法拉取电话状态：${ps.fetchError}`
       }
       if (ps.phone_agent_get_status_failed) {
         return `phone-agent 状态异常（get_status）：${ps.phone_agent_get_status_message || '见后端日志'}`
@@ -1483,11 +1379,22 @@ export function useChatView(options: UseChatViewOptions) {
       const wmHint = String(ps.phone_window_monitor_hint_zh || '').trim()
       const wmHintLine =
         wmHint.length > 0 ? wmHint.slice(0, 360) + (wmHint.length > 360 ? '…' : '') : ''
-      return [head, wmHintLine, diagLine, problemLine, step1, step2, step3, step5, step6, step4]
-        .filter(Boolean)
-        .join('\n')
+      const detailLines = [wmHintLine, diagLine, problemLine, step1, step2, step3, step5, step6, step4].filter(
+        Boolean,
+      )
+      if (import.meta.env.DEV) {
+        return [head, ...detailLines].join('\n')
+      }
+      const asrShort =
+        ps.last_asr_at_ms != null
+          ? `ASR：${String(ps.last_asr_text || '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 24)}`
+          : ''
+      return [head, asrShort].filter(Boolean).join(' · ')
     }
-    if (empId === 'real_phone') {
+    if (resolvePhoneChannelByEmployee(empId) === 'adb') {
       const a = steps.find((s) => s.status === 'active')
       if (a) return `真实电话业务员运行中：${a.label.replace(/^[①②③④⑤⑥]\s*/, '')}`
       const d = steps.filter((s) => s.status === 'done').length
@@ -1508,92 +1415,10 @@ export function useChatView(options: UseChatViewOptions) {
       phoneStatus?: PhoneAgentStatusPayload
     }
   ): WorkflowStepRow[] {
-    if (empId === 'wechat_msg') {
-      const refreshOn = isStarredChatAutoRefreshOn()
-      const proIntent = isProIntentExperienceOn()
-      const last = ctx?.lastWechat
-      const preface = proIntent ? '调用 POST /api/ai/intent/test' : '本地关键词规则（inferWechatCustomerIntent）'
-      return [
-        { id: 'wx1', label: '① 副窗「一键托管」启用「微信消息处理 AI 员工」', status: 'done' },
-        { id: 'wx2', label: '② 智能对话勾选「星标聊天自动刷新（1分钟）」', status: refreshOn ? 'done' : 'active' },
-        {
-          id: 'wx3',
-          label: '③ 定时拉取星标联系人最新消息，并同步副窗「推送」提醒',
-          status: refreshOn ? 'active' : 'pending',
-        },
-        {
-          id: 'wx4',
-          label: `④ 新消息到达 → 意图预处理（${preface}）`,
-          status: last ? 'done' : 'pending',
-        },
-        {
-          id: 'wx5',
-          label: '⑤ 预处理结果写入本列表（「微信消息处理 · 联系人」类条目）',
-          status: last ? 'done' : 'pending',
-        },
-      ]
+    if (isCoreWorkflowEmployeeId(empId)) {
+      return buildCoreWorkflowStepsForEmployee(empId, ctx)
     }
-    if (empId === 'label_print') {
-      const sig = ctx?.lastLabelPrint
-      const refreshOn = isStarredChatAutoRefreshOn()
-      return [
-        { id: 'lp1', label: '① 副窗启用「标签打印 AI 员工」', status: 'done' },
-        {
-          id: 'lp2',
-          label: refreshOn
-            ? '② 星标新消息 → 意图预处理（与微信消息员工同源）'
-            : '② 请开启「星标聊天自动刷新」以接收微信侧信号',
-          status: refreshOn ? (sig ? 'done' : 'active') : 'active',
-        },
-        {
-          id: 'lp3',
-          label: sig
-            ? '③ 在智能对话补充型号/张数并触发打印链路'
-            : '③ 命中标签/打印意图后，在对话中执行打印',
-          status: sig ? 'active' : 'pending',
-        },
-      ]
-    }
-    if (empId === 'shipment_mgmt') {
-      const audit = ctx?.lastShipmentAudit
-      return [
-        { id: 'sm1', label: '① 副窗启用「出货管理 AI 员工」', status: 'done' },
-        {
-          id: 'sm2',
-          label: '② 对话完成发货单生成并在确认后执行「开始打印」',
-          status: audit ? 'done' : 'active',
-        },
-        {
-          id: 'sm3',
-          label: audit
-            ? '③ 已输出打印后审计：请到出货记录核对，按需导出/推送'
-            : '③ 打印后将自动统计本单位出货记录并给出保存/推送建议',
-          status: audit ? 'active' : 'pending',
-        },
-      ]
-    }
-    if (empId === 'receipt_confirm') {
-      const sig = ctx?.lastReceiptFeedback
-      const refreshOn = isStarredChatAutoRefreshOn()
-      return [
-        { id: 'rc1', label: '① 副窗启用「收货确认 AI 员工」', status: 'done' },
-        {
-          id: 'rc2',
-          label: refreshOn
-            ? '② 星标微信 → 意图预处理（与微信消息员工同源），捕捉收货/对账类客户反馈'
-            : '② 请开启「星标聊天自动刷新」以接收客户侧业务进程',
-          status: refreshOn ? (sig ? 'done' : 'active') : 'active',
-        },
-        {
-          id: 'rc3',
-          label: sig
-            ? '③ 已展示客户业务进程摘要，请在智能对话中跟进确认'
-            : '③ 命中收货/对账类意图后写入进程信息',
-          status: sig ? 'active' : 'pending',
-        },
-      ]
-    }
-    if (empId === 'wechat_phone') {
+    if (resolvePhoneChannelByEmployee(empId) === 'wechat') {
       const ps = ctx?.phoneStatus
       const run = !!ps?.running
       const wm = !!ps?.window_monitor_available
@@ -1675,7 +1500,7 @@ export function useChatView(options: UseChatViewOptions) {
         },
       ]
     }
-    if (empId === 'real_phone') {
+    if (resolvePhoneChannelByEmployee(empId) === 'adb') {
       const ps = ctx?.phoneStatus
       const run = !!ps?.running
       const adbOk = ps?.adb_available === true
@@ -1739,50 +1564,21 @@ export function useChatView(options: UseChatViewOptions) {
     lastReceiptFeedback?: { at: number; line: string; detail?: string },
     phoneStatus?: PhoneAgentStatusPayload
   ): string {
-    if (empId === 'wechat_msg') {
-      const refreshOn = isStarredChatAutoRefreshOn()
-      if (!refreshOn) {
-        return '请先勾选「星标聊天自动刷新」以启动监控轮询。'
-      }
-      if (lastWechat) {
-        return `最近一条客户消息已预处理并写入列表：${lastWechat.line.slice(0, 120)}${lastWechat.line.length > 120 ? '…' : ''}`
-      }
-      if (monitor?.lastPolledAt) {
-        return '尚未捕获到新消息签名变化；监控轮询在运行，有新聊天时会自动执行意图预处理。'
-      }
-      return '工作流已就绪；首次轮询完成后，上方「工作状态」将显示上次检查时间。'
+    if (isCoreWorkflowEmployeeId(empId)) {
+      return computeCoreWorkflowCurrentHint(
+        empId,
+        {
+          lastWechat,
+          lastLabelPrint,
+          lastShipmentAudit,
+          lastReceiptFeedback,
+        },
+        monitor,
+      )
     }
-    if (empId === 'label_print') {
-      const refreshOn = isStarredChatAutoRefreshOn()
-      if (!refreshOn) {
-        return '请先勾选「星标聊天自动刷新」；标签打印员工仅从星标微信链路接收「标签/打印」类信号。'
-      }
-      if (lastLabelPrint) {
-        return `最近命中标签/打印意图：${lastLabelPrint.line.slice(0, 120)}${lastLabelPrint.line.length > 120 ? '…' : ''}`
-      }
-      return '等待星标会话中出现标签/打印类消息；未命中前本工作流不执行后续步骤。'
-    }
-    if (empId === 'shipment_mgmt') {
-      if (lastShipmentAudit) {
-        const d = String(lastShipmentAudit.detail || lastShipmentAudit.line || '').trim()
-        return d.length > 220 ? `${d.slice(0, 220)}…` : d || lastShipmentAudit.line
-      }
-      return '「开始打印」成功后，将自动拉取出货记录、汇总条数并提示是否导出存档或推送同事。'
-    }
-    if (empId === 'receipt_confirm') {
-      const refreshOn = isStarredChatAutoRefreshOn()
-      if (!refreshOn) {
-        return '请先勾选「星标聊天自动刷新」；收货确认员工依赖微信消息员工同源链路获取客户反馈。'
-      }
-      if (lastReceiptFeedback) {
-        const d = String(lastReceiptFeedback.detail || lastReceiptFeedback.line || '').trim()
-        return d.length > 220 ? `${d.slice(0, 220)}…` : d || lastReceiptFeedback.line
-      }
-      return '等待星标客户发送收货、到货、签收、对账等消息；命中后在此展示对应业务进程摘要。'
-    }
-    if (empId === 'wechat_phone') {
+    if (resolvePhoneChannelByEmployee(empId) === 'wechat') {
       const ps = phoneStatus
-      const phoneBase = getPhoneAgentApiBase('wechat_phone').replace(/\/+$/, '')
+      const phoneBase = getPhoneAgentApiBase(empId).replace(/\/+$/, '')
       if (!ps) {
         if (!phoneBase) {
           return '原版模式：未加载 Mod 电话扩展。'
@@ -1827,7 +1623,7 @@ export function useChatView(options: UseChatViewOptions) {
       }
       return `来电时将尝试自动接听；${chain}。若无法接听，请更新微信 PC 版或查看后端接听按钮定位日志。`
     }
-    if (empId === 'real_phone') {
+    if (resolvePhoneChannelByEmployee(empId) === 'adb') {
       const ps = phoneStatus
       if (!ps) return '正在连接 ADB 电话状态接口…'
       if (ps.fetchError) return `状态接口异常：${ps.fetchError}`
@@ -1855,22 +1651,15 @@ export function useChatView(options: UseChatViewOptions) {
     lastReceiptFeedback?: { at: number; line: string; detail?: string },
     phoneStatus?: PhoneAgentStatusPayload
   ): string {
-    if (empId === 'wechat_msg') {
-      if (!isStarredChatAutoRefreshOn()) return '等待开启星标自动刷新'
-      return lastWechat ? '监控中 · 最近已处理' : '监控中 · 等待新消息'
+    if (isCoreWorkflowEmployeeId(empId)) {
+      return computeCoreWorkflowStageLine(empId, {
+        lastWechat,
+        lastLabelPrint,
+        lastShipmentAudit,
+        lastReceiptFeedback,
+      })
     }
-    if (empId === 'label_print') {
-      if (!isStarredChatAutoRefreshOn()) return '等待开启星标自动刷新'
-      return lastLabelPrint ? '已收微信侧标签/打印信号' : '等待微信侧标签/打印信号'
-    }
-    if (empId === 'shipment_mgmt') {
-      return lastShipmentAudit ? '已审计 · 建议核对出货记录' : '待命 · 等待打印完成后审计'
-    }
-    if (empId === 'receipt_confirm') {
-      if (!isStarredChatAutoRefreshOn()) return '等待开启星标自动刷新'
-      return lastReceiptFeedback ? '已收客户侧业务进程反馈' : '等待微信侧收货/对账类反馈'
-    }
-    if (empId === 'wechat_phone') {
+    if (resolvePhoneChannelByEmployee(empId) === 'wechat') {
       const ps = phoneStatus
       if (!ps) return '待命 · 同步状态中'
       if (!ps.running) {
@@ -1893,7 +1682,7 @@ export function useChatView(options: UseChatViewOptions) {
       }
       return ps.window_monitor_available ? '运行中 · 等待来电并尝试自动接听' : '运行中 · 窗口监控不可用'
     }
-    if (empId === 'real_phone') {
+    if (resolvePhoneChannelByEmployee(empId) === 'adb') {
       const ps = phoneStatus
       if (!ps) return '待命 · 同步状态中'
       if (!ps.running) return '待命 · ADB 链路未运行'
@@ -1924,33 +1713,15 @@ export function useChatView(options: UseChatViewOptions) {
   ) {
     const taskId = `workflow_emp_${empId}`
     const existing = taskList.value.find((t) => t.id === taskId)
-    const lastWechat =
-      opts && opts.lastWechat !== undefined
-        ? opts.lastWechat
-        : empId === 'wechat_msg' && existing?.payload?.lastWechat
-          ? (existing.payload.lastWechat as { at: number; line: string })
-          : undefined
-
-    const lastLabelPrint =
-      opts && opts.lastLabelPrint !== undefined
-        ? opts.lastLabelPrint
-        : empId === 'label_print' && existing?.payload?.lastLabelPrint
-          ? (existing.payload.lastLabelPrint as { at: number; line: string })
-          : undefined
-
-    const lastShipmentAudit =
-      opts && opts.lastShipmentAudit !== undefined
-        ? opts.lastShipmentAudit
-        : empId === 'shipment_mgmt' && existing?.payload?.lastShipmentAudit
-          ? (existing.payload.lastShipmentAudit as { at: number; line: string; detail?: string })
-          : undefined
-
-    const lastReceiptFeedback =
-      opts && opts.lastReceiptFeedback !== undefined
-        ? opts.lastReceiptFeedback
-        : empId === 'receipt_confirm' && existing?.payload?.lastReceiptFeedback
-          ? (existing.payload.lastReceiptFeedback as { at: number; line: string; detail?: string })
-          : undefined
+    const coreCtx = mergeCorePayloadFromExisting(
+      empId,
+      opts,
+      existing?.payload as Record<string, unknown> | undefined,
+    )
+    const lastWechat = coreCtx.lastWechat
+    const lastLabelPrint = coreCtx.lastLabelPrint
+    const lastShipmentAudit = coreCtx.lastShipmentAudit
+    const lastReceiptFeedback = coreCtx.lastReceiptFeedback
 
     let monitor: WorkflowMonitorPayload | undefined
     if (opts && 'monitor' in opts && opts.monitor !== undefined) {
@@ -1962,7 +1733,7 @@ export function useChatView(options: UseChatViewOptions) {
     let phoneStatus: PhoneAgentStatusPayload | undefined
     if (opts && 'phoneStatus' in opts && opts.phoneStatus !== undefined) {
       phoneStatus = opts.phoneStatus === null ? undefined : opts.phoneStatus
-    } else if ((empId === 'wechat_phone' || empId === 'real_phone') && existing?.payload?.phoneStatus) {
+    } else if (listPhoneAgentEmployeeIds(modsStore.modsForUi).includes(empId) && existing?.payload?.phoneStatus) {
       phoneStatus = existing.payload.phoneStatus as PhoneAgentStatusPayload
     }
 
@@ -1978,57 +1749,12 @@ export function useChatView(options: UseChatViewOptions) {
     let progressPct = 0
     let progressLabel = ''
     let workflowProgressStarted = true
-    if (empId === 'wechat_msg') {
-      if (!lastWechat) {
-        progressPct = 0
-        progressLabel = isStarredChatAutoRefreshOn()
-          ? '尚未进入处理：等待新消息'
-          : '尚未进入处理：请先开启星标自动刷新'
-        workflowProgressStarted = false
-      } else {
-        const p = computeWorkflowProgressFromSteps(steps)
-        progressPct = p.pct
-        progressLabel = p.label
-        workflowProgressStarted = true
-      }
-    } else if (empId === 'label_print') {
-      if (!lastLabelPrint) {
-        progressPct = 0
-        progressLabel = isStarredChatAutoRefreshOn()
-          ? '尚未进入执行：等待微信侧标签/打印类消息'
-          : '尚未进入执行：请先开启星标自动刷新'
-        workflowProgressStarted = false
-      } else {
-        const p = computeWorkflowProgressFromSteps(steps)
-        progressPct = p.pct
-        progressLabel = p.label
-        workflowProgressStarted = true
-      }
-    } else if (empId === 'shipment_mgmt') {
-      if (!lastShipmentAudit) {
-        progressPct = 0
-        progressLabel = '尚未完成打印后审计：请先完成发货单打印'
-        workflowProgressStarted = false
-      } else {
-        const p = computeWorkflowProgressFromSteps(steps)
-        progressPct = p.pct
-        progressLabel = p.label
-        workflowProgressStarted = true
-      }
-    } else if (empId === 'receipt_confirm') {
-      if (!lastReceiptFeedback) {
-        progressPct = 0
-        progressLabel = isStarredChatAutoRefreshOn()
-          ? '尚未收到客户侧收货/对账类反馈'
-          : '尚未进入：请先开启星标自动刷新'
-        workflowProgressStarted = false
-      } else {
-        const p = computeWorkflowProgressFromSteps(steps)
-        progressPct = p.pct
-        progressLabel = p.label
-        workflowProgressStarted = true
-      }
-    } else if (empId === 'wechat_phone') {
+    if (isCoreWorkflowEmployeeId(empId)) {
+      const prog = computeCoreWorkflowProgressState(empId, steps, coreCtx)
+      progressPct = prog.progressPct
+      progressLabel = prog.progressLabel
+      workflowProgressStarted = prog.workflowProgressStarted
+    } else if (resolvePhoneChannelByEmployee(empId) === 'wechat') {
       const ps = phoneStatus
       const psBad =
         !ps ||
@@ -2058,7 +1784,7 @@ export function useChatView(options: UseChatViewOptions) {
         progressLabel = p.label
         workflowProgressStarted = true
       }
-    } else if (empId === 'real_phone') {
+    } else if (resolvePhoneChannelByEmployee(empId) === 'adb') {
       const ps = phoneStatus
       const started = !!(ps && ps.running && ps.adb_device_connected)
       if (!started) {
@@ -2108,19 +1834,8 @@ export function useChatView(options: UseChatViewOptions) {
     const meta = resolveWorkflowEmployeePanelMeta(empId)
     if (!meta) return
     const summaryParts = [meta.summary]
-    if (lastWechat) {
-      summaryParts.push(`最近处理 ${formatWorkflowHintTime(lastWechat.at)}：${lastWechat.line}`)
-    }
-    if (empId === 'label_print' && lastLabelPrint) {
-      summaryParts.push(`最近标签/打印信号 ${formatWorkflowHintTime(lastLabelPrint.at)}：${lastLabelPrint.line}`)
-    }
-    if (empId === 'shipment_mgmt' && lastShipmentAudit) {
-      summaryParts.push(`最近打印后审计 ${formatWorkflowHintTime(lastShipmentAudit.at)}：${lastShipmentAudit.line}`)
-    }
-    if (empId === 'receipt_confirm' && lastReceiptFeedback) {
-      summaryParts.push(`最近客户反馈 ${formatWorkflowHintTime(lastReceiptFeedback.at)}：${lastReceiptFeedback.line}`)
-    }
-    if (empId === 'wechat_phone' && phoneStatus) {
+    appendCoreWorkflowSummaryParts(empId, summaryParts, coreCtx)
+    if (resolvePhoneChannelByEmployee(empId) === 'wechat' && phoneStatus) {
       const ps = phoneStatus
       const bits = [
         ps.running ? '运行中' : '未运行',
@@ -2155,7 +1870,7 @@ export function useChatView(options: UseChatViewOptions) {
         )
       }
     }
-    if (empId === 'real_phone' && phoneStatus) {
+    if (resolvePhoneChannelByEmployee(empId) === 'adb' && phoneStatus) {
       const ps = phoneStatus
       const bits = [
         ps.running ? '运行中' : '未运行',
@@ -2211,23 +1926,13 @@ export function useChatView(options: UseChatViewOptions) {
     const enabled = readWorkflowEmployeeEnabledMap()
     if (!enabled.wechat_msg) return
     if (!taskList.value.some((t) => t.id === 'workflow_emp_wechat_msg')) return
-    upsertWorkflowEmployeeTask('wechat_msg', {
-      monitor: {
-        lastPolledAt: Number(d.at) || Date.now(),
-        pollIntervalMs: Number(d.intervalMs) || 60000,
-        starredContactCount: typeof d.contactCount === 'number' ? d.contactCount : undefined,
-        pollOk: d.ok !== false,
-      },
-    })
+    upsertWorkflowEmployeeTask('wechat_msg', buildWechatMonitorUpdate(d))
   }
 
   function syncWorkflowEmployeePanelTasks(enabled: Record<string, boolean>) {
     const merged = { ...readWorkflowEmployeeEnabledMap(), ...enabled }
     const modMeta = buildModWorkflowPanelMeta(modsStore.modsForUi)
-    const allEmpIds = new Set([
-      ...Object.keys(WORKFLOW_EMPLOYEE_PANEL_META),
-      ...Object.keys(modMeta),
-    ])
+    const allEmpIds = new Set([...Object.keys(modMeta)])
     for (const empId of allEmpIds) {
       const taskId = `workflow_emp_${empId}`
       if (merged[empId]) {
@@ -2256,10 +1961,7 @@ export function useChatView(options: UseChatViewOptions) {
   function resyncEnabledWorkflowEmployeeTasks() {
     const enabled = readWorkflowEmployeeEnabledMap()
     const modMeta = buildModWorkflowPanelMeta(modsStore.modsForUi)
-    const allEmpIds = new Set([
-      ...Object.keys(WORKFLOW_EMPLOYEE_PANEL_META),
-      ...Object.keys(modMeta),
-    ])
+    const allEmpIds = new Set([...Object.keys(modMeta)])
     for (const empId of allEmpIds) {
       if (enabled[empId] && resolveWorkflowEmployeePanelMeta(empId)) {
         upsertWorkflowEmployeeTask(empId)
@@ -2375,6 +2077,10 @@ export function useChatView(options: UseChatViewOptions) {
   }
 
   function resolveEffectiveProModeState(): boolean {
+    const overlay = document.getElementById('proModeOverlay')
+    if (!overlay && typeof window.__XCAGI_IS_PRO_MODE === 'boolean') {
+      return !!window.__XCAGI_IS_PRO_MODE
+    }
     const domState = isProModeActiveFromDom()
     if (typeof window.__XCAGI_IS_PRO_MODE === 'boolean') {
       if (window.__XCAGI_IS_PRO_MODE !== domState) {
@@ -2670,7 +2376,7 @@ export function useChatView(options: UseChatViewOptions) {
   }
 
   let chatBatchTimer: ReturnType<typeof setTimeout> | null = null
-  let chatBatchQueue: string[] = []
+  const chatBatchQueue: string[] = []
 
   function setLoadingProgress(step: string) {
     loadingProgressText.value = String(step || '').trim() || '处理中...'
@@ -2794,6 +2500,12 @@ export function useChatView(options: UseChatViewOptions) {
 
     const rows = await fetchShipmentRecordsForUnit(unit)
     const summary = summarizeShipmentRecordsForAudit(rows, unit, ctx.orderId)
+    dispatchCoreWorkflowModRun(isCoreWorkflowModInstalled(modsStore.modsForUi), 'shipment_mgmt', {
+      action: 'audit_summary',
+      purchaseUnit: unit,
+      orderId: ctx.orderId,
+      headline: summary.headline,
+    })
     const fullText = summary.detailLines.join('\n')
     const at = Date.now()
 
@@ -3095,15 +2807,15 @@ export function useChatView(options: UseChatViewOptions) {
     })
   }
 
-  function onWorkflowLabelPrintSignal(evt: Event) {
+  async function onWorkflowLabelPrintSignal(evt: Event) {
     const d = (evt as CustomEvent).detail || {}
     const enabled = readWorkflowEmployeeEnabledMap()
     if (!enabled.label_print) return
     if (!taskList.value.some((t) => t.id === 'workflow_emp_label_print')) return
-    const line = String(d.line || '').trim() || '标签/打印类消息'
-    upsertWorkflowEmployeeTask('label_print', {
-      lastLabelPrint: { at: Number(d.at) || Date.now(), line },
-    })
+    const modInstalled = isCoreWorkflowModInstalled(modsStore.modsForUi)
+    dispatchCoreWorkflowModRun(modInstalled, 'label_print', { action: 'signal_ack', ...d })
+    upsertWorkflowEmployeeTask('label_print', buildLabelPrintHostUpdate(d))
+    await runLabelPrintSideEffect(d)
   }
 
   /** 星标微信命中收货/对账类意图时，写入收货确认工作流（与微信消息员工同源预处理） */
@@ -3112,27 +2824,17 @@ export function useChatView(options: UseChatViewOptions) {
     const enabled = readWorkflowEmployeeEnabledMap()
     if (!enabled.receipt_confirm) return
     if (!taskList.value.some((t) => t.id === 'workflow_emp_receipt_confirm')) return
-    const contact = String(d.contactName || '星标联系人').trim()
-    const msg = String(d.messageText || '').trim().slice(0, 400)
-    const il = String(d.intentLabel || '').trim()
-    const idetail = String(d.intentDetail || '').trim().slice(0, 240)
-    const line = String(d.line || '').trim() || `${contact}：${msg.slice(0, 80)}`
-    const detailParts = [
-      `【客户反馈 · 业务进程】联系人：${contact}`,
-      il ? `预处理意图：${il}` : '',
-      idetail ? `说明：${idetail}` : '',
-      msg ? `原文摘要：${msg}` : '',
-    ].filter(Boolean)
-    upsertWorkflowEmployeeTask('receipt_confirm', {
-      lastReceiptFeedback: {
-        at: Number(d.at) || Date.now(),
-        line,
-        detail: detailParts.join('\n'),
-      },
+    const modInstalled = isCoreWorkflowModInstalled(modsStore.modsForUi)
+    const host = buildReceiptFeedbackHostUpdate(d)
+    dispatchCoreWorkflowModRun(modInstalled, 'receipt_confirm', {
+      action: 'feedback_ack',
+      line: host.lastReceiptFeedback.line,
+      detail: host.lastReceiptFeedback.detail,
     })
+    upsertWorkflowEmployeeTask('receipt_confirm', { lastReceiptFeedback: host.lastReceiptFeedback })
     emitAssistantPush({
-      title: '收货确认 · 客户业务进程',
-      description: line.length > 100 ? `${line.slice(0, 100)}…` : line,
+      title: host.pushTitle,
+      description: host.pushDescription,
       feature: 'assistant',
     })
   }
@@ -3640,12 +3342,15 @@ export function useChatView(options: UseChatViewOptions) {
         })
         const previewSuffix = lines.length
           ? `\n预览命中 ${rows.length} 条：\n${lines.join('\n')}`
-          : '\n未命中具体产品，可在副窗调整关键词再查。'
-        const responseText = `已帮你打开产品副窗并带入「${kwFast}」。可在卡片中查看与修改。${previewSuffix}`
+          : ''
+        const hasResults = lines.length > 0
+        const responseText = hasResults
+          ? `已帮你打开产品副窗并带入「${kwFast}」。可在卡片中查看与修改。${previewSuffix}`
+          : `未在产品库中找到「${kwFast}」，请确认型号或关键词后重试。`
         const payload: any = {
           success: true,
           response: responseText,
-          autoAction: { type: 'show_products_float', query: kwFast }
+          ...(hasResults ? { autoAction: { type: 'show_products_float', query: kwFast } } : {})
         }
         const mappedRows = rows.slice(0, 20).map((r: any) => ({
           id: r.id,

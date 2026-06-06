@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 采购管理服务模块
 
@@ -8,7 +7,7 @@
 import logging
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import func
 
@@ -19,39 +18,16 @@ from app.db.models import (
     PurchaseOrder,
     PurchaseOrderItem,
     Supplier,
-    Warehouse,
 )
 from app.db.session import get_db
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 from app.services.inventory_service import InventoryService
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
-
 
 logger = logging.getLogger(__name__)
 
 
-class PurchaseService:
+class PurchaseService(NeuroEventPublisherMixin):
     """采购管理服务类"""
-
-    @staticmethod
-
-    def _publish_event(self, event_type: str, payload: dict, priority: 'EventPriority' = None) -> str:
-        """发布领域事件"""
-        if priority is None:
-            priority = EventPriority.NORMAL
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source=self.__class__.__name__,
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
 
     def _decimal_to_float(value: Any) -> Any:
         if isinstance(value, Decimal):
@@ -59,7 +35,7 @@ class PurchaseService:
         return value
 
     @staticmethod
-    def _model_to_dict(model: Any) -> Dict[str, Any]:
+    def _model_to_dict(model: Any) -> dict[str, Any]:
         if model is None:
             return {}
         result = {}
@@ -68,32 +44,34 @@ class PurchaseService:
             result[col.name] = PurchaseService._decimal_to_float(value)
         return result
 
-    def get_suppliers(self, status: Optional[str] = None, keyword: Optional[str] = None) -> Dict[str, Any]:
+    def get_suppliers(
+        self, status: str | None = None, keyword: str | None = None
+    ) -> dict[str, Any]:
         with get_db() as db:
             query = db.query(Supplier)
             if status:
                 query = query.filter(Supplier.status == status)
             if keyword:
                 query = query.filter(
-                    Supplier.name.like(f"%{keyword}%") |
-                    Supplier.code.like(f"%{keyword}%") |
-                    Supplier.contact_person.like(f"%{keyword}%")
+                    Supplier.name.like(f"%{keyword}%")
+                    | Supplier.code.like(f"%{keyword}%")
+                    | Supplier.contact_person.like(f"%{keyword}%")
                 )
             suppliers = query.order_by(Supplier.code).all()
             return {
                 "success": True,
                 "data": [self._model_to_dict(s) for s in suppliers],
-                "count": len(suppliers)
+                "count": len(suppliers),
             }
 
-    def get_supplier(self, supplier_id: int) -> Dict[str, Any]:
+    def get_supplier(self, supplier_id: int) -> dict[str, Any]:
         with get_db() as db:
             supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
             if not supplier:
                 return {"success": False, "message": "供应商不存在"}
             return {"success": True, "data": self._model_to_dict(supplier)}
 
-    def create_supplier(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_supplier(self, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
                 supplier = Supplier(
@@ -109,7 +87,7 @@ class PurchaseService:
                     rating=data.get("rating", 3),
                     remark=data.get("remark"),
                     created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    updated_at=datetime.now(),
                 )
                 db.add(supplier)
                 db.commit()
@@ -120,7 +98,7 @@ class PurchaseService:
                 logger.error(f"创建供应商失败: {e}")
                 return {"success": False, "message": str(e)}
 
-    def update_supplier(self, supplier_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_supplier(self, supplier_id: int, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
                 supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
@@ -140,7 +118,7 @@ class PurchaseService:
                 logger.error(f"更新供应商失败: {e}")
                 return {"success": False, "message": str(e)}
 
-    def delete_supplier(self, supplier_id: int) -> Dict[str, Any]:
+    def delete_supplier(self, supplier_id: int) -> dict[str, Any]:
         with get_db() as db:
             try:
                 supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
@@ -156,13 +134,13 @@ class PurchaseService:
 
     def get_purchase_orders(
         self,
-        supplier_id: Optional[int] = None,
-        status: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        supplier_id: int | None = None,
+        status: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+        per_page: int = 20,
+    ) -> dict[str, Any]:
         with get_db() as db:
             query = db.query(PurchaseOrder).join(Supplier)
 
@@ -176,16 +154,20 @@ class PurchaseService:
                 query = query.filter(PurchaseOrder.order_date <= end_date)
 
             total = query.count()
-            orders = query.order_by(PurchaseOrder.created_at.desc())\
-                .offset((page - 1) * per_page)\
-                .limit(per_page)\
+            orders = (
+                query.order_by(PurchaseOrder.created_at.desc())
+                .offset((page - 1) * per_page)
+                .limit(per_page)
                 .all()
+            )
 
             result = []
             for order in orders:
                 order_dict = self._model_to_dict(order)
                 order_dict["supplier_name"] = order.supplier.name if order.supplier else None
-                order_dict["items"] = [self._model_to_dict(item) for item in order.items] if order.items else []
+                order_dict["items"] = (
+                    [self._model_to_dict(item) for item in order.items] if order.items else []
+                )
                 result.append(order_dict)
 
             return {
@@ -193,10 +175,10 @@ class PurchaseService:
                 "data": result,
                 "total": total,
                 "page": page,
-                "per_page": per_page
+                "per_page": per_page,
             }
 
-    def get_purchase_order(self, order_id: int) -> Dict[str, Any]:
+    def get_purchase_order(self, order_id: int) -> dict[str, Any]:
         with get_db() as db:
             order = db.query(PurchaseOrder).filter(PurchaseOrder.id == order_id).first()
             if not order:
@@ -213,7 +195,7 @@ class PurchaseService:
 
             return {"success": True, "data": order_dict}
 
-    def create_purchase_order(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_purchase_order(self, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
                 order_no = data.get("order_no") or self._generate_order_no()
@@ -229,14 +211,16 @@ class PurchaseService:
                     status="draft",
                     remark=data.get("remark"),
                     created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    updated_at=datetime.now(),
                 )
                 db.add(order)
                 db.flush()
 
                 items_data = data.get("items", [])
                 for item_data in items_data:
-                    product = db.query(Product).filter(Product.id == item_data.get("product_id")).first()
+                    product = (
+                        db.query(Product).filter(Product.id == item_data.get("product_id")).first()
+                    )
                     quantity = float(item_data.get("quantity", 0))
                     unit_price = float(item_data.get("unit_price", 0))
                     amount = quantity * unit_price
@@ -255,7 +239,7 @@ class PurchaseService:
                         invoiced_quantity=0,
                         status="pending",
                         remark=item_data.get("remark"),
-                        created_at=datetime.now()
+                        created_at=datetime.now(),
                     )
                     db.add(item)
 
@@ -266,14 +250,14 @@ class PurchaseService:
                 return {
                     "success": True,
                     "data": self._model_to_dict(order),
-                    "message": "采购订单创建成功"
+                    "message": "采购订单创建成功",
                 }
             except Exception as e:
                 db.rollback()
                 logger.error(f"创建采购订单失败: {e}")
                 return {"success": False, "message": str(e)}
 
-    def update_purchase_order(self, order_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_purchase_order(self, order_id: int, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
                 order = db.query(PurchaseOrder).filter(PurchaseOrder.id == order_id).first()
@@ -291,11 +275,17 @@ class PurchaseService:
                 order.updated_at = datetime.now()
 
                 if "items" in data:
-                    db.query(PurchaseOrderItem).filter(PurchaseOrderItem.order_id == order_id).delete()
+                    db.query(PurchaseOrderItem).filter(
+                        PurchaseOrderItem.order_id == order_id
+                    ).delete()
                     total_amount = 0
 
                     for item_data in data["items"]:
-                        product = db.query(Product).filter(Product.id == item_data.get("product_id")).first()
+                        product = (
+                            db.query(Product)
+                            .filter(Product.id == item_data.get("product_id"))
+                            .first()
+                        )
                         quantity = float(item_data.get("quantity", 0))
                         unit_price = float(item_data.get("unit_price", 0))
                         amount = quantity * unit_price
@@ -314,7 +304,7 @@ class PurchaseService:
                             invoiced_quantity=0,
                             status="pending",
                             remark=item_data.get("remark"),
-                            created_at=datetime.now()
+                            created_at=datetime.now(),
                         )
                         db.add(item)
 
@@ -328,7 +318,7 @@ class PurchaseService:
                 logger.error(f"更新采购订单失败: {e}")
                 return {"success": False, "message": str(e)}
 
-    def approve_purchase_order(self, order_id: int, approver: str) -> Dict[str, Any]:
+    def approve_purchase_order(self, order_id: int, approver: str) -> dict[str, Any]:
         with get_db() as db:
             try:
                 order = db.query(PurchaseOrder).filter(PurchaseOrder.id == order_id).first()
@@ -353,7 +343,7 @@ class PurchaseService:
                 logger.error(f"审核采购订单失败: {e}")
                 return {"success": False, "message": str(e)}
 
-    def cancel_purchase_order(self, order_id: int) -> Dict[str, Any]:
+    def cancel_purchase_order(self, order_id: int) -> dict[str, Any]:
         with get_db() as db:
             try:
                 order = db.query(PurchaseOrder).filter(PurchaseOrder.id == order_id).first()
@@ -376,7 +366,7 @@ class PurchaseService:
                 logger.error(f"取消采购订单失败: {e}")
                 return {"success": False, "message": str(e)}
 
-    def create_purchase_inbound(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_purchase_inbound(self, data: dict[str, Any]) -> dict[str, Any]:
         with get_db() as db:
             try:
                 inbound_no = data.get("inbound_no") or self._generate_inbound_no()
@@ -394,14 +384,16 @@ class PurchaseService:
                     handler=data.get("handler"),
                     remark=data.get("remark"),
                     created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    updated_at=datetime.now(),
                 )
                 db.add(inbound)
                 db.flush()
 
                 items_data = data.get("items", [])
                 for item_data in items_data:
-                    product = db.query(Product).filter(Product.id == item_data.get("product_id")).first()
+                    product = (
+                        db.query(Product).filter(Product.id == item_data.get("product_id")).first()
+                    )
                     quantity = float(item_data.get("quantity", 0))
                     unit_price = float(item_data.get("unit_price", 0))
                     amount = quantity * unit_price
@@ -419,7 +411,7 @@ class PurchaseService:
                         amount=amount,
                         location_id=item_data.get("location_id"),
                         remark=item_data.get("remark"),
-                        created_at=datetime.now()
+                        created_at=datetime.now(),
                     )
                     db.add(item)
 
@@ -433,7 +425,7 @@ class PurchaseService:
                         reference_type="purchase_inbound",
                         reference_id=inbound.id,
                         operator=data.get("handler"),
-                        remark=f"采购入库单: {inbound_no}"
+                        remark=f"采购入库单: {inbound_no}",
                     )
                     if not result.get("success"):
                         logger.warning(f"库存入库失败: {result.get('message')}")
@@ -449,7 +441,7 @@ class PurchaseService:
                 return {
                     "success": True,
                     "data": self._model_to_dict(inbound),
-                    "message": "入库成功"
+                    "message": "入库成功",
                 }
             except Exception as e:
                 db.rollback()
@@ -462,9 +454,11 @@ class PurchaseService:
             return
 
         for item in order.items:
-            inbound_items = db.query(PurchaseInboundItem).filter(
-                PurchaseInboundItem.order_item_id == item.id
-            ).all()
+            inbound_items = (
+                db.query(PurchaseInboundItem)
+                .filter(PurchaseInboundItem.order_item_id == item.id)
+                .all()
+            )
             received = sum(float(i.quantity) for i in inbound_items)
             item.received_quantity = received
 
@@ -474,13 +468,9 @@ class PurchaseService:
                 item.status = "partial"
 
         all_completed = all(
-            float(item.quantity) <= float(item.received_quantity)
-            for item in order.items
+            float(item.quantity) <= float(item.received_quantity) for item in order.items
         )
-        any_received = any(
-            float(item.received_quantity) > 0
-            for item in order.items
-        )
+        any_received = any(float(item.received_quantity) > 0 for item in order.items)
 
         if all_completed:
             order.status = "completed"
@@ -489,13 +479,13 @@ class PurchaseService:
 
     def get_purchase_inbounds(
         self,
-        supplier_id: Optional[int] = None,
-        order_id: Optional[int] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        supplier_id: int | None = None,
+        order_id: int | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+        per_page: int = 20,
+    ) -> dict[str, Any]:
         with get_db() as db:
             query = db.query(PurchaseInbound)
 
@@ -509,17 +499,23 @@ class PurchaseService:
                 query = query.filter(PurchaseInbound.inbound_date <= end_date)
 
             total = query.count()
-            inbounds = query.order_by(PurchaseInbound.created_at.desc())\
-                .offset((page - 1) * per_page)\
-                .limit(per_page)\
+            inbounds = (
+                query.order_by(PurchaseInbound.created_at.desc())
+                .offset((page - 1) * per_page)
+                .limit(per_page)
                 .all()
+            )
 
             result = []
             for inbound in inbounds:
                 inbound_dict = self._model_to_dict(inbound)
                 inbound_dict["supplier_name"] = inbound.supplier.name if inbound.supplier else None
-                inbound_dict["warehouse_name"] = inbound.warehouse.name if inbound.warehouse else None
-                inbound_dict["items"] = [self._model_to_dict(item) for item in inbound.items] if inbound.items else []
+                inbound_dict["warehouse_name"] = (
+                    inbound.warehouse.name if inbound.warehouse else None
+                )
+                inbound_dict["items"] = (
+                    [self._model_to_dict(item) for item in inbound.items] if inbound.items else []
+                )
                 result.append(inbound_dict)
 
             return {
@@ -527,7 +523,7 @@ class PurchaseService:
                 "data": result,
                 "total": total,
                 "page": page,
-                "per_page": per_page
+                "per_page": per_page,
             }
 
     def _generate_order_no(self) -> str:
@@ -536,32 +532,28 @@ class PurchaseService:
     def _generate_inbound_no(self) -> str:
         return f"PI{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-    def get_supplier_summary(self) -> Dict[str, Any]:
+    def get_supplier_summary(self) -> dict[str, Any]:
         with get_db() as db:
-            stats = db.query(
-                Supplier.status,
-                func.count(Supplier.id).label("count")
-            ).group_by(Supplier.status).all()
+            stats = (
+                db.query(Supplier.status, func.count(Supplier.id).label("count"))
+                .group_by(Supplier.status)
+                .all()
+            )
 
             result = {}
             for status, count in stats:
                 result[status or "unknown"] = count
 
-            return {
-                "success": True,
-                "data": result
-            }
+            return {"success": True, "data": result}
 
     def get_purchase_summary(
-        self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
-    ) -> Dict[str, Any]:
+        self, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> dict[str, Any]:
         with get_db() as db:
             query = db.query(
                 PurchaseOrder.status,
                 func.count(PurchaseOrder.id).label("count"),
-                func.sum(PurchaseOrder.total_amount).label("amount")
+                func.sum(PurchaseOrder.total_amount).label("amount"),
             )
 
             if start_date:
@@ -576,13 +568,10 @@ class PurchaseService:
             for status, count, amount in stats:
                 result[status or "unknown"] = {
                     "count": count,
-                    "amount": self._decimal_to_float(amount)
+                    "amount": self._decimal_to_float(amount),
                 }
 
-            return {
-                "success": True,
-                "data": result
-            }
+            return {"success": True, "data": result}
 
 
 # NEURO-DDD: 为 Services 层类添加 instrumentation

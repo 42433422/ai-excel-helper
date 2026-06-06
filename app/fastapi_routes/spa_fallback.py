@@ -37,9 +37,48 @@ _EXCLUDED_PREFIXES = (
     "startup/",
     "yuangong/",
     "workflow/",
+    "data-sources/",
+    "xcmax-dashboard/",
     "brand-xc-logo",
-    "workflow-employee-docs.json",
 )
+
+
+# vue-dist 根目录单文件（非 full 版可能未挂载 legacy_gaps，须在此兜底，勿返回 index.html）
+_VUE_DIST_ROOT_FILES: dict[str, str] = {
+    "sw.js": "application/javascript",
+    "workflow-employee-docs.json": "application/json",
+    "workflow-employees.json": "application/json",
+    "vite.svg": "image/svg+xml",
+    "brand-xc-logo.jpg": "image/jpeg",
+}
+
+
+def _vue_dist_dir() -> str:
+    return os.path.join(get_base_dir(), "templates", "vue-dist")
+
+
+def _workflow_employees_json_candidates() -> list[str]:
+    base = get_base_dir()
+    return [
+        os.path.join(_vue_dist_dir(), "workflow-employees.json"),
+        os.path.join(base, "frontend", "public", "workflow-employees.json"),
+        os.path.join(base, "frontend", "src", "data", "workflow-employees.json"),
+    ]
+
+
+def _try_serve_vue_dist_root_file(fallback: str) -> FileResponse | None:
+    media = _VUE_DIST_ROOT_FILES.get(fallback)
+    if not media:
+        return None
+    if fallback == "workflow-employees.json":
+        for p in _workflow_employees_json_candidates():
+            if os.path.isfile(p):
+                return FileResponse(p, media_type=media)
+        return None
+    p = os.path.join(_vue_dist_dir(), fallback)
+    if os.path.isfile(p):
+        return FileResponse(p, media_type=media)
+    return None
 
 
 def register_spa_history_fallback(app: FastAPI) -> None:
@@ -47,13 +86,19 @@ def register_spa_history_fallback(app: FastAPI) -> None:
 
     @app.get("/{fallback:path}", include_in_schema=False)
     def vue_history_fallback(fallback: str):
+        root_file = _try_serve_vue_dist_root_file(fallback)
+        if root_file is not None:
+            return root_file
         if any(fallback.startswith(p) for p in _EXCLUDED_PREFIXES):
-            return JSONResponse({"success": False, "message": f"资源不存在：/{fallback}"}, status_code=404)
-        vue_dist_dir = os.path.join(get_base_dir(), "templates", "vue-dist")
-        vue_index = os.path.join(vue_dist_dir, "index.html")
+            return JSONResponse(
+                {"success": False, "message": f"资源不存在：/{fallback}"}, status_code=404
+            )
+        vue_index = os.path.join(_vue_dist_dir(), "index.html")
         if os.path.exists(vue_index):
             return FileResponse(vue_index, media_type="text/html")
-        return JSONResponse({"success": False, "message": f"页面不存在：/{fallback}"}, status_code=404)
+        return JSONResponse(
+            {"success": False, "message": f"页面不存在：/{fallback}"}, status_code=404
+        )
 
 
 __all__ = ["register_spa_history_fallback"]

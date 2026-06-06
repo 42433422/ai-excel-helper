@@ -1,10 +1,13 @@
 <template>
   <div class="assistant-float-root">
     <button
+      ref="floatToggleRef"
       class="assistant-float-toggle"
       type="button"
       @click="toggleOpen"
       :title="isOpen ? '收起副窗' : '打开副窗'"
+      :aria-expanded="isOpen ? 'true' : 'false'"
+      aria-controls="xcagi-assistant-float-panel"
       :class="{ pulse: hasUnreadPush }"
     >
       <i class="fa fa-comments-o" aria-hidden="true"></i>
@@ -20,19 +23,31 @@
     <Teleport to="body">
     <div
       v-if="isOpen"
+      id="xcagi-assistant-float-panel"
+      ref="assistantPanelRef"
       class="assistant-float-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="xcagi-assistant-float-title"
       data-tutorial-spotlight="assistant-panel"
+      tabindex="-1"
+      @keydown="onAssistantPanelKeydown"
     >
       <div class="assistant-float-header">
-        <div class="assistant-title">助手副窗</div>
-        <button type="button" class="assistant-close" @click="isOpen = false">×</button>
+        <div id="xcagi-assistant-float-title" class="assistant-title">助手副窗</div>
+        <button type="button" class="assistant-close" aria-label="关闭副窗" @click="closeAssistantPanelUi">
+          ×
+        </button>
       </div>
 
-      <div class="assistant-tabs">
+      <div class="assistant-tabs" role="tablist" aria-label="副窗分区">
         <button
           type="button"
           class="assistant-tab"
+          role="tab"
           data-tutorial-id="tab-push"
+          :aria-selected="activeTab === 'push'"
+          :tabindex="activeTab === 'push' ? 0 : -1"
           :class="{ active: activeTab === 'push' }"
           @click="activeTab = 'push'"
         >
@@ -41,7 +56,10 @@
         <button
           type="button"
           class="assistant-tab"
+          role="tab"
           data-tutorial-id="tab-assistant"
+          :aria-selected="activeTab === 'assistant'"
+          :tabindex="activeTab === 'assistant' ? 0 : -1"
           :class="{ active: activeTab === 'assistant' }"
           @click="activeTab = 'assistant'"
         >
@@ -50,7 +68,10 @@
         <button
           type="button"
           class="assistant-tab"
+          role="tab"
           data-tutorial-id="tab-one-click"
+          :aria-selected="activeTab === 'oneClick'"
+          :tabindex="activeTab === 'oneClick' ? 0 : -1"
           :class="{ active: activeTab === 'oneClick' }"
           @click="activeTab = 'oneClick'"
         >
@@ -59,7 +80,10 @@
         <button
           type="button"
           class="assistant-tab"
+          role="tab"
           data-tutorial-id="tab-lobster"
+          :aria-selected="activeTab === 'lobster'"
+          :tabindex="activeTab === 'lobster' ? 0 : -1"
           :class="{ active: activeTab === 'lobster' }"
           @click="activeTab = 'lobster'"
         >
@@ -68,7 +92,10 @@
         <button
           type="button"
           class="assistant-tab"
+          role="tab"
           data-tutorial-id="tab-starterPack"
+          :aria-selected="activeTab === 'starterPack'"
+          :tabindex="activeTab === 'starterPack' ? 0 : -1"
           :class="{ active: activeTab === 'starterPack' }"
           @click="activeTab = 'starterPack'"
         >
@@ -77,7 +104,10 @@
         <button
           type="button"
           class="assistant-tab"
+          role="tab"
           data-tutorial-id="tab-tutorial"
+          :aria-selected="activeTab === 'tutorial'"
+          :tabindex="activeTab === 'tutorial' ? 0 : -1"
           :class="{ active: activeTab === 'tutorial' }"
           @click="openTutorialTab"
         >
@@ -96,17 +126,15 @@
       </div>
 
       <div v-else-if="activeTab === 'oneClick' || activeTab === 'lobster'" class="assistant-body assistant-body-recommend">
-        <p class="recommend-intro">{{ recommendIntroText }}</p>
         <div class="workflow-employee-section">
           <div class="workflow-employee-section-head">
             <div class="workflow-employee-heading">工作流员工选择</div>
             <router-link
-              :to="{ name: 'workflow-visualization' }"
+              :to="workflowVisualizationLocation"
               class="workflow-employee-visual-link"
               :title="workflowPanoramaLinkTitle"
             >流程全景</router-link>
           </div>
-          <p class="workflow-employee-hint">与侧栏「专业版」开关样式一致：打开即启用对应 AI 员工参与工作流。</p>
           <div class="workflow-employee-list" role="group" aria-label="工作流 AI 员工">
             <button
               v-for="emp in workflowEmployeeDefs"
@@ -130,14 +158,14 @@
 
       <div v-else-if="activeTab === 'assistant'" class="assistant-body" data-tutorial-assistant-body>
         <div class="assistant-block">
-          <div class="assistant-block-title">产品查询</div>
-          <div class="assistant-block-desc">保留原产品查询与快速修改能力</div>
+          <div class="assistant-block-title">{{ uiText.queryTitle.value }}</div>
+          <div class="assistant-block-desc">{{ uiText.queryDescription.value }}</div>
         </div>
         <div class="product-search-row">
           <input
             v-model.trim="productKeyword"
             type="text"
-            placeholder="输入型号/名称查询产品"
+            :placeholder="uiText.queryPlaceholder.value"
             @keydown.enter.prevent="searchProducts"
           >
           <button type="button" class="btn btn-primary btn-sm" @click="searchProducts" :disabled="loadingProducts">
@@ -153,20 +181,20 @@
                 <span class="product-id-label">编号 {{ row.id }}</span>
               </div>
               <div class="product-field">
-                <label class="product-field-label" :for="'pf-name-' + row.id">名称</label>
-                <input :id="'pf-name-' + row.id" v-model.trim="row.name" type="text" class="product-input" placeholder="产品名称">
+                <label class="product-field-label" :for="'pf-name-' + row.id">{{ uiText.nameLabel.value }}</label>
+                <input :id="'pf-name-' + row.id" v-model.trim="row.name" type="text" class="product-input" :placeholder="uiText.nameLabel.value">
               </div>
               <div class="product-field">
-                <label class="product-field-label" :for="'pf-model-' + row.id">型号</label>
-                <input :id="'pf-model-' + row.id" v-model.trim="row.model_number" type="text" class="product-input" placeholder="型号">
+                <label class="product-field-label" :for="'pf-model-' + row.id">{{ uiText.modelLabel.value }}</label>
+                <input :id="'pf-model-' + row.id" v-model.trim="row.model_number" type="text" class="product-input" :placeholder="uiText.modelLabel.value">
               </div>
               <div class="product-field">
-                <label class="product-field-label" :for="'pf-price-' + row.id">价格</label>
-                <input :id="'pf-price-' + row.id" v-model.number="row.price" type="number" step="0.01" class="product-input" placeholder="单价">
+                <label class="product-field-label" :for="'pf-price-' + row.id">{{ uiText.priceLabel.value }}</label>
+                <input :id="'pf-price-' + row.id" v-model.number="row.price" type="number" step="0.01" class="product-input" :placeholder="uiText.priceLabel.value">
               </div>
               <div class="product-field">
-                <label class="product-field-label" :for="'pf-unit-' + row.id">单位/客户</label>
-                <input :id="'pf-unit-' + row.id" v-model.trim="row.unit" type="text" class="product-input" placeholder="客户、系列（如七彩乐园）">
+                <label class="product-field-label" :for="'pf-unit-' + row.id">{{ uiText.categoryLabel.value }}/{{ uiText.unitLabel.value }}</label>
+                <input :id="'pf-unit-' + row.id" v-model.trim="row.unit" type="text" class="product-input" :placeholder="`${uiText.categoryLabel.value}、${uiText.unitLabel.value}`">
               </div>
               <div class="product-actions">
                 <button
@@ -217,7 +245,6 @@
       </div>
 
       <div v-else-if="activeTab === 'starterPack'" class="assistant-body assistant-body-starter">
-        <p class="starter-pack-intro">点选一条示例，将跳转到智能对话并填入输入框；确认无误后请自行点击「发送」。</p>
         <div class="starter-pack-list">
           <button
             v-for="(item, idx) in starterPackPresets"
@@ -235,18 +262,40 @@
       <div v-else-if="activeTab === 'tutorial'" class="assistant-body assistant-body-tutorial">
         <div class="tutorial-track-pick">
           <div class="tutorial-track-heading">选择教程</div>
-          <p class="tutorial-track-lead">请先选择路线，再进入全屏引导。</p>
-          <div class="tutorial-track-buttons">
-            <button type="button" class="btn btn-primary btn-sm" @click="startTutorialGuide('basic')">
-              基础教程
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" @click="startTutorialGuide('advanced')">
-              进阶教程
-            </button>
-          </div>
-          <p class="tutorial-track-hint">
-            <strong>基础教程</strong>覆盖对话包、任务、微信与星标、输入区与副窗等常用操作；<strong>进阶教程</strong>会带你依次认路左侧菜单（智能对话、产品、出货、打印、设置等）。
-          </p>
+          <ul class="tutorial-track-list">
+            <li
+              v-for="(track, index) in tutorialTracks"
+              :key="track.id"
+              class="tutorial-track-card"
+            >
+              <div class="tutorial-track-card-main">
+                <div class="tutorial-track-card-title">{{ track.title }}</div>
+                <p class="tutorial-track-card-summary">{{ track.summary }}</p>
+                <p v-if="track.id === 'advanced'" class="tutorial-track-card-extra muted">
+                  {{ advancedTrackHint }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="btn btn-sm"
+                :class="index === 0 || track.recommended ? 'btn-primary' : 'btn-secondary'"
+                :title="track.description"
+                @click="startTutorialGuide(track.id)"
+              >
+                开始
+              </button>
+            </li>
+          </ul>
+          <details class="tutorial-track-details">
+            <summary>路线说明</summary>
+            <p
+              v-for="track in tutorialTracks"
+              :key="`${track.id}-desc`"
+              class="tutorial-track-hint"
+            >
+              <strong>{{ track.title }}</strong> — {{ track.description }}
+            </p>
+          </details>
         </div>
       </div>
     </div>
@@ -261,27 +310,70 @@ import { useRouter } from 'vue-router';
 import { ApiError } from '@/api';
 import productsApi from '@/api/products';
 import { useTutorialStore } from '@/stores/tutorial';
+import { useTutorialCatalog } from '@/composables/useTutorialCatalog';
 import { useModsStore } from '@/stores/mods';
 import { useWorkflowAiEmployeesStore } from '@/stores/workflowAiEmployees';
+import { WORKFLOW_EMPLOYEE_IDS } from '@/constants/workflowEmployeeMods';
 import { useWorkflowModsRuntimeContext } from '@/composables/useWorkflowModsRuntimeContext';
-import { buildModWorkflowPanelMeta } from '@/utils/modWorkflowEmployees';
+import { resolveLabel } from '@/utils/workflowEmployeeRegistry';
+import { useIndustryUiText } from '@/composables/useIndustryUiText';
 import {
   inferWechatCustomerIntent,
   isLabelPrintRelatedWechatIntent,
   isReceiptConfirmRelatedWechatIntent,
 } from '@/utils/wechatIntent';
 import { shouldTryWechatShipmentPreview } from '@/utils/wechatShipmentDetect';
+import { resolveErpApiPath } from '@/utils/erpDomainPaths';
+import { resolveWorkflowVisualizationLocation } from '@/utils/workflowNav';
 import ExcelPreview from '@/components/template/ExcelPreview.vue';
 
 const router = useRouter();
 const tutorialStore = useTutorialStore();
+const { tutorialTracks, advancedTrackHint, buildContext: tutorialBuildContext } = useTutorialCatalog();
 const modsStore = useModsStore();
+const uiText = useIndustryUiText();
 const { modWorkflowEmployeesActive } = useWorkflowModsRuntimeContext();
 const workflowAiEmployeesStore = useWorkflowAiEmployeesStore();
-const { enabled: workflowEmployeesEnabled } = storeToRefs(workflowAiEmployeesStore);
+const { enabled: workflowEmployeesEnabled, registryEntries: workflowRegistryEntries, registryLoaded: workflowRegistryLoaded } = storeToRefs(workflowAiEmployeesStore);
 
 const isOpen = ref(false);
 const activeTab = ref('push');
+const floatToggleRef = ref(null);
+const assistantPanelRef = ref(null);
+
+const FLOAT_TAB_ORDER = ['push', 'assistant', 'oneClick', 'lobster', 'starterPack', 'tutorial'];
+const FLOAT_TAB_DATA_ID = {
+  push: 'tab-push',
+  assistant: 'tab-assistant',
+  oneClick: 'tab-one-click',
+  lobster: 'tab-lobster',
+  starterPack: 'tab-starterPack',
+  tutorial: 'tab-tutorial',
+};
+
+function focusToggleAfterClose() {
+  nextTick(() => {
+    floatToggleRef.value?.focus?.();
+  });
+}
+
+/** 关闭 Teleport 副窗并将焦点回到顶栏触发按钮（教程锁定副窗时不强制关） */
+function closeAssistantPanelUi() {
+  if (tutorialStore.isActive && tutorialStore.currentStep?.assistantTab) {
+    return;
+  }
+  isOpen.value = false;
+  focusToggleAfterClose();
+}
+
+function onDocumentKeydownCapture(e) {
+  if (e.key !== 'Escape' || !isOpen.value) return;
+  if (tutorialStore.isActive && tutorialStore.currentStep?.assistantTab) return;
+  e.preventDefault();
+  e.stopPropagation();
+  isOpen.value = false;
+  focusToggleAfterClose();
+}
 const pushFeed = ref([]);
 const productKeyword = ref('');
 const productRows = ref([]);
@@ -312,27 +404,18 @@ const operationHistory = ref([]);
 
 const PRO_INTENT_EXPERIENCE_KEY = 'xcagi_pro_intent_experience';
 
-/** 内置顺序 + 固定扩展；Mod manifest 中的 workflow_employees 由下方 computed 追加 */
-/** 与核心能力绑定；微信/真实电话业务员仅来自已加载 Mod 的 manifest（如 sz-qsm-pro），避免关 Mod 界面仍显示 */
-const BUILTIN_WORKFLOW_EMPLOYEE_DEFS = [
-  { id: 'label_print', label: '标签打印 AI 员工' },
-  { id: 'shipment_mgmt', label: '出货管理 AI 员工' },
-  { id: 'receipt_confirm', label: '收货确认 AI 员工' },
-  { id: 'wechat_msg', label: '微信消息处理 AI 员工' },
-];
-
 const workflowEmployeeDefs = computed(() => {
-  const modMeta = buildModWorkflowPanelMeta(modsStore.modsForUi);
-  const seen = new Set(BUILTIN_WORKFLOW_EMPLOYEE_DEFS.map((x) => x.id));
-  const out = [...BUILTIN_WORKFLOW_EMPLOYEE_DEFS];
-  for (const [id, meta] of Object.entries(modMeta)) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const t = (meta.title || '').replace(/^工作流 ·\s*/, '').trim();
-    out.push({ id, label: t || id });
-  }
-  return out;
+  const i18nResolver = (key) => {
+    if (key === 'shipmentOrderName') return `${uiText.shipmentOrderName.value}管理 AI 员工`;
+    return key;
+  };
+  return workflowRegistryEntries.value.map((entry) => ({
+    id: entry.id,
+    label: resolveLabel(entry, i18nResolver),
+  }));
 });
+
+const workflowVisualizationLocation = resolveWorkflowVisualizationLocation();
 
 const workflowPanoramaLinkTitle = computed(() =>
   modWorkflowEmployeesActive.value
@@ -340,14 +423,16 @@ const workflowPanoramaLinkTitle = computed(() =>
     : '查看固定六类工作流的执行逻辑与过程'
 );
 
-const isWechatMsgEmployeeEnabled = () => !!workflowEmployeesEnabled.value?.wechat_msg;
-const isLabelPrintEmployeeEnabled = () => !!workflowEmployeesEnabled.value?.label_print;
-const isReceiptConfirmEmployeeEnabled = () => !!workflowEmployeesEnabled.value?.receipt_confirm;
+const coreWorkflowEnabled = (id) =>
+  !!workflowEmployeesEnabled.value?.[id];
+
+const isWechatMsgEmployeeEnabled = () => coreWorkflowEnabled('wechat_msg');
+const isLabelPrintEmployeeEnabled = () => coreWorkflowEnabled('label_print');
+const isReceiptConfirmEmployeeEnabled = () => coreWorkflowEnabled('receipt_confirm');
+
 /** 星标新消息是否需要跑意图链路（微信任务 / 发货预览 / 标签与收货确认信号等） */
 const shouldRunStarredWechatIntentPipeline = () =>
-  isWechatMsgEmployeeEnabled() ||
-  isLabelPrintEmployeeEnabled() ||
-  isReceiptConfirmEmployeeEnabled();
+  WORKFLOW_EMPLOYEE_IDS.filter((id) => id !== 'shipment_mgmt').some((id) => coreWorkflowEnabled(id));
 
 /**
  * 微信消息处理 AI 员工：星标 feed 发现新消息后，按「专业模式 AI 意图体验」走 /api/ai/intent/test，否则本地规则预处理；结果推到对话页任务列表（事件）。
@@ -503,13 +588,7 @@ const PRODUCT_SEARCH_TIMEOUT_MS = 30000;
 const FILL_CHAT_MAX_ATTEMPTS = 4;
 const FILL_CHAT_RETRY_MS = 80;
 
-const starterPackPresets = [
-  { label: '查产品价格', hint: '示例：查询产品「七彩乐园9803」', text: '查询七彩乐园9803' },
-  { label: '生成发货单单产品', hint: '发货单蕊芯1一桶9806A规格23', text: '发货单蕊芯1一桶9806A规格23' },
-  { label: '增加发货单', hint: '增加2桶9806规格23', text: '增加2桶9806规格23' },
-  { label: '打印相关', hint: '触发打印或标签流程', text: '开始打印' },
-  { label: '组合任务', hint: '一句话完成开单并打印', text: '给成都客户生成并打印今天发货单' },
-];
+const starterPackPresets = uiText.starterPackPresets;
 
 const recordOperation = (type, detail = {}) => {
   operationHistory.value = [
@@ -564,19 +643,24 @@ const onStarterPackItemClick = async (text) => {
   await nextTick();
   await fillChatInputWithRetry(text);
   // 填入后收起副窗，避免遮挡主对话与右侧「当前任务」预览（发货单等流程主要看任务面板）
-  isOpen.value = false;
+  closeAssistantPanelUi();
 };
 
-const toggleOpen = () => {
+const toggleOpen = async () => {
   recordOperation('toggle_float', { open: !isOpen.value });
-  isOpen.value = !isOpen.value;
-  if (isOpen.value) {
+  const next = !isOpen.value;
+  isOpen.value = next;
+  if (next) {
     hasUnreadPush.value = false;
     popupNotice.value = null;
     if (noticeTimer) {
       clearTimeout(noticeTimer);
       noticeTimer = null;
     }
+    await nextTick();
+    assistantPanelRef.value?.querySelector?.('.assistant-close')?.focus?.();
+  } else {
+    focusToggleAfterClose();
   }
 };
 
@@ -599,8 +683,29 @@ const openTutorialTab = () => {
   activeTab.value = 'tutorial';
 };
 
+function onAssistantPanelKeydown(e) {
+  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+  const t = e.target;
+  if (!(t instanceof HTMLElement) || t.getAttribute('role') !== 'tab') return;
+  e.preventDefault();
+  const cur = FLOAT_TAB_ORDER.indexOf(activeTab.value);
+  if (cur < 0) return;
+  const dir = e.key === 'ArrowRight' ? 1 : -1;
+  const nextI = (cur + dir + FLOAT_TAB_ORDER.length) % FLOAT_TAB_ORDER.length;
+  const nextTab = FLOAT_TAB_ORDER[nextI];
+  if (nextTab === 'tutorial') {
+    openTutorialTab();
+  } else {
+    activeTab.value = nextTab;
+  }
+  nextTick(() => {
+    const tid = FLOAT_TAB_DATA_ID[nextTab];
+    assistantPanelRef.value?.querySelector?.(`[data-tutorial-id="${tid}"]`)?.focus?.();
+  });
+}
+
 const startTutorialGuide = async (track = 'basic') => {
-  const t = track === 'advanced' ? 'advanced' : 'basic';
+  const t = String(track || 'basic').trim() || 'basic';
   const extractChatMessagesSnapshot = () => {
     const nodes = Array.from(document.querySelectorAll('#chatMessages .message'));
     return nodes.slice(-30).map((node) => {
@@ -683,6 +788,7 @@ const startTutorialGuide = async (track = 'basic') => {
   tutorialStore.startTutorial({
     isProMode: !!window.__XCAGI_IS_PRO_MODE,
     track: t,
+    buildContext: tutorialBuildContext.value,
     returnContext: {
       routeName: previousRouteName || 'chat',
       assistantOpen: previousOpen,
@@ -791,7 +897,7 @@ const searchProducts = async () => {
       lastProductSearchQuery.value = kw;
       lastProductSearchTotal.value = 0;
       productSearchFailed.value = true;
-      productSearchErrorText.value = String(resp?.message || '产品库查询失败');
+      productSearchErrorText.value = String(resp?.message || `${uiText.entityName.value}库查询失败`);
       return;
     }
     const raw = resp?.data ?? resp?.products ?? resp?.items;
@@ -831,18 +937,18 @@ const productEmptyMessage = computed(() => {
   const cur = String(productKeyword.value || '').trim();
   if (productSearchFailed.value) {
     const detail = productSearchErrorText.value ? `（${productSearchErrorText.value}）` : '';
-    return `产品接口请求失败${detail}。请确认后端已启动、Vite 代理或 VITE_API_BASE_URL 指向正确。`;
+    return `${uiText.searchFailedMessage.value}${detail}`;
   }
   if (!lastProductSearchQuery.value) {
-    return '请先输入型号或名称，再点右侧「查询」。';
+    return uiText.emptyBeforeSearch.value;
   }
   if (cur && cur !== lastProductSearchQuery.value) {
-    return '关键词已变更，请再点「查询」刷新结果。';
+    return uiText.keywordChanged.value;
   }
   const kw = lastProductSearchQuery.value;
   const n = lastProductSearchTotal.value;
-  const totalHint = typeof n === 'number' ? `产品库中本次条件共 ${n} 条。` : '';
-  return `未找到与「${kw}」匹配的产品。${totalHint}可缩短关键词、只输入型号数字，或到左侧「产品管理」浏览全库核对名称/型号。`;
+  const totalHint = typeof n === 'number' ? `${uiText.entityName.value}库中本次条件共 ${n} 条。` : '';
+  return `未找到与「${kw}」匹配的${uiText.entityName.value}。${totalHint}可缩短关键词、只输入${uiText.modelLabel.value}，或到左侧「${uiText.entityListName.value}」浏览全库核对${uiText.nameLabel.value}/${uiText.modelLabel.value}。`;
 });
 
 const saveProductRow = async (row) => {
@@ -980,6 +1086,31 @@ const triggerGridReadFromChat = async () => {
   await fillChatInputWithRetry(text);
 };
 
+/**
+ * 根据副窗当前展示主题决定跳转到哪个主页面。
+ * 若已在目标路由则不重复跳；不能识别主题时 fallback 到聊天页。
+ */
+const SUBJECT_ROUTE_MAP = {
+  products: 'products',
+  product: 'products',
+  customers: 'customers',
+  customer: 'customers',
+  shipment: 'shipment-records',
+  'shipment-records': 'shipment-records',
+  template: 'template-preview',
+  templates: 'template-preview',
+  materials: 'materials',
+  inventory: 'inventory',
+  approval: 'approval-hub',
+};
+
+const navigateToSubjectPage = async (subject) => {
+  const routeName = SUBJECT_ROUTE_MAP[String(subject || '').toLowerCase()] || 'chat';
+  if (router.currentRoute.value.name !== routeName) {
+    await router.push({ name: routeName }).catch(() => {});
+  }
+};
+
 const isAutoRefreshEnabled = () => {
   return localStorage.getItem(AUTO_REFRESH_STARRED_WECHAT_KEY) === '1';
 };
@@ -994,7 +1125,7 @@ const pollStarredFeed = async () => {
   if (feedPolling || !isAutoRefreshEnabled()) return;
   feedPolling = true;
   try {
-    const resp = await fetch('/api/wechat_contacts/work_mode_feed?per_contact=1');
+    const resp = await fetch(resolveErpApiPath('/api/wechat_contacts/work_mode_feed?per_contact=1'));
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok || !data?.success || !Array.isArray(data.feed)) {
       return;
@@ -1120,9 +1251,11 @@ const onCloseAssistantFloat = () => {
   }
   recordOperation('close_float_event', { source: 'shipment_task' });
   isOpen.value = false;
+  focusToggleAfterClose();
 };
 
 onMounted(() => {
+  window.addEventListener('keydown', onDocumentKeydownCapture, true);
   window.addEventListener('xcagi:assistant-push', onAssistantPush);
   window.addEventListener('xcagi:open-assistant-float', onOpenAssistantFloat);
   window.addEventListener('xcagi:close-assistant-float', onCloseAssistantFloat);
@@ -1132,12 +1265,14 @@ onMounted(() => {
   window.addEventListener('xcagi:tutorial:set-assistant-tab', onTutorialSetAssistantTab);
   startFeedPolling();
   syncTopScrollMetrics();
-  // Mod 拉取由 App 开屏路径统一 initialize；此处只同步当前 store，避免与 App 重复触发 initInFlight
   if (modsStore.clientModsUiOff) {
     workflowAiEmployeesStore.stripModWorkflowEmployeeKeys();
   } else {
     workflowAiEmployeesStore.hydrateFromMods(modsStore.modsForUi);
     workflowAiEmployeesStore.pruneOrphanWorkflowEmployeeToggles(modsStore.modsForUi);
+  }
+  if (!workflowRegistryLoaded.value) {
+    workflowAiEmployeesStore.loadRegistry(modsStore.modsForUi);
   }
 });
 
@@ -1146,11 +1281,15 @@ watch(
   (list) => {
     workflowAiEmployeesStore.hydrateFromMods(list);
     workflowAiEmployeesStore.pruneOrphanWorkflowEmployeeToggles(list);
+    if (workflowRegistryLoaded.value) {
+      workflowAiEmployeesStore.loadRegistry(list);
+    }
   },
   { deep: true }
 );
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onDocumentKeydownCapture, true);
   window.removeEventListener('xcagi:assistant-push', onAssistantPush);
   window.removeEventListener('xcagi:open-assistant-float', onOpenAssistantFloat);
   window.removeEventListener('xcagi:close-assistant-float', onCloseAssistantFloat);
@@ -1181,12 +1320,13 @@ watch(() => linkedGridData.value, () => {
 }
 .assistant-float-toggle {
   margin-left: 10px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  color: #374151;
+  border: 1px solid var(--app-border-strong, #d1d5db);
+  background: var(--card-bg, #fff);
+  color: var(--app-text-strong, #374151);
   border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: var(--app-space-sm, 8px) 10px;
+  min-height: 40px;
+  font-size: var(--app-font-size-caption, 12px);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1229,13 +1369,14 @@ watch(() => linkedGridData.value, () => {
   top: 56px;
   width: 360px;
   max-height: 70vh;
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--app-border-subtle, #e5e7eb);
   border-radius: 10px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
   z-index: 3000;
   display: flex;
   flex-direction: column;
+  outline: none;
 }
 .assistant-float-header {
   display: flex;
@@ -1247,15 +1388,17 @@ watch(() => linkedGridData.value, () => {
 .assistant-title {
   font-size: 13px;
   font-weight: 600;
-  color: #111827;
+  color: var(--app-text-strong, #111827);
 }
 .assistant-close {
   border: none;
   background: transparent;
   font-size: 18px;
   line-height: 1;
+  min-width: 40px;
+  min-height: 40px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--app-text-muted, #6b7280);
 }
 .assistant-tabs {
   display: flex;
@@ -1264,12 +1407,13 @@ watch(() => linkedGridData.value, () => {
   padding: 8px 10px 0;
 }
 .assistant-tab {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--app-border-subtle, #e5e7eb);
   background: #f9fafb;
-  color: #374151;
+  color: var(--app-text-strong, #374151);
   border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: var(--app-space-xs, 4px) var(--app-space-sm, 8px);
+  min-height: 40px;
+  font-size: var(--app-font-size-caption, 12px);
   cursor: pointer;
 }
 .assistant-tab.active {
@@ -1595,14 +1739,56 @@ watch(() => linkedGridData.value, () => {
   color: #4b5563;
   line-height: 1.45;
 }
-.tutorial-track-buttons {
+.tutorial-track-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
-  margin-bottom: 10px;
+}
+.tutorial-track-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+.tutorial-track-card-main {
+  flex: 1;
+  min-width: 0;
+}
+.tutorial-track-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+.tutorial-track-card-summary {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #4b5563;
+  line-height: 1.4;
+}
+.tutorial-track-card-extra {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.tutorial-track-details {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #6b7280;
+}
+.tutorial-track-details summary {
+  cursor: pointer;
+  color: #374151;
+  font-weight: 500;
 }
 .tutorial-track-hint {
-  margin: 0;
+  margin: 8px 0 0;
   font-size: 11px;
   color: #6b7280;
   line-height: 1.5;

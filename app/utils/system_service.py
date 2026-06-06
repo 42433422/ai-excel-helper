@@ -8,9 +8,8 @@
 
 import logging
 import os
-import subprocess
 import sys
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ class SystemService:
         self.app_name = "XCAGI"
         self.app_path = os.path.abspath(os.path.dirname(__file__))
 
-    def get_startup_config(self) -> Dict[str, Any]:
+    def get_startup_config(self) -> dict[str, Any]:
         """
         获取开机自启配置
 
@@ -55,7 +54,7 @@ class SystemService:
                         "enabled": enabled,
                         "app_path": self.app_path,
                         "startup_path": startup_path,
-                        "platform": "windows"
+                        "platform": "windows",
                     }
 
                 except Exception as e:
@@ -64,25 +63,21 @@ class SystemService:
                         "enabled": False,
                         "app_path": self.app_path,
                         "message": str(e),
-                        "platform": "windows"
+                        "platform": "windows",
                     }
             else:
                 return {
                     "enabled": False,
                     "app_path": self.app_path,
                     "platform": sys.platform,
-                    "message": "当前平台不支持开机自启"
+                    "message": "当前平台不支持开机自启",
                 }
 
         except Exception as e:
             logger.exception(f"获取开机自启配置失败：{e}")
-            return {
-                "enabled": False,
-                "app_path": self.app_path,
-                "message": str(e)
-            }
+            return {"enabled": False, "app_path": self.app_path, "message": str(e)}
 
-    def enable_startup(self) -> Dict[str, Any]:
+    def enable_startup(self) -> dict[str, Any]:
         """
         启用开机自启
 
@@ -110,29 +105,20 @@ class SystemService:
                     return {
                         "success": True,
                         "message": "开机自启已启用",
-                        "command": startup_command
+                        "command": startup_command,
                     }
 
                 except Exception as e:
                     logger.error(f"启用开机自启失败：{e}")
-                    return {
-                        "success": False,
-                        "message": f"启用失败：{str(e)}"
-                    }
+                    return {"success": False, "message": f"启用失败：{str(e)}"}
             else:
-                return {
-                    "success": False,
-                    "message": f"当前平台不支持开机自启：{sys.platform}"
-                }
+                return {"success": False, "message": f"当前平台不支持开机自启：{sys.platform}"}
 
         except Exception as e:
             logger.exception(f"启用开机自启失败：{e}")
-            return {
-                "success": False,
-                "message": f"启用失败：{str(e)}"
-            }
+            return {"success": False, "message": f"启用失败：{str(e)}"}
 
-    def disable_startup(self) -> Dict[str, Any]:
+    def disable_startup(self) -> dict[str, Any]:
         """
         禁用开机自启
 
@@ -151,36 +137,21 @@ class SystemService:
 
                     logger.info("开机自启已禁用")
 
-                    return {
-                        "success": True,
-                        "message": "开机自启已禁用"
-                    }
+                    return {"success": True, "message": "开机自启已禁用"}
 
                 except FileNotFoundError:
-                    return {
-                        "success": True,
-                        "message": "开机自启原本就未启用"
-                    }
+                    return {"success": True, "message": "开机自启原本就未启用"}
                 except Exception as e:
                     logger.error(f"禁用开机自启失败：{e}")
-                    return {
-                        "success": False,
-                        "message": f"禁用失败：{str(e)}"
-                    }
+                    return {"success": False, "message": f"禁用失败：{str(e)}"}
             else:
-                return {
-                    "success": False,
-                    "message": f"当前平台不支持开机自启：{sys.platform}"
-                }
+                return {"success": False, "message": f"当前平台不支持开机自启：{sys.platform}"}
 
         except Exception as e:
             logger.exception(f"禁用开机自启失败：{e}")
-            return {
-                "success": False,
-                "message": f"禁用失败：{str(e)}"
-            }
+            return {"success": False, "message": f"禁用失败：{str(e)}"}
 
-    def get_system_info(self) -> Dict[str, Any]:
+    def get_system_info(self) -> dict[str, Any]:
         """
         获取系统信息
 
@@ -200,16 +171,14 @@ class SystemService:
                 "python_version": sys.version,
                 "app_path": self.app_path,
                 "working_directory": os.getcwd(),
-                "executable": sys.executable
+                "executable": sys.executable,
             }
 
         except Exception as e:
             logger.exception(f"获取系统信息失败：{e}")
-            return {
-                "message": str(e)
-            }
+            return {"message": str(e)}
 
-    def get_printer_config(self) -> Dict[str, Any]:
+    def get_printer_config(self) -> dict[str, Any]:
         """
         获取打印机配置
 
@@ -225,11 +194,7 @@ class SystemService:
                 printers = printer_service.list_printers()
                 default_printer = printer_service.get_default_printer()
 
-                return {
-                    "success": True,
-                    "printers": printers,
-                    "default_printer": default_printer
-                }
+                return {"success": True, "printers": printers, "default_printer": default_printer}
 
             except Exception as e:
                 logger.error(f"获取打印机配置失败：{e}")
@@ -237,17 +202,14 @@ class SystemService:
                     "success": False,
                     "message": f"获取打印机配置失败：{str(e)}",
                     "printers": [],
-                    "default_printer": None
+                    "default_printer": None,
                 }
 
         except Exception as e:
             logger.exception(f"获取打印机配置失败：{e}")
-            return {
-                "success": False,
-                "message": f"获取打印机配置失败：{str(e)}"
-            }
+            return {"success": False, "message": f"获取打印机配置失败：{str(e)}"}
 
-    def set_default_printer(self, printer_name: str) -> Dict[str, Any]:
+    def set_default_printer(self, printer_name: str) -> dict[str, Any]:
         """
         设置默认打印机
 
@@ -266,32 +228,19 @@ class SystemService:
                 success = printer_service.set_default_printer(printer_name)
 
                 if success:
-                    return {
-                        "success": True,
-                        "message": f"已设置默认打印机：{printer_name}"
-                    }
+                    return {"success": True, "message": f"已设置默认打印机：{printer_name}"}
                 else:
-                    return {
-                        "success": False,
-                        "message": f"设置默认打印机失败：{printer_name}"
-                    }
+                    return {"success": False, "message": f"设置默认打印机失败：{printer_name}"}
 
             except Exception as e:
                 logger.error(f"设置默认打印机失败：{e}")
-                return {
-                    "success": False,
-                    "message": f"设置失败：{str(e)}"
-                }
+                return {"success": False, "message": f"设置失败：{str(e)}"}
 
         except Exception as e:
             logger.exception(f"设置默认打印机失败：{e}")
-            return {
-                "success": False,
-                "message": f"设置失败：{str(e)}"
-            }
+            return {"success": False, "message": f"设置失败：{str(e)}"}
 
 
 def get_system_service() -> SystemService:
     """获取系统服务实例"""
     return SystemService()
-

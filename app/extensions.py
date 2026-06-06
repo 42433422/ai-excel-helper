@@ -1,62 +1,62 @@
 """
-⚠️ DEPRECATED: Flask 扩展管理已弃用
+FastAPI 扩展管理
 
-本模块已迁移到 FastAPI，请使用:
-  cd XCAGI
-  python run.py
-  
-历史代码已归档至: .archive/flask-app-factory-2026-04/app_extensions_py.bak
+应用扩展统一初始化入口。
+
+``celery_app``：优先使用真实 Celery（默认 ``memory://`` broker，便于本地/单测）；
+未安装 ``celery`` 时回退到最小桩。
 """
 
+from __future__ import annotations
+
+import functools
 import logging
-from functools import wraps
+import os
+from typing import Any, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
-
-class _ImmediateResult:
-    def __init__(self, value=None):
-        self.id = "desktop-immediate"
-        self.value = value
-
-    def get(self, timeout=None):
-        return self.value
+F = TypeVar("F", bound=Callable[..., Any])
 
 
-class DummyCelery:
-    """Import-compatible Celery replacement for FastAPI/desktop mode."""
+def _build_celery_stub() -> Any:
+    class _RetryableSelf:
+        class MaxRetriesExceededError(Exception):
+            pass
 
-    def task(self, *dargs, **dkwargs):
-        def decorator(func):
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                return func(*args, **kwargs)
+        def retry(self, exc: BaseException | None = None, countdown: int = 0) -> None:
+            raise self.MaxRetriesExceededError()
 
-            wrapper.delay = lambda *args, **kwargs: _ImmediateResult(func(*args, **kwargs))
-            wrapper.apply_async = lambda args=None, kwargs=None, **_: _ImmediateResult(
-                func(*(args or ()), **(kwargs or {}))
-            )
-            return wrapper
+    class _CeleryStub:
+        def task(
+            self,
+            *_args: Any,
+            bind: bool = False,
+            max_retries: int = 0,
+            **kwargs: Any,
+        ) -> Callable[[F], F]:
+            def decorator(fn: F) -> F:
+                @functools.wraps(fn)
+                def wrapper(*a: Any, **kw: Any) -> Any:
+                    if bind:
+                        return fn(_RetryableSelf(), *a, **kw)
+                    return fn(*a, **kw)
 
-        if dargs and callable(dargs[0]) and not dkwargs:
-            return decorator(dargs[0])
-        return decorator
+                wrapper.delay = lambda *a2, **k2: wrapper(*a2, **k2)  # type: ignore[attr-defined]
+                wrapper.apply_async = lambda *a2, **k2: wrapper(*a2, **k2)  # type: ignore[attr-defined]
+                return wrapper  # type: ignore[return-value]
 
-    def send_task(self, name, args=None, kwargs=None, **_options):
-        logger.warning("Celery 不可用，任务 %s 已在桌面/同步模式下跳过远程队列", name)
-        return _ImmediateResult()
+            return decorator
+
+    return _CeleryStub()
 
 
-celery_app = DummyCelery()
+try:
+    from celery import Celery
 
-def init_extensions(app):
-    """
-    ⚠️ 此函数已弃用
-    
-    FastAPI 使用不同的扩展管理方式，不需要 Flask-Caching/Celery 初始化。
-    请使用 XCAGI FastAPI 入口启动应用。
-    """
-    raise RuntimeError(
-        "Flask 扩展已弃用。请使用 XCAGI FastAPI 入口: "
-        "cd XCAGI && python run.py"
-    )
+    _broker = (os.environ.get("CELERY_BROKER_URL") or "memory://").strip()
+    _backend = (os.environ.get("CELERY_RESULT_BACKEND") or "cache+memory://").strip()
+    celery_app = Celery("xcagi", broker=_broker, backend=_backend)
+except ImportError:  # pragma: no cover
+    logger.warning("celery 未安装，使用内存任务桩")
+    celery_app = _build_celery_stub()

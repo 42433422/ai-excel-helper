@@ -92,3 +92,25 @@ Thumbs.db
 .monitor
 *.btw
 resources/wechat-decrypt/decrypted/
+
+# Full API image / CI: shrink context (see docker/Dockerfile.fhd-api)
+MODstore/
+XCAGI/mods/
+XCAGI/release-bundle/
+XCAGI/dist/
+XCAGI/models/
+XCAGI/installer/
+XCAGI/distillation/
+XCAGI/git-backup/
+XCAGI/build/
+XCAGI/temp_excel/
+XCAGI/logs/
+XCAGI/wechat-decrypt/
+XCAGI/.pytest_cache/
+XCAGI/_tmp_pdx/
+release/
+desktop/
+.push-v5-worktree/
+.vector_index/
+.archive/
+.cursor/

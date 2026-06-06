@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
-sys.path.insert(0, r'E:\FHD\XCAGI')
+
+sys.path.insert(0, r"E:\FHD\XCAGI")
 
 from app.db.session import get_db
 from app.db.models import WechatContact

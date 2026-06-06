@@ -6,12 +6,13 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass
 class ShipmentRuleViolation:
     """发货规则违反"""
+
     rule_name: str
     message: str
     severity: str
@@ -21,7 +22,7 @@ class ShipmentValidationResult:
     """发货单验证结果"""
 
     def __init__(self):
-        self.violations: List[ShipmentRuleViolation] = []
+        self.violations: list[ShipmentRuleViolation] = []
 
     @property
     def is_valid(self) -> bool:
@@ -29,24 +30,16 @@ class ShipmentValidationResult:
 
     def add_violation(self, rule_name: str, message: str, severity: str = "error"):
         self.violations.append(
-            ShipmentRuleViolation(
-                rule_name=rule_name,
-                message=message,
-                severity=severity
-            )
+            ShipmentRuleViolation(rule_name=rule_name, message=message, severity=severity)
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "is_valid": self.is_valid,
             "violations": [
-                {
-                    "rule": v.rule_name,
-                    "message": v.message,
-                    "severity": v.severity
-                }
+                {"rule": v.rule_name, "message": v.message, "severity": v.severity}
                 for v in self.violations
-            ]
+            ],
         }
 
 
@@ -73,7 +66,7 @@ class ShipmentRulesEngine:
             ("valid_date", self._rule_valid_date),
         ]
 
-    def validate(self, shipment_data: Dict[str, Any]) -> ShipmentValidationResult:
+    def validate(self, shipment_data: dict[str, Any]) -> ShipmentValidationResult:
         """
         验证发货单数据
 
@@ -92,21 +85,21 @@ class ShipmentRulesEngine:
 
         return result
 
-    def _rule_non_empty_unit(self, data: Dict[str, Any]) -> Optional[str]:
+    def _rule_non_empty_unit(self, data: dict[str, Any]) -> str | None:
         """规则：单位名称不能为空"""
         unit_name = data.get("unit_name") or data.get("customer_name")
         if not unit_name:
             return "单位名称不能为空"
         return None
 
-    def _rule_valid_items(self, data: Dict[str, Any]) -> Optional[str]:
+    def _rule_valid_items(self, data: dict[str, Any]) -> str | None:
         """规则：必须有有效的货物项目"""
         items = data.get("items") or []
         if not items or len(items) == 0:
             return "发货单必须包含至少一个货物项目"
         return None
 
-    def _rule_positive_quantity(self, data: Dict[str, Any]) -> Optional[str]:
+    def _rule_positive_quantity(self, data: dict[str, Any]) -> str | None:
         """规则：所有货物数量必须为正数"""
         items = data.get("items") or []
         for idx, item in enumerate(items):
@@ -115,7 +108,7 @@ class ShipmentRulesEngine:
                 return f"第 {idx + 1} 项货物数量必须大于 0"
         return None
 
-    def _rule_valid_date(self, data: Dict[str, Any]) -> Optional[str]:
+    def _rule_valid_date(self, data: dict[str, Any]) -> str | None:
         """规则：日期必须有效"""
         date_str = data.get("date")
         if date_str:
@@ -125,7 +118,7 @@ class ShipmentRulesEngine:
                 return "日期格式无效"
         return None
 
-    def calculate_total(self, shipment_data: Dict[str, Any]) -> float:
+    def calculate_total(self, shipment_data: dict[str, Any]) -> float:
         """
         计算发货单总金额
 
@@ -145,7 +138,7 @@ class ShipmentRulesEngine:
 
         return total
 
-    def suggest_priority(self, shipment_data: Dict[str, Any]) -> int:
+    def suggest_priority(self, shipment_data: dict[str, Any]) -> int:
         """
         根据发货单特征建议优先级
 

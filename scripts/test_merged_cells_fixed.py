@@ -9,12 +9,12 @@ import json
 import glob
 
 # 读取图片
-files = glob.glob(r'e:\FHD\26-0300001A*.png')
+files = glob.glob(r"e:\FHD\26-0300001A*.png")
 image_path = files[0]
 
 print(f"读取图片：{image_path}")
 
-with open(image_path, 'rb') as f:
+with open(image_path, "rb") as f:
     file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
 img_array = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
@@ -60,6 +60,7 @@ for x in range(gray.shape[1]):
     if max_continuous > gray.shape[0] * 0.5:
         vertical_lines.append(x)
 
+
 # 合并线条
 def merge_very_close(lines, threshold=5):
     if not lines:
@@ -72,6 +73,7 @@ def merge_very_close(lines, threshold=5):
             merged[-1] = (merged[-1] + line) // 2
     return merged
 
+
 def merge_lines(lines, threshold=50):
     if not lines:
         return []
@@ -80,6 +82,7 @@ def merge_lines(lines, threshold=50):
         if line - merged[-1] > threshold:
             merged.append(line)
     return merged
+
 
 horizontal_lines = sorted(list(set(horizontal_lines)))
 vertical_lines = sorted(list(set(vertical_lines)))
@@ -107,25 +110,25 @@ for i in range(rows):
         h = horizontal_lines[i + 1] - horizontal_lines[i]
 
         cell = {
-            'row': i,
-            'col': j,
-            'x': x,
-            'y': y,
-            'width': w,
-            'height': h,
-            'is_merged_horizontally': False,
-            'is_merged_vertically': False
+            "row": i,
+            "col": j,
+            "x": x,
+            "y": y,
+            "width": w,
+            "height": h,
+            "is_merged_horizontally": False,
+            "is_merged_vertically": False,
         }
         cells.append(cell)
 
 # 检测水平合并：检查单元格右侧边框是否有黑色线段
 for cell in cells:
-    if cell['col'] < cols - 1:  # 不是最后一列
-        right_border_x = cell['x'] + cell['width']
+    if cell["col"] < cols - 1:  # 不是最后一列
+        right_border_x = cell["x"] + cell["width"]
         border_black_count = 0
 
         # 统计右侧边框上有多少黑色像素
-        for check_y in range(cell['y'], cell['y'] + cell['height']):
+        for check_y in range(cell["y"], cell["y"] + cell["height"]):
             if check_y < gray.shape[0] and right_border_x < gray.shape[1]:
                 if binary[check_y, right_border_x] > 0:
                     border_black_count += 1
@@ -137,24 +140,24 @@ for cell in cells:
         print(f"  占比: {border_black_count / cell['height'] * 100:.1f}%")
 
         # 如果右侧边框少于 50% 是黑色，认为是水平合并（边框缺失）
-        if border_black_count < cell['height'] * 0.5:
-            cell['is_merged_horizontally'] = True
+        if border_black_count < cell["height"] * 0.5:
+            cell["is_merged_horizontally"] = True
             print(f"  → 判定为水平合并！")
 
 # 检测垂直合并
 for cell in cells:
-    if cell['row'] < rows - 1:  # 不是最后一行
-        bottom_border_y = cell['y'] + cell['height']
+    if cell["row"] < rows - 1:  # 不是最后一行
+        bottom_border_y = cell["y"] + cell["height"]
         border_black_count = 0
 
-        for check_x in range(cell['x'], cell['x'] + cell['width']):
+        for check_x in range(cell["x"], cell["x"] + cell["width"]):
             if check_x < gray.shape[1] and bottom_border_y < gray.shape[0]:
                 if binary[bottom_border_y, check_x] > 0:
                     border_black_count += 1
 
         # 如果底部边框少于 50% 是黑色，认为是垂直合并
-        if border_black_count < cell['width'] * 0.5:
-            cell['is_merged_vertically'] = True
+        if border_black_count < cell["width"] * 0.5:
+            cell["is_merged_vertically"] = True
 
 print(f"\n" + "=" * 70)
 print("单元格分析结果")
@@ -162,17 +165,19 @@ print("=" * 70)
 
 for i, cell in enumerate(cells):
     status = []
-    if cell['is_merged_horizontally']:
+    if cell["is_merged_horizontally"]:
         status.append("水平合并")
-    if cell['is_merged_vertically']:
+    if cell["is_merged_vertically"]:
         status.append("垂直合并")
     status_str = ", ".join(status) if status else "正常"
 
-    print(f"[{i:2d}] 行{cell['row']} 列{cell['col']}: "
-          f"({cell['x']:3d},{cell['y']:3d}) {cell['width']:3d}x{cell['height']:3d} [{status_str}]")
+    print(
+        f"[{i:2d}] 行{cell['row']} 列{cell['col']}: "
+        f"({cell['x']:3d},{cell['y']:3d}) {cell['width']:3d}x{cell['height']:3d} [{status_str}]"
+    )
 
 # 生成可视化 HTML
-html_content = f'''<!DOCTYPE html>
+html_content = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -206,31 +211,32 @@ html_content = f'''<!DOCTYPE html>
             </div>
             <div class="cell-info">
                 <h3>单元格列表</h3>
-'''
+"""
 
 for cell in cells:
     status_class = ""
-    if cell['is_merged_horizontally'] and cell['is_merged_vertically']:
+    if cell["is_merged_horizontally"] and cell["is_merged_vertically"]:
         status_class = "merged-both"
-    elif cell['is_merged_horizontally']:
+    elif cell["is_merged_horizontally"]:
         status_class = "merged-h"
-    elif cell['is_merged_vertically']:
+    elif cell["is_merged_vertically"]:
         status_class = "merged-v"
 
     status_text = []
-    if cell['is_merged_horizontally']:
+    if cell["is_merged_horizontally"]:
         status_text.append("水平合并")
-    if cell['is_merged_vertically']:
+    if cell["is_merged_vertically"]:
         status_text.append("垂直合并")
     status_str = "正常" if not status_text else ", ".join(status_text)
 
-    html_content += f'''                <div class="cell {status_class}">
+    html_content += f"""                <div class="cell {status_class}">
                     <div class="cell-num">#[{cell['row']},{cell['col']}] {status_str}</div>
                     <div>位置: ({cell['x']}, {cell['y']}) 尺寸: {cell['width']}×{cell['height']}</div>
                 </div>
-'''
+"""
 
-html_content += '''            </div>
+html_content += (
+    """            </div>
         </div>
 
         <div class="legend">
@@ -253,9 +259,15 @@ html_content += '''            </div>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
-        const cells = ''' + json.dumps(cells) + ''';
-        const horizontalLines = ''' + json.dumps(horizontal_lines) + ''';
-        const verticalLines = ''' + json.dumps(vertical_lines) + ''';
+        const cells = """
+    + json.dumps(cells)
+    + """;
+        const horizontalLines = """
+    + json.dumps(horizontal_lines)
+    + """;
+        const verticalLines = """
+    + json.dumps(vertical_lines)
+    + """;
 
         function draw() {
             ctx.fillStyle = '#ffffff';
@@ -317,10 +329,11 @@ html_content += '''            </div>
     </script>
 </body>
 </html>
-'''
+"""
+)
 
-output_path = r'e:\FHD\merged_cells_test.html'
-with open(output_path, 'w', encoding='utf-8') as f:
+output_path = r"e:\FHD\merged_cells_test.html"
+with open(output_path, "w", encoding="utf-8") as f:
     f.write(html_content)
 
 print(f"\n✓ 可视化报告已生成：{output_path}")

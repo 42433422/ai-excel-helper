@@ -1,0 +1,63 @@
+# Full-stack FHD / XCAGI API (FastAPI via Gunicorn + UvicornWorker).
+# Build from repository root (uses root .dockerignore):
+#   docker build -f docker/Dockerfile.fhd-api -t xcagi-fhd-api .
+
+# syntax=docker/dockerfile:1
+
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    portaudio19-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY XCAGI/requirements.txt requirements.txt
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+
+FROM python:3.11-slim AS production
+
+LABEL org.opencontainers.image.title="xcagi-fhd-api" \
+    org.opencontainers.image.description="XCAGI FastAPI production image (PostgreSQL + Redis via env)"
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONUTF8=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash appuser
+
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
+
+COPY --chown=appuser:appuser app /app/app
+COPY --chown=appuser:appuser XCAGI /app/XCAGI
+COPY --chown=appuser:appuser alembic /app/alembic
+COPY --chown=appuser:appuser alembic.ini /app/alembic.ini
+COPY --chown=appuser:appuser resources /app/resources
+
+COPY --chown=appuser:appuser docker/docker-entrypoint-fhd-api.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+RUN mkdir -p /app/data /app/uploads /app/logs /app/config /app/templates /app/XCAGI/mods \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:5000/health >/dev/null || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "120", "--graceful-timeout", "30", "-k", "uvicorn.workers.UvicornWorker", "XCAGI.run_fastapi:app"]

@@ -8,13 +8,13 @@ Money 值对象
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
-from typing import Optional, Union
 
 
 class Currency(Enum):
     """支持的货币类型"""
+
     CNY = "CNY"  # 人民币
     USD = "USD"  # 美元
     EUR = "EUR"  # 欧元
@@ -37,16 +37,17 @@ class Money:
         >>> total = price * 3
         >>> discount = price * Percentage(10)
     """
+
     amount: Decimal
     currency: Currency
 
     def __post_init__(self):
         # 确保 amount 是 Decimal
         if not isinstance(self.amount, Decimal):
-            object.__setattr__(self, 'amount', Decimal(str(self.amount)))
+            object.__setattr__(self, "amount", Decimal(str(self.amount)))
         # 标准化：保留两位小数
         rounded = self.amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        object.__setattr__(self, 'amount', rounded)
+        object.__setattr__(self, "amount", rounded)
         if self.amount < Decimal("0"):
             raise ValueError("金额不能为负数")
 
@@ -77,17 +78,17 @@ class Money:
             raise ValueError(f"Cannot subtract {self.currency} and {other.currency}")
         return Money(self.amount - other.amount, self.currency)
 
-    def multiply(self, factor: Union[int, float, Decimal]) -> Money:
+    def multiply(self, factor: int | float | Decimal) -> Money:
         """乘法：金额 × 数量"""
         return Money(self.amount * Decimal(str(factor)), self.currency)
 
-    def divide(self, divisor: Union[int, float, Decimal]) -> Money:
+    def divide(self, divisor: int | float | Decimal) -> Money:
         """除法：金额 ÷ 数量"""
         if divisor == 0:
             raise ValueError("Cannot divide by zero")
         return Money(self.amount / Decimal(str(divisor)), self.currency)
 
-    def percentage(self, percent: Union[int, float]) -> Money:
+    def percentage(self, percent: int | float) -> Money:
         """计算百分比金额"""
         return Money(self.amount * Decimal(str(percent)) / Decimal("100"), self.currency)
 
@@ -134,17 +135,13 @@ class Money:
 
     def to_dict(self) -> dict:
         """转换为字典"""
-        return {
-            "amount": float(self.amount),
-            "currency": self.currency.value
-        }
+        return {"amount": float(self.amount), "currency": self.currency.value}
 
     @classmethod
     def from_dict(cls, data: dict) -> Money:
         """从字典创建"""
         return cls(
-            amount=Decimal(str(data["amount"])),
-            currency=Currency(data.get("currency", "CNY"))
+            amount=Decimal(str(data["amount"])), currency=Currency(data.get("currency", "CNY"))
         )
 
     def __str__(self) -> str:
@@ -159,10 +156,10 @@ class Money:
     def __sub__(self, other: Money) -> Money:
         return self.subtract(other)
 
-    def __mul__(self, factor: Union[int, float, Decimal]) -> Money:
+    def __mul__(self, factor: int | float | Decimal) -> Money:
         return self.multiply(factor)
 
-    def __truediv__(self, divisor: Union[int, float, Decimal]) -> Money:
+    def __truediv__(self, divisor: int | float | Decimal) -> Money:
         return self.divide(divisor)
 
     def __eq__(self, other) -> bool:

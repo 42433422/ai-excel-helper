@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 产品库服务模块（性能优化版）
 
@@ -10,29 +9,28 @@
 - 异步批量操作
 """
 
-import functools
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.application.ports.product_repository import ProductRepository
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.event_publisher_mixin import NeuroEventPublisherMixin
 
 logger = logging.getLogger(__name__)
 
-PRODUCT_CACHE_TTL = int(__import__('os').environ.get("XCAGI_PRODUCT_CACHE_TTL", "300"))
-PRODUCT_LIST_CACHE_TTL = int(__import__('os').environ.get("XCAGI_PRODUCT_LIST_CACHE_TTL", "60"))
+PRODUCT_CACHE_TTL = int(__import__("os").environ.get("XCAGI_PRODUCT_CACHE_TTL", "300"))
+PRODUCT_LIST_CACHE_TTL = int(__import__("os").environ.get("XCAGI_PRODUCT_LIST_CACHE_TTL", "60"))
 
 
-class ProductsService:
+class ProductsService(NeuroEventPublisherMixin):
     """产品库服务类（性能优化版）"""
 
-    def __init__(self, repository: Optional[ProductRepository] = None):
+    def __init__(self, repository: ProductRepository | None = None):
         if repository is None:
             from app.infrastructure.repositories.product_repository_impl import (
                 SQLAlchemyProductRepository,
             )
+
             repository = SQLAlchemyProductRepository()
         self._repository = repository
 
@@ -43,6 +41,7 @@ class ProductsService:
 
         try:
             from app.utils.performance_initializer import get_performance_optimizer
+
             optimizer = get_performance_optimizer()
 
             if optimizer.redis_cache:
@@ -60,24 +59,8 @@ class ProductsService:
         self._repository = repository
         self._invalidate_product_cache()
 
-    def _publish_event(self, event_type: str, payload: dict, priority: EventPriority = EventPriority.NORMAL) -> str:
-        """发布领域事件"""
-        try:
-            bus = get_neuro_bus()
-            event = NeuroEvent(
-                event_type=event_type,
-                payload=payload,
-                source="ProductsService",
-                priority=priority
-            )
-            bus.publish(event)
-            return event.metadata.event_id
-        except Exception as e:
-            logger.warning(f"发布事件失败 {event_type}: {e}")
-            return ""
-
     @staticmethod
-    def _normalize_find_all_result(repo_result: Any) -> tuple[List[Any], int]:
+    def _normalize_find_all_result(repo_result: Any) -> tuple[list[Any], int]:
         """
         兼容不同 repository 的 find_all 返回格式。
         支持：
@@ -103,20 +86,15 @@ class ProductsService:
 
     def get_products(
         self,
-        unit_name: Optional[str] = None,
-        model_number: Optional[str] = None,
-        keyword: Optional[str] = None,
+        unit_name: str | None = None,
+        model_number: str | None = None,
+        keyword: str | None = None,
         page: int = 1,
-        per_page: int = 20
-    ) -> Dict[str, Any]:
+        per_page: int = 20,
+    ) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
-            return {
-                "success": False,
-                "message": "服务未正确初始化",
-                "data": [],
-                "total": 0
-            }
+            return {"success": False, "message": "服务未正确初始化", "data": [], "total": 0}
 
         start_time = time.perf_counter()
         cache_key = f"products:list:{unit_name}:{model_number}:{keyword}:{page}:{per_page}"
@@ -133,22 +111,24 @@ class ProductsService:
             model_number=model_number,
             keyword=keyword,
             page=page,
-            per_page=per_page
+            per_page=per_page,
         )
         products, total = self._normalize_find_all_result(repo_result)
 
         result = {
             "success": True,
-            "data": [p.to_dict() if hasattr(p, 'to_dict') else p for p in products],
+            "data": [p.to_dict() if hasattr(p, "to_dict") else p for p in products],
             "total": total,
             "count": len(products),
-            "_cached": False
+            "_cached": False,
         }
 
         duration_ms = (time.perf_counter() - start_time) * 1000
 
         if self._monitor:
-            self._monitor.record_metric("get_products", duration_ms, success=True, page=page, total=total)
+            self._monitor.record_metric(
+                "get_products", duration_ms, success=True, page=page, total=total
+            )
 
         if self._cache and use_cache:
             self._cache.set(cache_key, result, ttl=PRODUCT_LIST_CACHE_TTL)
@@ -156,7 +136,7 @@ class ProductsService:
 
         return result
 
-    def get_product_units(self) -> Dict[str, Any]:
+    def get_product_units(self) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
             return {"success": False, "message": "服务未正确初始化", "data": [], "count": 0}
@@ -176,7 +156,7 @@ class ProductsService:
 
         return result
 
-    def get_product(self, product_id: int) -> Dict[str, Any]:
+    def get_product(self, product_id: int) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
             return {"success": False, "message": "服务未正确初始化", "data": None}
@@ -199,7 +179,7 @@ class ProductsService:
 
         return response
 
-    def create_product(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_product(self, data: dict[str, Any]) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
             return {"success": False, "message": "服务未正确初始化"}
@@ -217,18 +197,23 @@ class ProductsService:
                 unit=data.get("unit", "个"),
                 description=data.get("description", ""),
                 brand=data.get("brand", ""),
-                model_number=ModelNumber(data.get("product_code", "")) if data.get("product_code") else None,
+                model_number=(
+                    ModelNumber(data.get("product_code", "")) if data.get("product_code") else None
+                ),
             )
             result = self._repository.create(product)
 
             self._invalidate_product_cache()
 
-            return {"success": True, "data": result.to_dict() if hasattr(result, 'to_dict') else result}
+            return {
+                "success": True,
+                "data": result.to_dict() if hasattr(result, "to_dict") else result,
+            }
         except Exception as e:
             logger.error(f"创建产品失败: {e}")
             return {"success": False, "message": str(e)}
 
-    def update_product(self, product_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_product(self, product_id: int, data: dict[str, Any]) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
             return {"success": False, "message": "服务未正确初始化"}
@@ -237,7 +222,7 @@ class ProductsService:
         self._invalidate_single_product_cache(product_id)
         return result
 
-    def delete_product(self, product_id: int) -> Dict[str, Any]:
+    def delete_product(self, product_id: int) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
             return {"success": False, "message": "服务未正确初始化"}
@@ -248,7 +233,7 @@ class ProductsService:
             return {"success": True, "message": "产品删除成功"}
         return {"success": False, "message": "删除失败"}
 
-    def batch_add_products(self, products_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def batch_add_products(self, products_data: list[dict[str, Any]]) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
             return {"success": False, "message": "服务未正确初始化"}
@@ -260,11 +245,13 @@ class ProductsService:
                 batch_result = self._query_optimizer.batch_execute(
                     products_data,
                     lambda item: self._repository.create_from_dict(item),
-                    batch_size=50
+                    batch_size=50,
                 )
 
                 duration_ms = (time.perf_counter() - start_time) * 1000
-                logger.info(f"批量添加产品完成: {batch_result.success_count} 成功, {batch_result.failed_count} 失败, 耗时 {duration_ms:.2f}ms")
+                logger.info(
+                    f"批量添加产品完成: {batch_result.success_count} 成功, {batch_result.failed_count} 失败, 耗时 {duration_ms:.2f}ms"
+                )
 
                 self._invalidate_product_cache()
 
@@ -275,7 +262,7 @@ class ProductsService:
                         "failed_count": batch_result.failed_count,
                         "errors": batch_result.errors[:10],
                         "duration_ms": round(duration_ms, 2),
-                    }
+                    },
                 }
 
             result = self._repository.batch_create(products_data)
@@ -286,7 +273,7 @@ class ProductsService:
             logger.error(f"批量添加产品失败: {e}")
             return {"success": False, "message": str(e)}
 
-    def batch_delete_products(self, product_ids: List[int]) -> Dict[str, Any]:
+    def batch_delete_products(self, product_ids: list[int]) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
             return {"success": False, "message": "服务未正确初始化"}
@@ -299,7 +286,9 @@ class ProductsService:
 
         duration_ms = (time.perf_counter() - start_time) * 1000
         if self._monitor:
-            self._monitor.record_metric("batch_delete_products", duration_ms, count=len(product_ids))
+            self._monitor.record_metric(
+                "batch_delete_products", duration_ms, count=len(product_ids)
+            )
 
         return result
 
@@ -308,7 +297,7 @@ class ProductsService:
             return False
         return self._repository.exists(product_id)
 
-    def get_product_names(self, keyword: Optional[str] = None) -> Dict[str, Any]:
+    def get_product_names(self, keyword: str | None = None) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
             return {"success": False, "message": "服务未正确初始化", "data": [], "count": 0}
@@ -330,20 +319,29 @@ class ProductsService:
 
     def export_to_excel(
         self,
-        unit_name: Optional[str] = None,
-        keyword: Optional[str] = None,
-        template_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        unit_name: str | None = None,
+        keyword: str | None = None,
+        template_id: str | None = None,
+    ) -> dict[str, Any]:
         if self._repository is None:
             logger.error("ProductRepository 未注入")
-            return {"success": False, "message": "服务未正确初始化", "file_path": None, "filename": None}
+            return {
+                "success": False,
+                "message": "服务未正确初始化",
+                "file_path": None,
+                "filename": None,
+            }
 
         start_time = time.perf_counter()
-        result = self._repository.export_to_excel(unit_name=unit_name, keyword=keyword, template_id=template_id)
+        result = self._repository.export_to_excel(
+            unit_name=unit_name, keyword=keyword, template_id=template_id
+        )
 
         duration_ms = (time.perf_counter() - start_time) * 1000
         if self._monitor:
-            self._monitor.record_metric("export_to_excel", duration_ms, success=result.get("success", False))
+            self._monitor.record_metric(
+                "export_to_excel", duration_ms, success=result.get("success", False)
+            )
 
         return result
 
@@ -379,8 +377,7 @@ class ProductsService:
             logger.warning(f"清除单产品缓存失败 [{product_id}]: {e}")
 
 
+from app.neuro_bus.events.base import EventPriority
 from app.neuro_bus.neuro_service_instrumentation import instrument_service_layer_class
-from app.neuro_bus.bus import get_neuro_bus
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
 
 instrument_service_layer_class(ProductsService, "app.services.products_service")

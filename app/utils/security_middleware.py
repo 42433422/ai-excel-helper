@@ -6,14 +6,14 @@
 """
 
 import json
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any
 
 from app.auth_decorators import get_current_user, login_required
-from app.http.request_context import get_current_http_request
 from app.http.json_response import json_response
+from app.http.request_context import get_current_http_request
 from app.utils.rate_limiter import check_rate_limit
-
 
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
@@ -34,9 +34,9 @@ def _apply_security_headers(response):
 
 def api_security(
     auth: bool = True,
-    permissions: Optional[List[str]] = None,
-    roles: Optional[List[str]] = None,
-    rate_limit: Optional[Dict[str, int]] = None,
+    permissions: list[str] | None = None,
+    roles: list[str] | None = None,
+    rate_limit: dict[str, int] | None = None,
     validate_json: bool = False,
 ) -> Callable:
     """
@@ -59,6 +59,7 @@ def api_security(
         def public_endpoint():
             ...
     """
+
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def secured_function(*args: Any, **kwargs: Any):
@@ -71,23 +72,32 @@ def api_security(
                         try:
                             json.loads(raw.decode())
                         except Exception:
-                            return json_response(
-                                {
-                                    "success": False,
-                                    "message": {"code": "INVALID_JSON", "message": "请求体不是合法 JSON"},
-                                },
+                            return (
+                                json_response(
+                                    {
+                                        "success": False,
+                                        "message": {
+                                            "code": "INVALID_JSON",
+                                            "message": "请求体不是合法 JSON",
+                                        },
+                                    },
+                                    400,
+                                ),
                                 400,
-                            ), 400
+                            )
 
             if rate_limit:
                 if req is None:
-                    return json_response(
-                        {
-                            "success": False,
-                            "message": {"code": "INTERNAL", "message": "限流需要请求上下文"},
-                        },
+                    return (
+                        json_response(
+                            {
+                                "success": False,
+                                "message": {"code": "INTERNAL", "message": "限流需要请求上下文"},
+                            },
+                            500,
+                        ),
                         500,
-                    ), 500
+                    )
                 user = get_current_user()
                 client_host = req.client.host if req.client else None
                 user_key = str(user.id) if user else (client_host or "unknown")
@@ -102,7 +112,10 @@ def api_security(
                     response = json_response(
                         {
                             "success": False,
-                            "message": {"code": "RATE_LIMITED", "message": "请求过于频繁，请稍后重试"},
+                            "message": {
+                                "code": "RATE_LIMITED",
+                                "message": "请求过于频繁，请稍后重试",
+                            },
                         },
                         429,
                     )
@@ -111,8 +124,10 @@ def api_security(
                     return _apply_security_headers(response)
 
             if auth:
+
                 def _noop(*a, **k):
                     return None
+
                 auth_check = login_required(_noop)
                 auth_result = auth_check()
                 if auth_result is not None:
@@ -124,10 +139,12 @@ def api_security(
 
                 if roles:
                     from app.auth_decorators import role_required
+
                     actual_login_required = role_required(roles)(actual_login_required)
 
                 if permissions:
                     from app.auth_decorators import permission_required
+
                     for perm in permissions:
                         actual_login_required = permission_required(perm)(actual_login_required)
 
@@ -146,6 +163,7 @@ def api_security(
             return _apply_security_headers(response)
 
         return secured_function
+
     return decorator
 
 
@@ -154,7 +172,7 @@ def require_permissions(*perms: str) -> Callable:
     return api_security(permissions=list(perms))
 
 
-def public_api(rate_limit: Optional[Dict[str, int]] = None) -> Callable:
+def public_api(rate_limit: dict[str, int] | None = None) -> Callable:
     """快捷装饰器：公开 API（无需认证），可配置限流。"""
     return api_security(auth=False, rate_limit=rate_limit)
 
@@ -187,11 +205,18 @@ class PermissionMatrix:
     - 安全审计时快速定位权限覆盖范围
     """
 
-    _rules: Dict[str, Dict[str, Any]] = {}
+    _rules: dict[str, dict[str, Any]] = {}
 
     @classmethod
-    def register(cls, endpoint: str, method: str, permissions: List[str] = None,
-                 roles: List[str] = None, auth: bool = True, description: str = ""):
+    def register(
+        cls,
+        endpoint: str,
+        method: str,
+        permissions: list[str] = None,
+        roles: list[str] = None,
+        auth: bool = True,
+        description: str = "",
+    ):
         key = f"{method.upper()}:{endpoint}"
         cls._rules[key] = {
             "endpoint": endpoint,
@@ -203,11 +228,11 @@ class PermissionMatrix:
         }
 
     @classmethod
-    def get_all_rules(cls) -> Dict[str, Dict[str, Any]]:
+    def get_all_rules(cls) -> dict[str, dict[str, Any]]:
         return dict(cls._rules)
 
     @classmethod
-    def get_endpoints_for_permission(cls, permission_code: str) -> List[str]:
+    def get_endpoints_for_permission(cls, permission_code: str) -> list[str]:
         return [
             f"{r['method']} {r['endpoint']}"
             for r in cls._rules.values()
@@ -215,8 +240,9 @@ class PermissionMatrix:
         ]
 
     @classmethod
-    def check(cls, endpoint: str, method: str, user_roles: Set[str],
-              user_permissions: Set[str]) -> Dict[str, Any]:
+    def check(
+        cls, endpoint: str, method: str, user_roles: set[str], user_permissions: set[str]
+    ) -> dict[str, Any]:
         key = f"{method.upper()}:{endpoint}"
         rule = cls._rules.get(key)
         if not rule:
@@ -257,8 +283,13 @@ def register_default_permissions():
         ("GET", "/api/shipments", shipment_perms[:1], None, "出货单列表"),
         ("POST", "/api/shipments", [shipment_perms[1]], None, "创建出货单"),
         ("PUT", "/api/shipments/<id>", [shipment_perms[2]], None, "编辑出货单"),
-        ("POST", "/api/shipments/<id>/approve", shipment_perms[2:] + ["shipment.approve"],
-         ["admin"], "审批出货单"),
+        (
+            "POST",
+            "/api/shipments/<id>/approve",
+            shipment_perms[2:] + ["shipment.approve"],
+            ["admin"],
+            "审批出货单",
+        ),
         ("GET", "/api/materials", material_perms[:1], None, "物料列表"),
         ("POST", "/api/materials", [material_perms[1]], None, "创建物料"),
         ("PUT", "/api/materials/<id>", [material_perms[1]], None, "编辑物料"),
@@ -276,4 +307,3 @@ def register_default_permissions():
 
 
 register_default_permissions()
-

@@ -1,4 +1,4 @@
-import { api } from './index';
+import { api } from './core';
 import type { ApiResponse } from '@/types/api';
 
 export interface ExcelTemplate {

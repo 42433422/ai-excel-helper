@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 统一缓存管理器
 
@@ -19,9 +18,10 @@ import os
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,7 @@ def _read_env_int(name: str, default: int) -> int:
 @dataclass
 class CacheStats:
     """缓存统计"""
+
     hits: int = 0
     misses: int = 0
     sets: int = 0
@@ -82,7 +83,7 @@ class LRUCache:
         self._name = name
         self._stats = CacheStats()
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """获取缓存值"""
         with self._lock:
             if key in self._cache:
@@ -149,7 +150,7 @@ class LRUTTLCache:
 
     def __init__(self, max_size: int = 1000, ttl_seconds: int = 300, name: str = "lru_ttl"):
         self._cache: OrderedDict = OrderedDict()
-        self._timestamps: Dict[str, float] = {}
+        self._timestamps: dict[str, float] = {}
         self._max_size = max_size
         self._ttl_seconds = ttl_seconds
         self._lock = threading.RLock()
@@ -165,17 +166,14 @@ class LRUTTLCache:
 
     def _evict_expired(self) -> int:
         """淘汰过期键"""
-        expired_keys = [
-            k for k in list(self._cache.keys())
-            if self._is_expired(k)
-        ]
+        expired_keys = [k for k in list(self._cache.keys()) if self._is_expired(k)]
         for key in expired_keys:
             del self._cache[key]
             del self._timestamps[key]
             self._stats.evictions += 1
         return len(expired_keys)
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """获取缓存值"""
         with self._lock:
             if key in self._cache:
@@ -265,13 +263,13 @@ class TimedCache:
     """
 
     def __init__(self, ttl_seconds: int = 60, name: str = "timed"):
-        self._cache: Dict[str, tuple] = {}
+        self._cache: dict[str, tuple] = {}
         self._ttl_seconds = ttl_seconds
         self._lock = threading.RLock()
         self._name = name
         self._stats = CacheStats()
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """获取缓存值"""
         with self._lock:
             if key in self._cache:
@@ -310,10 +308,10 @@ def cache_key(*args, **kwargs) -> str:
     key_parts = [str(arg) for arg in args]
     key_parts.extend(f"{k}={v}" for k, v in sorted(kwargs.items()))
     key_str = "|".join(key_parts)
-    return hashlib.md5(key_str.encode()).hexdigest()
+    return hashlib.sha256(key_str.encode()).hexdigest()
 
 
-def with_cache(cache: LRUCache, key_func: Optional[Callable] = None):
+def with_cache(cache: LRUCache, key_func: Callable | None = None):
     """
     缓存装饰器
 
@@ -322,6 +320,7 @@ def with_cache(cache: LRUCache, key_func: Optional[Callable] = None):
     def expensive_function(arg1, arg2):
         ...
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -337,7 +336,9 @@ def with_cache(cache: LRUCache, key_func: Optional[Callable] = None):
             result = func(*args, **kwargs)
             cache.set(key, result)
             return result
+
         return wrapper
+
     return decorator
 
 
@@ -362,7 +363,7 @@ class CacheManager:
         if getattr(self, "_initialized", False):
             return
         self._initialized = True
-        self._caches: Dict[str, Any] = {}
+        self._caches: dict[str, Any] = {}
         self._create_default_caches()
 
     def _create_default_caches(self):
@@ -386,7 +387,7 @@ class CacheManager:
         self._caches["purchase_unit"] = LRUCache(max_size=500, name="purchase_unit")
         self._caches["product"] = LRUCache(max_size=500, name="product")
 
-    def get_cache(self, name: str) -> Optional[Any]:
+    def get_cache(self, name: str) -> Any | None:
         """获取指定名称的缓存"""
         return self._caches.get(name)
 
@@ -399,7 +400,7 @@ class CacheManager:
         for cache in self._caches.values():
             cache.clear()
 
-    def get_stats(self) -> Dict[str, CacheStats]:
+    def get_stats(self) -> dict[str, CacheStats]:
         """获取所有缓存的统计信息"""
         return {name: cache.stats for name, cache in self._caches.items()}
 
@@ -410,7 +411,7 @@ class CacheManager:
             logger.info(f"  {name}: {stats}")
 
 
-_cache_manager: Optional[CacheManager] = None
+_cache_manager: CacheManager | None = None
 
 
 def get_cache_manager() -> CacheManager:

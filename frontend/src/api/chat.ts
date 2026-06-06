@@ -1,4 +1,6 @@
 import { api, buildFullApiUrl } from './core';
+import { LS_MARKET_ACCESS_TOKEN } from './marketAccount';
+import { readCsrfTokenFromCookie, shouldAttachCsrfHeader } from '@/utils/csrfCookie';
 import type { RequestOptions } from './core';
 import type { ApiResponse } from '@/types/api';
 import type { ChatRequest, ChatResponse, ChatSession } from '@/types/chat';
@@ -8,6 +10,13 @@ import {
   resolveChatStreamPath,
   type PlannerSseEvent,
 } from '@/utils/chatSseStream';
+import {
+  resolvePlannerChatBatchPath,
+  resolvePlannerChatPath,
+  resolvePlannerIntentTestPath,
+  resolvePlannerUnifiedChatBatchPath,
+  resolvePlannerUnifiedChatPath,
+} from '@/utils/plannerChatPaths';
 
 export type { PlannerSseEvent };
 
@@ -21,6 +30,27 @@ export type ChatStreamRequestInit = RequestInit & {
   /** 覆盖默认路径（否则用 ``VITE_CHAT_STREAM_PATH`` 或 ``/api/ai/chat/stream``） */
   streamPath?: string;
 };
+
+function readMarketBearerHeader(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  const token = String(window.localStorage.getItem(LS_MARKET_ACCESS_TOKEN) || '').trim();
+  if (!token) return {};
+  return { Authorization: token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}` };
+}
+
+function withMarketAuthorization(options: RequestOptions = {}): RequestOptions {
+  const existing = options.headers as Record<string, string> | undefined;
+  if (existing?.Authorization || existing?.authorization) return options;
+  const auth = readMarketBearerHeader();
+  if (!auth.Authorization) return options;
+  return {
+    ...options,
+    headers: {
+      ...existing,
+      ...auth,
+    },
+  };
+}
 
 /** Planner SSE：非 2xx 时解析 JSON 错误文案 */
 export async function parseChatStreamErrorResponse(res: Response): Promise<string> {
@@ -42,7 +72,11 @@ export const chatApi = {
     payload: ChatRequest,
     options: RequestOptions = {}
   ): Promise<ApiResponse<ChatResponse>> {
-    return api.post<ApiResponse<ChatResponse>>('/api/ai/chat', payload, options);
+    return api.post<ApiResponse<ChatResponse>>(
+      resolvePlannerChatPath(),
+      payload,
+      withMarketAuthorization(options),
+    );
   },
 
   /**
@@ -60,13 +94,19 @@ export const chatApi = {
       ...payload,
       ...(readAllowed && readTok ? { db_read_token: readTok } : {}),
     });
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...readMarketBearerHeader(),
+      ...(hdr as Record<string, string>),
+    };
+    if (shouldAttachCsrfHeader('POST', headers)) {
+      const tok = readCsrfTokenFromCookie();
+      if (tok) headers['X-CSRF-Token'] = tok;
+    }
     return fetch(url, {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(hdr as Record<string, string>),
-      },
+      headers,
       body,
       ...rest,
     });
@@ -100,14 +140,18 @@ export const chatApi = {
   },
 
   testIntent(data: any): Promise<ApiResponse<any>> {
-    return api.post<ApiResponse<any>>('/api/ai/intent/test', data);
+    return api.post<ApiResponse<any>>(resolvePlannerIntentTestPath(), data);
   },
 
   sendUnifiedChat(
     payload: ChatRequest,
     options: RequestOptions = {}
   ): Promise<ApiResponse<ChatResponse>> {
-    return api.post<ApiResponse<ChatResponse>>('/api/ai/unified_chat', payload, options);
+    return api.post<ApiResponse<ChatResponse>>(
+      resolvePlannerUnifiedChatPath(),
+      payload,
+      withMarketAuthorization(options),
+    );
   },
 
   /** 专业链路：多条消息一次 HTTP，按顺序 process_chat */
@@ -115,7 +159,7 @@ export const chatApi = {
     payload: ChatRequest & { messages: string[] },
     options: RequestOptions = {}
   ): Promise<ApiResponse<{ success: boolean; results: ChatResponse[]; count: number; batch?: boolean }>> {
-    return api.post('/api/ai/chat/batch', payload, options);
+    return api.post(resolvePlannerChatBatchPath(), payload, withMarketAuthorization(options));
   },
 
   /** 普通 unified：多条消息一次 HTTP */
@@ -123,7 +167,7 @@ export const chatApi = {
     payload: ChatRequest & { messages: string[] },
     options: RequestOptions = {}
   ): Promise<ApiResponse<{ success: boolean; results: ChatResponse[]; count: number; batch?: boolean }>> {
-    return api.post('/api/ai/unified_chat/batch', payload, options);
+    return api.post(resolvePlannerUnifiedChatBatchPath(), payload, withMarketAuthorization(options));
   },
 
   getConversations(params: Record<string, any> = {}): Promise<ApiResponse<ChatSession[]>> {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Pretext.js 工具封装
  * 零 DOM 文本测量，比浏览器快 500 倍

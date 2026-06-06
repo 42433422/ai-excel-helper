@@ -13,7 +13,7 @@ export default defineConfig({
   reporter: [['list']],
   timeout: 45_000,
   use: {
-    baseURL: 'http://127.0.0.1:5001',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5001',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

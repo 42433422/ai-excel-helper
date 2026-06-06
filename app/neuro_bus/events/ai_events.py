@@ -5,18 +5,17 @@ AI 领域事件定义
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
 
-from app.neuro_bus.events.base import NeuroEvent, EventPriority
+from app.neuro_bus.events.base import EventPriority, NeuroEvent
 
 
 @dataclass
 class AIIntentRecognizedEvent(NeuroEvent):
     """AI 意图识别事件"""
-    
+
     event_type: str = "ai.intent_recognized"
     priority: EventPriority = EventPriority.HIGH
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["session_id", "user_message", "intent", "confidence"]
@@ -28,10 +27,10 @@ class AIIntentRecognizedEvent(NeuroEvent):
 @dataclass
 class AIResponseGeneratedEvent(NeuroEvent):
     """AI 响应生成事件"""
-    
+
     event_type: str = "ai.response_generated"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["session_id", "response", "generation_time_ms"]
@@ -43,10 +42,10 @@ class AIResponseGeneratedEvent(NeuroEvent):
 @dataclass
 class AIConversationStartedEvent(NeuroEvent):
     """AI 对话开始事件"""
-    
+
     event_type: str = "ai.conversation_started"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["session_id", "user_id", "channel"]
@@ -58,10 +57,10 @@ class AIConversationStartedEvent(NeuroEvent):
 @dataclass
 class AIConversationEndedEvent(NeuroEvent):
     """AI 对话结束事件"""
-    
+
     event_type: str = "ai.conversation_ended"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["session_id", "total_messages", "duration_seconds"]
@@ -73,10 +72,10 @@ class AIConversationEndedEvent(NeuroEvent):
 @dataclass
 class AIFeedbackReceivedEvent(NeuroEvent):
     """AI 反馈接收事件"""
-    
+
     event_type: str = "ai.feedback_received"
     priority: EventPriority = EventPriority.LOW
-    
+
     def __post_init__(self):
         super().__post_init__()
         required = ["session_id", "message_id", "feedback_type", "rating"]
@@ -88,10 +87,10 @@ class AIFeedbackReceivedEvent(NeuroEvent):
 @dataclass
 class AIContextUpdatedEvent(NeuroEvent):
     """AI 上下文更新事件"""
-    
+
     event_type: str = "ai.context_updated"
     priority: EventPriority = EventPriority.NORMAL
-    
+
     def __post_init__(self):
         super().__post_init__()
         if "session_id" not in self.payload:

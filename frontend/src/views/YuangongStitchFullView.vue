@@ -6,7 +6,7 @@
           <router-link :to="{ name: 'workflow-employee-space' }" class="panorama-btn">
             返回员工空间
           </router-link>
-          <router-link :to="{ name: 'workflow-visualization' }" class="panorama-btn">
+          <router-link :to="workflowVisualizationLocation" class="panorama-btn">
             流程全景说明
           </router-link>
         </div>
@@ -17,22 +17,29 @@
       </header>
 
       <div class="panorama-device" role="region" aria-label="员工工作流全景画框">
-        <div class="panorama-body">
+        <div class="panorama-body" :style="panoramaPaneStyle">
           <div class="panorama-stage">
             <StitchStage
               mode="composed"
               image-src=""
               :selected-emp-id="selectedEmpId"
               :hotspots="EMPTY_HOTSPOTS"
-              :desks="desks"
+              :desks="onDutyDesks"
               :resolve-station-aria-label="stationReaderLabel"
               @select="onSelectEmp"
             />
+            <PaneResizeHandle
+              v-if="isPanoramaPaneResizable"
+              orientation="vertical"
+              label="调整员工检查器宽度"
+              @resize-start="onPanoramaPaneResizeStart"
+              @reset="resetPanoramaPaneWidth"
+            />
           </div>
-          <div class="panorama-divider" aria-hidden="true" />
+          <div v-if="isPanoramaPaneResizable" class="panorama-divider" aria-hidden="true" />
           <WorkflowEmployeeInspector
             v-model:selected-emp-id="selectedEmpId"
-            :desks="desks"
+            :desks="onDutyDesks"
             :pixel-skin="true"
           />
         </div>
@@ -42,26 +49,76 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import PaneResizeHandle from '@/components/PaneResizeHandle.vue'
+import { useResizablePane } from '@/composables/useResizablePane'
 import StitchStage from '@/components/workflow/StitchStage.vue'
 import WorkflowEmployeeInspector from '@/components/workflow/WorkflowEmployeeInspector.vue'
 import { useWorkflowEmployeeDesks } from '@/composables/useWorkflowEmployeeDesks'
 import type { YuangongStitchHotspot } from '@/constants/yuangongStitchHotspots'
+import { resolveWorkflowVisualizationLocation } from '@/utils/workflowNav'
 
+const workflowVisualizationLocation = resolveWorkflowVisualizationLocation()
 const EMPTY_HOTSPOTS: YuangongStitchHotspot[] = []
+const PANORAMA_LAYOUT_MQ = '(max-width: 960px)'
 
-const { desks, ariaLabel } = useWorkflowEmployeeDesks()
+const { desks, onDutyDesks, ariaLabel } = useWorkflowEmployeeDesks()
 
 const selectedEmpId = ref<string | null>(null)
+const isPanoramaPaneResizable = ref(true)
+let panoramaPaneViewportMedia: MediaQueryList | null = null
+
+const {
+  paneStyle: panoramaPaneStyle,
+  startResize: onPanoramaPaneResizeStart,
+  resetSize: resetPanoramaPaneWidth,
+  stopResize: stopPanoramaPaneResize,
+} = useResizablePane({
+  paneKey: 'workflow.panorama-inspector',
+  cssVarName: '--panorama-inspector-width',
+  orientation: 'vertical',
+  invertDelta: true,
+  defaultSize: 340,
+  minSize: 240,
+  maxSize: 520,
+  enabled: () => isPanoramaPaneResizable.value,
+})
 
 function onSelectEmp(empId: string) {
   selectedEmpId.value = empId
 }
 
 function stationReaderLabel(empId: string): string {
-  const row = desks.value.find((d) => d.empId === empId)
+  const row = onDutyDesks.value.find((d) => d.empId === empId)
   return row ? ariaLabel(row) : `员工 ${empId}`
 }
+
+function onPanoramaPaneViewportChange(event: MediaQueryList | MediaQueryListEvent): void {
+  isPanoramaPaneResizable.value = !event.matches
+  if (!isPanoramaPaneResizable.value) {
+    stopPanoramaPaneResize()
+  }
+}
+
+onMounted(() => {
+  panoramaPaneViewportMedia = window.matchMedia(PANORAMA_LAYOUT_MQ)
+  onPanoramaPaneViewportChange(panoramaPaneViewportMedia)
+  if (typeof panoramaPaneViewportMedia.addEventListener === 'function') {
+    panoramaPaneViewportMedia.addEventListener('change', onPanoramaPaneViewportChange)
+  } else if (typeof panoramaPaneViewportMedia.addListener === 'function') {
+    panoramaPaneViewportMedia.addListener(onPanoramaPaneViewportChange)
+  }
+})
+
+onBeforeUnmount(() => {
+  stopPanoramaPaneResize()
+  if (!panoramaPaneViewportMedia) return
+  if (typeof panoramaPaneViewportMedia.removeEventListener === 'function') {
+    panoramaPaneViewportMedia.removeEventListener('change', onPanoramaPaneViewportChange)
+  } else if (typeof panoramaPaneViewportMedia.removeListener === 'function') {
+    panoramaPaneViewportMedia.removeListener(onPanoramaPaneViewportChange)
+  }
+})
 </script>
 
 <style scoped>
@@ -142,18 +199,17 @@ function stationReaderLabel(empId: string): string {
 
 .panorama-body {
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 6px minmax(240px, 340px);
+  display: flex;
   gap: 0;
   align-items: stretch;
   min-height: min(calc(100dvh - 220px), 860px);
   min-width: 0;
+  --panorama-inspector-width: 340px;
 }
 
 @media (max-width: 960px) {
   .panorama-body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 6px auto;
+    flex-direction: column;
     min-height: 0;
   }
 
@@ -171,6 +227,8 @@ function stationReaderLabel(empId: string): string {
 }
 
 .panorama-stage {
+  position: relative;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -191,12 +249,15 @@ function stationReaderLabel(empId: string): string {
 }
 
 .panorama-body > :deep(.wfe-inspector--pixel) {
+  flex: 0 0 var(--panorama-inspector-width);
+  width: var(--panorama-inspector-width);
   margin: 10px 10px 10px 0;
   min-height: 0;
 }
 
 @media (max-width: 960px) {
   .panorama-body > :deep(.wfe-inspector--pixel) {
+    width: 100%;
     margin: 0 10px 10px;
   }
 }

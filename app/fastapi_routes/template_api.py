@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -27,11 +27,18 @@ def _templates_payload() -> dict:
         data = get_template_app_service().get_templates()
         return {"success": True, "templates": data.get("templates") or []}
     except Exception as e:
-        logger.debug("template_api: 无法加载 XCAGI 模板服务，返回空列表 (%s)", e)
-        return {"success": True, "templates": []}
+        logger.warning("template_api: 模板服务加载失败: %s", e)
+        # 返回 503-compatible 错误结构；GET /api/templates 自身不抛异常，
+        # 但调用方（前端）可通过 service_unavailable 字段判断需要告警。
+        return {
+            "success": False,
+            "templates": [],
+            "service_unavailable": True,
+            "message": "模板服务暂时不可用，请刷新或联系管理员",
+        }
 
 
-def _find_template_row(template_id: str) -> Optional[Dict[str, Any]]:
+def _find_template_row(template_id: str) -> dict[str, Any] | None:
     """按前端常用的 id / db_id / db:<n> 在列表结果中解析单条模板。"""
     raw = str(template_id or "").strip()
     if not raw:
@@ -60,7 +67,7 @@ def _find_template_row(template_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _publish_template_event(event_type: str, payload: Dict[str, Any]) -> None:
+def _publish_template_event(event_type: str, payload: dict[str, Any]) -> None:
     """发布模板相关事件到 NeuroBus"""
     try:
         publish_neuro_event(
@@ -73,13 +80,13 @@ def _publish_template_event(event_type: str, payload: Dict[str, Any]) -> None:
 
 
 @router.get("/api/templates/list", summary="模板列表（兼容旧路径 /api/templates/list）")
-async def templates_list_legacy_alias(request: Request):
+def templates_list_legacy_alias(request: Request):
     """与 GET /api/templates 相同，供仍使用 /list 后缀的前端使用。"""
-    return await templates_list_compat(request)
+    return templates_list_compat(request)
 
 
 @router.get("/api/templates", summary="模板列表（兼容 XCAGI 前端）")
-@router.get("/api/templates/", summary="模板列表（兼容 XCAGI 前端）")
+@router.get("/api/templates/", summary="模板列表（兼容 XCAGI 前端）", include_in_schema=False)
 def templates_list_compat(request: Request):
     t0 = time.perf_counter()
     rid = str(getattr(request.state, "trace_id", None) or id(request))
@@ -110,6 +117,10 @@ def templates_list_compat(request: Request):
                 "success": result.get("success", False),
             },
         )
+        from fastapi.responses import JSONResponse
+
+        if result.get("service_unavailable"):
+            return JSONResponse(result, status_code=503)
         return result
     except Exception as e:
         latency_ms = (time.perf_counter() - t0) * 1000.0

@@ -1,0 +1,14 @@
+[
+  {"text": "你好", "check": "greeting"},
+  {"text": "您好", "check": "greeting"},
+  {"text": "早上好", "check": "greeting"},
+  {"text": "开单", "expected_tool": "shipment_generate", "expected_primary": "shipment_generate"},
+  {"text": "七彩乐园的一桶酒吧零三的规格28", "expected_tool": "shipment_generate", "expected_primary": "shipment_generate"},
+  {"text": "打印一下七彩乐园的9803规格28", "expected_tool": "shipment_generate", "expected_primary": "shipment_generate"},
+  {"text": "查询库存", "expected_tool": "materials", "expected_primary": "materials"},
+  {"text": "查一下产品", "expected_tool": "products", "expected_primary": "products"},
+  {"text": "有哪些客户", "expected_tool": "customers", "expected_primary": "customers"},
+  {"text": "客户列表", "expected_tool": "customers", "expected_primary": "customers"},
+  {"text": "帮我查下材料", "expected_tool": "materials", "expected_primary": "materials"},
+  {"text": "原材料库存", "expected_tool": "materials", "expected_primary": "materials"}
+]

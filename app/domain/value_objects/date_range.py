@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Optional, Tuple
 
 
 @dataclass(frozen=True)
@@ -18,15 +17,16 @@ class DateRange:
 
     包含开始和结束日期，确保结束日期不早于开始日期。
     """
+
     start: date
     end: date
 
     def __post_init__(self):
         # 确保 start 和 end 是 date 类型
         if isinstance(self.start, datetime):
-            object.__setattr__(self, 'start', self.start.date())
+            object.__setattr__(self, "start", self.start.date())
         if isinstance(self.end, datetime):
-            object.__setattr__(self, 'end', self.end.date())
+            object.__setattr__(self, "end", self.end.date())
 
         # 验证：结束日期不能早于开始日期
         if self.end < self.start:
@@ -104,7 +104,7 @@ class DateRange:
         """是否与另一个范围重叠"""
         return not (self.end < other.start or self.start > other.end)
 
-    def intersection(self, other: DateRange) -> Optional[DateRange]:
+    def intersection(self, other: DateRange) -> DateRange | None:
         """求交集"""
         if not self.overlaps(other):
             return None
@@ -137,7 +137,9 @@ class DateRange:
         while current <= self.end:
             # 当月最后一天
             if current.month == 12:
-                month_end = current.replace(year=current.year + 1, month=1, day=1) - timedelta(days=1)
+                month_end = current.replace(year=current.year + 1, month=1, day=1) - timedelta(
+                    days=1
+                )
             else:
                 month_end = current.replace(month=current.month + 1, day=1) - timedelta(days=1)
 
@@ -156,25 +158,18 @@ class DateRange:
 
         return ranges
 
-    def to_datetime_range(self) -> Tuple[datetime, datetime]:
+    def to_datetime_range(self) -> tuple[datetime, datetime]:
         """转换为 datetime 范围（开始到结束当天的23:59:59）"""
         start = datetime.combine(self.start, datetime.min.time())
         end = datetime.combine(self.end, datetime.max.time().replace(microsecond=0))
         return start, end
 
     def to_dict(self) -> dict:
-        return {
-            "start": self.start.isoformat(),
-            "end": self.end.isoformat(),
-            "days": self.days
-        }
+        return {"start": self.start.isoformat(), "end": self.end.isoformat(), "days": self.days}
 
     @classmethod
     def from_dict(cls, data: dict) -> DateRange:
-        return cls(
-            start=date.fromisoformat(data["start"]),
-            end=date.fromisoformat(data["end"])
-        )
+        return cls(start=date.fromisoformat(data["start"]), end=date.fromisoformat(data["end"]))
 
     def __str__(self) -> str:
         return f"{self.start} ~ {self.end}"

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 结构化日志模块
 
@@ -11,29 +10,28 @@ import sys
 import time
 import traceback
 import uuid
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from functools import wraps
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 
 class StructuredLogFormatter(logging.Formatter):
     """JSON 格式日志格式化器"""
 
-    DEFAULT_FIELDS = {
-        "service": "xcagi",
-        "environment": "production",
-        "version": "1.0.0"
-    }
+    DEFAULT_FIELDS = {"service": "xcagi", "environment": "production", "version": "1.0.0"}
 
-    def __init__(self, service_name: str = "xcagi", environment: str = "production", version: str = "1.0.0"):
+    def __init__(
+        self, service_name: str = "xcagi", environment: str = "production", version: str = "1.0.0"
+    ):
         super().__init__()
         self.service_name = service_name
         self.environment = environment
         self.version = version
 
     def format(self, record: logging.LogRecord) -> str:
-        log_data: Dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+        log_data: dict[str, Any] = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -62,7 +60,7 @@ class StructuredLogFormatter(logging.Formatter):
             log_data["exception"] = {
                 "type": record.exc_info[0].__name__ if record.exc_info[0] else None,
                 "message": str(record.exc_info[1]) if record.exc_info[1] else None,
-                "traceback": traceback.format_exception(*record.exc_info)
+                "traceback": traceback.format_exception(*record.exc_info),
             }
 
         return json.dumps(log_data, ensure_ascii=False)
@@ -70,19 +68,19 @@ class StructuredLogFormatter(logging.Formatter):
 
 class StructuredLogger:
     """结构化日志记录器"""
-    
+
     def __init__(self, name: str):
         self.logger = logging.getLogger(name)
-        self._context: Dict[str, Any] = {}
-        
+        self._context: dict[str, Any] = {}
+
     def _log(
-        self, 
-        level: int, 
-        message: str, 
-        request_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        duration: Optional[float] = None,
-        **kwargs
+        self,
+        level: int,
+        message: str,
+        request_id: str | None = None,
+        user_id: str | None = None,
+        duration: float | None = None,
+        **kwargs,
     ):
         extra = {"extra_data": kwargs} if kwargs else {}
         if request_id:
@@ -91,21 +89,21 @@ class StructuredLogger:
             extra["user_id"] = user_id
         if duration is not None:
             extra["duration"] = duration
-            
+
         self.logger.log(level, message, extra=extra)
-        
+
     def debug(self, msg: str, **kwargs):
         self._log(logging.DEBUG, msg, **kwargs)
-        
+
     def info(self, msg: str, **kwargs):
         self._log(logging.INFO, msg, **kwargs)
-        
+
     def warning(self, msg: str, **kwargs):
         self._log(logging.WARNING, msg, **kwargs)
-        
+
     def error(self, msg: str, **kwargs):
         self._log(logging.ERROR, msg, **kwargs)
-        
+
     def critical(self, msg: str, **kwargs):
         self._log(logging.CRITICAL, msg, **kwargs)
 
@@ -119,7 +117,7 @@ def setup_structured_logging(
     level: int = logging.INFO,
     service_name: str = "xcagi",
     environment: str = "production",
-    version: str = "1.0.0"
+    version: str = "1.0.0",
 ):
     """配置结构化日志"""
     handler = logging.StreamHandler(sys.stdout)
@@ -132,18 +130,19 @@ def setup_structured_logging(
 
 def log_operation(operation_name: str):
     """操作日志装饰器"""
+
     def decorator(func: Callable):
         @wraps(func)
         def sync_wrapper(*args, **kwargs):
             logger = get_logger(func.__module__)
             start_time = time.time()
             request_id = str(uuid.uuid4())
-            
+
             try:
                 logger.info(
                     f"Operation started: {operation_name}",
                     operation=operation_name,
-                    request_id=request_id
+                    request_id=request_id,
                 )
                 result = func(*args, **kwargs)
                 duration = (time.time() - start_time) * 1000
@@ -151,7 +150,7 @@ def log_operation(operation_name: str):
                     f"Operation completed: {operation_name}",
                     operation=operation_name,
                     request_id=request_id,
-                    duration=duration
+                    duration=duration,
                 )
                 return result
             except Exception as e:
@@ -161,21 +160,21 @@ def log_operation(operation_name: str):
                     operation=operation_name,
                     request_id=request_id,
                     duration=duration,
-                    error=str(e)
+                    error=str(e),
                 )
                 raise
-                
+
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
             logger = get_logger(func.__module__)
             start_time = time.time()
             request_id = str(uuid.uuid4())
-            
+
             try:
                 logger.info(
                     f"Operation started: {operation_name}",
                     operation=operation_name,
-                    request_id=request_id
+                    request_id=request_id,
                 )
                 result = await func(*args, **kwargs)
                 duration = (time.time() - start_time) * 1000
@@ -183,7 +182,7 @@ def log_operation(operation_name: str):
                     f"Operation completed: {operation_name}",
                     operation=operation_name,
                     request_id=request_id,
-                    duration=duration
+                    duration=duration,
                 )
                 return result
             except Exception as e:
@@ -193,14 +192,14 @@ def log_operation(operation_name: str):
                     operation=operation_name,
                     request_id=request_id,
                     duration=duration,
-                    error=str(e)
+                    error=str(e),
                 )
                 raise
-                
+
         if asyncio_iscoroutinefunction(func):
             return async_wrapper
         return sync_wrapper
-    
+
     return decorator
 
 

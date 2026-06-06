@@ -4,6 +4,6 @@
 提供领域隔离的事件通道
 """
 
-from app.neuro_bus.domains.base import NeuroDomain, DomainHandler, DomainChannel
+from app.neuro_bus.domains.base import DomainChannel, DomainHandler, NeuroDomain
 
 __all__ = ["NeuroDomain", "DomainHandler", "DomainChannel"]

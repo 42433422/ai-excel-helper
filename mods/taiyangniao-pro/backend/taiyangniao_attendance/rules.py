@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 import re
 from typing import Any
 
@@ -39,9 +39,6 @@ COMPANY_FACTORY_GROUP_KEYWORDS = (
 DEFAULT_WEEKDAY_SEGMENTS = (
     TimeRange(time(8, 0), time(12, 0)),
     TimeRange(time(13, 30), time(17, 30)),
-)
-DEFAULT_ALT_SATURDAY_SEGMENTS = (
-    TimeRange(time(13, 30), time(16, 0)),
 )
 
 
@@ -87,61 +84,6 @@ def _policy_weekday_segments() -> tuple[TimeRange, ...]:
     return got if got is not None else DEFAULT_WEEKDAY_SEGMENTS
 
 
-def _policy_saturday_alt_segments() -> tuple[TimeRange, ...]:
-    s = ACTIVE_POLICY.get("saturday_company_alt_segment")
-    if isinstance(s, str) and s.strip():
-        got = _segment_strings_to_ranges([s])
-        if got:
-            return got
-    return DEFAULT_ALT_SATURDAY_SEGMENTS
-
-
-def _floor_to_saturday(d: date) -> date:
-    off = (d.weekday() - 5) % 7
-    return d - timedelta(days=off)
-
-
-def _is_company_size_week_employee(group_name: str | None, shift_name: str | None) -> bool:
-    """大小周六仅「公司」员工：默认匹配 group_match_substrings；未配置时用「含公司且非纯工厂」。"""
-    cas = ACTIVE_POLICY.get("company_alternate_saturday")
-    if not isinstance(cas, dict) or not cas.get("enabled", False):
-        return False
-    text = normalize_group_text(group_name, shift_name)
-    subs = cas.get("group_match_substrings")
-    if isinstance(subs, list) and subs:
-        return any(str(s).strip() and str(s).strip() in text for s in subs)
-    return "公司" in text and "工厂" not in text
-
-
-def _company_big_small_saturday_ranges(
-    work_date: date,
-    group_name: str | None,
-    shift_name: str | None,
-    *,
-    alternate_saturday_anchor: date | None = None,
-) -> tuple[TimeRange, ...] | None:
-    """大周六仅上午一段；下周六（奇数周）两段。仅公司员工；``alternate_saturday_anchor`` 为每人 B 列锚点。"""
-    if work_date.weekday() != 5:
-        return None
-    if not _is_company_size_week_employee(group_name, shift_name):
-        return None
-    cas = ACTIVE_POLICY.get("company_alternate_saturday")
-    if not isinstance(cas, dict):
-        return None
-    if alternate_saturday_anchor is not None:
-        anchor = _floor_to_saturday(alternate_saturday_anchor)
-    else:
-        anchor_raw = str(cas.get("anchor_saturday") or "2026-01-03").strip()
-        try:
-            anchor = _floor_to_saturday(date.fromisoformat(anchor_raw))
-        except ValueError:
-            anchor = _floor_to_saturday(date(2026, 1, 3))
-    week_idx = (work_date.toordinal() - anchor.toordinal()) // 7
-    key = "big_week_segments" if (week_idx % 2 == 0) else "small_week_segments"
-    segs = cas.get(key)
-    return _segment_strings_to_ranges(segs)
-
-
 def parse_shift_ranges(shift_name: str | None) -> tuple[TimeRange, ...]:
     text = str(shift_name or "").strip()
     matches = TIME_RANGE_RE.findall(text)
@@ -165,7 +107,6 @@ def resolve_schedule_ranges(
     group_name: str | None,
     shift_name: str | None,
     has_any_punch: bool,
-    alternate_saturday_anchor: date | None = None,
 ) -> tuple[TimeRange, ...]:
     parsed = parse_shift_ranges(shift_name)
     weekday = work_date.weekday()
@@ -180,17 +121,7 @@ def resolve_schedule_ranges(
             return ()
         if parsed:
             return parsed
-        alt = _company_big_small_saturday_ranges(
-            work_date,
-            group_name,
-            shift_name,
-            alternate_saturday_anchor=alternate_saturday_anchor,
-        )
-        if alt is not None:
-            return alt
-        if is_company_factory_group(group_name, shift_name):
-            return _policy_saturday_alt_segments()
-        return ()
+        return _policy_weekday_segments()
 
     if parsed:
         return parsed

@@ -6,9 +6,13 @@ import logging
 import os
 import shutil
 import tempfile
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
-from .artifact_constants import ARTIFACT_BUNDLE, ARTIFACT_EMPLOYEE_PACK, BUNDLE_MAX_DEPTH, normalize_artifact
+from .artifact_constants import (
+    ARTIFACT_BUNDLE,
+    ARTIFACT_EMPLOYEE_PACK,
+    BUNDLE_MAX_DEPTH,
+)
 from .artifact_package import peek_artifact, validate_bundle_manifest
 from .employee_registry import get_employee_registry
 from .mod_manager import get_mod_manager
@@ -17,11 +21,11 @@ from .package import ModPackage, ModPackageError, ModSignatureError
 logger = logging.getLogger(__name__)
 
 
-def _find_package_in_store(store_dir: str, ref_id: str) -> Optional[str]:
+def _find_package_in_store(store_dir: str, ref_id: str) -> str | None:
     if not store_dir or not os.path.isdir(store_dir):
         return None
     ref_id = ref_id.strip()
-    best: Optional[str] = None
+    best: str | None = None
     for name in os.listdir(store_dir):
         if not (name.endswith(".xcmod") or name.endswith(".xcemp")):
             continue
@@ -35,7 +39,7 @@ def _find_package_in_store(store_dir: str, ref_id: str) -> Optional[str]:
 class InstallResolver:
     """安装调度与 bundle 展开。"""
 
-    def __init__(self, mods_root: Optional[str] = None):
+    def __init__(self, mods_root: str | None = None):
         self.mm = get_mod_manager()
         if mods_root:
             self.mods_root = os.path.abspath(mods_root)
@@ -50,8 +54,8 @@ class InstallResolver:
         verify_signature: bool = True,
         activate: bool = True,
         depth: int = 0,
-        rollback_stack: Optional[List[Tuple[str, str]]] = None,
-    ) -> Tuple[bool, str, Any]:
+        rollback_stack: list[tuple[str, str]] | None = None,
+    ) -> tuple[bool, str, Any]:
         """
         rollback_stack: 追加 (kind, path) — kind 为 mod_dir|employee_dir，path 为安装目标目录。
         """
@@ -99,7 +103,7 @@ class InstallResolver:
             self._rollback(rb)
         return ok, msg, meta
 
-    def _rollback(self, rb: List[Tuple[str, str]]) -> None:
+    def _rollback(self, rb: list[tuple[str, str]]) -> None:
         from .registry import get_mod_registry
 
         reg = get_mod_registry()
@@ -111,9 +115,13 @@ class InstallResolver:
                         self.mm.unload_mod(mid)
                     if os.path.isdir(path):
                         shutil.rmtree(path, ignore_errors=True)
-                elif kind == "employee_dir" and path and os.path.isdir(path):
-                    shutil.rmtree(path, ignore_errors=True)
-                elif path and os.path.exists(path):
+                elif (
+                    kind == "employee_dir"
+                    and path
+                    and os.path.isdir(path)
+                    or path
+                    and os.path.exists(path)
+                ):
                     shutil.rmtree(path, ignore_errors=True)
                 logger.warning("install rollback: removed %s %s", kind, path)
             except Exception as e:
@@ -128,8 +136,8 @@ class InstallResolver:
         verify_signature: bool,
         activate: bool,
         depth: int,
-        rollback_stack: List[Tuple[str, str]],
-    ) -> Tuple[bool, str, Any]:
+        rollback_stack: list[tuple[str, str]],
+    ) -> tuple[bool, str, Any]:
         if depth > BUNDLE_MAX_DEPTH:
             self._rollback(rollback_stack)
             return False, f"bundle 嵌套超过 {BUNDLE_MAX_DEPTH} 层", None
